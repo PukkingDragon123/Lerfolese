@@ -22,7 +22,7 @@ export const PAL = {
   grass: ramp('#1e2c37', '#2d4837', '#476836', '#778a3d', '#bdac57'),
   dryGrass: ramp('#33283a', '#54443e', '#7f6845', '#ab8d4d', '#dcbf6b'),
   dirt: ramp('#311f2f', '#51343f', '#76524a', '#9c7254', '#c99c69'),
-  gravel: ramp('#2f2536', '#4c3e48', '#6e5e5e', '#958272', '#bfa88a'),
+  gravel: ramp('#302632', '#4f4046', '#74625a', '#9c866e', '#c6ac86'),
   stone: ramp('#25233c', '#3c3a52', '#57536a', '#7b7582', '#ab9f92'),
   marble: ramp('#4b4a6b', '#7d7a98', '#ada6b3', '#d5cbc2', '#f6ead3'),
   moss: ramp('#16283a', '#1f413c', '#335f3f', '#5a8243', '#98aa55'),
@@ -31,7 +31,7 @@ export const PAL = {
   bronze: ramp('#24141d', '#52291d', '#894e25', '#c48735', '#f6ca64'),
   terra: ramp('#311722', '#612a27', '#93462d', '#c06b39', '#e9995b'),
   reed: ramp('#232e2b', '#394831', '#5a6936', '#888b42', '#c4ae5b'),
-  water: ramp('#0d182c', '#122c3c', '#1a4550', '#286463', '#4f9284'),
+  water: ramp('#0d2636', '#133a48', '#1a5058', '#286a68', '#4c9488'),
   wax: ramp('#6a4a5a', '#a07a78', '#d2b096', '#efd6ae', '#fff3d6'),
   paper: ramp('#4e3a46', '#806a6a', '#b6a08a', '#dccaa6', '#f8ead0'),
   apple: ramp('#3a0e22', '#6c1428', '#a4202c', '#d8463a', '#f6904e'),
@@ -64,7 +64,7 @@ export function mat(kind) {
     lp: () => inject(std({}), 'lp-sway', SWAY),
     grass: () => inject(std({ roughness: 0.95, side: THREE.DoubleSide }), 'lp-grass', SWAY),
     metal: () => std({ roughness: 0.42, metalness: 0.6 }),
-    water: () => inject(std({ roughness: 0.12, metalness: 0.2, transparent: true, opacity: 0.88 }), 'lp-water', RIPPLE),
+    water: () => inject(new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.94 }), 'lp-water', RIPPLE),
     glow: () => inject(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }), 'lp-glow', BOB),
     flame: () => inject(new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, side: THREE.DoubleSide }), 'lp-flame', FLICKER),
     far: () => new THREE.MeshBasicMaterial({ vertexColors: true, fog: false }),
@@ -232,7 +232,7 @@ export function oliveTree(M, mtx, seed = 1, { size = 1, pal = PAL.olive, bark = 
   const lobes = [crown, ...tips.filter((_, i) => i % 2 === 0)]; const wy = lobes.map((t) => xf(t, mtx).y); const y0 = Math.min(...wy) - 0.9 * size, y1 = Math.max(...wy) + 0.9 * size;
   const leafP = painter(pal, rnd, { base: 1.9, up: 1.0, sun: 0.9, jit: 0.75, ao: (c) => ((c.y - y0) / (y1 - y0) - 0.5) * 1.3 });
   const L = new THREE.Matrix4(); const put = (p, r, sd, o) => { L.compose(p, _q.setFromEuler(_e.set((rnd() - 0.5) * 0.3, rnd() * TAU, (rnd() - 0.5) * 0.3)), _s.set(1, 1, 1)); M.add(clump(r, sd, o), mtx.clone().multiply(L), leafP, 1); };
-  lobes.forEach((c, i) => put(c.clone().add(new V3(0, 0.15 * size, 0)), (i ? 0.95 + rnd() * 0.25 : 1.15 + rnd() * 0.2) * size, seed * 7 + i, { detail: 1, sy: 0.7, jit: 0.34, flat: 0.5, cuts: 3 }));
+  lobes.forEach((c, i) => put(c.clone().add(new V3(0, 0.15 * size, 0)), (i ? 0.95 + rnd() * 0.25 : 1.15 + rnd() * 0.2) * size, seed * 7 + i, { detail: 1, sy: 0.8, jit: 0.34, flat: 0.5, cuts: 3 }));
   tips.forEach((t, i) => { if (i % 2) put(t.clone().add(new V3(0, 0.1 * size, 0)), (0.55 + rnd() * 0.2) * size, seed * 11 + i, { sy: 0.75 }); });
   for (let k = 0; k < 5; k++) { const a = rnd() * TAU; const c = lobes[1 + (k % (lobes.length - 1))] || crown; put(c.clone().add(new V3(Math.cos(a) * 0.85 * size, (rnd() - 0.6) * 0.5 * size, Math.sin(a) * 0.85 * size)), (0.42 + rnd() * 0.2) * size, seed * 13 + k, { sy: 0.8 }); }
 }
@@ -479,10 +479,10 @@ export function brazier(M, B, F, G, mtx, seed = 1, { h = 1.1 } = {}) {
 }
 
 // ================================================================ WATER / TERRAIN
-export function waterSheet(W, { x0, x1, z0, z1, y = 0.05, step = 0.9, mask = null, seed = 1, sky = '#e7a07a' } = {}) {
+export function waterSheet(W, { x0, x1, z0, z1, y = 0.05, step = 0.9, mask = null, seed = 1, sky = '#e7a07a', sunLine = null } = {}) {
   const rnd = mulberry32(seed * 7 + 99); const pal = PAL.water; const glint = C(sky); const nx = Math.ceil((x1 - x0) / step), nz = Math.ceil((z1 - z0) / step); const V = [];
   for (let j = 0; j <= nz; j++) { const row = []; for (let i = 0; i <= nx; i++) { const x = x0 + i * step + (i && i < nx ? (hash(i, j, 3, seed) - 0.5) * step * 0.6 : 0), z = z0 + j * step + (j && j < nz ? (hash(i, j, 5, seed) - 0.5) * step * 0.6 : 0); row.push(new V3(x, y + (hash(i, j, 7, seed) - 0.5) * 0.03, z)); } V.push(row); }
-  const face = (a, b, c) => { const cx = (a.x + b.x + c.x) / 3, cz = (a.z + b.z + c.z) / 3; if (mask && !mask(cx, cz)) return; const band = Math.sin(cx * 0.21 + Math.sin(cz * 0.5) * 1.4) * 0.5 + Math.sin(cz * 0.9 + cx * 0.07) * 0.5; const t = Math.max(0, Math.min(4, Math.round(2.1 + band * 0.9 + (rnd() - 0.5) * 0.7))); const col = rnd() < 0.025 ? glint.clone().multiplyScalar(0.7 + rnd() * 0.4) : pal[t].clone().multiplyScalar(0.96 + rnd() * 0.08); W.tri(a, c, b, col, 1); };
+  const face = (a, b, c) => { const cx = (a.x + b.x + c.x) / 3, cz = (a.z + b.z + c.z) / 3; if (mask && !mask(cx, cz)) return; const band = Math.sin(cx * 0.21 + Math.sin(cz * 0.5) * 1.4) * 0.5 + Math.sin(cz * 0.9 + cx * 0.07) * 0.5; const t = Math.max(0, Math.min(4, Math.round(2.1 + band * 0.9 + (rnd() - 0.5) * 0.7))); const d = sunLine ? sunLine(cx, cz) : 99; const pg = 0.025 + 0.5 * Math.exp(-d * d / 3); const col = rnd() < pg ? glint.clone().multiplyScalar(0.75 + rnd() * 0.5 + (d < 1 ? 0.4 : 0)) : pal[t].clone().multiplyScalar(0.95 + rnd() * 0.1); W.tri(a, c, b, col, 1); };
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const a = V[j][i], b = V[j][i + 1], c = V[j + 1][i + 1], d = V[j + 1][i]; if ((i + j) % 2) { face(a, b, c); face(a, c, d); } else { face(a, b, d); face(b, c, d); } }
 }
 // faceted heightfield; colorAt(n, centroid) -> Color

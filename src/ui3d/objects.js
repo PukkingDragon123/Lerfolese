@@ -57,8 +57,10 @@ export class Plaque extends Body {
     // fit the label (and sub) inside the face; grow the plaque (up to 45% wider / taller) before stepping down a font
     const need0 = measure(label, 'head') + 16; if (need0 > fw * PX && need0 <= fw * PX * 1.45) { fw = need0 / PX; w = fw + 2 * m; }
     const W = round(fw * PX); let font = LABEL_FONTS.find((f) => measure(label, f) <= W - 14) || 'caps'; this.font = font;
-    let subLines = sub ? wrapText(sub, 'tiny', W - 12) : []; if (subLines.length > 2) subLines = subLines.slice(0, 2);
-    const need = FONT[font].lineH + subLines.length * 8 + 6; if (need > fh * PX) { fh = need / PX; h = fh + 2 * m; }
+    // wide plaques carry the sub-line beside the label; narrow ones stack it (up to two lines) under the label
+    this.inline = !!sub && measure(label, font) + measure(sub, 'tiny') + 30 <= W;
+    let subLines = sub && !this.inline ? wrapText(sub, 'tiny', W - 12) : []; if (subLines.length > 2) subLines = subLines.slice(0, 2);
+    const need = (subLines.length ? FONT[font].lineH - 2 : FONT[font].lineH) + subLines.length * 7 + 6; if (need > fh * PX) { fh = need / PX; h = fh + 2 * m; }
     this.w = w; this.h = h; this.fw = fw; this.fh = fh; this.subLines = subLines;
     const bw = round(w * PX), bh = round(h * PX);
     this.back = mesh(slab(w, h, 0.2, { shape: 'rect', cut: 0.16, bevel: 0.05 }), [frontMat(backBoard(this.kind.back, bw, bh, this.seed)), sideMat(this.kind.back === 'night' ? 'lacquer' : 'walnut')], this.pivot);
@@ -72,13 +74,20 @@ export class Plaque extends Body {
     const F = this.faceTex; const k = this.kind; const W = F.w, H = F.h;
     F.paint((S) => {
       paintFace(S, k.face, W, H, this.seed);
-      const fill = k.text === 'enamel' ? RAMP.night : null; const LH = FONT[this.font].lineH; const total = LH + this.subLines.length * 8;
-      const y0 = round((H - total) / 2) + (this.subLines.length ? 0 : 1);
-      inscribeLines(S, [this.label], { x: 6, y: y0, w: W - 12, h: LH }, this.font, k.text, { fill, seed: this.seed });
-      if (this.subLines.length) inscribeLines(S, this.subLines, { x: 6, y: y0 + LH, w: W - 12, h: this.subLines.length * 8 }, 'tiny', k.text === 'gild' ? 'gild' : k.text === 'carve' ? 'burn' : 'engrave', { lineH: 8, fill, seed: this.seed + 5 });
+      const fill = k.text === 'enamel' ? RAMP.night : null; const subStyle = k.text === 'gild' ? 'gild' : k.text === 'carve' ? 'carve' : 'engrave';
+      if (this.inline) {
+        const LH = FONT[this.font].lineH; const y0 = round((H - LH) / 2) + 1;
+        inscribeLines(S, [this.label], { x: 9, y: y0, w: W - 18, h: LH }, this.font, k.text, { fill, seed: this.seed, align: 'left' });
+        inscribeLines(S, [this.sub], { x: 9, y: round((H - 8) / 2) + 1, w: W - 18, h: 8 }, 'tiny', subStyle, { fill, seed: this.seed + 5, align: 'right' });
+      } else {
+        const LH = this.subLines.length ? FONT[this.font].lineH - 2 : FONT[this.font].lineH; const total = LH + this.subLines.length * 7;
+        const y0 = round((H - total) / 2) + (this.subLines.length ? 0 : 1);
+        inscribeLines(S, [this.label], { x: 6, y: y0, w: W - 12, h: LH }, this.font, k.text, { fill, seed: this.seed });
+        if (this.subLines.length) inscribeLines(S, this.subLines, { x: 6, y: y0 + LH, w: W - 12, h: this.subLines.length * 7 }, 'tiny', subStyle, { lineH: 7, fill, seed: this.seed + 5 });
+      }
     });
   }
-  setLabel(label, sub = this.sub) { if (label === this.label && sub === this.sub) return; this.label = label; this.sub = sub; this.subLines = sub ? wrapText(sub, 'tiny', this.faceTex.w - 12).slice(0, 2) : []; this.font = LABEL_FONTS.find((f) => measure(label, f) <= this.faceTex.w - 14) || 'caps'; this.paint(); this.kick(0.6); }
+  setLabel(label, sub = this.sub) { if (label === this.label && sub === this.sub) return; this.label = label; this.sub = sub; this.inline = false; this.subLines = sub ? wrapText(sub, 'tiny', this.faceTex.w - 12).slice(0, 2) : []; this.font = LABEL_FONTS.find((f) => measure(label, f) <= this.faceTex.w - 14) || 'caps'; this.paint(); this.kick(0.6); }
   setDisabled(d) {
     d = !!d; if (d === this.disabled && this._dInit) return; this._dInit = true; this.disabled = d;
     const c = d ? 0.5 : 1; this.face.material[0].color.setScalar(c * LK); this.back.material[0].color.setScalar((d ? 0.6 : 1) * LK); this.restRz = d ? (this.seed % 2 ? 1 : -1) * 0.9 : 0;
@@ -93,7 +102,7 @@ const tackGeo = TACK();
 export class Paper extends Body {
   constructor({ font = 'hand', maxW = 11, minW = 2.4, pad = 10, tail = false, pin = true, tone = 4, kind = 'note', seal = false, title = 'head' } = {}) {
     super(); this.font = font; this.maxW = maxW; this.minW = minW; this.pad = pad; this.tail = tail; this.pinOn = pin; this.tone = tone; this.kind = kind; this.seal = seal; this.titleF = title;
-    this.group.visible = false; this.st = new Spring(0, 16, 0.5); this.key = ''; this.seed = (Math.random() * 999) | 0; this.tiltK = 0.03; this.hoverLift = 0;
+    this.group.visible = false; this.st = new Spring(0, 16, 0.5); this.key = ''; this.baseScale = 1; this.seed = (Math.random() * 999) | 0; this.tiltK = 0.03; this.hoverLift = 0;
     this.sheetMat = paperMat();
     this.sheet = mesh(new THREE.BufferGeometry(), this.sheetMat, this.pivot); this.sheet.castShadow = true;
     this.tex = null; this.canvas = document.createElement('canvas');
@@ -146,7 +155,7 @@ export class Paper extends Body {
   place(x, y, z) { this.group.position.set(x, y + this.h / 2 - 0.22, z); }
   hide() { if (!this.group.visible) return; this.st.target = 0; this.hideAt = 0.18; }
   update(dt, p) {
-    this.st.update(dt); this.updateBody(dt, p); const s = Math.max(0.001, this.st.value); this.group.scale.setScalar(s);
+    this.st.update(dt); this.updateBody(dt, p); const s = Math.max(0.001, this.st.value) * this.baseScale; this.group.scale.setScalar(s);
     if (this.hideAt != null) { this.hideAt -= dt; if (this.hideAt <= 0) { this.group.visible = false; this.hideAt = null; } }
   }
   dispose() { this.tex?.dispose(); this.sheetMat.dispose(); }
@@ -154,11 +163,12 @@ export class Paper extends Body {
 
 // tooltip-compatible note: show(lines, x, y, z) / hide() / update(dt); the note is clamped on screen
 export class NoteTip {
-  constructor(engine, opts = {}) { this.engine = engine; this.paper = new Paper({ font: 'hand', maxW: 12, pin: true, ...opts }); this.group = this.paper.group; }
+  constructor(engine, opts = {}) { this.engine = engine; this.paper = new Paper({ font: 'handS', title: 'head', maxW: 10, pin: true, ...opts }); this.group = this.paper.group; }
+  // (x, y) is where the note should APPEAR on the z=0 UI plane; depth z is compensated so it is never magnified off-screen
   show(lines, x, y, z = 8, opts = {}) {
-    const titled = lines.length > 1; this.paper.set(lines, { title: false, ...opts }); const W = this.engine.uiW, H = this.engine.uiH; const w = this.paper.w, h = this.paper.h;
+    const o = { title: lines.length > 1, ...opts }; this.paper.set(lines, o); const W = this.engine.uiW, H = this.engine.uiH; const w = this.paper.w, h = this.paper.h;
     const cx = Math.max(-W + w / 2 + 0.3, Math.min(W - w / 2 - 0.3, x)), cy = Math.max(-H + h / 2 + 0.3, Math.min(H - h / 2 - 0.2, y));
-    this.paper.show(lines, cx, cy, z, { title: false, ...opts }); void titled;
+    const k = (40 - z) / 40; this.paper.show(lines, cx, cy, z, o); this.paper.baseScale = k; this.paper.group.position.set(cx * k, (cy + h / 2 - 0.22) * k, z);
   }
   hide() { this.paper.hide(); }
   update(dt, p) { this.paper.update(dt, p); }
@@ -222,7 +232,7 @@ export class Signboard extends Body {
     groove(S, 0, 0, Wt, Ht, 3, { cut: 3, deep: 0, lip: 4 });
     for (const [x, y] of [[6, 5], [Wt - 9, 5], [6, Ht - 8], [Wt - 9, Ht - 8]]) rivet(S, x, y, RAMP.iron);
     inscribeLines(S, arr, { x: 4, y: 6, w: Wt - 8, h: arr.length * F.lineH }, f, this.style, {});
-    if (sub) inscribeLines(S, [sub], { x: 4, y: Ht - 15, w: Wt - 8, h: 9 }, subF, 'burn', {});
+    if (sub) inscribeLines(S, [sub], { x: 4, y: Ht - 15, w: Wt - 8, h: 9 }, subF, 'paint', { ramp: RAMP.ivory });
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
     S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.board.material[0].map = this.tex; this.board.material[0].needsUpdate = true; } else this.tex.needsUpdate = true;
     const w = Wt / PX, h = Ht / PX; this.w = w; this.h = h; this.board.geometry = slab(w, h, 0.3, { shape: 'rect', cut: 0.2, bevel: 0.07 });
@@ -233,8 +243,8 @@ export class Signboard extends Body {
 
 // ================================================================ LABEL: small inked parchment strip, tacked at both ends (hints, sub-titles, stats)
 export class Strip extends Body {
-  constructor(lines, { font = 'hand', maxW = 20, tone = 4, tacks = 2, color = '#2a160c' } = {}) {
-    super(); this.font = font; this.maxW = maxW; this.toneP = tone; this.tacks = tacks; this.color = color; this.tiltK = 0.02; this.hoverLift = 0; this.seed = 5;
+  constructor(lines, { font = 'hand', maxW = 20, tone = 4, tacks = 2, color = '#2a160c', style = 'ink' } = {}) {
+    super(); this.font = font; this.style = style; this.maxW = maxW; this.toneP = tone; this.tacks = tacks; this.color = color; this.tiltK = 0.02; this.hoverLift = 0; this.seed = 5;
     this.mat = paperMat();
     this.sheet = mesh(new THREE.BufferGeometry(), this.mat, this.pivot); this.canvas = document.createElement('canvas'); this.tex = null; this.pins = [];
     for (let i = 0; i < tacks; i++) { const p = mesh(tackGeo, plainMat('brass'), this.pivot); p.rotation.x = Math.PI / 2; this.pins.push(p); }
@@ -246,7 +256,8 @@ export class Strip extends Body {
     for (const l of arr) { if (measure(lineText(l), this.font) <= maxT) out.push(segs(l)); else for (const w of wrapText(lineText(l), this.font, maxT)) out.push([[w, segs(l)[0][1]]]); }
     const F = FONT[this.font]; const tw = Math.max(...out.map((l) => measure(lineText(l), this.font))); const Wt = tw + 28, Ht = out.length * F.lineH + 10;
     const S = new Surf(Wt, Ht); parchment(S, 0, 0, Wt, Ht, { seed: this.seed, torn: 2, tone: this.toneP });
-    inscribeLines(S, out.map((l) => l.map(([t, c]) => [t, ink(c || this.color)])), { x: 4, y: 5, w: Wt - 8, h: out.length * F.lineH }, this.font, 'ink', { seed: this.seed });
+    inscribeLines(S, out.map((l) => l.map(([t, c]) => [t, this.style === 'stamp' ? '#a8201c' : ink(c || this.color)])), { x: 4, y: 5, w: Wt - 8, h: out.length * F.lineH }, this.font, this.style, { seed: this.seed });
+    if (this.style === 'stamp') { for (let x = 2; x < Wt - 2; x++) for (const y of [2, Ht - 3]) if (hash2(x, y, 4) > 0.2) S.pix(x, y, '#a8201c'); for (let y = 2; y < Ht - 2; y++) for (const x of [2, Wt - 3]) if (hash2(x, y, 5) > 0.2) S.pix(x, y, '#a8201c'); }
     if (this.tacks) for (const x of this.tacks === 2 ? [6, Wt - 7] : [round(Wt / 2)]) for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1]]) S.shift(x + dx, round(Ht / 2) + dy, -1);
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
     S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.mat.map = this.tex; this.mat.needsUpdate = true; } else this.tex.needsUpdate = true;
@@ -291,4 +302,26 @@ export class Pennant {
     a.needsUpdate = true; this.cloth.geometry.computeVertexNormals();
     const r = 0.06 + (1 - k) * 0.22; this.roll.visible = k < 0.98; this.roll.scale.set(r, w, r); this.roll.position.set(0, yr - r * 0.5, 0.05);
   }
+}
+
+// ================================================================ TAG: small leather / parchment tag on a string (prices, counts)
+import { sprite as _sprite } from '../gfx/sprites.js';
+export class Tag extends Body {
+  constructor(text, { icon = null, ramp = RAMP.oak, style = 'burn' } = {}) {
+    super(); this.icon = icon; this.rampT = ramp; this.styleT = style; this.tiltK = 0.05; this.hoverLift = 0.15;
+    this.tex = null; this.mesh = mesh(new THREE.BufferGeometry(), [frontMat(null), sideMat('leather')], this.pivot); this.mesh.position.y = -0.62;
+    const str = mesh(turned([[0.02, 0], [0.02, 0.1]], 4), plainMat('rope'), this.pivot); str.position.y = -0.1; void str;
+    this.set(text);
+  }
+  set(text) {
+    if (text === this.text) return; this.text = text; const t = String(text); const f = /^[0-9/+×x -]+$/.test(t) ? 'num' : 'tiny';
+    const Wt = measure(t, f) + (this.icon ? 20 : 0) + 14, Ht = 18; const S = new Surf(Wt, Ht);
+    leather(S, 0, 0, Wt, Ht, { seed: 6, base: 3, stitch: 2, ramp: this.rampT });
+    for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) S.set(Math.round(Wt / 2) - 1 + dx, 1 + dy, RAMP.ink, 0);
+    let x = 7; if (this.icon) { try { S.blit(_sprite(this.icon), x - 1, 2); } catch { /* */ } x += 17; }
+    inscribe(S, t, x, f === 'num' ? 14 : 13, f, this.styleT);
+    this.tex?.dispose(); this.tex = pxTex(S.toCanvas()); this.mesh.material[0].map = this.tex; this.mesh.material[0].needsUpdate = true;
+    this.w = Wt / PX; this.h = Ht / PX; this.mesh.geometry = slab(this.w, this.h, 0.08, { shape: 'tag', cut: 0.06, bevel: 0.02 }); this.mesh.position.y = -this.h / 2 - 0.1; this.kick(0.5);
+  }
+  update(dt, p, t = performance.now() / 1000) { this.updateBody(dt, p); this.pivot.rotation.z += Math.sin(t * 1.6 + this.w) * 0.02; }
 }

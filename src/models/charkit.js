@@ -293,7 +293,7 @@ export function headPiece(asset, mat, skinned, { push = 0, seed = 1, scale = 1, 
 // ---------------------------------------------------------------- animation
 export class Anim {
   constructor(model) {
-    this.mixer = new THREE.AnimationMixer(model); this.a = {};
+    this.mixer = new THREE.AnimationMixer(model); this.a = {}; this.root = model;
     for (const c of LIB.anims.animations) this.a[c.name] = this.mixer.clipAction(c);
     this.idle = this.a.idle; this.idle.play(); this.cur = null; this.hold = false; this.saved = new Map();
     this.mixer.addEventListener('finished', (e) => { if (e.action !== this.cur || this.hold) return; this.idle.reset().play(); this.idle.crossFadeFrom(this.cur, 0.3, false); this.cur = null; });
@@ -307,9 +307,15 @@ export class Anim {
   /** additive local rotation on top of the mixer pose (undone before the next mixer update: the mixer only
    *  rewrites properties whose sampled value changed, so offsets must not accumulate) */
   nudge(bone, x = 0, y = 0, z = 0) { if (!bone) return; if (!this.saved.has(bone)) this.saved.set(bone, bone.quaternion.clone()); _q1.setFromEuler(_e.set(x, y, z)); bone.quaternion.multiply(_q1); }
+  /** additive rotation expressed in the character's own frame (x: bend forward, y: turn left, z: lean to its left) */
+  bend(bone, x = 0, y = 0, z = 0) {
+    if (!bone) return; if (!this.saved.has(bone)) this.saved.set(bone, bone.quaternion.clone());
+    this.root.getWorldQuaternion(_qa); _qb.setFromEuler(_e.set(x, y, z)); _qb.premultiply(_qa).multiply(_qc.copy(_qa).invert()); // world delta
+    bone.parent.getWorldQuaternion(_qa); _qc.copy(_qa).invert().multiply(_qb).multiply(_qa); bone.quaternion.premultiply(_qc);
+  }
   update(dt) { for (const [b, q] of this.saved) b.quaternion.copy(q); this.saved.clear(); this.mixer.update(dt); }
 }
-const _e = new THREE.Euler();
+const _e = new THREE.Euler(), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion();
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();
 /** rotate `bone` (world-space delta) so that its child `child` points at world `target` (a one-bone aim; chain two for IK) */
 export function aimBone(bone, child, target, amt = 1) {
@@ -358,3 +364,101 @@ const _UP = new THREE.Vector3(0, 1, 0);
 export function mesh(geo, mat, parent) { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; parent?.add(m); return m; }
 /** smooth path through control points */
 export const curve = (pts) => { const c = new THREE.CatmullRomCurve3(pts.map((p) => (p.isVector3 ? p : new THREE.Vector3(...p))), false, 'centripetal'); return (t, out) => c.getPoint(t, out); };
+
+// ---------------------------------------------------------------- crisp painted clusters (Voronoi tufts / plates)
+const _c2 = [0, 0, 0, 0, 0], _c3 = [0, 0, 0, 0, 0, 0];
+/** 2D jittered-grid cells: [d1, d2, cellX, cellY, id] (id in 0..1) */
+export function cells2(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y); let d1 = 9, d2 = 9;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const cx = xi + i + 0.15 + hash3(xi + i, yi + j, 7) * 0.7, cy = yi + j + 0.15 + hash3(xi + i, yi + j, 13) * 0.7; const d = Math.hypot(x - cx, y - cy);
+    if (d < d1) { d2 = d1; d1 = d; _c2[2] = cx; _c2[3] = cy; _c2[4] = hash3(xi + i, yi + j, 3); } else if (d < d2) d2 = d;
+  }
+  _c2[0] = d1; _c2[1] = d2; return _c2;
+}
+/** 3D jittered-grid cells: [d1, d2, cx, cy, cz, id] */
+export function cells3(x, y, z) {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z); let d1 = 9, d2 = 9;
+  for (let k = -1; k <= 1; k++) for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const a = xi + i, b = yi + j, cc = zi + k; const cx = a + 0.15 + hash3(a, b, cc + 7) * 0.7, cy = b + 0.15 + hash3(a, b, cc + 13) * 0.7, cz = cc + 0.15 + hash3(a, b, cc + 29) * 0.7;
+    const d = Math.hypot(x - cx, y - cy, z - cz); if (d < d1) { d2 = d1; d1 = d; _c3[2] = cx; _c3[3] = cy; _c3[4] = cz; _c3[5] = hash3(a, b, cc + 3); } else if (d < d2) d2 = d;
+  }
+  _c3[0] = d1; _c3[1] = d2; return _c3;
+}
+/** hand-painted fur/hair clumps on a baked surface: lit tuft tops, dark creases between clumps, 4 flat tones */
+export function fur3(c, o, col, size = 0.028, stretch = 2.2, base = 0.5) {
+  const Y = c.y / (size * stretch); const C = cells3(c.x / size, Y, c.z / size);
+  let L = base + c.ny * 0.12 + c.nz * 0.05 + c.sh * 0.25 + (Y - C[3]) * 0.42 + (C[5] - 0.5) * 0.14;
+  if (C[1] - C[0] < 0.09) L -= 0.32;
+  tone(col, band(L, 4), o.col); o.ro = 0.92;
+}
+/** the same in UV space (lofted fur pieces): u around, v along */
+export function fur2(u, v, o, col, su = 14, sv = 6, base = 0.5, lightU = 0.22) {
+  const C = cells2(u * su, v * sv); let L = base + Math.cos(u * Math.PI * 2) * lightU + (v * sv - C[3]) * -0.4 + (C[4] - 0.5) * 0.14;
+  if (C[1] - C[0] < 0.1) L -= 0.32;
+  tone(col, band(L, 4), o.col); o.ro = 0.92;
+}
+/** crisp wood: long grain streaks warped by low-frequency noise, flat tones */
+export function woodTone(o, col, dark, along, p1, p2, L) {
+  const w = vnoise(along * 3, p1 * 6, p2 * 6) * 2.2; const g = (p1 * 70 + p2 * 50 + w) % 1;
+  tone(col, band(L + (g < 0.5 ? 0.06 : -0.02), 4), o.col); if (g < 0.1 || (g > 0.52 && g < 0.56)) mixc(o.col, tone(dark, 0.45, [0, 0, 0]), 0.55); o.ro = 0.32;
+}
+
+// ---------------------------------------------------------------- bind-pose reshaping (proportions)
+export function boneInfo(skinned) {
+  const sk = skinned.skeleton; const info = {}; const m = new THREE.Matrix4();
+  sk.bones.forEach((b, i) => { m.copy(sk.boneInverses[i]).invert(); info[b.name] = { i, pos: new THREE.Vector3().setFromMatrixPosition(m), tail: null }; });
+  sk.bones.forEach((b) => { const kids = b.children.filter((c) => c.isBone); const kid = kids.find((c) => /middle_01|neck|spine|lowerarm|hand_|calf|foot|ball_[lr]$|upperarm|Head/.test(c.name)) || kids[0]; if (kid) info[b.name].tail = info[kid.name].pos; });
+  return info;
+}
+const GEOS = new Map(); const _q = new THREE.Vector3(), _d = new THREE.Vector3(), _acc = new THREE.Vector3(), _p0 = new THREE.Vector3(), _tmp = new THREE.Vector3();
+/** a deformed copy of a skinned mesh's bind geometry. rules[bone] = { k: radial slim about the bone segment, s: scale about pivot, pivot };
+ *  extra(p, p0, w) may displace further (w(name) = skin weight of that bone). Cached by key. */
+export function reshaped(key, skinned, rules, extra = null) {
+  if (GEOS.has(key)) return GEOS.get(key);
+  const info = boneInfo(skinned); const names = skinned.skeleton.bones.map((b) => b.name);
+  const geo = skinned.geometry.clone(); const pos = geo.attributes.position, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+  const wv = {}; const w = (n) => wv[n] || 0;
+  for (let i = 0; i < pos.count; i++) {
+    _p0.fromBufferAttribute(pos, i); _acc.set(0, 0, 0); for (const k in wv) delete wv[k];
+    for (let j = 0; j < 4; j++) {
+      const wt = sw.getComponent(i, j); if (!wt) continue; const nm = names[si.getComponent(i, j)]; wv[nm] = (wv[nm] || 0) + wt; const R = rules[nm]; _q.copy(_p0);
+      if (R?.s) _q.sub(R.pivot).multiplyScalar(R.s).add(R.pivot);
+      else if (R?.k && info[nm].tail) { const a = info[nm].pos, b = info[nm].tail; _d.subVectors(b, a); const t = clamp01(_tmp.subVectors(_p0, a).dot(_d) / _d.lengthSq()); const c = _tmp.copy(a).addScaledVector(_d, t); _q.sub(c).multiplyScalar(R.k).add(c); }
+      _acc.addScaledVector(_q, wt);
+    }
+    if (extra) extra(_acc, _p0, w);
+    pos.setXYZ(i, _acc.x, _acc.y, _acc.z);
+  }
+  geo.computeVertexNormals(); geo.computeBoundingSphere(); GEOS.set(key, geo); return geo;
+}
+/** radius of the (reshaped) surface around a bone axis near point c (for joint rings, cuffs, sleeves) */
+export function radiusAt(geo, c, axis, half = 0.015, maxR = 0.2) {
+  const p = geo.attributes.position; let s = 0, n = 0, mx = 0; const v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).sub(c); const a = v.dot(axis); if (Math.abs(a) > half) continue; const r = v.addScaledVector(axis, -a).length(); if (r > maxR) continue; s += r; n++; mx = Math.max(mx, r); }
+  return n ? { mean: s / n, max: mx } : { mean: 0.04, max: 0.05 };
+}
+/** a lofted joint ring around a bone axis, carved with a bead profile (bind coordinates) */
+export function jointRing(c, axis, r, width, mat) {
+  const u = new THREE.Vector3(1, 0, 0); if (Math.abs(axis.dot(u)) > 0.9) u.set(0, 0, 1); const e1 = u.clone().addScaledVector(axis, -u.dot(axis)).normalize(), e2 = new THREE.Vector3().crossVectors(axis, e1);
+  const l = new Loft(25, 8).set((t, out) => { const a = t * Math.PI * 2; out.copy(c).addScaledVector(e1, Math.cos(a) * r).addScaledVector(e2, Math.sin(a) * r); }, () => width, { ref: (t, n) => { const a = t * Math.PI * 2; n.copy(e1).multiplyScalar(Math.cos(a)).addScaledVector(e2, Math.sin(a)); }, shape: (a) => 1 + Math.abs(Math.sin(a * 2)) * 0.18 - (Math.abs(Math.sin(a)) > 0.9 ? 0.1 : 0) });
+  return mesh(l.geo, mat);
+}
+/** a grid sheet skinned to `skinned`'s skeleton (coat tails, skirts, collars). point(u, v, out); weights(u, v, p) -> [[bone, w], ...] */
+export function skinnedSheet(skinned, rows, cols, point, weights, mat, { skip = null } = {}) {
+  const names = skinned.skeleton.bones.map((b) => b.name); const vc = (rows + 1) * (cols + 1);
+  const pos = new Float32Array(vc * 3), uv = new Float32Array(vc * 2), si = new Uint16Array(vc * 4), swt = new Float32Array(vc * 4); const p = new THREE.Vector3(); const idx = [];
+  for (let r = 0; r <= rows; r++) for (let c = 0; c <= cols; c++) {
+    const i = r * (cols + 1) + c, u = c / cols, v = r / rows; point(u, v, p); pos.set([p.x, p.y, p.z], i * 3); uv.set([u, v], i * 2);
+    const ws = weights(u, v, p); let tot = 0; ws.slice(0, 4).forEach(([n, wt], k) => { si[i * 4 + k] = Math.max(0, names.indexOf(n)); swt[i * 4 + k] = wt; tot += wt; }); for (let k = 0; k < 4; k++) swt[i * 4 + k] /= tot || 1;
+  }
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { if (skip && skip(c / cols, r / rows)) continue; const a = r * (cols + 1) + c, b = a + cols + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  const g = new THREE.BufferGeometry(); g.setIndex(idx); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); g.setAttribute('skinWeight', new THREE.BufferAttribute(swt, 4)); g.computeVertexNormals();
+  const m = new THREE.SkinnedMesh(g, mat); skinned.parent.add(m); m.bind(skinned.skeleton, skinned.bindMatrix); m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; return m;
+}
+/** attach under a bone that has been scaled away (collapsed limbs, hidden heads): cancels the bone's scale */
+export function attachUnscaled(obj, skinned, name, boneScale) {
+  const sk = skinned.skeleton; const i = sk.bones.findIndex((b) => b.name === name); const fix = new THREE.Group(); fix.scale.setScalar(1 / boneScale); sk.bones[i].add(fix);
+  const w = new THREE.Group(); sk.boneInverses[i].clone().multiply(skinned.bindMatrix).decompose(w.position, w.quaternion, w.scale); w.add(obj); fix.add(w); return w;
+}

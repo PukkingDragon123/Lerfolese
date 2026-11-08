@@ -515,7 +515,7 @@ class GTAOPass extends Pass {
 
 			// [Apple of Discord patch] cut-out standees, sprites and transparent FX would occlude as solid quads: skip them
 			const m = object.material;
-			if ( object.isPoints || object.isLine || object.isSprite || object.userData.noAO || ( m && ! Array.isArray( m ) && ( m.transparent || m.alphaTest > 0 ) ) ) object.visible = false;
+			if ( object.isPoints || object.isLine || object.isSprite || object.userData.noAO || ( m && ! Array.isArray( m ) && ( m.visible === false || m.transparent || m.alphaTest > 0 ) ) ) object.visible = false;
 
 		} );
 

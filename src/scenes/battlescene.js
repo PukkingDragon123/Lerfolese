@@ -121,7 +121,7 @@ export class BattleScene {
   }
   layoutUI() {
     const W = (this.ui.W = this.engine.uiW), H = (this.ui.H = this.engine.uiH);
-    this.drawPile.group.position.set(-W + 1.95, -H + 2.55, 0.5); this.discardPile.group.position.set(W - 7.6, -H + 2.55, 0.5);
+    this.drawPile.group.position.set(-W + 1.95, -H + 2.7, 0.5); this.discardPile.group.position.set(W - 7.6, -H + 2.7, 0.5);
     this.hand?.layout();
   }
 

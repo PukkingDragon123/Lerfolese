@@ -1,7 +1,10 @@
 // The miniature Mythical Wilderness: a hand-built diorama on a display plinth. Grab to rotate, wheel to zoom,
 // tiny animated sheep, birds, dancing satyrs, a labyrinth, a marsh, and your little marionette hopping along.
 import * as THREE from 'three';
-import { domText, BattleHUD } from '../ui/hud.js';
+import { BattleHUD } from '../ui3d/hud.js';
+import { Strip } from '../ui3d/objects.js';
+import { Panel } from '../ui3d/widgets.js';
+import { uiPos } from '../ui3d/craft.js';
 import { roman } from '../core/util.js';
 import * as S from '../models/sculpt.js';
 import { UIScreen, Button3D } from '../ui3d/widgets.js';
@@ -42,8 +45,8 @@ export class MapScene extends UIScreen {
   }
   story() {
     const lines = ['In 1687 a man published the laws of motion.', 'In 1688 the gods read them. They did not care for them.', 'Humanity had found the source code of the universe,', 'so the gods turned it off and on again. Forever.', 'One mind remembers every loop: Sir Isaac Plumb,', 'natural philosopher, deceased, still taking notes.', 'His body is gone. His marionette is not.'];
-    this.storyPlane = domText(lines.map((l) => [[l, '#f3e6c4']]), { w: 26, h: 9, font: 'VT323', size: 64, stroke: ['#1a1220', 10], lineH: 1.15, bg: (g, w, h) => { const gr = g.createRadialGradient(w / 2, h / 2, 50, w / 2, h / 2, w / 2); gr.addColorStop(0, 'rgba(10,6,20,0.85)'); gr.addColorStop(1, 'rgba(10,6,20,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); } }); this.storyPlane.position.set(0, 1, 12); this.root.add(this.storyPlane);
-    this.storyPlane.material.opacity = 0; tweens.to(this.storyPlane.material, { opacity: 1 }, 1.2).then(() => tweens.wait(6)).then(() => tweens.to(this.storyPlane.material, { opacity: 0 }, 1.0)).then(() => { this.root.remove(this.storyPlane); });
+    const st = (this.storyPanel = new Panel('The Loop', lines, { w: Math.min(17, this.W * 1.7), h: 9, titleColor: '#5a1a22' })); uiPos(st.group, 0, 0.6, 9); this.root.add(st.group); audio.play('paper_rustle');
+    tweens.wait(8).then(() => { st.s.target = 0; audio.play('paper_rustle', { vol: 0.5 }); return tweens.wait(0.7); }).then(() => { this.root.remove(st.group); this.storyPanel = null; });
     this.game.journal.seenIntro = true; this.game.saveJournal();
   }
 
@@ -150,7 +153,7 @@ export class MapScene extends UIScreen {
     this.addButton(new Button3D('Journal', () => this.openJournal(), { w: 3.6, h: 1.1, size: 50, color: 'purple' }), W - 3.2, H - 4.4, 2);
     this.addButton(new Button3D(`Deck (${r.deck.length})`, () => this.openDeck(), { w: 3.6, h: 1.1, size: 46 }), W - 3.2, H - 5.8, 2);
     this.addButton(new Button3D('Menu', () => this.game.toMenu(), { w: 3.6, h: 1.1, size: 50, color: 'red' }), W - 3.2, H - 7.2, 2);
-    this.hint = domText([[['Drag to rotate · scroll to zoom · click a glowing node', '#cdb6f0']]], { w: 18, h: 0.8, font: 'VT323', size: 56, stroke: ['#1a1220', 10] }); this.hint.position.set(0, -H + 0.9, 2); this.root.add(this.hint);
+    this.hint = new Strip(['Drag to rotate · scroll to zoom · click a lit marker to travel'], { maxW: 22, font: 'handS', tone: 3 }); uiPos(this.hint.group, 0, -H + 0.8, 2); this.root.add(this.hint.group);
   }
   async openJournal() { const { Journal } = await import('./journal.js'); if (!this.journal) { this.journal = new Journal(this.game, this.root); } this.journal.open(); }
   async openDeck() { const { DeckView } = await import('./deckview.js'); this.deckView = new DeckView(this.game, this.root, this.run.deck); this.deckView.open(); }
@@ -196,7 +199,7 @@ export class MapScene extends UIScreen {
     for (const pp of this.party) { pp.a += dt * 0.6; pp.api.root.position.set(pp.cx + Math.cos(pp.a) * 0.7, this.heightAt(pp.cx, pp.cz) + Math.abs(Math.sin(t * 5 + pp.a)) * 0.1, pp.cz + Math.sin(pp.a) * 0.7); pp.api.root.rotation.y = -pp.a; pp.api.update(dt); }
     if (Math.random() < 0.3) this.parts.spawn({ pos: [vrange(-9, 9), vrange(0.3, 3), vrange(-30, 2)], vel: [0, 0.1, 0], life: 4, size: vrange(10, 18), color: '#ffe08a', sprite: 'firefly', wobble: 0.4 });
     this.parts.update(dt, t); this.critters.update(dt, t); this.water.material.color.setHSL(0.57, 0.55, 0.42 + Math.sin(t * 2) * 0.02);
-    this.updateUI(dt); for (const it of this.items) it.update(dt, t);
+    this.updateUI(dt); for (const it of this.items) it.update(dt, t); this.hint.update(dt, this.ptr(2)); this.storyPanel?.update(dt, null);
     this.journal?.update(dt, t); this.deckView?.update(dt, t);
   }
   dispose() { super.dispose(); this.runHud?.dispose(); }

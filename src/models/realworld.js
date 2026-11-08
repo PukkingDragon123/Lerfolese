@@ -94,7 +94,7 @@ class Stage {
       const dry = this.n.fbm(x * 0.15 + 3, z * 0.15, 3) > g.patchAt; const far = Math.max(0, -z - 6) * 0.02;
       LP.grassTuft(this.grass, x, this.h(x, z) - 0.03, z, this.rnd, { pal: g.grass[dry ? 1 : 0], h: 0.22 + this.rnd() * 0.2 + far, n: 5 + Math.floor(this.rnd() * 4), spread: 0.14, tone: a < 1.2 ? -0.5 : 0 });
     }
-    for (let i = 0; i < nFlowers; i++) { const [x, z] = spot(-12); if (this.arena(x, z) < 1.12 || (this.pond && this.pond(x, z) > -0.1)) continue; const kind = g.flowers[Math.floor(this.n(x * 0.3, z * 0.3) * g.flowers.length * 0.999)]; const cl = 1 + Math.floor(this.rnd() * 3); for (let k = 0; k < cl; k++) LP.flower(this.grass, x + (this.rnd() - 0.5) * 0.4, this.h(x, z) - 0.03, z + (this.rnd() - 0.5) * 0.4, this.rnd, kind); }
+    for (let i = 0; i < nFlowers; i++) { const [x, z] = spot(-12); if (this.arena(x, z) < 1.12 || z > 1.8 || (this.pond && this.pond(x, z) > -0.1)) continue; const kind = g.flowers[Math.floor(this.n(x * 0.3, z * 0.3) * g.flowers.length * 0.999)]; const cl = 1 + Math.floor(this.rnd() * 3); for (let k = 0; k < cl; k++) LP.flower(this.grass, x + (this.rnd() - 0.5) * 0.4, this.h(x, z) - 0.03, z + (this.rnd() - 0.5) * 0.4, this.rnd, kind); }
   }
   sky() {
     this.group.add(LP.skyDome(this.theme, SUN_SKY));
@@ -167,7 +167,7 @@ const THEMES = {
   },
   marsh(S) {
     const n = S.n; S.pond = (x, z) => { const back = (-4.9 - z) + (n(x * 0.25 + 4, z * 0.25) - 0.5) * 2.4; const side = Math.max(-9.4 - x, x - 10.8) + (z > 0.6 ? -9 : 0) + (n(x * 0.3, z * 0.3 + 8) - 0.5) * 2; return Math.max(back, side) * 0.5 - (z < -24 ? 9 : 0); };
-    LP.waterSheet(S.water, { x0: -46, x1: 46, z0: -26, z1: 6, y: -0.06, step: 1.0, seed: S.seed, sky: LP.SKIES.marsh.hor, mask: (x, z) => S.pond(x, z) > -0.3 });
+    LP.waterSheet(S.water, { x0: -46, x1: 46, z0: -26, z1: 6, y: -0.06, step: 1.0, seed: S.seed, sky: LP.SKIES.marsh.sun, mask: (x, z) => S.pond(x, z) > -0.3, sunLine: (x, z) => Math.abs(x - S.sunX(z)) * (1 + Math.max(0, -z - 6) * 0.04) });
     S.dead(-6.8, -8.6, 1.25, true); S.dead(7.8, -10.6, 1.05, true); S.dead(-12.4, -5.8, 1.3, true); S.dead(13.2, -7.2, 1.1, true);
     for (const [x, z] of [[-3.2, -7.4], [3.8, -6.8], [10.4, -4.2]]) { LP.stump(S.near, S.at(x, z), S.seed + Math.round(x * 3), { r: 0.28 + S.rnd() * 0.12 }); S.block(x, z, 0.4); }
     for (let i = 0; i < 9; i++) { const z = -4.5 - S.rnd() * 10; const x = S.rx(z, -1); S.rock(x, z, 0.35 + S.rnd() * 0.5, { moss: PAL.moss }); }
@@ -201,8 +201,12 @@ function compose(theme, seed, { arenaClear = true } = {}) {
   S.terrain(); S.meadowCarpet(S.theme === 'labyrinth' ? 1300 : S.theme === 'gully' ? 1400 : 2200, S.theme === 'gully' ? 70 : 190); S.finish();
   return S;
 }
+// scenes never free world geometry, so the previous stage / room releases its GPU buffers when a new one is built
+// (safe: a disposed geometry simply re-uploads if it is ever drawn again)
+const LIVE = { stage: [], room: [] };
+function recycle(kind, obj) { for (const o of LIVE[kind].splice(0)) o.traverse((m) => m.geometry?.dispose()); if (obj) LIVE[kind].push(obj); }
 export function buildLowPolyStage(theme = 'meadow', seed = 1, renderer = null, opts = {}) {
-  const S = compose(theme, seed, opts); const sk = LP.SKIES[S.theme];
+  recycle('stage', null); const S = compose(theme, seed, opts); recycle('stage', S.group); const sk = LP.SKIES[S.theme];
   const env = LP.gradientEnv(renderer, 'stage:' + S.theme, { top: sk.hi, hor: sk.hor, gnd: sk.gnd, sun: sk.sun, sunDir: SUN_KEY });
   return { group: S.group, theme: S.theme, trees: S.trees, env, background: null, sunDir: SUN_KEY.clone() };
 }
@@ -230,5 +234,5 @@ export async function dressMap(world, { count = 46, free, heightAt, rnd = mulber
 // ---------------------------------------------------------------- tabletop room props
 export async function dressTabletop(scene, renderer, { kind = 'study' } = {}) {
   const env = LP.gradientEnv(renderer, 'room', { top: '#3a2a3a', hor: '#c8884a', gnd: '#2a1a1a' }); if (env) { scene.environment = env; scene.environmentIntensity = 0.5; }
-  dressRoom(scene, kind);
+  recycle('room', null); recycle('room', dressRoom(scene, kind));
 }

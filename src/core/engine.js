@@ -198,9 +198,9 @@ export class Engine {
   // cinematic wipe: closes to color, runs fn, opens. center in 0..1 screen coords
   async wipe(fn, { center = [0.5, 0.5], color = 0x120d1c, dur = 0.55, mode = 0 } = {}) {
     const u = this.wipeMat.uniforms; u.uCenter.value.set(center[0], 1 - center[1]); u.uColor.value.set(color); u.uMode.value = mode;
-    this.wipeActive = true; const hudEl = document.getElementById('hud'); hudEl?.classList.add('wiping');
+    this.wipeActive = true;
     await tweens.to(u.uT, { value: 1 }, dur, { ease: 'inCubic' });
-    if (fn) await fn(); hudEl?.classList.remove('wiping');
+    if (fn) await fn();
     await tweens.wait(0.08);
     await tweens.to(u.uT, { value: 0 }, dur * 1.1, { ease: 'outCubic' });
     this.wipeActive = false;

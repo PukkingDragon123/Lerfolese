@@ -23,7 +23,7 @@ class Hud {
   // important events become pinned slips; the rest is shown by the scene itself (numbers, barks, banners)
   feed(text, kind = '') { if (kind === 'arc') this.toast(plain(text)); }
   toast(text) {
-    this.attach(window.__game?.engine); const p = new Paper({ font: 'hand', maxW: 13, pin: true, kind: 'note' }); p.set([String(text)]);
+    this.attach(window.__game?.engine); const p = new Paper({ font: 'handS', maxW: 13, pin: true, kind: 'note' }); p.set([String(text)]);
     const slot = this.slips.length; const y = this.H - 4.4 - slot * 1.5; p.place(0, this.H + 3, 9); p.group.visible = true; p.st.set(1); p.restRz = (Math.random() - 0.5) * 0.8; this.root.add(p.group);
     const s = { paper: p, y, t: 0, life: 2.8, fall: null }; this.slips.push(s); audio.play('paper_rustle', { vol: 0.5 });
     while (this.slips.filter((x) => !x.fall).length > 3) { const o = this.slips.find((x) => !x.fall); o.life = 0; }
@@ -31,9 +31,9 @@ class Hud {
   }
   banner(title, sub = '', kind = '', hold = 0.9) { this.attach(window.__game?.engine); this.pennant.y0 = this.H + 0.25; return this.pennant.show(title, plain(sub), kind, hold); }
   bubble(text, kind = '') {
-    this.attach(window.__game?.engine); const p = new Paper({ font: 'hand', maxW: 9, tail: kind === 'foe' ? 'right' : true, pin: false, kind: 'scrap', tone: kind === 'foe' ? 3 : 4 }); p.set([String(text)]);
+    this.attach(window.__game?.engine); const p = new Paper({ font: 'handS', maxW: 7.5, tail: kind === 'foe' ? 'right' : true, pin: false, kind: 'scrap', tone: kind === 'foe' ? 3 : 4 }); p.set([String(text)]);
     p.group.visible = true; p.st.set(0.2); p.st.target = 1; p.rz.kick((Math.random() - 0.5) * 20); this.root.add(p.group);
-    const b = { paper: p, kind, at: (x, y) => { const off = kind === 'foe' ? -(p.w / 2 - 22 / 24 - 0.25) : p.w / 2 - 14 / 24 - 0.25; p.group.position.set(x + off, y + p.h - 0.22, 7); }, fall: null, remove: () => { this.root.remove(p.group); p.dispose(); this.speech.delete(b); }, drop: () => { if (!b.fall) b.fall = { vy: 1.5, vx: (Math.random() - 0.5) * 2, t: 0 }; } };
+    const b = { paper: p, kind, at: (x, y) => { const off = kind === 'foe' ? -(p.w / 2 - 22 / 24 - 0.25) : p.w / 2 - 14 / 24 - 0.25; const k = 33 / 40; p.baseScale = k; p.group.position.set((x + off) * k, (y + p.h - 0.22) * k, 7); }, fall: null, remove: () => { this.root.remove(p.group); p.dispose(); this.speech.delete(b); }, drop: () => { if (!b.fall) b.fall = { vy: 1.5, vx: (Math.random() - 0.5) * 2, t: 0 }; } };
     this.speech.add(b); return b;
   }
   update(dt) {
@@ -90,8 +90,8 @@ export class BattleHUD {
     this.note.group.scale.setScalar(k); uiPos(this.note.group, W - (this.note.w / 2 + 0.4) * k, H - 0.5 * k, 1.5);
     if (this.mode === 'map') return;
     uiPos(this.shield.group, -W + 5.65 * k, H - 0.7 * k, 1.1); this.shield.group.scale.setScalar(k);
-    uiPos(this.bell.group, W - 1.9 * k, -H + 1.62 * k, 1.2); this.bell.group.scale.setScalar(0.9 * k);
-    uiPos(this.bin.group, W - 4.9 * k, -H + 1.78 * k, 1.0); this.bin.group.scale.setScalar(0.88 * k);
+    uiPos(this.bell.group, W - 1.9 * k, -H + 1.95 * k, 1.2); this.bell.group.scale.setScalar(0.9 * k);
+    uiPos(this.bin.group, W - 4.9 * k, -H + 2.15 * k, 1.0); this.bin.group.scale.setScalar(0.88 * k);
     this.layoutLaws();
   }
   layoutLaws() { const W = this.engine.uiW, H = this.engine.uiH, k = this.k; let x = -W + 0.6 * k; for (const l of this.laws) { l.group.scale.setScalar(k); uiPos(l.group, x + (l.w / 2) * k, H - 5.3 * k, 1.4); x += (l.w + 0.25) * k; } }

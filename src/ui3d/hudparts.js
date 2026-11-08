@@ -227,11 +227,11 @@ export class EnemyBoard {
       wood(S, 0, 0, 80, H, RAMP.walnut, { seed: this.name.length, base: 2, knots: 1, quiet: true }); S.bevel(null, { lit: 2, dark: -2 });
       inscribe(S, this.name.toUpperCase(), 4, 9, 'tiny', 'paint', { ramp: RAMP.ivory });
       // HP channel: carved groove with red wax poured to the current value, notches every tenth
-      const X0 = 4, X1 = 44, Y0 = 12, Y1 = 22; const f = Math.max(0, hp / max); const xf = X0 + round((X1 - X0) * f);
+      const X0 = 4, X1 = 41, Y0 = 12, Y1 = 22; const f = Math.max(0, hp / max); const xf = X0 + round((X1 - X0) * f);
       for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) { const edge = y === Y0 || y === Y1 || x === X0 || x === X1; if (edge) { S.setT(x, y, y === Y1 || x === X1 ? 4 : 0); continue; } if (x < xf) S.set(x, y, RAMP.wax, y === Y0 + 1 ? 4 : y === Y1 - 1 ? 1 : (x + y) % 9 === 0 ? 4 : 3); else S.setT(x, y, y === Y0 + 1 ? 0 : 1); }
       for (let i = 1; i < 10; i++) { const x = X0 + round((X1 - X0) * i / 10); S.setT(x, Y0, 0); S.setT(x, Y1, 1); if (x >= xf) S.setT(x, Y0 + 1, 0); }
       if (xf > X0 + 1 && xf < X1) for (let y = Y0 + 1; y < Y1; y++) S.set(xf, y, RAMP.wax, y < Y1 - 2 ? 2 : 1);
-      const txt = `${Math.max(0, hp)}/${max}`; const nf = measure(txt, 'num') > 32 ? 'tiny' : 'num'; inscribe(S, txt, 47 + Math.max(0, round((31 - measure(txt, nf)) / 2)), nf === 'num' ? 22 : 20, nf, 'paint', { ramp: RAMP.ivory });
+      const txt = `${Math.max(0, hp)}/${max}`; const nf = measure(txt, 'num') > 35 ? 'tiny' : 'num'; inscribe(S, txt, 43 + Math.max(0, round((35 - measure(txt, nf)) / 2)), nf === 'num' ? 22 : 20, nf, 'paint', { ramp: RAMP.ivory });
       if (block > 0) { const bx = 64, by = 1; for (let y = 0; y < 10; y++) for (let x = 0; x < 14; x++) { const u = Math.abs(x - 6.5) / 7, v = y / 10; if (u > 1 - Math.max(0, v - 0.55) * 1.6) continue; S.set(bx + x, by + y, RAMP.iron, y === 0 || u > 0.82 ? 4 : 2); } inscribe(S, String(block), bx + 7 - round(measure(String(block), 'tiny') / 2), by + 8, 'tiny', 'paint', { color: '#f2ecd8' }); }
       let x = 4; for (const k of keys) { const t = `${k.slice(0, 4).toUpperCase()} ${st[k] === true ? '' : st[k]}`.trim(); const w = measure(t, 'tiny') + 6; if (x + w > 78) break;
         for (let y = 25; y < 34; y++) for (let xx = x; xx < x + w; xx++) S.set(xx, y, RAMP.parch, y === 25 ? 6 : y === 33 ? 3 : xx === x || xx === x + w - 1 ? 4 : 5); inscribe(S, t, x + 3, 32, 'tiny', 'ink', { color: ST_INK[k] || '#2a1a14' }); x += w + 2; }

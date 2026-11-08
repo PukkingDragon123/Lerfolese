@@ -1,6 +1,7 @@
 // Field Laboratory (rest site): Rest, Upgrade, Merge (fuse cards into a permanent Move) or Mutate.
 import * as THREE from 'three';
-import { domText } from '../ui/hud.js';
+import { Signboard, Strip } from '../ui3d/objects.js';
+import { uiPos } from '../ui3d/craft.js';
 import { UIScreen, Button3D, Panel, tabletopWorld } from '../ui3d/widgets.js';
 import { textPlane } from '../ui3d/kit.js';
 import * as P3 from '../models/props3d.js';
@@ -18,15 +19,15 @@ export default class LabScene extends UIScreen {
     this.engine.setFx({ bloom: [0.7, 0.6, 0.7], tilt: { focus: 0.5, width: 0.22, amount: 2.5 }, grade: { warmth: 0.7, vignette: 0.55 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('journal'); audio.setAmbSet(['campfire', 'night']);
     const W = this.W, H = this.H; const P = run.player; const heal = Math.round(P.maxHp * 0.3);
-    this.title = domText([[['FIELD LABORATORY', '#ffe08a']], [['Choose ONE experiment before moving on', '#e8d4a2']]], { w: 20, h: 2.4, font: 'Pixelify', size: 100, weight: 700, stroke: ['#3a2410', 16], lineH: 0.95 }); this.title.position.set(0, H - 1.9, 3); this.root.add(this.title);
-    this.status = domText([[[`Integrity ${P.hp}/${P.maxHp}`, '#f6b3a0']]], { w: 10, h: 1, font: 'Pixelify', size: 64, weight: 700, stroke: ['#1a1220', 12] }); this.status.position.set(0, H - 4.0, 3); this.root.add(this.status);
+    this.title = new Signboard(['Field Laboratory'], { sub: 'Choose ONE experiment before moving on', hang: 2 }); this.title.group.scale.setScalar(Math.min(1.12, W * 1.1 / this.title.w)); uiPos(this.title.group, 0, H - 1.55, 3); this.root.add(this.title.group);
+    this.status = new Strip([[[`Integrity ${P.hp}/${P.maxHp}`, '#8f2a2e']]], { maxW: 16 }); uiPos(this.status.group, 0, H - 3.85, 3.5); this.root.add(this.status.group);
     const opts = [
       ['Rest', `Heal ${heal}. Varnish, nap, existential dread.`, 'wood', () => { P.hp = Math.min(P.maxHp, P.hp + heal); audio.play('heal'); this.finish(`Rested. Healed ${heal}.`); }],
       ['Upgrade', 'Improve one card (+).', 'teal', () => this.pickUp()],
       ['Merge', 'Fuse 2–4 cards into one permanent Move.', 'purple', () => this.pickMerge()],
       ['Mutate', 'Randomly mutate a Basic card. Risky. Fun.', 'red', () => this.pickMutate()],
     ];
-    this.btns = opts.map(([l, s, c, fn], i) => this.addButton(new Button3D(l, fn, { w: 9, h: 1.6, size: 56, sub: s, color: c }), (i % 2 ? 1 : -1) * 5, 0.8 - Math.floor(i / 2) * 2.4, 2));
+    this.btns = opts.map(([l, s, c, fn], i) => this.addButton(new Button3D(l, fn, { w: 9, h: 1.6, size: 56, sub: s, color: c }), (i % 2 ? 1 : -1) * 5, 0.6 - Math.floor(i / 2) * 2.7, 2));
   }
   pickUp() { this.dv = new DeckView(this.game, this.root, this.run.deck, { title: 'Upgrade which card?', filter: (c) => !c.up, onDone: ([c]) => { upgradeCard(c); audio.play('magic_sparkle'); this.finish(`${c.name || BASICS[c.id]?.name} upgraded.`); } }); this.dv.open(); }
   pickMutate() { this.dv = new DeckView(this.game, this.root, this.run.deck, { title: 'Mutate which Basic?', filter: (c) => c.type === 'basic' && !BASICS[c.id]?.mutantOf, onDone: ([c]) => { const was = BASICS[c.id].name; const to = mutateCard(this.run, c); audio.play('magic_shimmer'); this.finish(to ? `${was} mutated into ${BASICS[to].name}!` : 'Nothing happened. Science is sometimes boring.'); } }); this.dv.open(); }
@@ -37,8 +38,8 @@ export default class LabScene extends UIScreen {
     } }); this.dv.open();
   }
   finish(text) {
-    for (const b of this.btns) b.setDisabled(true); this.status.userData.setText([[[text, '#cfe07a']]]);
+    for (const b of this.btns) b.setDisabled(true); this.status.set([[[text, '#3e6a22']]]);
     this.addButton(new Button3D('Continue', () => { if (!this.leaving) { this.leaving = true; this.game.afterNode(); } }, { w: 5, h: 1.3, size: 58, color: 'teal' }), 0, -this.H + 1.7, 2);
   }
-  update(dt, t) { this.world.update(dt, t); this.updateUI(dt); this.dv?.update(dt, t); this.fireLight.intensity = 40 + Math.sin(t * 9) * 6 + Math.sin(t * 23) * 3; }
+  update(dt, t) { this.world.update(dt, t); this.updateUI(dt); this.title.update(dt, null, t); this.status.update(dt, this.ptr(3)); this.dv?.update(dt, t); this.fireLight.intensity = 40 + Math.sin(t * 9) * 6 + Math.sin(t * 23) * 3; }
 }

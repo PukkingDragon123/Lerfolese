@@ -133,7 +133,7 @@ function backWall(M, B, G, rnd) {
 }
 
 export function dressRoom(scene, kind = 'study') {
-  const rnd = mulberry32(kind.length * 31 + 7); const M = new Mesher(), B = new Mesher(), F = new Mesher(), G = new Mesher();
+  const rnd = mulberry32(kind.length * 31 + 7); const M = new Mesher(), B = new Mesher(), F = new Mesher(), G = new Mesher(); const root = new THREE.Group(); root.name = 'room:' + kind; scene.add(root);
   table(M, rnd); backWall(M, B, G, rnd);
   for (let i = 0; i < 9; i++) book(M, M4(-12.6 + i * 0.4, 0, -5.6, (rnd() - 0.5) * 0.08), i * 3 + 1, { h: 1.6 + rnd() * 0.6 });
   book(M, M4(-8.6, 0, -6.2, 0.4), 50, { lying: true, h: 1.8, d: 1.4, w: 0.36 }); book(M, M4(-8.6, 0.36, -6.2, 0.62), 51, { lying: true, h: 1.6, d: 1.25, w: 0.3 });
@@ -143,7 +143,8 @@ export function dressRoom(scene, kind = 'study') {
   oilLamp(M, F, M4(12, 0, -2, -0.4), 6); scroll(M, M4(6.4, 0, -6.4, 0.2), 8); inkwell(M, G, M4(4.6, 0, -6.6, -0.3), 9);
   LP.crystals(M, G, M4(3.2, 0, -7.6, 0.4), 11, { n: 5, h: 0.9 });
   if (kind === 'shop') { barrel(M, B, M4(-9.6, 0, -2.6, 0.3), 12); chest(M, B, G, M4(9, 0, -1.8, -0.5), 13); crate(M, M4(11.6, 0, -4.6, 0.2), 14); coins(B, M4(-7.6, 0, -1.6), 15, 8); }
-  if (kind === 'lab') { const fp = LP.firePit({ seed: 5 }); fp.position.set(0, 0, -5.6); fp.scale.setScalar(1.7); scene.add(fp); basket(M, M4(-7, 0, -3, 0.4), 16); LP.amphora(M, M4(6.6, 0, -3.8, 0.3), 17, { s: 1.4 }); for (let i = 0; i < 4; i++) flask(M, G, M4(-3.4 + i * 0.9 + (i > 1 ? 7 : 0), 0, -6.4 + (i % 2) * 0.5, rnd()), 20 + i, GLASS[i]); }
-  const add = (m) => m && scene.add(m); add(M.build('lp')); add(B.build('metal')); add(F.build('flame', { cast: false, receive: false })); add(G.build('glow', { cast: false, receive: false }));
-  for (const [x, y, z, i] of [[9.5, 2.9, -5.0, 9], [12.4, 1.0, -1.8, 4]]) { const l = new THREE.PointLight(0xffa04a, i, 9, 1.8); l.position.set(x, y, z); scene.add(l); }
+  if (kind === 'lab') { const fp = LP.firePit({ seed: 5 }); fp.position.set(0, 0, -5.6); fp.scale.setScalar(1.7); root.add(fp); basket(M, M4(-7, 0, -3, 0.4), 16); LP.amphora(M, M4(6.6, 0, -3.8, 0.3), 17, { s: 1.4 }); for (let i = 0; i < 4; i++) flask(M, G, M4(-3.4 + i * 0.9 + (i > 1 ? 7 : 0), 0, -6.4 + (i % 2) * 0.5, rnd()), 20 + i, GLASS[i]); }
+  const add = (m) => m && root.add(m); add(M.build('lp')); add(B.build('metal')); add(F.build('flame', { cast: false, receive: false })); add(G.build('glow', { cast: false, receive: false }));
+  for (const [x, y, z, i] of [[9.5, 2.9, -5.0, 9], [12.4, 1.0, -1.8, 4]]) { const l = new THREE.PointLight(0xffa04a, i, 9, 1.8); l.position.set(x, y, z); root.add(l); }
+  return root;
 }

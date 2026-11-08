@@ -15,7 +15,7 @@ import { vrange, vpick } from '../core/util.js';
 export class Button3D extends Plaque {}
 export class Panel {
   constructor(title, lines, { w = 12, h = 6, titleColor = '#3a2410' } = {}) {
-    this.scroll = new Scroll({ w, maxH: Math.max(h + 1.5, 8) }); this.group = this.scroll.group; this.s = this.scroll.open;
+    this.scroll = new Scroll({ w, maxH: h }); this.group = this.scroll.group; this.s = this.scroll.open;
     this.set(title, lines, titleColor);
   }
   lines(lines) { return lines.map((l) => (typeof l === 'string' ? [[l, '#2a160c']] : l)); }

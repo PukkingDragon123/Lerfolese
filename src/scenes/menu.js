@@ -1,7 +1,8 @@
 // Main menu: The One Above All toys with a miniature universe. Galaxies drift, Schrödinger's box is
 // both open and shut, Newton's apple can be flung into orbit, and Sir Isaac dangles, unimpressed.
 import * as THREE from 'three';
-import { domText } from '../ui/hud.js';
+import { Signboard, Strip } from '../ui3d/objects.js';
+import { uiPos } from '../ui3d/craft.js';
 import * as S from '../models/sculpt.js';
 import { UIScreen, Button3D } from '../ui3d/widgets.js';
 import { textPlane, Note } from '../ui3d/kit.js';
@@ -91,15 +92,15 @@ export class MenuScene extends UIScreen {
     this.engine.add(this); this.pushInput(); audio.playMusic('menu'); audio.setAmbSet(['cosmos']);
     // UI: title + buttons
     const W = this.W, H = this.H;
-    this.title = domText([[['APPLE OF DISCORD', '#ffe08a']]], { w: 26, h: 3, font: 'Pixelify', size: 190, weight: 700, stroke: ['#3e2b6b', 26] }); this.title.position.set(0, H - 2.6, 4); this.root.add(this.title);
-    this.sub = domText([[['Every action has an equal and opposite god.', '#cdb6f0']]], { w: 22, h: 1, font: 'VT323', size: 70, stroke: ['#140d26', 10] }); this.sub.position.set(0, H - 4.6, 4); this.root.add(this.sub);
+    this.title = new Signboard(['Apple of Discord'], { maxW: 26, hang: 3 }); this.title.group.scale.setScalar(Math.min(1.5, (W * 1.7) / this.title.w)); uiPos(this.title.group, 0, H - 2.25, 4); this.root.add(this.title.group);
+    this.sub = new Strip(['Every action has an equal and opposite god.'], { maxW: 22 }); uiPos(this.sub.group, 0, H - 2.25 - this.title.h * this.title.group.scale.x / 2 - 0.75, 4.5); this.root.add(this.sub.group);
     const hasRun = !!save.loadRun(); let y = -1.0;
     if (hasRun) { this.addButton(new Button3D('Continue the Loop', () => this.go('continue'), { w: 7, h: 1.25, size: 58, color: 'purple' }), W - 6, y, 2); y -= 1.6; }
     this.addButton(new Button3D(hasRun ? 'New Loop' : 'Begin the Loop', () => this.go('new'), { w: 7, h: 1.25, size: 58 }), W - 6, y, 2); y -= 1.6;
     this.addButton(new Button3D('Discovery Journal', () => this.openJournal(), { w: 7, h: 1.25, size: 54, color: 'teal' }), W - 6, y, 2); y -= 1.6;
     this.addButton(new Button3D('Settings', () => this.settingsToggle(), { w: 7, h: 1.25, size: 54 }), W - 6, y, 2); y -= 1.6;
     this.addButton(new Button3D('Credits', () => this.credits(), { w: 7, h: 1.25, size: 54 }), W - 6, y, 2);
-    const j = this.game.journal; this.stats = domText([[[`Loops remembered: ${j.loops} · Combinations: ${Object.keys(j.combos).length} · Best hit: ${j.bestHit || 0}`, '#e8d4a2']]], { w: 22, h: 0.8, font: 'VT323', size: 54, stroke: ['#140d26', 8] }); this.stats.position.set(0, -H + 0.9, 3); this.root.add(this.stats);
+    const j = this.game.journal; this.stats = new Strip([`Loops remembered: ${j.loops} · Combinations: ${Object.keys(j.combos).length} · Best hit: ${j.bestHit || 0}`], { maxW: 24, font: 'handS', tone: 3 }); uiPos(this.stats.group, 0, -H + 0.85, 3); this.root.add(this.stats.group);
     this.note = new Note({ w: 8, h: 1.3, size: 44, tail: true }); this.root.add(this.note.group);
   }
   async openJournal() { const { Journal } = await import('./journal.js'); if (!this.journal) this.journal = new Journal(this.game, this.root); this.journal.open(); }
@@ -110,7 +111,7 @@ export class MenuScene extends UIScreen {
   async credits() {
     let lines = ['Code, models, cards & design: made for this game.', 'Fonts: Pixelify Sans, VT323, Silkscreen, Caveat, Tiny5, Jacquard 24 (OFL), Homemade Apple (Apache 2.0).', 'three.js (MIT).'];
     try { const r = await fetch('assets/audio/credits.json'); if (r.ok) { const c = await r.json(); lines.push(`Audio: ${c.length} recordings, CC0 / CC BY. Full list in assets/audio/CREDITS.md`); lines.push(...c.filter((x) => /BY/.test(x.license)).slice(0, 6).map((x) => `"${x.title}" by ${x.author} (${x.license})`)); } } catch (e) { /* */ }
-    this.tip.show(lines.slice(0, 9).map((l) => [[l, '#2a160c']]), 0, 0, 12); this.tip.plane.scale.set(2.4, 2.4, 1); setTimeout(() => { this.tip.hide(); this.tip.plane.scale.set(1, 1, 1); }, 9000);
+    this.tip.show(lines.slice(0, 9).map((l, i) => [[l, i ? '#2a160c' : '#3a2410']]), 0, 0, 12, { maxW: 26 }); clearTimeout(this._ct); this._ct = setTimeout(() => this.tip.hide(), 9000);
   }
   say(t) { const p = this.engine.worldToUI(this.prof.headWorld(new THREE.Vector3())); this.note.show([[[t, '#2a160c']]], p.x + 3, p.y + 1.6, 9); this.prof.talk(1.5); audio.play('wood_knock', { vol: 0.4 }); clearTimeout(this._nt); this._nt = setTimeout(() => this.note.hide(), 2600); }
   async go(kind) {
@@ -148,7 +149,7 @@ export class MenuScene extends UIScreen {
     if (!this.leaving) { this.camera.position.x = Math.sin(t * 0.1) * 1.5 + this.input.ndc.x * 1.2; this.camera.position.y = 2 + this.input.ndc.y * 0.8; this.camera.lookAt(this.camLook); }
     if (Math.random() < 0.4) this.parts.spawn({ pos: [vrange(-20, 20), vrange(-6, 12), vrange(-10, 8)], vel: [0, 0, 0], life: 3, size: vrange(14, 30), color: vpick(['#e8fbff', '#ffe08a', '#b48cff']), sprite: 'star4', alpha: 0.8 });
     this.parts.update(dt, t);
-    this.title.position.y = this.H - 2.6 + Math.sin(t * 1.2) * 0.12; this.title.rotation.z = Math.sin(t * 0.8) * 0.01;
+    const pp = this.ptr(4); this.title.update(dt, null, t); this.sub.update(dt, pp); this.stats.update(dt, pp);
     this.updateUI(dt); this.note.update(dt); this.journal?.update(dt, t);
   }
 }

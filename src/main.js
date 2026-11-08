@@ -30,10 +30,9 @@ class Game {
   // -------------------------------------------------------------- flow
   async boot() {
     bootMsg('Loading fonts…', 10);
-    await Promise.all(['700 40px "Pixelify"', '32px "VT323"', '700 22px "Silkscreen"', '400 22px "Silkscreen"', '40px "Caveat"', '40px "HomemadeApple"', '40px "Jacquard"'].map((f) => document.fonts.load(f).catch(() => {})));
+    await Promise.all(['700 40px "Pixelify"', '32px "VT323"', '700 22px "Silkscreen"', '400 22px "Silkscreen"', '40px "Caveat"', '700 18px "Caveat"', '40px "HomemadeApple"', '40px "Jacquard"', '24px "Jacquard"', '8px "Tiny5"', '400 8px "Silkscreen"'].map((f) => document.fonts.load(f).catch(() => {})));
     bootMsg('Tuning gravity strings…', 40); await audio.init();
     bootMsg('Convincing the gods…', 80);
-    import('./gfx/assets.js').then((A) => A.preload(['olive_tree_tall', 'olive_tree_wide', 'othonna_cerarioides', 'grass_clumps', 'rock_moss_set_01', 'rock_moss_set_02', 'searsia_lucida', 'shrub_01']).catch(() => {}));
     const q = new URLSearchParams(location.search);
     $('boot').classList.add('gone');
     if (q.get('battle')) return this.debugBattle(q.get('battle').split(','), q.get('kind') || 'normal');
