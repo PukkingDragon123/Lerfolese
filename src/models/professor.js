@@ -35,16 +35,31 @@ function mats() {
   MAT.faceWood = K.uvMat('pup-facewood', 64, 128, (u, v, o) => woodPx(o, u, v, hex('#e8b07c'), C.oakD, { cracks: 0 }));
   MAT.oakB = K.uvMat('pup-oak-broken', 64, 256, (u, v, o) => { woodPx(o, u, v, C.oak, C.oakD, { cracks: 3, seed: 5 }); if (K.vnoise(u * 12, v * 20, 4) > 0.78) K.tone(C.raw, 0.6, o.col); });
   MAT.torso = K.uvMat('pup-torso', 128, 256, (u, v, o) => { woodPx(o, u, v, C.oak, C.oakD, { cracks: 1, seed: 7 }); const sp = Math.abs(du(u) - 0.18 - Math.sin(v * 30) * 0.008); if (sp < 0.007 && v < 0.85) { o.col[0] = 24; o.col[1] = 10; o.col[2] = 14; } else if (sp < 0.016 && v < 0.85) K.tone(C.raw, 0.55, o.col); });
-  MAT.leg = K.uvMat('pup-tableleg', 64, 256, (u, v, o) => { woodPx(o, u, v, C.mahog, C.mahogD, { cracks: 1, seed: 11, grain: 22 }); const chip = K.vnoise(u * 9, v * 30, 8); if (chip > 0.74) K.tone(C.raw, chip > 0.82 ? 0.7 : 0.45, o.col); o.ro = 0.3; });
+  MAT.leg = K.uvMat('pup-tableleg', 64, 512, (u, v, o) => { // varnished brown turned leg: grain, inked moulding grooves, a few chips
+    woodPx(o, u, v, hex('#94582c'), hex('#4a2614'), { cracks: 1, seed: 11, grain: 18 }); const y = v * LEGLEN;
+    for (const g of [0.11, 0.128, 0.15, 0.172, 0.36, 0.38, 0.4, LEGLEN - 0.09, LEGLEN - 0.07]) if (Math.abs(y - g) < 0.0035) { o.col[0] = 40; o.col[1] = 20; o.col[2] = 14; }
+    if (y < 0.11 && (Math.abs(((u * 4) % 1) - 0.5) > 0.47)) K.mixc(o.col, hex('#3a1c10'), 0.6); // the square post's arrises
+    if (K.vnoise(u * 10, v * 60, 8) > 0.86) K.tone(C.raw, 0.6, o.col); });
   MAT.brass = K.uvMat('pup-brass', 32, 64, (u, v, o) => { K.tone(C.brass, K.band(0.6 + Math.cos(u * TAU) * 0.25 - (K.vnoise(u * 20, v * 20, 3) > 0.75 ? 0.25 : 0), 4), o.col); });
   MAT.twine = K.uvMat('pup-twine', 32, 64, (u, v, o) => { const tw = ((u * 3 + v * 14) % 1); K.tone(C.twine, K.band(0.55 + (tw < 0.5 ? 0.1 : -0.1), 3), o.col); });
-  MAT.coat = K.uvMat('pup-coat', 256, 256, (u, v, o) => { // plum wool, a cloth patch, holes and ragged hems (alpha cut)
-    const f = Math.sin(u * TAU * 9 + Math.sin(v * 7) * 0.8); K.tone(C.coat, K.band(0.55 + (f > 0.55 ? 0.08 : f < -0.6 ? -0.1 : 0), 4), o.col);
-    if (u > 0.62 && u < 0.72 && v > 0.3 && v < 0.42) { K.tone(hex('#8a6a3a'), K.band(0.55 + (((u * 200) | 0) % 2 ? 0.05 : 0), 3), o.col); if (u < 0.628 || u > 0.712 || v < 0.308 || v > 0.412) { if (((u + v) * 300) % 1 < 0.5) K.tone(hex('#f0e0b0'), 0.6, o.col); } }
-    if (K.vnoise(u * 14, v * 14, 5) > 0.83 && v > 0.2) o.a = 0;
-    const hem = 0.94 + Math.abs(((u * 23) % 1) - 0.5) * 0.1 + K.vnoise(u * 40, 3, 1) * 0.03; if (v > hem) o.a = 0; else if (v > hem - 0.02) K.mixc(o.col, C.coatD, 0.5);
+  MAT.coat = K.uvMat('pup-coat', 512, 256, (u, v, o) => { // plum wool: 3-tone cel folds, gold piping, brass buttons, pocket flaps, patch, worn ragged hem
+    const f = Math.sin(u * TAU * 7 + Math.sin(v * 5 + u * 20) * 0.9); K.tone(C.coat, f > 0.55 ? 0.68 : f < -0.45 ? 0.3 : 0.5, o.col);
+    if (f > 0.5 && f < 0.6) K.mixc(o.col, C.coatD, 0.35);
+    const edge = Math.min(u, 1 - u); if (edge < 0.016) { K.tone(hex('#e8b448'), edge < 0.006 ? 0.75 : 0.5, o.col); }
+    const bu = Math.min(Math.hypot((u - 0.035) * 3.2, ((v - 0.1) % 0.14) - 0.035), Math.hypot((u - 0.965) * 3.2, ((v - 0.1) % 0.14) - 0.035)); if (v > 0.08 && v < 0.62 && bu < 0.022) { K.tone(C.brass, bu < 0.008 ? 0.9 : bu < 0.016 ? 0.6 : 0.3, o.col); if (bu < 0.004) o.col.fill(255); }
+    for (const pu of [0.22, 0.78]) if (Math.abs(u - pu) < 0.07 && v > 0.66 && v < 0.74) { K.tone(C.coat, 0.36, o.col); if (v > 0.725 || Math.abs(Math.abs(u - pu) - 0.068) < 0.003) K.tone(hex('#e8b448'), 0.55, o.col); }
+    if (u > 0.6 && u < 0.7 && v > 0.36 && v < 0.48) { K.tone(hex('#8a6a3a'), (((u * 300) | 0) % 2) ? 0.6 : 0.52, o.col); if (u < 0.606 || u > 0.694 || v < 0.366 || v > 0.474) { if (((u + v) * 400) % 1 < 0.5) K.tone(hex('#f0e0b0'), 0.65, o.col); } }
+    if (K.vnoise(u * 16, v * 16, 5) > 0.84 && v > 0.25 && edge > 0.03) o.a = 0;
+    const hem = 0.93 + Math.abs(((u * 27) % 1) - 0.5) * 0.09 + K.vnoise(u * 40, 3, 1) * 0.03; if (v > hem) o.a = 0; else if (v > hem - 0.035) K.tone(hex('#9a6aa0'), (((u * 260) | 0) % 2) ? 0.55 : 0.45, o.col);
   }, { side: THREE.DoubleSide, alphaTest: 0.5 });
-  MAT.vest = K.uvMat('pup-vest', 128, 128, (u, v, o) => { K.tone(C.vest, K.band(0.55 + (((u * 60) | 0) % 2 ? 0.04 : 0), 3), o.col); const bu = Math.abs(u - 0.5), k = Math.round((v - 0.12) / 0.14); if (bu < 0.03 && k >= 0 && k < 6 && Math.abs(v - 0.12 - k * 0.14) < 0.03) K.tone(C.brass, 0.75, o.col); if (v > 0.9 - Math.abs(u - 0.5) * 0.3) o.a = 0; }, { side: THREE.DoubleSide, alphaTest: 0.5 });
+  MAT.vest = K.uvMat('pup-vest', 256, 256, (u, v, o) => { // mustard brocade: diamond pattern, gold piping, welt pockets, brass buttons + holes, pointed hem
+    const d = Math.abs(((u * 10 + v * 8) % 1) - 0.5) + Math.abs(((u * 10 - v * 8) % 1 + 1) % 1 - 0.5); K.tone(C.vest, d < 0.18 ? 0.64 : d > 0.45 ? 0.46 : 0.55, o.col);
+    const sh = Math.sin(u * TAU * 4); if (sh < -0.7) K.mixc(o.col, K.tone(C.vest, 0.3, T), 0.35);
+    const bu = Math.abs(u - 0.5), k = Math.round((v - 0.14) / 0.13), bd = Math.hypot(bu * 1.4, v - 0.14 - k * 0.13); if (k >= 0 && k < 6 && bd < 0.03) { K.tone(C.brass, bd < 0.012 ? 0.9 : bd < 0.022 ? 0.6 : 0.3, o.col); if (bd < 0.005) o.col.fill(255); }
+    if (k >= 0 && k < 6 && Math.abs(v - 0.14 - k * 0.13) < 0.004 && bu > 0.035 && bu < 0.07) K.tone(C.ink, 0.3, o.col);
+    for (const pu of [0.28, 0.72]) if (Math.abs(u - pu) < 0.08 && Math.abs(v - 0.22) < 0.006) K.tone(C.ink, 0.25, o.col);
+    const hemV = 0.9 - Math.abs(u - 0.5) * 0.3; if (v > hemV) o.a = 0; else if (v > hemV - 0.025 || Math.min(u, 1 - u) < 0.02) K.tone(hex('#e8b448'), 0.6, o.col);
+  }, { side: THREE.DoubleSide, alphaTest: 0.5 });
   MAT.lace = K.uvMat('pup-lace', 64, 64, (u, v, o) => { const s = Math.sin(u * TAU * 6 + v * 20); K.tone(C.lace, K.band(0.6 + (s > 0.3 ? 0.1 : s < -0.6 ? -0.2 : 0), 3), o.col); }, { side: THREE.DoubleSide });
   MAT.wool = K.uvMat('pup-wool', 64, 128, (u, v, o) => K.fur2(u, v, o, C.wool, 10, 5, 0.6, 0.1), { side: THREE.DoubleSide });
   MAT.shoe = K.uvMat('pup-shoe', 64, 64, (u, v, o) => { K.tone(C.shoe, K.band(0.5 + Math.cos(u * TAU) * 0.3, 4), o.col); });
@@ -100,14 +115,16 @@ function sheet(rows, cols, point, mat) { // rigid cloth grid (coat, tails, waist
   const g = new THREE.BufferGeometry(); g.setIndex(idx); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
   return K.mesh(g, mat);
 }
+const LEGLEN = 0.78;
 function tableLeg(len, M) { // turned furniture leg as an arm: square post block, beads and coves, vase, taper, brass ferrule + castor
   const g = new THREE.Group();
-  const prof = (t) => { const y = t * len; if (y < 0.11) return 0.052; if (y < 0.13) return 0.05 + Math.sin((y - 0.11) / 0.02 * Math.PI) * 0.012; if (y < 0.15) return 0.04; if (y < 0.17) return 0.046 + Math.sin((y - 0.15) / 0.02 * Math.PI) * 0.008;
-    if (y < 0.36) return 0.04 + Math.sin((y - 0.17) / 0.19 * Math.PI) * 0.016; if (y < 0.38) return 0.036; if (y < 0.4) return 0.042; return 0.036 - (y - 0.4) / (len - 0.4) * 0.012 + (Math.abs(y - (len - 0.08)) < 0.008 ? 0.006 : 0); };
-  const l = new K.Loft(60, 24).set((t, p) => p.set(0, -0.02 - t * len, 0), (t) => prof(t) * Math.sqrt(Math.min(1, t / 0.02)), { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => t * len < 0.11 ? Math.min(1.25, 1 / Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a)))) : 1 });
+  const prof = (t) => { const y = t * len; if (y < 0.11) return 0.05; if (y < 0.128) return 0.046 + Math.sin((y - 0.11) / 0.018 * Math.PI) * 0.018; if (y < 0.15) return 0.034 + Math.abs(y - 0.139) * 0.6; if (y < 0.172) return 0.042 + Math.sin((y - 0.15) / 0.022 * Math.PI) * 0.014;
+    if (y < 0.36) return 0.038 + Math.sin((y - 0.17) / 0.19 * Math.PI) * 0.02; if (y < 0.38) return 0.032; if (y < 0.4) return 0.04 + Math.sin((y - 0.38) / 0.02 * Math.PI) * 0.01; return 0.036 - (y - 0.4) / (len - 0.4) * 0.012 + (Math.abs(y - (len - 0.08)) < 0.008 ? 0.006 : 0); };
+  const l = new K.Loft(60, 24).set((t, p) => p.set(0, -0.02 - t * len, 0), (t) => prof(t) * Math.sqrt(Math.min(1, t / 0.02)), { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => t * len < 0.11 ? Math.min(1.38, 1 / Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a)))) : 1 });
   K.mesh(l.geo, M.leg, g);
   const f = new K.Loft(10, 20).set((t, p) => p.set(0, -0.02 - len - t * 0.05, 0), (t) => 0.03 - t * 0.006, { ref: (t, n) => n.set(0, 0, 1) }); K.mesh(f.geo, M.brass, g); // ferrule
-  const wheel = new K.Loft(24, 12).set((t, p) => p.set(0, -len - 0.11 + Math.cos(t * TAU) * 0.032, Math.sin(t * TAU) * 0.032), () => 0.014, { ref: (t, n) => n.set(1, 0, 0) }); K.mesh(wheel.geo, M.brass, g); // castor wheel
+  for (const wx of [-0.012, 0.012]) { const wheel = new K.Loft(28, 12).set((t, p) => p.set(wx, -len - 0.125 + Math.cos(t * TAU) * 0.04, Math.sin(t * TAU) * 0.04), () => 0.012, { ref: (t, n) => n.set(1, 0, 0) }); K.mesh(wheel.geo, M.brass, g); } // twin castor wheels
+  K.mesh(new K.Loft(8, 16).set((t, p) => p.set(-0.03 + t * 0.06, -len - 0.125, 0), () => 0.008).geo, M.brass, g); // axle
   for (const s of [-1, 1]) K.mesh(new K.Loft(6, 8).set((t, p) => p.set(s * 0.018, -len - 0.065 - t * 0.05, 0), () => 0.006).geo, M.brass, g); // fork
   return g;
 }
@@ -142,25 +159,32 @@ function runeTex() {
   for (let i = 0; i < 26; i++) { const x = 20 + (i % 6) * 40 + rnd() * 6, y = 20 + Math.floor(i / 6) * 50 + rnd() * 6; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 3; k++) g.lineTo(x + (rnd() - 0.5) * 24, y + rnd() * 30); g.stroke(); if (rnd() < 0.5) { g.beginPath(); g.arc(x, y + 14, 6 + rnd() * 5, 0, TAU * (0.5 + rnd() * 0.5)); g.stroke(); } }
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
-function spectralMat() {
+function spectralMat(fade = false) {
   return new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uRunes: { value: runeTex() }, uGlow: { value: 1 }, uCol: { value: new THREE.Color(0x9fe8ff) }, uCol2: { value: new THREE.Color(0xb48cff) } },
+    uniforms: { uTime: { value: 0 }, uRunes: { value: RUNES || (RUNES = runeTex()) }, uGlow: { value: 1 }, uCol: { value: new THREE.Color(0xb8f6ff) }, uCol2: { value: new THREE.Color(0x9a7cff) }, uFade: { value: fade ? 1 : 0 } },
     vertexShader: 'varying vec3 vN; varying vec3 vV; varying vec2 vUv; varying vec3 vP; void main(){ vUv = uv; vP = position; vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
-    fragmentShader: 'uniform float uTime; uniform sampler2D uRunes; uniform float uGlow; uniform vec3 uCol; uniform vec3 uCol2; varying vec3 vN; varying vec3 vV; varying vec2 vUv; varying vec3 vP; void main(){ float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.2); float r = texture2D(uRunes, vUv * vec2(3.0, 2.0) + vec2(0.0, -uTime * 0.06)).r; float shim = 0.5 + 0.5 * sin(uTime * 3.0 + vP.y * 9.0 + vP.x * 5.0); vec3 c = mix(uCol2, uCol, f) * (f * 0.9 + r * 0.22 * shim + 0.03) * uGlow; gl_FragColor = vec4(c, 1.0); }',
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    // crisp rim line + crisp rune strokes (no soft fill): reads as a drawn, glowing hand outline, mostly invisible inside
+    fragmentShader: 'uniform float uTime; uniform sampler2D uRunes; uniform float uGlow; uniform vec3 uCol; uniform vec3 uCol2; uniform float uFade; varying vec3 vN; varying vec3 vV; varying vec2 vUv; varying vec3 vP; void main(){ float f = 1.0 - abs(dot(normalize(vN), normalize(vV))); float rim = smoothstep(0.62, 0.7, f) + smoothstep(0.86, 0.9, f) * 0.6; float r = step(0.55, texture2D(uRunes, vUv * vec2(2.0, 1.0) + vec2(0.0, -uTime * 0.05)).r); float shim = 0.6 + 0.4 * sin(uTime * 3.0 + vUv.y * 12.0); float a = (rim * 0.95 + r * 0.32 * shim + 0.02) * uGlow * (1.0 - uFade * smoothstep(0.1, 0.95, vUv.y)); gl_FragColor = vec4(mix(uCol2, uCol, rim) * a, 1.0); }',
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.FrontSide,
   });
 }
-function spectralHand(mat) { // palm above, four fingers curling down round the cross bar, thumb under; the group's origin is the grip
+let RUNES = null;
+/** palm down over the cross; four fingers (3 phalanges, knuckle bulges) curl forward and down round the bar,
+ *  the thumb hooks under it from behind; the forearm streams up and back into mist. Group origin = the grip. */
+function spectralHand(mat, fadeMat) {
   const hand = new THREE.Group(); const fingers = [];
-  K.mesh(new K.Loft(18, 18).set(K.curve([[0, 0.62, -0.62], [0, 0.5, -0.32], [0, 0.36, -0.06]]), (t) => [0.17 + t * 0.06, 0.06 * capR(t, 0.25) + 0.01], { ref: (t, n) => n.set(0, 1, 0) }).geo, mat, hand);
-  K.mesh(new K.Loft(12, 14).set(K.curve([[0, 0.66, -0.66], [0, 0.78, -0.95], [0, 0.85, -1.25]]), (t) => (0.13 + t * 0.03) * (1 - t * 0.2), { ref: (t, n) => n.set(0, 1, 0) }).geo, mat, hand); // wrist fading into mist
-  for (let i = 0; i < 4; i++) {
-    const x = -0.15 + i * 0.1, L = [0.16, 0.12, 0.1].map((v) => v * (i === 0 || i === 3 ? 0.85 : 1)); let par = new THREE.Group(); par.position.set(x, 0.36, -0.06 + (i === 0 || i === 3 ? -0.02 : 0)); hand.add(par); const segs = [];
-    for (let k = 0; k < 3; k++) { const j = k ? new THREE.Group() : par; if (k) { j.position.set(0, 0, L[k - 1]); par.add(j); } K.mesh(new K.Loft(10, 12).set((t, p) => p.set(0, 0, t * L[k]), (t) => 0.042 * (1 - k * 0.12) * (1 - t * 0.1) * capR(t, 0.2), { ref: (t, n) => n.set(0, 1, 0) }).geo, mat, j); segs.push(j); par = j; }
+  const knuckle = (L, r0, r1) => (t, ) => { const e = Math.min(t, 1 - t); return (r0 + (r1 - r0) * t) * (1 + (e < 0.12 ? 0.18 * (1 - e / 0.12) : 0)) * capR(t, 0.06); };
+  K.mesh(new K.Loft(22, 24).set(K.curve([[0, 0.36, -0.5], [0, 0.27, -0.33], [0, 0.17, -0.15]]), (t) => [0.16 + t * 0.06, (0.052 + t * 0.012) * capR(t, 0.08)], { ref: (t, n) => n.set(0, 1, 0.4) }).geo, mat, hand); // palm
+  K.mesh(new K.Loft(18, 20).set(K.curve([[0, 0.36, -0.5], [0, 0.52, -0.82], [0, 0.72, -1.15]]), (t) => [0.15 + t * 0.05, 0.11 + t * 0.04], { ref: (t, n) => n.set(0, 1, 0) }).geo, fadeMat, hand); // wrist into mist
+  const F = [[-0.17, [0.1, 0.075, 0.06], 0.036], [-0.06, [0.125, 0.085, 0.065], 0.04], [0.05, [0.13, 0.09, 0.068], 0.041], [0.155, [0.115, 0.08, 0.062], 0.037]];
+  for (const [x, L, r] of F) {
+    let par = new THREE.Group(); par.position.set(x, 0.17, -0.15); hand.add(par); const segs = [];
+    for (let k = 0; k < 3; k++) { const j = k ? new THREE.Group() : par; if (k) { j.position.set(0, 0, L[k - 1]); par.add(j); } K.mesh(new K.Loft(12, 16).set((t, p) => p.set(0, 0, t * L[k]), knuckle(L[k], r * (1 - k * 0.12), r * (0.92 - k * 0.12)), { ref: (t, n) => n.set(0, 1, 0) }).geo, mat, j); segs.push(j); par = j; }
     fingers.push(segs);
   }
-  const th = new THREE.Group(); th.position.set(0.2, 0.42, -0.3); hand.add(th); K.mesh(new K.Loft(12, 12).set(K.curve([[0, 0, 0], [-0.02, -0.12, 0.12], [-0.06, -0.24, 0.22]]), (t) => 0.05 * (1 - t * 0.3) * capR(t, 0.15)).geo, mat, th);
-  return { hand, fingers, thumb: th };
+  const th = new THREE.Group(); th.position.set(-0.22, 0.22, -0.34); th.rotation.set(0.9, 0.5, 0.4); hand.add(th); const t2 = new THREE.Group(); t2.position.set(0, 0, 0.12); th.add(t2);
+  K.mesh(new K.Loft(12, 16).set((t, p) => p.set(0, 0, t * 0.12), knuckle(0.12, 0.05, 0.044), { ref: (t, n) => n.set(0, 1, 0) }).geo, mat, th); K.mesh(new K.Loft(12, 16).set((t, p) => p.set(0, 0, t * 0.09), knuckle(0.09, 0.042, 0.034), { ref: (t, n) => n.set(0, 1, 0) }).geo, mat, t2);
+  return { hand, fingers, thumb: th, thumb2: t2 };
 }
 
 // ---------------------------------------------------------------- the puppet
@@ -217,7 +241,7 @@ export function createProfessor() {
   const woodMat = K.uvMat('cross-wood', 64, 256, (u, v, o) => woodPx(o, u, v, hex('#b8783c'), C.oakD, { cracks: 1, seed: 3 }));
   const bar = (len, r) => K.mesh(new K.Loft(30, 16).set((t, p) => p.set((t - 0.5) * len, 0, 0), (t) => { const e = Math.min(t, 1 - t) * len; return r * (e < 0.035 ? 0.4 + e / 0.035 * 1.1 : e < 0.06 ? 1.5 - (e - 0.035) * 22 : e < 0.075 ? 0.85 : 1 + Math.sin(e * 40) * 0.04); }, { ref: (t, n) => n.set(0, 1, 0) }).geo, woodMat);
   cross.add(bar(1.04, 0.032)); { const b = bar(0.66, 0.03); b.rotation.y = Math.PI / 2; cross.add(b); }
-  const smat = spectralMat(); const S = spectralHand(smat); const ghost = S.hand; ghost.position.set(0, -0.2, -0.05); ctrl.add(ghost); ghost.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+  const smat = spectralMat(), fmat = spectralMat(true); const S = spectralHand(smat, fmat); const ghost = S.hand; ghost.scale.setScalar(1.55); ghost.position.set(0, -0.04, -0.02); ctrl.add(ghost); ghost.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
   const NM = 46; const mp = new Float32Array(NM * 3); const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.BufferAttribute(mp, 3));
   const motes = new THREE.Points(mg, new THREE.PointsMaterial({ color: new THREE.Color(0xb8f4ff).multiplyScalar(2.2), size: 0.045, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })); motes.frustumCulled = false; ctrl.add(motes);
   const moteSeed = Array.from({ length: NM }, (_, i) => [Math.random() * TAU, 0.2 + Math.random() * 0.7, Math.random() * 3, 0.3 + Math.random() * 0.7]);
@@ -265,9 +289,9 @@ export function createProfessor() {
       st.slack.update(dt); const sl = Math.max(0, st.slack.value); if (sl > 0.02) { H.curl.target = 0.15; P.L.target *= 1 - sl; P.R.target *= 1 - sl; P.kL.target *= 1 - sl; P.kR.target *= 1 - sl; P.head.target *= 1 - sl; }
       for (const k in H) H[k].update(dt); for (const k in P) P[k].update(dt);
       ctrl.position.set(H.x.value * 0.6, 3.55 + H.y.value, H.z.value * 0.5); cross.rotation.set(H.tilt.value, 0, H.roll.value);
-      ghost.rotation.set(H.tilt.value * 0.6, Math.sin(t * 0.5) * 0.08, H.roll.value * 0.6); ghost.position.y = -0.2 + Math.sin(t * 1.3) * 0.02;
-      S.fingers.forEach((f, i) => f.forEach((j, k) => { j.rotation.x = H.curl.value * (0.55 + k * 0.25) + Math.sin(t * 2.3 + i) * 0.04; }));
-      S.thumb.rotation.z = -0.2 + H.curl.value * 0.3; smat.uniforms.uTime.value = t;
+      ghost.rotation.set(-0.35 + H.tilt.value * 0.6, 0.25 + Math.sin(t * 0.5) * 0.06, H.roll.value * 0.6); ghost.position.y = -0.04 + Math.sin(t * 1.3) * 0.015;
+      S.fingers.forEach((f, i) => f.forEach((j, k) => { j.rotation.x = H.curl.value * (0.9 + k * 0.35) + Math.sin(t * 2.3 + i * 1.3) * 0.05; }));
+      S.thumb2.rotation.x = 0.3 + H.curl.value * 0.6; smat.uniforms.uTime.value = fmat.uniforms.uTime.value = t; fmat.uniforms.uGlow.value = smat.uniforms.uGlow.value;
       for (let i = 0; i < NM; i++) { const [a, r, ph, sp2] = moteSeed[i]; const y = ((t * sp2 * 0.25 + ph) % 1.6) - 0.3; mp.set([Math.cos(a + t * sp2 * 0.6) * r, y + 0.3, Math.sin(a + t * sp2 * 0.6) * r * 0.8 - 0.25], i * 3); } mg.attributes.position.needsUpdate = true;
       // dangling jitter: little random knocks to the loose joints
       st.nextJit -= dt; if (st.nextJit < 0) { st.nextJit = 0.6 + Math.random() * 1.2; const ks = ['shL', 'shR', 'elL', 'hipL', 'hipR', 'knL', 'knR', 'headZ', 'tails', 'wrL']; Jn[ks[(Math.random() * ks.length) | 0]].kick((Math.random() - 0.5) * 2.4); }
