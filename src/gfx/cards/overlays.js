@@ -3,8 +3,7 @@
 import { Spr, ell, rng, ramp, glint, layer } from './kit.js';
 import { K } from './pal.js';
 import { SUBJECTS, droplet, coil, flames, goldenApple } from './subjects.js';
-import { MAGIC } from './magic.js';
-import { Glow, arc, mote, runeCircle, AUR, ARC } from './magic.js';
+import { MAGIC, blackHole, orbitSigil, Glow, arc, mote, runeCircle, AUR, ARC } from './magic.js';
 import { backdrop, shadow } from './backdrops.js';
 import { BASICS } from '../../game/data/cards.js';
 
@@ -48,17 +47,19 @@ export function coreSubject(id, art) {
   return f();
 }
 
+const SPECIAL_ART = { 'Black Hole': blackHole, Orbit: orbitSigil };
 export function moveArt(move, compose) {
   const art = move.art; const special = !!move.special;
+  if (special && SPECIAL_ART[move.special.name]) return compose('special', SPECIAL_ART[move.special.name](), move.key.length * 31 + 7);
   const bg = backdrop(special ? 'special' : 'move', move.key.length * 31 + 7);
   const sub = coreSubject(art.core, art);
   const bb = sub.bounds(); const gy = bg.ground; const r = rng(move.key.length * 13 + 5);
-  const lift = (art.falling ? 6 : 0) + (art.bouncy ? 9 : 0);
+  const lift = (art.falling ? 6 : 0) + (art.bouncy ? 13 : 0);
   // place the core
   let ox = Math.round(AW / 2 - (sub.ax ?? (bb.x0 + bb.x1) / 2)) + (art.fast || art.rolling ? 6 : 0);
   let oy;
   if (gy != null) oy = gy + 1 - (sub.ay ?? bb.y1) - lift - (sub.float ? 4 : 0);
-  else oy = Math.round(AH / 2 - (bb.y0 + bb.y1 + 1) / 2);
+  else oy = Math.round(AH / 2 - (bb.y0 + bb.y1 + 1) / 2) + (art.falling ? Math.max(0, Math.min(8, AH - 2 - (bb.y1 - bb.y0) - Math.round(AH / 2 - (bb.y1 - bb.y0) / 2))) : 0);
   if (oy + bb.y0 < 1) oy = 1 - bb.y0;
   const X0 = ox + bb.x0, X1 = ox + bb.x1, Y0 = oy + bb.y0, Y1 = oy + bb.y1, CX = Math.round((X0 + X1) / 2), CY = Math.round((Y0 + Y1) / 2);
   if (gy != null) shadow(bg, CX, gy, Math.min(60, bb.w * (lift ? 0.6 : 0.8)));
@@ -69,7 +70,7 @@ export function moveArt(move, compose) {
   const swirl = art.spin ? (front) => { const g = new Glow(AW, AH); const rx = Math.max(16, bb.w * 0.62), ry = 5; const a0 = front ? 0.15 : Math.PI + 0.2, a1 = front ? Math.PI - 0.25 : Math.PI * 2 - 0.2; g.path(arc(CX, CY + 2, rx, ry, a0, a1), WIND, [0.5, 1.1], [6, 4]); g.path(arc(CX, CY - 6, rx * 0.8, ry * 0.8, a0 + 0.3, a1 - 0.3), WIND, [0.5], [5]); g.draw(bg); if (front) { const a = a0; const x = CX + Math.cos(a) * rx, y = CY + 2 + Math.sin(a) * ry; bg.grid(['ww.', 'wWw', 'ww.'], { w: WIND[5], W: WIND[6] }, Math.round(x) - 1, Math.round(y) - 1); } } : null;
   if (swirl) swirl(false);
   if (art.electric) { const g = new Glow(AW, AH); for (let k = 0; k < 3; k++) { const a0 = 0.6 + k * 2.1; const pts = []; for (let i = 0; i <= 7; i++) { const a = a0 + i * 0.22; const d = Math.max(bb.w, bb.h) * 0.62 + (i % 2 ? 3 : -2); pts.push([CX + Math.cos(a) * d, CY + Math.sin(a) * d * 0.8]); } g.path(pts, K.elec, [0.5, 1.1, 1.7], [6, 5, 3]); } g.draw(bg); }
-  if (art.bouncy && gy != null) { const sp = coil({ turns: 3, rx: 7, pitch: 4, top: 3, w: 20, thick: 1.2, ry: 1.8 }); sp.draw(bg, CX - 10, gy + 3 - sp.h + 1); }
+  if (art.bouncy && gy != null) { const sp = coil({ turns: 3, rx: 7, pitch: 3.5, top: 3, w: 20, thick: 1.2, ry: 1.8 }); const sb = sp.bounds(); sp.draw(bg, CX - 10, gy - sb.y1); }
   // ---- the core ----
   sub.draw(bg, ox, oy);
   // ---- in front ----

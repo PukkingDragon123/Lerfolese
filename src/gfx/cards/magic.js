@@ -17,13 +17,17 @@ export class Glow {
   put(x, y, R, t) { x = Math.floor(x); y = Math.floor(y); if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; const i = y * this.w + x; if (t > this.t[i]) { this.t[i] = t; this.r[i] = R; } }
   // stroke a polyline with stepped bands: widths for tones 6,5,4,3(,2)
   path(pts, R, wd = [0.7, 1.5, 2.3, 3.1], tones = [6, 5, 4, 3, 2]) {
-    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-    const m = wd[wd.length - 1] + 1;
-    for (let y = Math.max(0, Math.floor(y0 - m)); y <= Math.min(this.h - 1, Math.ceil(y1 + m)); y++) for (let x = Math.max(0, Math.floor(x0 - m)); x <= Math.min(this.w - 1, Math.ceil(x1 + m)); x++) {
-      const px = x + 0.5, py = y + 0.5; let d = 1e9;
-      for (let i = 0; i + 1 < pts.length; i++) { const [ax, ay] = pts[i], [bx, by] = pts[i + 1]; const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy || 1; const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L)); const e = Math.hypot(ax + dx * t - px, ay + dy * t - py); if (e < d) d = e; }
-      for (let k = 0; k < wd.length; k++) if (d < wd[k]) { this.put(x, y, R, tones[k]); break; }
+    const W = this.w, H = this.h; const m = wd[wd.length - 1];
+    const dist = new Map();
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[i + 1]; const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy || 1;
+      const x0 = Math.max(0, Math.floor(Math.min(ax, bx) - m)), x1 = Math.min(W - 1, Math.ceil(Math.max(ax, bx) + m)), y0 = Math.max(0, Math.floor(Math.min(ay, by) - m)), y1 = Math.min(H - 1, Math.ceil(Math.max(ay, by) + m));
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+        const px = x + 0.5, py = y + 0.5; const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L)); const e = Math.hypot(ax + dx * t - px, ay + dy * t - py);
+        if (e < m) { const k = y * W + x; const o = dist.get(k); if (o === undefined || e < o) dist.set(k, e); }
+      }
     }
+    for (const [k, d] of dist) for (let j = 0; j < wd.length; j++) if (d < wd[j]) { this.put(k % W, Math.floor(k / W), R, tones[j]); break; }
     return this;
   }
   // a filled glowing disc / ellipse
@@ -253,6 +257,21 @@ export function orbitSigil() {
   const [ex, ey] = pt(42, 13, -0.08, 1.9); planet(Math.round(ex), Math.round(ey), 3, AUR);
   s.grid(['WW', 'W.'], { W: '#ffffff' }, cx - 4, cy - 5);
   for (let i = 0; i < 6; i++) { const a = i * 1.05; s.px(Math.round(cx + Math.cos(a) * 11), Math.round(cy + Math.sin(a) * 11), AUR[5]); }
+  return anchor(s, cx, cy, { float: true });
+}
+
+// a black hole: a lightless disc ringed by a photon ring, an accretion disc wrapping over and under it
+export function blackHole() {
+  const W = 100, H = 58; const s = new Spr(W, H); const cx = 50, cy = 29;
+  const g = new Glow(W, H);
+  g.path(arc(cx, cy, 40, 9, Math.PI, Math.PI * 2), EMB, [0.7, 1.5, 2.4, 3.3], [5, 4, 3, 2]);
+  g.path(arc(cx, cy - 2, 15, 14, Math.PI * 1.05, Math.PI * 1.95), AUR, [0.6, 1.3, 2.1], [6, 5, 3]);
+  g.orb(cx, cy, 14, VIO, [1.05, 1.2], [4, 2]);
+  g.draw(s);
+  s.fill(ell(cx, cy, 12.5, 12.5), K.night[0]);
+  const f = new Glow(W, H); f.path(arc(cx, cy, 40, 9, 0, Math.PI), EMB, [0.8, 1.6, 2.5, 3.4], [6, 5, 4, 3]); f.path(arc(cx, cy + 1, 26, 5, 0.15, Math.PI - 0.15), AUR, [0.5, 1.1], [6, 4]); f.draw(s);
+  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; s.px(Math.round(cx + Math.cos(a) * 13.5), Math.round(cy + Math.sin(a) * 13.5), AUR[6]); }
+  const r = rng(12); for (let i = 0; i < 8; i++) { const a = r() * Math.PI * 2, d = 20 + r() * 20; mote(s, cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.55, i % 2 ? VIO : AUR, i < 2); }
   return anchor(s, cx, cy, { float: true });
 }
 

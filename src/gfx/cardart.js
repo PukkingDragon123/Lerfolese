@@ -27,7 +27,7 @@ export function compose(kind, sub, seed) {
     const ax = sub.ax ?? Math.round((bb.x0 + bb.x1) / 2), ay = sub.ay ?? bb.y1;
     let ox = gx - ax + (sub.dx || 0), oy;
     if (bg.ground != null && !sub.float) { oy = bg.ground + 1 - ay + (sub.dy || 0); shadow(bg, gx + (sub.sx || 0), bg.ground, sub.sw || bb.w * 0.8); }
-    else if (bg.ground != null && sub.float) { oy = Math.round(bg.ground - 6 - (bb.y1 - bb.y0) - bb.y0 + (sub.dy || 0)); shadow(bg, gx + (sub.sx || 0), bg.ground, (sub.sw || bb.w) * 0.55); }
+    else if (bg.ground != null && sub.float) { const lift = Math.max(0, Math.min(6, bg.ground - 2 - (bb.y1 - bb.y0))); oy = bg.ground - lift - bb.y1 + (sub.dy || 0); shadow(bg, gx + (sub.sx || 0), bg.ground, (sub.sw || bb.w) * 0.55); }
     else oy = Math.round(AH / 2 - (bb.y0 + bb.y1 + 1) / 2) + (sub.dy || 0);
     sub.draw(bg, ox, oy);
   }
@@ -140,6 +140,7 @@ export function renderCardBack() {
   backPanel(s);
   backArt(compose).draw(s, AX, AY);
   emblem(s, MED[0][0], MED[0][1], 'power', TRIM.brass); emblem(s, MED[1][0], MED[1][1], 'power', TRIM.brass);
+  s.grid(['..a..', '.aba.', 'abbba', '.aba.', '..a..'], { a: TRIM.brass[2], b: TRIM.brass[6] }, CW / 2 - 3, 156);
   windowCorners(s, TRIM.brass);
   const out = toCanvas(s, CS); const g = out.getContext('2d');
   g.textAlign = 'center'; g.textBaseline = 'middle';

@@ -296,7 +296,7 @@ export class Anim {
   constructor(model) {
     this.mixer = new THREE.AnimationMixer(model); this.a = {};
     for (const c of LIB.anims.animations) this.a[c.name] = this.mixer.clipAction(c);
-    this.idle = this.a.idle; this.idle.play(); this.cur = null; this.hold = false;
+    this.idle = this.a.idle; this.idle.play(); this.cur = null; this.hold = false; this.saved = new Map();
     this.mixer.addEventListener('finished', (e) => { if (e.action !== this.cur || this.hold) return; this.idle.reset().play(); this.idle.crossFadeFrom(this.cur, 0.3, false); this.cur = null; });
   }
   play(name, { fade = 0.15, speed = 1, hold = false } = {}) {
@@ -305,8 +305,12 @@ export class Anim {
     if (from !== a) a.crossFadeFrom(from, fade, false); this.cur = a; this.hold = hold;
   }
   revive() { this.hold = false; if (this.cur) { this.idle.reset().play(); this.idle.crossFadeFrom(this.cur, 0.3, false); this.cur = null; } }
-  update(dt) { this.mixer.update(dt); }
+  /** additive local rotation on top of the mixer pose (undone before the next mixer update: the mixer only
+   *  rewrites properties whose sampled value changed, so offsets must not accumulate) */
+  nudge(bone, x = 0, y = 0, z = 0) { if (!bone) return; if (!this.saved.has(bone)) this.saved.set(bone, bone.quaternion.clone()); _q1.setFromEuler(_e.set(x, y, z)); bone.quaternion.multiply(_q1); }
+  update(dt) { for (const [b, q] of this.saved) b.quaternion.copy(q); this.saved.clear(); this.mixer.update(dt); }
 }
+const _e = new THREE.Euler();
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion();
 /** rotate `bone` (world-space delta) so that its child `child` points at world `target` (a one-bone aim; chain two for IK) */
 export function aimBone(bone, child, target, amt = 1) {

@@ -108,28 +108,29 @@ export function miniApple(R = K.red, L = K.leaf, S = K.stem) {
 // a boulder built from hand-placed facets (light from the top-left), with granite flecks, a chip, a crack and lichen
 const ROCK_V = { A: [3, 30], B: [2, 22], C: [6, 14], D: [12, 8], E: [20, 5], F: [29, 4], G: [37, 7], H: [42, 13], I: [45, 21], J: [44, 29], Kk: [40, 33], L: [8, 33], P: [15, 13], Q: [27, 10], Rr: [36, 15], S: [22, 21], T: [33, 23], U: [11, 22], V: [26, 30] };
 const ROCK_F = [['DEFQP', 5], ['BCDPU', 4], ['FGHRrQ', 4], ['PQRrTS', 3], ['UPSVLAB', 3], ['HIJTRr', 1], ['STJKkV', 2], ['LVKk', 1]];
+const RK = 1.2; const rp = (x, y) => [Math.round((x - 2) * RK + 1), Math.round((y - 3) * RK + 1)]; // old layout -> scaled rock
 export function stone({ R = K.stone, seed = 3, vein = true, crack = true, tuft = true } = {}) {
-  const s = new Spr(50, 40); const cx = 25, cy = 22; const ox = 2, oy = 3;
-  const keys = (str) => str.match(/[A-Z][a-z]?/g).map((k) => ROCK_V[k]).map(([x, y]) => [x + ox, y + oy]);
+  const s = new Spr(60, 46);
+  const V = (k) => [ROCK_V[k][0] * RK + 1, ROCK_V[k][1] * RK + 1];
+  const keys = (str) => str.match(/[A-Z][a-z]?/g).map(V);
   for (const [f, t] of ROCK_F) s.fill(poly(keys(f)), R[t]);
-  // lit ridges where light catches an edge
-  for (const [a, b] of [['P', 'Q'], ['P', 'S'], ['Q', 'Rr'], ['U', 'P']]) { const [x0, y0] = ROCK_V[a], [x1, y1] = ROCK_V[b]; s.line(x0 + ox, y0 + oy, x1 + ox, y1 + oy, (x, y) => (s.get(x, y) ? lt(s.get(x, y)) : null)); }
-  // shadowed creases
-  for (const [a, b] of [['Rr', 'T'], ['T', 'S'], ['S', 'V'], ['T', 'J']]) { const [x0, y0] = ROCK_V[a], [x1, y1] = ROCK_V[b]; s.line(x0 + ox, y0 + oy, x1 + ox, y1 + oy, (x, y) => (s.get(x, y) ? dk(s.get(x, y)) : null)); }
+  // lit ridges where light catches an edge, shadowed creases below them
+  for (const [a, b] of [['P', 'Q'], ['P', 'S'], ['Q', 'Rr'], ['U', 'P']]) s.line(...V(a), ...V(b), (x, y) => (s.get(x, y) ? lt(s.get(x, y)) : null));
+  for (const [a, b] of [['Rr', 'T'], ['T', 'S'], ['S', 'V'], ['T', 'J']]) s.line(...V(a), ...V(b), (x, y) => (s.get(x, y) ? dk(s.get(x, y)) : null));
   const r = rng(seed);
-  // granite flecks: a few dark, a few light, never touching
+  // granite flecks: a dark grain with a lit lower lip, never touching
   const ok = (x, y) => { const c = s.get(x, y); return c && rampOf(c)?.[0] === R && [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([a, b]) => s.get(x + a, y + b) === c); };
-  for (let i = 0, n = 0; i < 500 && n < 10; i++) { const x = Math.floor(6 + r() * 40), y = Math.floor(9 + r() * 26); if (!ok(x, y)) continue; const t = tone(s.get(x, y)); if (t < 3) continue; s.px(x, y, R[t - 1]); if (s.get(x + 1, y + 1)) s.px(x + 1, y + 1, R[Math.min(6, t + 1)]); n++; }
-  if (crack) { const pts = [[29, 15], [28, 18], [30, 20], [29, 23], [31, 26]]; for (let i = 0; i + 1 < pts.length; i++) s.line(...pts[i], ...pts[i + 1], R[1]); for (const [x, y] of pts.slice(1)) if (s.get(x - 1, y)) s.px(x - 1, y, lt(s.get(x - 1, y))); }
+  for (let i = 0, n = 0; i < 600 && n < 13; i++) { const x = Math.floor(6 + r() * 48), y = Math.floor(9 + r() * 30); if (!ok(x, y)) continue; const t = tone(s.get(x, y)); if (t < 3) continue; s.px(x, y, R[t - 1]); if (s.get(x + 1, y + 1)) s.px(x + 1, y + 1, R[Math.min(6, t + 1)]); n++; }
+  if (crack) { const pts = [[29, 15], [28, 18], [30, 20], [29, 23], [31, 26]].map(([x, y]) => rp(x, y)); for (let i = 0; i + 1 < pts.length; i++) s.line(...pts[i], ...pts[i + 1], R[1]); for (const [x, y] of pts.slice(1)) if (s.get(x - 1, y)) s.px(x - 1, y, lt(s.get(x - 1, y))); }
   // chipped corner on the top-right shoulder
-  s.grid(['..ab', '.ab.', 'ab..'], { a: R[6], b: R[5] }, 34, 9);
-  if (vein) for (const [x, y, k] of [[17, 12, 0], [36, 14, 1], [12, 25, 1]]) s.grid(k ? ['ab', 'bc'] : ['.a.', 'abc'], { a: K.lichen[5], b: K.lichen[4], c: K.lichen[3] }, x, y);
+  s.grid(['...ab', '..ab.', '.ab..', 'ab...'], { a: R[6], b: R[5] }, ...rp(34, 9));
+  if (vein) { const M = K.moss; s.grid(['....aab..', '..aabbbc.', '.abbbcc.c', 'abbcc.c..', 'bc..c....'], { a: M[5], b: M[4], c: M[3] }, ...rp(11, 9)); s.grid(['.ab', 'abc', '.c.'], { a: K.lichen[5], b: K.lichen[4], c: K.lichen[3] }, ...rp(33, 17)); }
   s.outline();
   if (tuft) { // grass tufts at the foot
-    const G = K.leaf; s.grid(['..a....', '.ab.a..', '.bb.ab.', 'bcbbcb.'], { a: G[5], b: G[4], c: G[3] }, cx - 21, cy + 10);
-    s.grid(['...a.', '.a.ba', 'abcbb'], { a: G[5], b: G[4], c: G[3] }, cx + 15, cy + 11);
+    const G = K.leaf; s.grid(['..a....', '.ab.a..', '.bb.ab.', 'bcbbcb.'], { a: G[5], b: G[4], c: G[3] }, 2, 38);
+    s.grid(['...a.', '.a.ba', 'abcbb'], { a: G[5], b: G[4], c: G[3] }, 49, 39);
   }
-  return anchor(s, cx, 36);
+  return anchor(s, 29, 42);
 }
 
 
@@ -153,7 +154,7 @@ export function droplet({ W = K.water, r = 13, small = false } = {}) {
   } else { t.px(cx - 3, cy - 2, W[6]); t.px(cx - 3, cy - 1, W[5]); t.px(cx - 2, cy - 3, W[6]); }
   t.outline(); t.draw(s, 0, 0);
   if (!small) { // satellite droplets
-    for (const [x, y] of [[cx + 15, cy - 9], [cx - 16, cy - 2]]) { const m = new Spr(s.w, s.h); m.fill(dropShape(x, y, 2.6, y - 5), W[3]); m.px(x - 1, y - 1, W[6]); m.px(x, y + 1, W[5]); m.px(x + 1, y + 1, W[4]); m.outline(); m.draw(s, 0, 0); }
+    for (const [x, y] of [[cx + 13, cy - 13], [cx - 18, cy - 4]]) s.grid(['..o..', '.ooo.', '.oco.', 'owcbo', 'ocbbo', 'obbao', '.ooo.'], { o: W[1], a: W[2], b: W[3], c: W[4], w: W[6] }, x, y);
   }
   return anchor(s, cx, small ? s.h - 1 : cy + rr + 4);
 }
@@ -200,16 +201,16 @@ export function earth(r = 13, { aura = null } = {}) {
 const ARROW_DOWN = ['.aaaaa.', '.abbba.', '.abbba.', '.abbba.', 'aabbbaa', 'abbbbba', '.abbba.', '..aba..', '...a...'];
 export function arrow(s, x, y, up = false, a = '#3a1c2c', b = '#fff4d0') { const g = up ? [...ARROW_DOWN].reverse() : ARROW_DOWN; s.grid(g, { a, b }, x, y); }
 export function gravity({ anti = false } = {}) {
-  const s = new Spr(60, 58); const e = earth(13, { aura: anti ? K.violet[5] : null });
-  if (anti) { s.fill(ell(30, 43, 19, 17), K.violet[2]); s.fill(ell(30, 43, 17, 15), K.violet[3]); s.fill((x, y) => s.get(x, y) === K.violet[3] && (x * 3 + y * 5) % 11 === 0, K.violet[5]); }
-  e.draw(s, 30 - Math.floor(e.w / 2), 43 - Math.floor(e.h / 2));
-  const a = miniApple(); const ay = anti ? 2 : 4; a.draw(s, 24, ay);
+  const s = new Spr(60, 56); const e = earth(12, { aura: anti ? K.violet[5] : null }); const ey = 40;
+  if (anti) { s.fill(ell(30, ey, 17, 15), K.violet[2]); s.fill(ell(30, ey, 15.5, 13.5), K.violet[3]); s.fill((x, y) => s.get(x, y) === K.violet[3] && (x * 3 + y * 5) % 11 === 0, K.violet[5]); }
+  e.draw(s, 30 - Math.floor(e.w / 2), ey - Math.floor(e.h / 2));
+  const a = miniApple(); const ay = anti ? 4 : 8; a.draw(s, 24, ay);
   // motion streaks trailing the apple
-  const trail = anti ? [[27, 20, 24], [30, 20, 27], [33, 20, 23]] : [[27, ay - 3, ay + 1], [33, ay - 6, ay + 1], [30, ay - 4, ay - 1]];
+  const trail = anti ? [[27, 21, 24], [30, 21, 26], [33, 21, 23]] : [[27, ay - 3, ay + 1], [33, ay - 5, ay + 1], [30, ay - 4, ay - 1]];
   for (const [x, y0, y1] of trail) for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) s.px(x, y, '#fff4d0');
-  arrow(s, 9, 12, anti); arrow(s, 44, 12, anti);
+  arrow(s, 9, 11, anti); arrow(s, 44, 11, anti);
   if (anti) for (const [x, y] of [[8, 4], [50, 6], [46, 0]]) { s.grid(['.ab', 'abc', 'bcc'], { a: K.stone[5], b: K.stone[4], c: K.stone[2] }, x, y); s.px(x + 1, y + 4, '#fff4d0'); s.px(x + 1, y + 5, '#fff4d0'); }
-  s.float = false; return anchor(s, 30, 57);
+  s.float = true; return anchor(s, 30, 53);
 }
 
 // ---------- mass: a cast-iron 1 kg weight ----------
@@ -254,7 +255,7 @@ export function weight({ dark = false } = {}) {
 }
 
 // ---------- inertia: a brass ball rolling along rails ----------
-export function railBall({ steel = false, len = 64, ballX = 40 } = {}) {
+export function railBall({ steel = false, len = 124, ballX = 66 } = {}) {
   const s = new Spr(len, 40); const B = steel ? K.steel : K.brass;
   // sleepers
   for (let x = 2; x < len - 2; x += 8) layer(s, (t) => { t.fill(poly([[x, 32], [x + 5, 32], [x + 4, 36], [x - 1, 36]]), (px, py) => K.oak[py === 32 ? 5 : py > 34 ? 2 : 3]); });
@@ -336,7 +337,7 @@ export function magnifier({ prism = false } = {}) {
 }
 
 // ---------- spring: a steel coil ----------
-export function coil({ C = K.steel, turns = 5, rx = 10, top = 6, pitch = 7, w = 30, thick = 1.5, ry = 3.2 } = {}) {
+export function coil({ C = K.steel, turns = 5, rx = 12, top = 6, pitch = 7.5, w = 34, thick = 1.7, ry = 3.6 } = {}) {
   const s = new Spr(w, Math.ceil(top + turns * pitch + 10)); const cx = w / 2;
   const ring = (i, front) => { const pts = []; for (let k = 0; k <= 40; k++) { const a = front ? (k / 40) * Math.PI : Math.PI + (k / 40) * Math.PI; const f = front ? k / 80 : 0.5 + k / 80; pts.push([cx - Math.cos(a) * rx, top + (i + f) * pitch + Math.sin(a) * ry]); } return pts; };
   const back = new Spr(s.w, s.h); for (let i = 0; i < turns; i++) tube(back, ring(i, false), thick * 0.8, C, [2, 2, 1, 1]);
@@ -349,7 +350,7 @@ export function coil({ C = K.steel, turns = 5, rx = 10, top = 6, pitch = 7, w = 
 
 // ---------- mutants ----------
 export function goldenApple() {
-  const s = new Spr(56, 52); const a = apple({ R: K.gold, specks: true, streaks: false }); a.draw(s, 5, 1);
+  const s = new Spr(56, 52); const a = apple({ R: K.gold, specks: false, streaks: false }); a.draw(s, 5, 1);
   glint(s, 'big', 9, 12, K.gold[5], '#ffffff'); glint(s, 'star', 49, 22, K.gold[5], '#ffffff'); glint(s, 'small', 46, 42, K.gold[5], '#ffffff'); glint(s, 'small', 6, 34, K.gold[4], K.gold[6]);
   return anchor(s, 27, 49);
 }
@@ -411,7 +412,7 @@ export function pumice() {
     for (let gy = 9; gy < 31; gy += 3) for (let gx = cx - 20; gx < cx + 20; gx += 3) {
       const x = gx + Math.floor(r() * 2) + (gy % 2), y = gy + Math.floor(r() * 2); const c = t.get(x, y); if (!c || !t.get(x + 2, y + 2) || !t.get(x - 1, y - 1) || r() < 0.3) continue;
       const big = Math.abs(x - cx) < 10 && r() < 0.4; const tt = tone(c);
-      t.px(x, y, P[Math.max(0, tt - 2)]); if (big) { t.px(x + 1, y, P[Math.max(0, tt - 2)]); t.px(x, y + 1, P[Math.max(0, tt - 1)]); }
+      t.px(x, y, P[Math.max(1, tt - 3)]); if (big) { t.px(x + 1, y, P[Math.max(1, tt - 3)]); t.px(x, y + 1, P[Math.max(1, tt - 2)]); }
       t.px(x + (big ? 2 : 1), y + (big ? 1 : 0), P[Math.min(6, tt + 1)]); t.px(x + (big ? 1 : 0), y + (big ? 2 : 1), P[Math.min(6, tt + 1)]);
     }
     // waterline: the submerged part takes on the water's colour
@@ -490,13 +491,14 @@ export function iceCrystal() {
 }
 const RAINBOW = () => [K.paint_red, K.flame, K.gold, K.leaf, K.cyan, K.paint_blue, K.violet];
 export function prismSubject() {
-  const s = new Spr(78, 48); const ax = 34, top = 4, base = 42;
+  const s = new Spr(96, 48); const ax = 44, top = 4, base = 42;
   const L = [ax - 16, base], Rt = [ax + 16, base], T = [ax, top];
   // white beam in, rainbow fan out
-  const g = new Glow(s.w, s.h); g.path([[0, 30], [ax - 8, 25]], ramp('#3a3a5a', '#6a6a8a', '#9a9ab8', '#c8c8e0', '#e8e8f4', '#f8f8ff', '#ffffff'), [0.6, 1.3, 2], [6, 5, 4]); g.draw(s);
+  const g = new Glow(s.w, s.h); g.path([[0, 31], [ax - 8, 25]], ramp('#3a3a5a', '#6a6a8a', '#9a9ab8', '#c8c8e0', '#e8e8f4', '#f8f8ff', '#ffffff'), [0.6, 1.3, 2], [6, 5, 4]); g.draw(s);
   const RB = RAINBOW(); const ex = ax + 7, ey = 24;
-  for (let i = 0; i < 6; i++) { const y0 = 8 + i * 6, y1 = y0 + 6; s.fill(poly([[ex, ey + (i - 3) * 0.6], [78, y0], [78, y1], [ex, ey + (i - 2) * 0.6]]), (x, y) => RB[i][x > 68 ? 3 : 4]); }
-  for (let i = 0; i < 6; i++) { const y0 = 8 + i * 6; for (let x = ex + 6; x < 78; x += 1) { const yy = Math.round(ey + (i - 3) * 0.6 + ((x - ex) / (78 - ex)) * (y0 - ey - (i - 3) * 0.6)); if (s.get(x, yy)) s.px(x, yy, RB[i][5]); } }
+  const XE = 96;
+  for (let i = 0; i < 6; i++) { const y0 = 2 + i * 7, y1 = y0 + 7; s.fill(poly([[ex, ey + (i - 3) * 0.6], [XE, y0], [XE, y1], [ex, ey + (i - 2) * 0.6]]), (x) => RB[i][x > 80 ? 3 : 4]); }
+  for (let i = 0; i < 6; i++) { const y0 = 2 + i * 7; for (let x = ex + 6; x < XE; x += 1) { const yy = Math.round(ey + (i - 3) * 0.6 + ((x - ex) / (XE - ex)) * (y0 - ey - (i - 3) * 0.6)); if (s.get(x, yy)) s.px(x, yy, RB[i][5]); } }
   layer(s, (t) => {
     bevel(t, [T, Rt, L], K.ice, { width: 2.2, face: 4, litT: 6, sideT: 5, sideD: 3, darkT: 2 });
     t.fill(poly([[ax - 2, 16], [ax + 7, 34], [ax - 10, 34]]), (x, y, o) => (o ? lt(o) : o));
@@ -530,7 +532,7 @@ export function lavaStone() {
   const LAVA = ramp('#0c060c', '#1e1018', '#33202a', '#4c3034', '#6a4440', '#8c5c4c', '#b0806a');
   const s = stone({ R: LAVA, vein: false, tuft: false, crack: false });
   const g = new Glow(s.w, s.h);
-  for (const pts of [[[12, 14], [18, 18], [17, 24], [24, 28]], [[30, 10], [27, 17], [33, 21], [38, 28]], [[18, 18], [26, 17]], [[33, 21], [40, 18]]]) g.path(pts, K.flame, [0.5, 1.1], [5, 3]);
+  for (const pts of [[[12, 14], [18, 18], [17, 24], [24, 28]], [[30, 10], [27, 17], [33, 21], [38, 28]], [[18, 18], [26, 17]], [[33, 21], [40, 18]]]) g.path(pts.map(([x, y]) => rp(x, y)), K.flame, [0.5, 1.1], [5, 3]);
   g.draw(s, 0, 0); s.fill((x, y) => !s.get(x, y + 1) && !!s.get(x, y) && false, null);
   return s;
 }

@@ -33,7 +33,7 @@ export const SPECIALS = [
   { key: 'gravity+inertia+rotation', name: 'Orbit', exact: true, moon: true, note: 'Falling forever and always missing. Relatable.' },
   { key: 'force+force+force', name: 'Unstoppable Force', exact: true, bonus: 1.25, note: 'Nobody has ever stopped it. Nobody has tried.' },
   { key: 'mass+mass+mass', name: 'Immovable Object', exact: true, selfBlockMul: 2, note: 'Paradox pending.' },
-  { key: 'force+mass', name: 'F = ma', exact: true, bonus: 1.2, note: 'The equation, as a punch.' },
+  { key: 'force+mass', name: 'F = ma', exact: true, bonus: 1.2, note: 'The equation, as a shockwave.' },
   { key: 'heat+lens', name: "Archimedes' Heat Ray", exact: true, burnMul: 2, note: 'Old Syracuse trick. Ships hated it.' },
   { key: 'lens+spark', name: 'Death Ray', exact: true, bonus: 1.4, note: 'I have named it responsibly.' },
   { key: 'spring+stone', name: 'Bouncing Boulder', exact: true, note: 'Boing, but geological.' },

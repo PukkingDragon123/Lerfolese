@@ -168,24 +168,6 @@ export function createProfessor() {
   let M = null; // loaded model parts
   const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3(), grip = new THREE.Vector3(), elbow = new THREE.Vector3();
 
-  K.withAssets(['base_male', 'anims', 'male_shade.png', 'hair_long'], () => {
-    const R = resources(); const P = K.makeBody('male'); const { model, bones } = P;
-    P.body.material = R.mat; P.eyes.material = R.eyeMat; model.scale.setScalar(SCALE); body.add(model);
-    K.headPiece('hair_long', R.hairMat, P.body, { push: 0.03, seed: 4, scale: 1.08 });
-    bones.Head.add(head); head.position.set(0, 0.11, 0.02); bones.Head.add(jaw); jaw.position.set(0, 0.03, 0.08);
-    bones.spine_03.add(torso); torso.position.set(0, 0, -0.12);
-    bones.hand_r.add(hands[0]); bones.hand_l.add(hands[1]); hands[0].position.set(0, 0.08, 0); hands[1].position.set(0, 0.08, 0);
-    bones.calf_r.add(knees[0]); bones.calf_l.add(knees[1]); knees[0].position.set(0, 0, 0); knees[1].position.set(0, 0, 0);
-    for (const [s, k] of [[-1, 'r'], [1, 'l']]) { arms.push({ sh: bones['upperarm_' + k], el: bones['lowerarm_' + k], wr: bones['hand_' + k], hand: bones['hand_' + k], s }); legs.push({ hip: bones['thigh_' + k], kn: bones['calf_' + k], an: bones['foot_' + k], s }); }
-    // the ghost: a translucent additive copy of the same base mesh, holding the cross
-    const G = K.makeBody('male'); G.body.material = ghostMat; G.eyes.material = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xe8fbff).multiplyScalar(3) });
-    G.model.traverse((o) => { if (o.isMesh) o.castShadow = false; }); G.model.scale.setScalar(SCALE * 0.78); G.model.position.y = -1.45 * SCALE * 0.78 + 0.05; G.model.rotation.x = 0.25; ghost.add(G.model);
-    const bind = {}; for (const k of ['Head', 'upperarm_l', 'upperarm_r', 'lowerarm_l', 'lowerarm_r']) bind[k] = G.bones[k].quaternion.clone();
-    M = { R, P, bones, G, bind, anim: new K.Anim(model) };
-    M.anim.idle.time = Math.random() * 2;
-    api.update(0);
-  });
-
   const api = {
     root, head, jaw, ctrl, arms, legs, torso, body, ghost,
     handWorld(i = 1, out = new THREE.Vector3()) { root.updateMatrixWorld(true); return hands[i].getWorldPosition(out); },
@@ -215,7 +197,7 @@ export function createProfessor() {
       if (M) {
         const { bones: B, anim, R, G } = M; if (!globalThis.__noanim) anim.update(dt);
         // marionette looseness on top of the animation: floppy limbs, string-pulled wrists, head look and talk nods
-        const rm = (b, x, y, z) => K.nudge(b, x, y, z);
+        const rm = (b, x, y, z) => anim.nudge(b, x, y, z);
         rm(B.spine_01, st.slump.value * 0.05, 0, Math.sin(t * 1.1 + 0.5) * 0.03);
         rm(B.upperarm_l, Math.sin(t * 1.7) * 0.08, 0, Math.sin(t * 1.3) * 0.05); rm(B.upperarm_r, Math.sin(t * 1.7 + 1) * 0.08, 0, Math.sin(t * 1.3 + 2) * 0.05);
         rm(B.hand_l, Math.sin(t * 2.3) * 0.15, 0, 0); rm(B.hand_r, Math.sin(t * 2.3 + 1) * 0.15, 0, 0);
@@ -249,6 +231,24 @@ export function createProfessor() {
     },
   };
   root.userData.api = api;
+  K.withAssets(['base_male', 'anims', 'male_shade.png', 'hair_long'], () => {
+    const R = resources(); const P = K.makeBody('male'); const { model, bones } = P;
+    P.body.material = R.mat; P.eyes.material = R.eyeMat; model.scale.setScalar(SCALE); body.add(model);
+    K.headPiece('hair_long', R.hairMat, P.body, { push: 0.03, seed: 4, scale: 1.08 });
+    bones.Head.add(head); head.position.set(0, 0.11, 0.02); bones.Head.add(jaw); jaw.position.set(0, 0.03, 0.08);
+    bones.spine_03.add(torso); torso.position.set(0, 0, -0.12);
+    bones.hand_r.add(hands[0]); bones.hand_l.add(hands[1]); hands[0].position.set(0, 0.08, 0); hands[1].position.set(0, 0.08, 0);
+    bones.calf_r.add(knees[0]); bones.calf_l.add(knees[1]); knees[0].position.set(0, 0, 0); knees[1].position.set(0, 0, 0);
+    for (const [s, k] of [[-1, 'r'], [1, 'l']]) { arms.push({ sh: bones['upperarm_' + k], el: bones['lowerarm_' + k], wr: bones['hand_' + k], hand: bones['hand_' + k], s }); legs.push({ hip: bones['thigh_' + k], kn: bones['calf_' + k], an: bones['foot_' + k], s }); }
+    // the ghost: a translucent additive copy of the same base mesh, holding the cross
+    const G = K.makeBody('male'); G.body.material = ghostMat; G.eyes.material = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xe8fbff).multiplyScalar(3) });
+    G.model.traverse((o) => { if (o.isMesh) o.castShadow = false; }); G.model.scale.setScalar(SCALE * 0.78); G.model.position.y = -1.45 * SCALE * 0.78 + 0.05; G.model.rotation.x = 0.25; ghost.add(G.model);
+    const bind = {}; for (const k of ['Head', 'upperarm_l', 'upperarm_r', 'lowerarm_l', 'lowerarm_r']) bind[k] = G.bones[k].quaternion.clone();
+    M = { R, P, bones, G, bind, anim: new K.Anim(model) };
+    M.anim.idle.time = Math.random() * 2;
+    api.update(0);
+  });
+
   api.update(0.016);
   return api;
 }
