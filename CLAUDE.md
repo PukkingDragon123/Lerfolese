@@ -7,6 +7,7 @@
 - Look: anime/cartoon BLACK INK OUTLINES on all 3D (engine InkPass, src/core/ink.js); clean cel-like banded textures.
 - Map: Slay-the-Spire-style hand-drawn parchment map but cooler and alive (wind grass physics, flowers, 2D pixel sun, pixel VFX). NO TREES on the map.
 - Humans may reuse the user's Limbo Phobia human generator (repo PukkingDragon123/fictional-octo-train).
+- Sir Isaac = BROKEN jointed wooden marionette (cracks, nails, twine, one arm is a TABLE LEG), moved by a magical translucent INVISIBLE HAND holding the control cross with glowing strings. VFX must be punchy anime-style (impact frames, shockwaves, speed lines, trails).
 - Card art for Laws/Powers, Rotation, Force: magical effects (sigils, vortices, arcs), NO hands.
 - Draw CUSTOM art yourself: detailed high-resolution pixel art (shading ramps, selective outlines, highlights, animation frames), like `src/gfx/critters.js` birds and the card illustrations, and/or detailed high-poly models with real structure (trees with branches and leaves).
 - Style: HD-2D. Detailed 3D world plus detailed 2D pixel-art life and objects.

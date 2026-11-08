@@ -40,7 +40,7 @@ export class MapScene extends UIScreen {
     this.engine.add(this); this.pushInput(); audio.playMusic('map'); audio.setAmbSet(['wilderness', 'wind']);
     this.buildHUD();
     const cur = run.pos ? this.map.nodes[run.pos] : null;
-    this.focus = new THREE.Vector3(cur ? cur.x : 0, 0, cur ? cur.z - 3 : -2); this.yaw = new Spring(0.0, 6, 0.8); this.pitch = new Spring(1.02, 6, 0.8); this.dist = new Spring(16.5, 6, 0.8); this.fx = new Spring(this.focus.x, 4, 0.9); this.fz = new Spring(this.focus.z, 4, 0.9);
+    this.focus = new THREE.Vector3(cur ? cur.x : 0, 0, cur ? cur.z - 3 : -1.1); this.yaw = new Spring(0.0, 6, 0.8); this.pitch = new Spring(1.02, 6, 0.8); this.dist = new Spring(16.5, 6, 0.8); this.fx = new Spring(this.focus.x, 4, 0.9); this.fz = new Spring(this.focus.z, 4, 0.9);
     if (first) { this.dist.value = 40; this.pitch.value = 1.3; this.fz.value = -14; this.game.journal.seenIntro || this.story(); }
     this.refreshNodes();
   }
@@ -76,16 +76,16 @@ export class MapScene extends UIScreen {
     this.addButton(new Button3D('Journal', () => this.openJournal(), { w: 3.6, h: 1.1, size: 50, color: 'purple' }), W - 3.2, H - 4.4, 2);
     this.addButton(new Button3D(`Deck (${r.deck.length})`, () => this.openDeck(), { w: 3.6, h: 1.1, size: 46 }), W - 3.2, H - 5.8, 2);
     this.addButton(new Button3D('Menu', () => this.game.toMenu(), { w: 3.6, h: 1.1, size: 50, color: 'red' }), W - 3.2, H - 7.2, 2);
-    this.hint = new Strip(['Drag to rotate · scroll to zoom · click a lit marker to travel'], { maxW: 22, font: 'handS', tone: 3 }); uiPos(this.hint.group, 0, -H + 0.8, 2); this.root.add(this.hint.group);
+    this.hint = new Strip(['Drag or scroll to explore · click a marked node to travel'], { maxW: 22, font: 'handS', tone: 3 }); uiPos(this.hint.group, 0, -H + 0.8, 2); this.root.add(this.hint.group);
   }
   async openJournal() { const { Journal } = await import('./journal.js'); if (!this.journal) { this.journal = new Journal(this.game, this.root); } this.journal.open(); }
   async openDeck() { const { DeckView } = await import('./deckview.js'); this.deckView = new DeckView(this.game, this.root, this.run.deck); this.deckView.open(); }
 
   // ------------------------------------------------------------ input
   onDragStart() { if (this.journal?.isOpen || this.deckView?.isOpen) return; this.dragging = true; audio.play('wood_creak', { vol: 0.4 }); return true; }
-  onDrag() { if (!this.dragging) return; const y = this.input.y; this.fz.target = clamp(this.fz.target - (y - (this._dragY ?? y)) * 0.034, -24, -2.6); this._dragY = y; }
+  onDrag() { if (!this.dragging) return; const y = this.input.y; this.fz.target = clamp(this.fz.target - (y - (this._dragY ?? y)) * 0.034, -24, -1.1); this._dragY = y; }
   onDragEnd() { this.dragging = false; this._dragY = null; }
-  onWheel(e) { this.fz.target = clamp(this.fz.target + e.dy * 0.012, -24, -2.6); }
+  onWheel(e) { this.fz.target = clamp(this.fz.target + e.dy * 0.012, -24, -1.1); }
   onPinch(e) { this.dist.target = clamp(this.dist.target / e.scale, 11, 22); }
   onKey(e) { if (e.code === 'KeyJ') this.openJournal(); if (e.code === 'ArrowUp') this.fz.target -= 3; if (e.code === 'ArrowDown') this.fz.target += 3; }
   rayNodes() { return this.sheet.pick(this.input.ndc); }

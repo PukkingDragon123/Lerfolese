@@ -83,7 +83,7 @@ export class LimboBody {
 const DUR = { attack: 0.9, throw: 0.8, hit: 0.55, cast: 1.1, cheer: 1.4, death: 1.2, punch: 0.7 };
 const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 export class LimboAnim {
-  constructor(L, { sway = 1, speed = 1 } = {}) { this.L = L; this.t = Math.random() * 10; this.mode = 'idle'; this.mt = 0; this.hold = false; this.sway = sway; this.speed = speed; this.dead = 0; this.extra = null; }
+  constructor(L, { sway = 1, speed = 1, fall = true } = {}) { this.fall = fall; this.L = L; this.t = Math.random() * 10; this.mode = 'idle'; this.mt = 0; this.hold = false; this.sway = sway; this.speed = speed; this.dead = 0; this.extra = null; }
   play(mode, { hold = false } = {}) { this.mode = mode; this.mt = 0; this.hold = hold; }
   /** pose = { joint: [x, y, z] } accumulated; extra(pose, t) may add per-character offsets */
   update(dt) {
@@ -106,7 +106,7 @@ export class LimboAnim {
     if (this.mode !== 'idle' && this.mode !== 'death' && this.mt > d) this.mode = 'idle';
     this.extra?.(add, t, this);
     for (const j in B) { if (SEC_BONES.includes(j)) continue; const p2 = P[j]; if (p2) B[j].rotation.set(p2[0], p2[1], p2[2]); else B[j].rotation.set(0, 0, 0); }
-    const hips = B.hips; hips.position.y = this.L.dims.off.hips[1] - this.dead * this.L.dims.off.hips[1] * 0.78; hips.rotation.x += -this.dead * 1.25;
+    const hips = B.hips; if (this.fall) { hips.position.y = this.L.dims.off.hips[1] - this.dead * this.L.dims.off.hips[1] * 0.78; hips.rotation.x += -this.dead * 1.25; }
     this.L.update(dt);
   }
 }

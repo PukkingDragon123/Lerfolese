@@ -91,7 +91,7 @@ function paintParchment(map, seed) {
   // burnt rim + vignette
   const vg = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.62); vg.addColorStop(0, 'rgba(120,70,30,0)'); vg.addColorStop(1, 'rgba(120,70,30,0.42)'); g.fillStyle = vg; g.fillRect(0, 0, W, H);
   g.restore(); g.save(); outline(); g.clip(); outline(); g.strokeStyle = 'rgba(80,42,18,0.55)'; g.lineWidth = 16; g.stroke(); g.strokeStyle = '#4a2410'; g.lineWidth = 4; g.stroke(); g.restore();
-  return { canvas: cv, groves, pathD, nodeD, free };
+  return { canvas: cv, groves, pathD, nodeD, free, hill: (x, z) => n.fbm(x * 0.12 + 20, z * 0.12 + 4, 3) };
 }
 
 // ---------------------------------------------------------------- pixel-art ink stamps (icons, rings, dots, splash)
@@ -141,26 +141,27 @@ export class MapSheet {
   heightAt(x, z) { return sheetY(x, z); }
   // wind grass in meadow patches (not on routes, nodes, water or the cartouche)
   grass() {
-    const rnd = mulberry32(17); const n = makeNoise(29); const spots = []; const { free } = this.art;
-    for (let i = 0; i < 26000 && spots.length < 9000; i++) {
-      const x = (rnd() - 0.5) * (SW - 1.2), z = SHEET.ZN - 0.8 - rnd() * (SL - 1.6); const m = n.fbm(x * 0.22 + 4, z * 0.22, 3);
-      if (m < 0.47 || z > SHEET.ZN - 2.2 || z < -27 || Math.abs(x - riverX(z)) < 0.75 || !free(x, z, 0.32)) continue;
-      spots.push([x, sheetY(x, z) - 0.01, z, 0.07 + rnd() * 0.09 + (m - 0.47) * 0.2, rnd()]);
+    const rnd = mulberry32(17); const n = makeNoise(29); const spots = []; const { free } = this.art; const tufts = [];
+    for (let i = 0; i < 4000 && tufts.length < 300; i++) {
+      const z = SHEET.ZN - 2.4 - rnd() * (SL - 5); const r = rnd(); let x;
+      if (r < 0.4 && z > -25) x = riverX(z) + (rnd() < 0.5 ? -1 : 1) * (0.62 + rnd() * 0.3);          // river banks
+      else if (r < 0.7) { if (z > -20.5) continue; x = (rnd() - 0.5) * (SW - 2.4); if (n.fbm(x * 0.3 + 9, z * 0.3, 3) < 0.5) continue; } // marsh fringe
+      else { x = (rnd() - 0.5) * (SW - 2.4); if (this.art.hill(x, z) < 0.57) continue; } // the inked meadow / hill patches
+      if (Math.abs(x) > SW / 2 - 1.1 || !free(x, z, 0.5)) continue; tufts.push([x, z]);
     }
+    for (const [cx, cz] of tufts) { const k = 5 + Math.floor(rnd() * 4); for (let b = 0; b < k; b++) { const a = rnd() * TAU, d = rnd() * 0.11; const x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d; spots.push([x, sheetY(x, z) - 0.01, z, 0.045 + rnd() * 0.055, rnd()]); } }
     this.grassMesh = T.grassBlades(spots, { dry: 0.2 }); this.world.add(this.grassMesh);
   }
   // toon wildflowers in the meadows (no trees on the map) + reed blades along the river banks and marsh pools
   flowers() {
     this.flowerList = []; const rnd = mulberry32(5); const n = makeNoise(29); const kinds = ['celandine_01', 'flower_gazania', 'shrub_sorrel_01'];
-    for (let i = 0, k = 0; i < 600 && k < 34; i++) {
-      const x = (rnd() - 0.5) * (SW - 2), z = SHEET.ZN - 2.4 - rnd() * (SL - 6); if (z < -26 || n.fbm(x * 0.22 + 4, z * 0.22, 3) < 0.5 || Math.abs(x - riverX(z)) < 0.9 || !this.art.free(x, z, 0.5)) continue; k++;
-      const name = kinds[k % kinds.length]; const s = name === 'shrub_sorrel_01' ? 0.7 : 0.55 + rnd() * 0.2;
-      toonModel(name, rnd, { sat: 1.6, leafTint: '#fffbd8', tint: '#fff4e8', wind: 1.4, windH: 3 }).then((o) => { o.scale.multiplyScalar(s); o.position.set(x, sheetY(x, z) - 0.01, z); o.rotation.y = rnd() * TAU; this.world.add(o); this.flowerList.push(o); }).catch(() => {});
-    }
-    const reeds = []; for (let i = 0; i < 9000 && reeds.length < 2600; i++) {
+    const clusters = []; for (let i = 0; i < 900 && clusters.length < 11; i++) { const x = (rnd() - 0.5) * (SW - 3), z = SHEET.ZN - 2.6 - rnd() * (SL - 8); if (z < -26 || this.art.hill(x, z) < 0.53 || Math.abs(x - riverX(z)) < 1.1 || !this.art.free(x, z, 0.8) || clusters.some(([a, b]) => Math.hypot(a - x, b - z) < 2.6)) continue; clusters.push([x, z]); }
+    clusters.forEach(([cx, cz], ci) => { const name = kinds[ci % kinds.length]; const m = 3 + Math.floor(rnd() * 3); for (let k = 0; k < m; k++) { const a = (k / m) * TAU + rnd(), d = k ? 0.22 + rnd() * 0.12 : 0; const x = cx + Math.cos(a) * d, z = cz + Math.sin(a) * d; const s = (name === 'shrub_sorrel_01' ? 1.5 : 1.35) * (0.85 + rnd() * 0.3);
+      toonModel(name, rnd, { sat: 1.6, leafTint: '#fffbd8', tint: '#fff4e8', wind: 1.4, windH: 3 }).then((o) => { o.scale.multiplyScalar(s); o.position.set(x, sheetY(x, z) - 0.01, z); o.rotation.y = rnd() * TAU; this.world.add(o); this.flowerList.push(o); }).catch(() => {}); } });
+    const reeds = []; for (let i = 0; i < 9000 && reeds.length < 900; i++) {
       const z = SHEET.ZN - 1 - rnd() * (SL - 3); const marsh = z < -21; const x = marsh ? (rnd() - 0.5) * (SW - 2) : riverX(z) + (rnd() < 0.5 ? -1 : 1) * (0.5 + rnd() * 0.32);
-      if (marsh && n.fbm(x * 0.3 + 9, z * 0.3, 3) < 0.56) continue; if (!marsh && z < -25) continue; if (!this.art.free(x, z, 0.3)) continue;
-      reeds.push([x, sheetY(x, z) - 0.01, z, 0.18 + rnd() * 0.2, 0]);
+      if (marsh && n.fbm(x * 0.3 + 9, z * 0.3, 3) < 0.6) continue; if (!marsh && z < -25) continue; if (!this.art.free(x, z, 0.45)) continue;
+      reeds.push([x, sheetY(x, z) - 0.01, z, 0.12 + rnd() * 0.12, 0]);
     }
     const r = T.grassBlades(reeds, { dry: 0 }); for (let i = 0; i < reeds.length; i++) r.setColorAt(i, new THREE.Color().setHSL(0.17 + Math.random() * 0.06, 0.45, 0.42 + Math.random() * 0.15)); r.instanceColor.needsUpdate = true; this.world.add(r);
   }
@@ -201,7 +202,7 @@ export class MapSheet {
   // the drawn ink trail while the marionette walks a route
   trail(a, b, dur) { const len = Math.hypot(b.x - a.x, b.z - a.z); const k = Math.max(2, Math.floor(len / 0.3)); for (let i = 1; i < k; i++) this.trailQ.push({ at: (i / k) * dur, x: a.x + (b.x - a.x) * (i / k), z: a.z + (b.z - a.z) * (i / k) }); this.trailT = 0; }
   update(dt, t, { fz = -4, dist = 16.5, pitch = 1.02, ndc = null } = {}) {
-    const f = this.focus.set(0, 0.3, clamp(fz, -24, -2.6)); const cam = this.camera; cam.position.set(0, f.y + Math.sin(pitch) * dist, f.z + Math.cos(pitch) * dist); cam.lookAt(f);
+    const f = this.focus.set(0, 0.3, clamp(fz, -24, -1.1)); const cam = this.camera; cam.position.set(0, f.y + Math.sin(pitch) * dist, f.z + Math.cos(pitch) * dist); cam.lookAt(f);
     this.sun.position.set(f.x - 5, 13, f.z - 7); this.sun.target.position.copy(f);
     if (ndc) { this.ray.setFromCamera(ndc, cam); const hit = this.ray.ray.intersectPlane(this.ptrPlane, new V3()); if (hit) T.WIND.ptr.value.set(hit.x, sheetY(hit.x, hit.z), hit.z); }
     for (const [, v] of this.nodeViews) { v.s.update(dt); v.g.scale.setScalar(v.s.value); if (v.reachable) { v.icon.rotation.z = Math.sin(t * 4.2 + v.ph) * 0.1; const k = (t * 0.9 + v.ph) % 1; v.ring.scale.setScalar(0.85 + k * 0.45); v.ring.material.opacity = 1 - k; } else v.icon.rotation.z = 0; }

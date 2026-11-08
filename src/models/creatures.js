@@ -48,7 +48,7 @@ function limboHumanoid(id, cfg, seed) {
   const root = new THREE.Group(); root.name = id;
   const L = new LimboBody(cfg.app, cfg.outfit, { severed: cfg.severed || [], hook: cfg.hook, overrides: cfg.overrides || {} });
   const sc = cfg.height / (cfg.refH || L.P.crown); L.root.scale.setScalar(sc); root.add(L.root);
-  const anim = new LimboAnim(L, { sway: cfg.sway ?? 1, speed: cfg.speed ?? 1 }); anim.t += seed * 1.7;
+  const anim = new LimboAnim(L, { sway: cfg.sway ?? 1, speed: cfg.speed ?? 1, fall: cfg.fall ?? true }); anim.t += seed * 1.7;
   const head = new THREE.Group(); L.bones.head.add(head); head.position.set(0, 0.14, 0.03);
   const R_ = rig(root, cfg.height); R_.head = head; const M = { L, B: L.bones, P: L.P, anim, x: {}, root, sc };
   R_.onAct = (mode) => { const a = { ...ANIM, attack: cfg.attack || 'attack', cast: cfg.cast || 'cast' }[mode]; if (a) anim.play(a, { hold: mode === 'die' }); if (mode === 'hurt') L.setExpression('pain', 0.9); if (mode === 'attack' || mode === 'cast') L.setExpression(cfg.angry || 'angry', 1.2); };
@@ -86,14 +86,14 @@ function satyrHook(paint, P, spec) {
 const goatFur = () => K.uvMat('goatfur', 128, 128, (u, v, o) => K.fur2(u, v, o, SAT.fur, 12, 7, 0.52));
 const hoofMat = () => K.uvMat('hoof', 32, 32, (u, v, o) => { K.tone(SAT.hoof, K.band(0.5 + Math.cos(u * 6.28) * 0.3 + v * 0.15, 3), o.col); });
 const tufty = (a, t, amt) => 1 + amt * Math.abs((((a / (Math.PI * 2)) * 9 + t * 2) % 1) - 0.5) * 2;
-function goatLeg(x, P, furM, hoofM) { // digitigrade shin from the knee: back to the hock, down the cannon to a cloven hoof
-  const g = new THREE.Group(); const k = P.kneeY;
-  const leg = new K.Loft(24, 16).set(K.curve([[x, k + 0.05, 0.0], [x, k - 0.09, -0.05], [x, k * 0.52, -0.115], [x, k * 0.35, -0.1], [x, 0.11, -0.05], [x, 0.06, -0.02]]),
-    (t) => { const r = t < 0.3 ? 0.075 - t * 0.085 : t < 0.55 ? 0.05 - (t - 0.3) * 0.055 : t < 0.85 ? 0.036 - (t - 0.55) * 0.02 : 0.03 + (t - 0.85) * 0.13; return [r, r]; },
-    { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => tufty(a, t, t < 0.45 || t > 0.86 ? 0.28 : 0.07) });
-  K.mesh(leg.geo, furM, g);
-  for (const s of [-1, 1]) { const tx = x + s * 0.016; K.mesh(new K.Loft(8, 12).set(K.curve([[tx, 0.065, -0.025], [tx + s * 0.003, 0.035, 0.005], [tx + s * 0.004, 0.012, 0.04]]), (t) => [0.02 - t * 0.007, 0.024 - t * 0.011], { ref: (t, n) => n.set(0, 1, 0), shape: (a) => 1 - Math.max(0, -Math.cos(a)) * 0.3 }).geo, hoofM, g); }
-  return g;
+/** digitigrade goat leg on its own bone chain: knee, upper shin, hock, cannon/fetlock, hoof (rest body space) */
+function goatLeg(x, P, parent, furM, hoofM) {
+  const k = P.kneeY; const crv = K.curve([[x, k + 0.05, 0.0], [x, k - 0.09, -0.05], [x, k * 0.52, -0.115], [x, k * 0.35, -0.1], [x, 0.11, -0.05], [x, 0.06, -0.02]]);
+  const leg = K.skinnedLoft(28, 18, crv, (t) => { const r = t < 0.3 ? 0.075 - t * 0.085 : t < 0.55 ? 0.05 - (t - 0.3) * 0.055 : t < 0.85 ? 0.036 - (t - 0.55) * 0.02 : 0.03 + (t - 0.85) * 0.13; return [r, r]; },
+    { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => tufty(a, t, t < 0.45 || t > 0.86 ? 0.28 : 0.07) }, 4, parent, furM);
+  const toes = new THREE.Group(); toes.position.copy(crv(1, new THREE.Vector3())).multiplyScalar(-1); leg.bones[4].add(toes);
+  for (const s of [-1, 1]) { const tx = x + s * 0.016; K.mesh(new K.Loft(8, 12).set(K.curve([[tx, 0.065, -0.025], [tx + s * 0.003, 0.035, 0.005], [tx + s * 0.004, 0.012, 0.04]]), (t) => [0.02 - t * 0.007, 0.024 - t * 0.011], { ref: (t, n) => n.set(0, 1, 0), shape: (a) => 1 - Math.max(0, -Math.cos(a)) * 0.3 }).geo, hoofM, toes); }
+  return leg.bones;
 }
 function panFlute(x, y, z) { // six cane pipes bound with cord, hanging from the right fist
   const g = new THREE.Group(); const m = K.uvMat('cane', 32, 64, (u, v, o) => { K.tone(hex('#d6aa58'), K.band(0.5 + Math.cos(u * 6.28) * 0.3, 3), o.col); if (((v * 5) % 1) < 0.07) K.mixc(o.col, hex('#6a4220'), 0.6); if (v < 0.1) K.tone(hex('#7a2a4a'), 0.5, o.col); });
@@ -108,7 +108,7 @@ function satyr(seed) {
     build(M) {
       const { L, P } = M; const fm = goatFur(), hm = hoofMat();
       for (const [b, x] of [['shinL', L.restOf('shinL').x], ['shinR', L.restOf('shinR').x]]) {
-        at(L, b, goatLeg(x, P, fm, hm));
+        const gp = new THREE.Group(); at(L, b, gp); (M.x.legs ||= []).push({ bones: goatLeg(x, P, gp, fm, hm), s: Math.sign(x) });
         const th = new K.Loft(14, 18).set((t, p) => p.set(x * (0.94 + t * 0.06), P.hipY + 0.02 - t * (P.hipY - P.kneeY), 0), (t) => { const r = 0.085 - t * 0.02; return [r, r]; }, { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => tufty(a, t * 3, 0.22) });
         at(L, b === 'shinL' ? 'thighL' : 'thighR', K.mesh(th.geo, fm));
       }
@@ -120,9 +120,15 @@ function satyr(seed) {
       const h = L.restOf('handL'); const wm = K.uvMat('wineskin', 64, 128, (u, v, o) => { K.tone(hex('#7a4426'), K.band(0.5 + Math.cos(u * Math.PI * 2) * 0.28, 4), o.col); if (Math.abs(u - 0.5) < 0.012 && (v * 40) % 1 < 0.6) K.mixc(o.col, hex('#e0c890'), 0.8); if (v < 0.16 && v > 0.1) K.tone(hex('#c9a060'), 0.55, o.col); if (v > 0.93) K.tone(hex('#2a1810'), 0.4, o.col); });
       const bag = new K.Loft(24, 16).set(K.curve([[h.x, h.y - 0.05, 0.02], [h.x + 0.01, h.y - 0.1, 0.03], [h.x + 0.02, h.y - 0.2, 0.04], [h.x + 0.02, h.y - 0.3, 0.04], [h.x + 0.015, h.y - 0.34, 0.04]]), (t) => { const r = t < 0.12 ? 0.016 : t < 0.22 ? 0.016 + (t - 0.12) * 0.55 : 0.07 * Math.sin(Math.min(1, (t - 0.08) / 0.92) * Math.PI * 0.95) + 0.012; return [r * 0.8, r]; }, { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => 1 + Math.sin(a * 3 + t * 9) * 0.05 });
       at(L, 'handL', K.mesh(bag.geo, wm)); const hr = L.restOf('handR'); at(L, 'handR', panFlute(hr.x, hr.y - 0.06, hr.z + 0.02));
+      const tg = new THREE.Group(); at(L, 'hips', tg); const ty = P.pelvisY - 0.03, tz = -P.hipsZ * 0.9;
+      M.x.tail = K.skinnedLoft(16, 14, K.curve([[0, ty, tz], [0, ty + 0.03, tz - 0.07], [0, ty + 0.1, tz - 0.12], [0.02, ty + 0.16, tz - 0.11]]), (t) => { const r = t < 0.7 ? 0.022 - t * 0.012 : 0.014 + Math.sin((t - 0.7) / 0.3 * Math.PI) * 0.03; return [r, r]; }, { ref: (t, n) => n.set(1, 0, 0), shape: (a, t) => tufty(a, t * 2, t > 0.65 ? 0.4 : 0.15) }, 3, tg, fm).bones;
     },
     pose(add, t, st) { const sway = Math.sin(t * 1.3) * 0.1 + Math.sin(t * 0.47) * 0.06; add('spine', 0, 0, sway * 0.5); add('neck', Math.sin(t * 1.7) * 0.06, 0, -sway * 0.7); add('head', 0, Math.sin(t * 0.8) * 0.15, Math.sin(t * 2.1) * 0.06); add('farmL', -0.5); },
-    update(M, st) { if (Math.sin(st.t * 0.37) > 0.995) st.lift.kick(5); M.L.root.position.y = st.lift.value * 0.04; },
+    update(M, st) {
+      const t = st.t, dead = M.anim.dead; if (Math.sin(t * 0.37) > 0.995) st.lift.kick(5); M.L.root.position.y = st.lift.value * 0.04;
+      for (const { bones: b, s } of M.x.legs) { const ph = Math.sin(t * 1.3 + s); b[1].rotation.x = ph * 0.04 - dead * 0.3; b[2].rotation.x = -ph * 0.07 + dead * 0.9; b[3].rotation.x = ph * 0.05 - dead * 0.5; b[4].rotation.x = -ph * 0.03 + dead * 0.4; }
+      M.x.tail.forEach((b, k) => { b.rotation.z = Math.sin(t * 3.2 + k * 0.7) * (0.12 + k * 0.08); b.rotation.x = Math.sin(t * 1.7 + k) * 0.08; });
+    },
   }, seed);
 }
 
@@ -156,12 +162,16 @@ function medusa(seed) {
   return limboHumanoid('medusa', {
     app: { skin: 0x5c9c5c, hair: 0x1e4a2e, hairStyle: 'buzz', bodyShape: 1, build: 'slim', age: 0, eyeColor: 0xd8f040, mouth: 1, face: 7, brows: 3 },
     outfit: { torso: { tex: 'c_bandeau', color: 0x6a2c7a } }, severed: ['thigh_l', 'thigh_r'], hook: medusaHook,
-    overrides: { makeup: { liner: 1, lash: 1, shadow: [60, 140, 80] }, lipstick: 0x5a2650 }, height: 2.3, refH: 1.75, expr: 'cool', angry: 'angry', attack: 'cast',
+    overrides: { makeup: { liner: 1, lash: 1, shadow: [60, 140, 80] }, lipstick: 0x5a2650 }, height: 2.3, refH: 1.75, expr: 'cool', angry: 'angry', attack: 'cast', fall: false,
     build(M) {
-      const { L, P } = M; const tail = new K.Loft(56, 18); K.mesh(tail.geo, tailMat(), L.root);
-      const coil = []; for (let i = 0; i <= 12; i++) { const a = Math.PI / 2 - 0.2 - i * 0.62; const r = 0.26 - i * 0.006; coil.push(new THREE.Vector3(Math.cos(a) * r, 0.1 + Math.max(0, i - 6) * 0.032 + (i > 11 ? 0.08 : 0), -0.05 + Math.sin(a) * r)); }
-      M.x.tail = { tail, coil, pts: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), ...coil.map((v) => v.clone())] };
-      const g = new THREE.Group(); at(L, 'head', g); const sm = snakeMat(); const snakes = []; const hc = new THREE.Vector3(0, (P.hairY + P.eyeY) / 2 + 0.01, P.hcz - 0.01);
+      const { L, P } = M; const tg = new THREE.Group(); at(L, 'hips', tg); const hy = L.restOf('hips').y;
+      const pts = [new THREE.Vector3(0, hy + 0.04, 0), new THREE.Vector3(0, hy * 0.55, 0.03), new THREE.Vector3(0.02, 0.22, 0.12)];
+      for (let i = 0; i <= 12; i++) { const a = Math.PI / 2 - 0.2 - i * 0.62; const r = 0.26 - i * 0.006; pts.push(new THREE.Vector3(Math.cos(a) * r, 0.1 + Math.max(0, i - 6) * 0.032 + (i > 11 ? 0.08 : 0), -0.05 + Math.sin(a) * r)); }
+      const cv = new THREE.CatmullRomCurve3(pts, false, 'centripetal'); const hr = P.hipsX * 1.05;
+      M.x.tail = K.skinnedLoft(72, 20, (u, out) => cv.getPoint(u, out), (u) => { const r = u < 0.05 ? hr : hr * (1 - (u - 0.05) * 0.9) + 0.008; return [r * 1.04, r * 0.96]; },
+        { ref: (u, n) => { const k = K.sstep(0.05, 0.32, u); return k < 0.5 ? n.set(k * 2, 0, -(1 - k * 2)) : n.set(1 - (k - 0.5) * 2, (k - 0.5) * 2, 0); } }, 16, tg, tailMat()).bones;
+      M.x.lag = new THREE.Vector3(); M.x.prev = null;
+      const g = new THREE.Group(); at(L, 'head', g); M.x.snakeGroup = g; const sm = snakeMat(); const snakes = []; const hc = new THREE.Vector3(0, (P.hairY + P.eyeY) / 2 + 0.01, P.hcz - 0.01);
       for (let i = 0; i < 13; i++) {
         const az = -2.2 + (i / 12) * 4.4 + Math.PI, el = 0.3 + (i % 3) * 0.33; const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
         const base = hc.clone().add(new THREE.Vector3(dir.x * P.hw * 0.95, dir.y * 0.09, dir.z * P.hd * 0.95)); const l = new K.Loft(18, 10); K.mesh(l.geo, sm, g);
@@ -169,18 +179,16 @@ function medusa(seed) {
       }
       M.x.snakes = snakes;
     },
-    pose(add, t, st) { add('spine', 0, 0, Math.sin(t * 0.9) * 0.05); add('head', st.mode === 'cast' ? 0.15 : 0, Math.sin(t * 0.5) * 0.2, 0); add('uarmR', -0.4, 0, -0.15); add('farmR', -0.9); },
+    pose(add, t, st, M) { const d = M.anim.dead; add('spine', 0.5 * d, 0, Math.sin(t * 0.9) * 0.05); add('chest', 0.6 * d); add('head', st.mode === 'cast' ? 0.15 : 0, Math.sin(t * 0.5) * 0.2, 0); add('uarmR', -0.4, 0, -0.15); add('farmR', -0.9); },
     update(M, st, dt, R_) {
       const t = st.t, { L } = M; L.root.position.y = Math.sin(t * 1.4) * 0.03 + st.lift.value * 0.05;
-      const { tail, coil, pts } = M.x.tail; R_.root.updateMatrixWorld(true);
-      L.bones.hips.getWorldPosition(pts[0]); L.root.worldToLocal(pts[0]); pts[0].y += 0.04;
-      pts[1].set(pts[0].x * 0.5, pts[0].y * 0.55, pts[0].z + 0.03); pts[2].set(0.02, 0.22, 0.12);
-      for (let i = 0; i < coil.length; i++) pts[3 + i].copy(coil[i]).add(new THREE.Vector3(Math.sin(t * 1.4 - i * 0.6) * 0.012 * i, 0, Math.cos(t * 1.1 - i * 0.5) * 0.01 * i));
-      const cv = new THREE.CatmullRomCurve3(pts, false, 'centripetal'); const hr = M.P.hipsX * 1.05;
-      tail.set((u, out) => cv.getPoint(u, out), (u) => { const r = u < 0.05 ? hr : hr * (1 - (u - 0.05) * 0.9) + 0.008; return [r * 1.04, r * 0.96]; }, { ref: (u, n) => { const k = K.sstep(0.05, 0.32, u); return k < 0.5 ? n.set(k * 2, 0, -(1 - k * 2)) : n.set(1 - (k - 0.5) * 2, (k - 0.5) * 2, 0); } });
+      M.x.tail.forEach((b, k) => { if (k < 3) return; const w = (k - 2) / 14; b.rotation.y = Math.sin(t * 1.4 - k * 0.55) * 0.035 * (0.5 + w); b.rotation.z = Math.cos(t * 1.1 - k * 0.5) * 0.02 * w + (k > 13 ? Math.sin(t * 2.5) * 0.25 : 0); });
+      // snake hair: secondary motion lagging behind the head (spring on the head's world velocity, in head space)
+      const hp = M.B.head.getWorldPosition(new THREE.Vector3()); if (M.x.prev && dt > 0) { const v = hp.clone().sub(M.x.prev).divideScalar(dt).multiplyScalar(-0.02).clampLength(0, 0.06); M.x.lag.lerp(v, 1 - Math.exp(-dt * 5)); } M.x.prev = hp;
+      const g = M.x.snakeGroup; const lagL = g.worldToLocal(hp.clone().add(M.x.lag)).sub(g.worldToLocal(hp.clone()));
       for (const s of M.x.snakes) {
         const { base, dir, len, ph } = s; const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
-        s.l.set((u, out) => { out.copy(base).addScaledVector(dir, u * len * 0.8).add(new THREE.Vector3(0, -u * u * len * 0.55 + Math.sin(u * 4 + t * 3 + ph) * 0.02 * u, 0)).addScaledVector(side, Math.sin(u * 7 - t * 4 + ph) * 0.025 * u); },
+        s.l.set((u, out) => { out.copy(base).addScaledVector(lagL, u * u).addScaledVector(dir, u * len * 0.8).add(new THREE.Vector3(0, -u * u * len * 0.55 + Math.sin(u * 4 + t * 3 + ph) * 0.02 * u, 0)).addScaledVector(side, Math.sin(u * 7 - t * 4 + ph) * 0.025 * u); },
           (u) => { const r = u < 0.78 ? 0.013 * (1 - u * 0.45) : u < 0.9 ? 0.0092 + Math.sin((u - 0.78) / 0.12 * Math.PI) * 0.0065 : 0.0092 * (1 - (u - 0.9) * 7); return [r * 1.25, r]; });
       }
     },
@@ -203,7 +211,7 @@ function kobalos(seed) {
     outfit: { torso: { tex: 'c_hoodie', color: 0xc42e3c }, legs: { tex: 'c_shorts', color: 0xe0a040 }, legsKind: 'shorts' }, hook: kobHook,
     height: 1.5, expr: 'grin', angry: 'grin', attack: 'punch', cast: 'throw', speed: 1.25,
     build(M) {
-      const { L, P, B } = M; B.head.scale.setScalar(1.42); for (const k of ['uarmL', 'uarmR', 'farmL', 'farmR']) B[k].scale.set(1, 1.22, 1); B.handL.scale.setScalar(1.3); B.handR.scale.setScalar(1.3);
+      const { L, P, B } = M; B.head.scale.setScalar(1.42); for (const k of ['uarmL', 'uarmR', 'farmL', 'farmR']) B[k].scale.set(1, 1.22, 1); B.handL.scale.setScalar(1.3); B.handR.scale.setScalar(1.3); B.footL.scale.setScalar(1.35); B.footR.scale.setScalar(1.35);
       const em = K.uvMat('kob-ear', 64, 64, (u, v, o) => { const inner = Math.sin(u * Math.PI * 2) > 0.3; K.tone(inner ? hex('#e07a6a') : [168, 210, 78], K.band(0.5 + Math.cos(u * 6.28) * 0.2 - (inner ? 0.1 : 0), 4), o.col); }, { side: THREE.DoubleSide });
       const g = new THREE.Group(); for (const s of [-1, 1]) g.add(earLoft(s, P, em)); at(L, 'head', g);
       const sk = new THREE.Group(); const cm = cardMat(); const y0 = P.shoulderY, z0 = -P.chestZ;
