@@ -72,12 +72,15 @@ export class Surf {
     }
     g.putImageData(img, 0, 0); c.userData = { K }; return c;
   }
-  static K(w, h) { return Math.max(1, Math.min(4, Math.floor(2048 / Math.max(w, h)))); }
+  // canvas resolution ~2x the on-screen pixels at 1080p (16 texels/unit x 6 = 96 px/unit), capped for very large sheets
+  static K(w, h) { return Math.max(1, Math.min(6, Math.floor(3072 / Math.max(w, h)))); }
 }
 
 // ---------------------------------------------------------------- textures
+// crisp pixel art: nearest sampling both ways, no mipmaps (nothing linear-upscaled or blurred), max anisotropy
+export const TEXQ = { aniso: 8 };
 export function pxTex(canvas, { repeat = false } = {}) {
-  const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; const pre = canvas.userData?.K > 1; t.magFilter = pre ? THREE.LinearFilter : THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 4;
+  const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.anisotropy = TEXQ.aniso;
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 // a surface bound to a texture: redraw(fn) repaints and uploads only when called
@@ -441,7 +444,7 @@ export class Body {
 
 // ---------------------------------------------------------------- the UI scene's light rig (shared by every screen)
 export function uiRig(engine) {
-  const sc = engine.ui.scene; if (sc.userData.rig) return sc.userData.rig;
+  const sc = engine.ui.scene; if (sc.userData.rig) return sc.userData.rig; TEXQ.aniso = engine.renderer?.capabilities?.getMaxAnisotropy?.() || 8;
   const g = new THREE.Group(); g.name = 'ui-rig';
   const key = new THREE.DirectionalLight(0xfff0dc, 2.2); key.position.set(-8, 12, 30); key.castShadow = true; key.shadow.mapSize.set(2048, 1024); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.02;
   Object.assign(key.shadow.camera, { left: -34, right: 34, top: 20, bottom: -20, near: 1, far: 80 }); key.target.position.set(0, 0, 0); g.add(key, key.target);

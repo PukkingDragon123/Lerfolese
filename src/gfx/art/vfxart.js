@@ -259,5 +259,5 @@ import { text as drawText, textW } from './core.js';
 export function pixelText(str, { fill = ['#fff6c8', '#ffd84a', '#ff8a1e'] } = {}) {
   const w = textW(str), h = 5; const pc = new PixelCanvas(w * 2 + 4, h * 2 + 4); const tmp = new PixelCanvas(w + 2, h + 2); drawText(tmp, str, 1, 1, '#ffffff');
   for (let y = 0; y < tmp.h; y++) for (let x = 0; x < tmp.w; x++) if (tmp.alpha(x, y)) { const c = fill[Math.min(fill.length - 1, Math.floor(((y - 1) / h) * fill.length))]; for (let j = 0; j < 2; j++) for (let i = 0; i < 2; i++) pc.px(x * 2 + i, y * 2 + j, c); }
-  pc.outline(INK); pc.outline('#ffffff'); pc.outline(INK); return pc;
+  pc.outline(INK); return pc;
 }

@@ -36,11 +36,11 @@ export class MapScene extends UIScreen {
   async enter(first) {
     const run = this.game.run; this.run = run; this.map = run.map;
     this.buildWorld(); this.engine.setWorld(this.scene, this.camera);
-    this.engine.setFx({ bloom: [0.55, 0.6, 0.8], tilt: { focus: 0.5, width: 0.34, feather: 0.3, amount: 1.1, top: 1.0, bottom: 0.5 }, grade: { sat: 1.12, warmth: 0.3, vignette: 0.45 } });
+    this.engine.setFx({ ink: false, bloom: [0.4, 0.5, 0.92], tilt: { focus: 0.5, width: 0.36, feather: 0.3, amount: 1.0, top: 1.0, bottom: 0.45 }, grade: { sat: 1.05, warmth: 0.32, vignette: 0.5 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('map'); audio.setAmbSet(['wilderness', 'wind']);
     this.buildHUD();
     const cur = run.pos ? this.map.nodes[run.pos] : null;
-    this.focus = new THREE.Vector3(cur ? cur.x : 0, 0, cur ? cur.z - 3 : -1.1); this.yaw = new Spring(0.0, 6, 0.8); this.pitch = new Spring(1.02, 6, 0.8); this.dist = new Spring(16.5, 6, 0.8); this.fx = new Spring(this.focus.x, 4, 0.9); this.fz = new Spring(this.focus.z, 4, 0.9);
+    this.focus = new THREE.Vector3(cur ? cur.x : 0, 0, cur ? cur.z - 3 : -1.1); this.yaw = new Spring(0.0, 6, 0.8); this.pitch = new Spring(1.0, 6, 0.8); this.dist = new Spring(18, 6, 0.8); this.fx = new Spring(this.focus.x, 4, 0.9); this.fz = new Spring(this.focus.z, 4, 0.9);
     if (first) { this.dist.value = 40; this.pitch.value = 1.3; this.fz.value = -14; this.game.journal.seenIntro || this.story(); }
     this.refreshNodes();
   }
@@ -56,11 +56,11 @@ export class MapScene extends UIScreen {
     // the parchment map sheet with its living layer (models/../scenes/mapsheet.js): scene, camera, lights, nodes, routes, VFX
     const sheet = (this.sheet = new MapSheet({ engine: this.engine, run: this.run, map: this.map }));
     this.scene = sheet.scene; this.camera = sheet.camera; this.world = sheet.world; this.bounds = sheet.bounds; this.heightAt = sheetY;
-    this.critters = sheet.critters; this.party = []; this.sheep = []; this.birds = [];
+    this.party = []; this.sheep = []; this.birds = [];
     this.nodeViews = sheet.nodeViews; for (const nd of Object.values(this.map.nodes)) this.addNode(nd);
     this.buildPaths();
     // player marionette
-    this.pawn = createProfessor(); this.pawn.root.scale.setScalar(0.3); this.world.add(this.pawn.root);
+    this.pawn = this.sheet.isaacPiece(); this.world.add(this.pawn.root);
     const cur = this.run.pos ? this.map.nodes[this.run.pos] : null; const sp0 = cur || { x: 0, z: 1.6 };
     this.pawn.root.position.set(sp0.x, this.heightAt(sp0.x, sp0.z + (cur ? 0.55 : 0)) + 0.02, sp0.z + (cur ? 0.55 : 0)); this.pawnHop = 0;
   }
