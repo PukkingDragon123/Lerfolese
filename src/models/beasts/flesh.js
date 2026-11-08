@@ -45,7 +45,7 @@ export class Sculpt {
   }
   _common(bone, o) { return { k: o.k ?? 0.05, imp: o.imp ?? 1, sub: !!o.sub, bone, t0: o.t0 ?? 0, t1: o.t1 ?? 1, tag: o.tag || null, skin: o.skin ?? 1, mirror: false }; }
   /** duplicate every prim added by fn mirrored in x (fn receives s = -1 / +1 and a side suffix) */
-  sym(fn) { for (const s of [-1, 1]) fn(s, s < 0 ? '_L' : '_R'); }
+  sym(fn) { for (const s of [-1, 1]) fn(s, s > 0 ? '_L' : '_R'); }
 
   // ---------------------------------------------------------------- distance
   static dist(p, x, y, z) {
