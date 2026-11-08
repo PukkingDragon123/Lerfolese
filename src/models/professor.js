@@ -22,11 +22,11 @@ function wood(c, o, along, p1, p2, joints = [], pinSide = null) {
   K.tone(C.wood, K.band(L + (g - 0.5) * 0.35, 4), o.col);
   if (((g * 7) % 1) < 0.16) K.mixc(o.col, K.tone(C.woodD, 0.45, T), 0.45);
   o.ro = 0.3;
-  if (pinSide && joints.length && pinSide(c)) for (const j of joints) if (Math.abs(along - j) < 0.014) { const d = Math.abs(along - j); K.tone(C.brass, d < 0.006 ? 0.85 : 0.5, o.col); o.me = 0.9; o.ro = 0.25; }
+  if (pinSide && joints.length && pinSide(c)) for (const j of joints) if (Math.abs(along - j) < 0.014) { const d = Math.abs(along - j); K.tone(C.brass, d < 0.006 ? 0.85 : 0.5, o.col); o.me = 0.55; o.ro = 0.25; }
 }
 function coat(c, o, extraL = 0) { K.tone(C.coat, K.band(lit(c, 0.3) + extraL + (K.vnoise(c.x * 90, c.y * 90, c.z * 90) - 0.5) * 0.06, 4), o.col); o.ro = 0.85; }
 function trim(o, L = 0.6) { K.tone(C.trim, L, o.col); o.ro = 0.4; o.me = 0.5; }
-function button(o, d, r) { K.tone(C.brass, d < r * 0.45 ? 0.9 : d < r * 0.8 ? 0.6 : 0.3, o.col); o.me = 0.9; o.ro = 0.25; }
+function button(o, d, r) { K.tone(C.brass, d < r * 0.45 ? 0.9 : d < r * 0.8 ? 0.6 : 0.3, o.col); o.me = 0.55; o.ro = 0.25; }
 
 function paintHead(c, o, E) {
   const ax = Math.abs(c.x); const Y = c.y - F.ey;
@@ -60,12 +60,12 @@ function paintLeg(c, o) {
     if (c.nz < -0.15 || (out && c.z < 0.0)) { if (c.y < 0.625) return trim(o, 0.65); coat(c, o, Math.sin(c.x * 120) * 0.08); return; } // frock-coat tails
     K.tone(C.breeches, K.band(lit(c, 0.3) + Math.sin(c.y * 70 + c.x * 30) * 0.05, 4), o.col); o.ro = 0.8; if (out && Math.abs(c.y - 0.82) < 0.002) K.mixc(o.col, C.ink, 0.5); return;
   }
-  if (c.y > 0.572) { if (out && Math.abs(c.z + 0.03) < 0.018 && c.y < 0.597) { trim(o, c.y > 0.585 ? 0.8 : 0.45); o.me = 0.9; return; } K.tone(C.vest, K.band(lit(c, 0.2), 3), o.col); if (c.y > 0.596 || c.y < 0.576) K.mixc(o.col, C.trim, 0.8); return; }
+  if (c.y > 0.572) { if (out && Math.abs(c.z + 0.03) < 0.018 && c.y < 0.597) { trim(o, c.y > 0.585 ? 0.8 : 0.45); o.me = 0.55; return; } K.tone(C.vest, K.band(lit(c, 0.2), 3), o.col); if (c.y > 0.596 || c.y < 0.576) K.mixc(o.col, C.trim, 0.8); return; }
   if (c.y > 0.112) return wood(c, o, c.y, lx, c.z, [0.548, 0.118], () => out && Math.abs(c.z + 0.036) < 0.012);
   // buckled shoes
   K.tone(C.shoe, K.band(0.45 + c.ny * 0.3 + c.nz * 0.1, 4), o.col); o.ro = 0.25;
   if (c.y < 0.018 && c.z < -0.04) K.tone(K.hex('#5a2c2a'), 0.45, o.col);
-  const bz = c.z - 0.035, bdx = lx; if (c.ny > 0.35 && Math.abs(bdx) < 0.026 && Math.abs(bz) < 0.018) { const edge = Math.abs(bdx) > 0.018 || Math.abs(bz) > 0.011; if (edge) { K.tone(C.brass, c.ny > 0.7 ? 0.85 : 0.6, o.col); o.me = 0.95; o.ro = 0.2; } }
+  const bz = c.z - 0.035, bdx = lx; if (c.ny > 0.35 && Math.abs(bdx) < 0.026 && Math.abs(bz) < 0.018) { const edge = Math.abs(bdx) > 0.018 || Math.abs(bz) > 0.011; if (edge) { K.tone(C.brass, c.ny > 0.7 ? 0.85 : 0.6, o.col); o.me = 0.555; o.ro = 0.2; } }
 }
 function paintTorso(c, o) {
   const ax = Math.abs(c.x), y = c.y; const front = c.z > -0.01 && c.nz > 0.2;
@@ -195,7 +195,7 @@ export function createProfessor() {
       if (st.hold > 0) st.hold -= dt; else if (st.expr === 'hurt' || st.expr === 'delight') st.expr = 'smug';
       if (st.mode !== 'idle' && st.modeT > 1.6) st.mode = 'idle';
       if (M) {
-        const { bones: B, anim, R, G } = M; if (!globalThis.__noanim) anim.update(dt);
+        const { bones: B, anim, R, G } = M; anim.update(dt);
         // marionette looseness on top of the animation: floppy limbs, string-pulled wrists, head look and talk nods
         const rm = (b, x, y, z) => anim.nudge(b, x, y, z);
         rm(B.spine_01, st.slump.value * 0.05, 0, Math.sin(t * 1.1 + 0.5) * 0.03);

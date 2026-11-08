@@ -13,16 +13,17 @@ const _t = new V3(), _u = new V3(), _q = new THREE.Quaternion(), _e = new THREE.
 
 // ---------------------------------------------------------------- palettes (dark -> light, hue-shifted)
 export const PAL = {
-  bark: ramp('#22162a', '#412933', '#654234', '#8b6343', '#b68d5b'),
-  barkGrey: ramp('#1f1a2d', '#3a3247', '#5b5063', '#827478', '#b09c8c'),
+  bark: ramp('#21192a', '#3a2c36', '#5a4538', '#7c6247', '#a68a60'),
+  barkGrey: ramp('#1c1b2c', '#32324a', '#4e4f60', '#717178', '#9c958c'),
   wood: ramp('#2a1726', '#4a2a2b', '#6f4432', '#96633d', '#c38d52'),
-  olive: ramp('#1b2537', '#2b4045', '#475f4e', '#738458', '#b4ae70'),
+  olive: ramp('#172636', '#24423f', '#3c6248', '#678a56', '#a6b670'),
   cypress: ramp('#0d1724', '#12292d', '#1a4033', '#295b3c', '#4c7944'),
   leaf: ramp('#15233a', '#1c3c3f', '#2b5a42', '#548046', '#a0aa58'),
   grass: ramp('#1e2c37', '#2d4837', '#476836', '#778a3d', '#bdac57'),
   dryGrass: ramp('#33283a', '#54443e', '#7f6845', '#ab8d4d', '#dcbf6b'),
   dirt: ramp('#311f2f', '#51343f', '#76524a', '#9c7254', '#c99c69'),
-  stone: ramp('#28263f', '#454158', '#6a6375', '#958a89', '#c9b398'),
+  gravel: ramp('#2f2536', '#4c3e48', '#6e5e5e', '#958272', '#bfa88a'),
+  stone: ramp('#25233c', '#3c3a52', '#57536a', '#7b7582', '#ab9f92'),
   marble: ramp('#4b4a6b', '#7d7a98', '#ada6b3', '#d5cbc2', '#f6ead3'),
   moss: ramp('#16283a', '#1f413c', '#335f3f', '#5a8243', '#98aa55'),
   hedge: ramp('#0b1a24', '#122f2e', '#1b4634', '#2a613b', '#4b7f42'),
@@ -199,8 +200,8 @@ export function tube(path, rad, sides = 6, { twist = 0, jit = 0, seed = 1, cap =
   return toGeo(T);
 }
 // faceted leaf cluster: jittered icosahedron with a flat chiselled underside
-export function clump(r, seed, { sy = 0.68, detail = 0, jit = 0.28, flat = 0.42 } = {}) {
-  const g = new THREE.IcosahedronGeometry(1, detail); jitter(g, jit, seed); const p = g.attributes.position;
+export function clump(r, seed, { sy = 0.72, detail = 0, jit = 0.28, flat = 0.6, cuts = 0 } = {}) {
+  const g = new THREE.IcosahedronGeometry(1, detail); jitter(g, jit, seed); if (cuts) chisel(g, mulberry32(seed + 5), cuts, 0.18, { minY: 0.1 }); const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) if (p.getY(i) < -flat) p.setY(i, -flat - (p.getY(i) + flat) * 0.25);
   g.scale(r, r * sy, r); return g;
 }
@@ -221,23 +222,19 @@ export function oliveTree(M, mtx, seed = 1, { size = 1, pal = PAL.olive, bark = 
   for (let k = 0; k < 4; k++) { const a = k * 1.7 + rnd(); M.add(tube([new V3(0, 0.45 * size, 0), new V3(Math.cos(a) * 0.28 * size, 0.12 * size, Math.sin(a) * 0.28 * size), new V3(Math.cos(a) * 0.55 * size, -0.06, Math.sin(a) * 0.55 * size)], [0.15 * size, 0.1 * size, 0.04 * size], 4, { seed: seed + k * 3, cap: false }), mtx, barkP); }
   const top = pts.at(-1); const tips = []; const nL = 3 + (rnd() < 0.5 ? 1 : 0);
   for (let l = 0; l < nL; l++) {
-    const a = (l / nL) * TAU + rnd() * 0.9; const out = (1.0 + rnd() * 0.7) * size; const up = (0.65 + rnd() * 0.6) * size;
+    const a = (l / nL) * TAU + rnd() * 0.9; const out = (0.75 + rnd() * 0.5) * size; const up = (0.75 + rnd() * 0.5) * size;
     const p1 = top.clone().add(new V3(Math.cos(a) * out * 0.45, up * 0.55, Math.sin(a) * out * 0.45)); const p2 = top.clone().add(new V3(Math.cos(a) * out, up, Math.sin(a) * out));
     M.add(tube([top.clone().add(new V3(0, -0.15 * size, 0)), p1, p2], [0.16 * size, 0.1 * size, 0.055 * size], 5, { twist: 0.4, jit: 0.1, seed: seed + l }), mtx, barkP); tips.push(p2);
-    const a2 = a + (rnd() - 0.5) * 1.8; const p3 = p1.clone().add(new V3(Math.cos(a2) * 0.65 * size, 0.6 * size, Math.sin(a2) * 0.65 * size));
-    M.add(tube([p1, p3], [0.07 * size, 0.035 * size], 4, { seed: seed + l + 9 }), mtx, barkP); tips.push(p3);
+    const a2 = a + (rnd() - 0.5) * 1.8; const p3 = p1.clone().add(new V3(Math.cos(a2) * 0.5 * size, 0.55 * size, Math.sin(a2) * 0.5 * size));
+    M.add(tube([p1, p3], [0.07 * size, 0.035 * size], 4, { seed: seed + l + 9 }), mtx, barkP); tips.push(p3, p1.clone().add(new V3(Math.cos(a) * 0.35 * size, -0.05 * size, Math.sin(a) * 0.35 * size)));
   }
-  const wy = tips.map((t) => xf(t, mtx).y); const y0 = Math.min(...wy) - 0.5 * size, y1 = Math.max(...wy) + 0.7 * size;
-  const leafP = painter(pal, rnd, { base: 1.5, up: 1.2, sun: 0.9, jit: 0.8, ao: (c) => ((c.y - y0) / (y1 - y0) - 0.45) * 1.6 });
-  const L = new THREE.Matrix4();
-  tips.forEach((tip, ti) => {
-    const nC = 2 + (rnd() < 0.6 ? 1 : 0);
-    for (let k = 0; k < nC; k++) {
-      const r = (0.62 + rnd() * 0.32) * size * (k ? 0.72 : 1); const off = k ? new V3((rnd() - 0.5) * 1.0, (rnd() - 0.3) * 0.45, (rnd() - 0.5) * 1.0).multiplyScalar(size) : new V3(0, 0.12 * size, 0);
-      L.compose(tip.clone().add(off), _q.setFromEuler(_e.set(0, rnd() * TAU, (rnd() - 0.5) * 0.3)), _s.set(1, 1, 1));
-      M.add(clump(r, seed * 7 + ti * 3 + k, { sy: 0.6 }), mtx.clone().multiply(L), leafP, 1);
-    }
-  });
+  const crown = top.clone().add(new V3((rnd() - 0.5) * 0.3 * size, 1.05 * size, (rnd() - 0.5) * 0.3 * size));
+  const lobes = [crown, ...tips.filter((_, i) => i % 2 === 0)]; const wy = lobes.map((t) => xf(t, mtx).y); const y0 = Math.min(...wy) - 0.9 * size, y1 = Math.max(...wy) + 0.9 * size;
+  const leafP = painter(pal, rnd, { base: 1.9, up: 1.0, sun: 0.9, jit: 0.75, ao: (c) => ((c.y - y0) / (y1 - y0) - 0.5) * 1.3 });
+  const L = new THREE.Matrix4(); const put = (p, r, sd, o) => { L.compose(p, _q.setFromEuler(_e.set((rnd() - 0.5) * 0.3, rnd() * TAU, (rnd() - 0.5) * 0.3)), _s.set(1, 1, 1)); M.add(clump(r, sd, o), mtx.clone().multiply(L), leafP, 1); };
+  lobes.forEach((c, i) => put(c.clone().add(new V3(0, 0.15 * size, 0)), (i ? 0.95 + rnd() * 0.25 : 1.15 + rnd() * 0.2) * size, seed * 7 + i, { detail: 1, sy: 0.7, jit: 0.34, flat: 0.5, cuts: 3 }));
+  tips.forEach((t, i) => { if (i % 2) put(t.clone().add(new V3(0, 0.1 * size, 0)), (0.55 + rnd() * 0.2) * size, seed * 11 + i, { sy: 0.75 }); });
+  for (let k = 0; k < 5; k++) { const a = rnd() * TAU; const c = lobes[1 + (k % (lobes.length - 1))] || crown; put(c.clone().add(new V3(Math.cos(a) * 0.85 * size, (rnd() - 0.6) * 0.5 * size, Math.sin(a) * 0.85 * size)), (0.42 + rnd() * 0.2) * size, seed * 13 + k, { sy: 0.8 }); }
 }
 
 export function cypress(M, mtx, seed = 1, { h = 5, pal = PAL.cypress } = {}) {
@@ -270,25 +267,26 @@ export function deadTree(M, mtx, seed = 1, { size = 1, moss = false } = {}) {
 }
 
 export function bush(M, mtx, seed = 1, { r = 0.6, pal = PAL.leaf, flowers = null, G = null } = {}) {
-  const rnd = mulberry32(seed * 419 + 2); const P = painter(pal, rnd, { base: 1.4, up: 1.3, sun: 0.9, jit: 0.8 }); const n = 4 + Math.floor(rnd() * 3); const tops = [];
-  for (let i = 0; i < n; i++) { const a = (i / n) * TAU + rnd() * 0.5; const d = i ? r * (0.45 + rnd() * 0.35) : 0; const cr = r * (i ? 0.55 + rnd() * 0.25 : 0.8); const p = new V3(Math.cos(a) * d, cr * 0.45 + (i ? 0 : r * 0.15), Math.sin(a) * d); M.add(clump(cr, seed * 5 + i, { sy: 0.75 }), mtx.clone().multiply(M4(p.x, p.y, p.z, rnd() * TAU)), P, 0.5); tops.push(p.clone().setY(p.y + cr * 0.5)); }
+  const rnd = mulberry32(seed * 419 + 2); const n = 7 + Math.floor(rnd() * 3); const tops = []; const y0 = new V3().applyMatrix4(mtx).y;
+  const P = painter(pal, rnd, { base: 1.3, up: 1.3, sun: 0.9, jit: 0.9, ao: (c) => ((c.y - y0) / (r * 1.3) - 0.5) * 1.4 });
+  for (let i = 0; i < n; i++) { const a = (i / n) * TAU * 1.7 + rnd() * 0.5; const d = i ? r * (0.35 + rnd() * 0.5) : 0; const cr = r * (i ? 0.42 + rnd() * 0.22 : 0.62); const p = new V3(Math.cos(a) * d, cr * 0.5 + (i ? rnd() * r * 0.45 : r * 0.3), Math.sin(a) * d); M.add(clump(cr, seed * 5 + i, { sy: 0.8, jit: 0.34 }), mtx.clone().multiply(M4(p.x, p.y, p.z, rnd() * TAU)), P, 0.5); tops.push(p.clone().setY(p.y + cr * 0.55)); }
   if (flowers && G) { const fr = mulberry32(seed + 77); for (const t of tops) for (let k = 0; k < 3; k++) { const q = xf(t.clone().add(new V3((fr() - 0.5) * r * 0.6, -fr() * 0.08, (fr() - 0.5) * r * 0.6)), mtx); petals(G, q, fr, flowers, 0.06); } }
 }
 // a few blade triangles, dark at the root, gold at the tip
 export function grassTuft(G, x, y, z, rnd, { pal = PAL.grass, h = 0.38, n = 5, spread = 0.1, tone = 0 } = {}) {
   for (let i = 0; i < n; i++) {
-    const a = rnd() * TAU; const lean = 0.2 + rnd() * 0.55; const hh = h * (0.55 + rnd() * 0.7); const bx = x + Math.cos(a) * spread * rnd(), bz = z + Math.sin(a) * spread * rnd();
-    const dx = Math.cos(a), dz = Math.sin(a), w = 0.03 + rnd() * 0.022;
+    const a = rnd() * TAU; const lean = 0.12 + rnd() * 0.4; const hh = h * (0.55 + rnd() * 0.7); const bx = x + Math.cos(a) * spread * rnd(), bz = z + Math.sin(a) * spread * rnd();
+    const dx = Math.cos(a), dz = Math.sin(a), w = 0.02 + rnd() * 0.016;
     const bl = new V3(bx - dz * w, y, bz + dx * w), br = new V3(bx + dz * w, y, bz - dx * w);
     const mx = bx + dx * lean * hh * 0.35, mz = bz + dz * lean * hh * 0.35, my = y + hh * 0.55;
     const ml = new V3(mx - dz * w * 0.6, my, mz + dx * w * 0.6), mr = new V3(mx + dz * w * 0.6, my, mz - dx * w * 0.6); const tip = new V3(bx + dx * lean * hh, y + hh, bz + dz * lean * hh);
-    const t0 = Math.max(0, Math.min(4, Math.round(1 + tone + (rnd() - 0.5) * 1.2))), t1 = Math.max(0, Math.min(4, t0 + 1 + (rnd() < 0.4 ? 1 : 0)));
+    const t0 = Math.max(0, Math.min(4, Math.round(1.7 + tone + (rnd() - 0.5) * 1.2))), t1 = Math.max(0, Math.min(4, t0 + 1 + (rnd() < 0.5 ? 1 : 0)));
     G.tri(bl, br, mr, pal[t0], 0, 0, 0.45); G.tri(bl, mr, ml, pal[t0], 0, 0.45, 0.45); G.tri(ml, mr, tip, pal[t1], 0.45, 0.45, 1);
   }
 }
 // star of petal triangles around a centre
 export function petals(G, c, rnd, kind = 'poppy', pr = 0.08) {
-  const cols = (FLOWER[kind] || FLOWER.poppy).map(C); const n = kind === 'daisy' ? 7 : 5; const ph = rnd() * TAU; const tilt = 0.35;
+  const cols = (FLOWER[kind] || FLOWER.poppy).map(C); const n = kind === 'daisy' ? 7 : 5; const ph = rnd() * TAU; const tilt = 0.85;
   for (let k = 0; k < n; k++) { const a0 = ph + (k / n) * TAU; const a1 = a0 + (0.55 * TAU) / n; const am = (a0 + a1) / 2; G.tri(c, new V3(c.x + Math.cos(a0) * pr * 0.55, c.y + pr * tilt * 0.4, c.z + Math.sin(a0) * pr * 0.55), new V3(c.x + Math.cos(am) * pr, c.y + pr * tilt, c.z + Math.sin(am) * pr), cols[k % 2 ? 1 : 2], 0.8); G.tri(c, new V3(c.x + Math.cos(am) * pr, c.y + pr * tilt, c.z + Math.sin(am) * pr), new V3(c.x + Math.cos(a1) * pr * 0.55, c.y + pr * tilt * 0.4, c.z + Math.sin(a1) * pr * 0.55), cols[1], 0.8); }
   const cc = kind === 'daisy' ? C('#ffcf40') : cols[0]; G.tri(new V3(c.x - pr * 0.25, c.y + 0.012, c.z), new V3(c.x + pr * 0.25, c.y + 0.012, c.z + pr * 0.1), new V3(c.x, c.y + 0.02, c.z - pr * 0.25), cc, 0.8);
 }
@@ -296,7 +294,7 @@ export function flower(G, x, y, z, rnd, kind = 'poppy') {
   const h = (kind === 'asphodel' || kind === 'lavender' ? 0.5 : 0.32) * (0.75 + rnd() * 0.5); const lean = (rnd() - 0.5) * 0.12; const st = PAL.grass[2]; const w = 0.012;
   const top = new V3(x + lean, y + h, z + lean * 0.5); G.tri(new V3(x - w, y, z), new V3(x + w, y, z), top, st, 0, 0, 0.8);
   if (kind === 'asphodel' || kind === 'lavender') { for (let i = 0; i < 4; i++) { const t = 0.55 + i * 0.13; const p = new V3(x + lean * t, y + h * t, z + lean * 0.5 * t); petals(G, p, rnd, kind, 0.045 - i * 0.006); } }
-  else petals(G, top, rnd, kind, 0.075 + rnd() * 0.03);
+  else petals(G, top, rnd, kind, 0.1 + rnd() * 0.04);
   if (rnd() < 0.6) { const a = rnd() * TAU; const lp = new V3(x + Math.cos(a) * 0.09, y + h * 0.3, z + Math.sin(a) * 0.09); G.tri(new V3(x, y + h * 0.15, z), lp, new V3(x + Math.cos(a + 0.6) * 0.04, y + h * 0.35, z + Math.sin(a + 0.6) * 0.04), PAL.grass[3], 0, 0.5, 0.5); }
 }
 
@@ -360,14 +358,17 @@ export function entablature(M, mtx, seed = 1, { len = 6, pal = PAL.marble } = {}
 // ashlar wall with a ragged, broken top and a few fallen blocks
 export function wallChunk(M, mtx, seed = 1, { len = 3, h = 1.6, d = 0.6, pal = PAL.stone, course = 0.42 } = {}) {
   const rnd = mulberry32(seed * 23 + 3); const P = painter(pal, rnd, { base: 1.7, up: 1.1, sun: 1.1, jit: 0.9 }); const rows = Math.max(1, Math.round(h / course)); const ch = h / rows;
+  let prev = null;
   for (let r = 0; r < rows; r++) {
-    let x = -len / 2 - (r % 2 ? 0.25 : 0);
+    let x = -len / 2 - (r % 2 ? 0.25 : 0); const kept = [];
     while (x < len / 2 - 0.1) {
-      const w = Math.min(0.55 + rnd() * 0.5, len / 2 - x); const xc = Math.max(x, -len / 2), ww = x + w - xc;
-      const keep = r < rows * 0.45 || rnd() > (r / rows) * 0.7 * (Math.abs(x) / (len / 2) + 0.4);
+      const w = Math.min(0.55 + rnd() * 0.5, len / 2 - x); const xc = Math.max(x, -len / 2), ww = x + w - xc; const mid = xc + ww / 2;
+      const keep = (r < rows * 0.45 || rnd() > (r / rows) * 0.7 * (Math.abs(x) / (len / 2) + 0.4)) && (!prev || prev.some(([a, b]) => mid > a - 0.05 && mid < b + 0.05));
+      if (keep && ww > 0.15) kept.push([xc, xc + ww]);
       if (keep && ww > 0.15) M.add(block(ww - 0.03, ch - 0.03, d * (0.92 + rnd() * 0.12), { bevel: 0.04, jit: 0.035, seed: seed * 50 + r * 9 + Math.floor(x * 10) }), mtx.clone().multiply(M4(xc + ww / 2, r * ch + ch / 2, (rnd() - 0.5) * 0.04, (rnd() - 0.5) * 0.05)), P);
       x += w;
     }
+    prev = kept;
   }
   for (let i = 0; i < 2; i++) M.add(block(0.5, ch * 0.9, d * 0.8, { bevel: 0.05, jit: 0.05, seed: seed + 90 + i }), mtx.clone().multiply(M4((rnd() - 0.5) * len, ch * 0.42, d * (0.9 + rnd() * 0.5), rnd() * 2, 1, 0, (rnd() - 0.5) * 0.3)), P);
 }
@@ -383,6 +384,27 @@ export function amphora(M, mtx, seed = 1, { s = 1, pal = PAL.terra } = {}) {
   const prof = [[0, 0], [0.1, 0], [0.12, 0.05], [0.25, 0.25], [0.31, 0.48], [0.29, 0.62], [0.2, 0.82], [0.1, 0.94], [0.095, 1.06], [0.15, 1.12], [0.13, 1.15], [0, 1.15]].map(([r, y]) => [r * s, y * s]);
   M.add(lathe(prof, 9, { phase: rnd() }), mtx, (n, c, i) => { const y = (c.y - xf(new V3(), mtx).y) / s; return y > 0.5 && y < 0.64 ? band.clone() : y > 0.64 && y < 0.67 ? gold.clone() : P(n, c, i); });
   for (const sd of [-1, 1]) M.add(tube([new V3(sd * 0.1 * s, 1.0 * s, 0), new V3(sd * 0.27 * s, 1.0 * s, 0), new V3(sd * 0.26 * s, 0.72 * s, 0)], [0.03 * s, 0.03 * s, 0.03 * s], 4, { cap: false, seed: seed + sd }), mtx, P);
+}
+
+// clipped hedge: a run of chunky chiselled leaf blocks with lighter crowns
+export function hedge(M, mtx, seed = 1, { len = 4, h = 1.2, d = 0.9, pal = PAL.hedge } = {}) {
+  const rnd = mulberry32(seed * 17 + 5); const P = painter(pal, rnd, { base: 1.5, up: 1.4, sun: 1.0, jit: 1.0 }); let x = -len / 2;
+  while (x < len / 2 - 0.05) { const w = Math.min(0.8 + rnd() * 0.5, len / 2 - x); const hh = h * (0.92 + rnd() * 0.12); const g = block(w + 0.08, hh, d * (0.95 + rnd() * 0.1), { bevel: 0.14, jit: 0.1, seed: seed * 31 + Math.floor(x * 10) }); jitter(g, 0.06, seed + Math.floor(x * 10)); M.add(g, mtx.clone().multiply(M4(x + w / 2, hh / 2, (rnd() - 0.5) * 0.06)), P, (v) => (v.y > 0 ? 0.25 : 0)); x += w; }
+}
+// full-height maze wall: ashlar courses, a cap course, optional hedge crown
+export function mazeWall(M, mtx, seed = 1, { len = 4, h = 2.4, d = 0.7, pal = PAL.stone, crown = true } = {}) {
+  const rnd = mulberry32(seed * 43 + 1); const P = painter(pal, rnd, { base: 1.7, up: 1.0, sun: 1.1, jit: 1.0 }); const rows = Math.max(2, Math.round((h - 0.2) / 0.45)); const ch = (h - 0.2) / rows;
+  for (let r = 0; r < rows; r++) { let x = -len / 2; let first = true; while (x < len / 2 - 0.05) { const w = Math.min((first && r % 2 ? 0.35 : 0.6) + rnd() * 0.45, len / 2 - x); first = false; M.add(block(w - 0.035, ch - 0.035, d * (0.94 + rnd() * 0.08), { bevel: 0.035, jit: 0.03, seed: seed * 70 + r * 13 + Math.floor(x * 9) }), mtx.clone().multiply(M4(x + w / 2, r * ch + ch / 2, (rnd() - 0.5) * 0.03)), P); x += w; } }
+  M.add(block(len + 0.08, 0.2, d + 0.14, { bevel: 0.05, jit: 0.02, seed: seed + 9 }), mtx.clone().multiply(M4(0, h - 0.1, 0)), P);
+  if (crown) hedge(M, mtx.clone().multiply(M4(0, h - 0.05, 0)), seed + 3, { len: len * 0.96, h: 0.45, d: d * 0.85 });
+}
+export function stump(M, mtx, seed = 1, { r = 0.32, h = 0.45 } = {}) {
+  const rnd = mulberry32(seed * 7 + 3); const P = painter(PAL.barkGrey, rnd, { base: 1.6, sun: 1.1, jit: 0.9 }); const cut = [C('#8a6a4a'), C('#b08a5a'), C('#6a4a3a')];
+  M.add(lathe([[0, -0.05], [r * 1.35, -0.05], [r * 1.05, h * 0.25], [r, h * 0.85], [r * 0.95, h], [0, h + 0.03]], 7, { jit: 0.12, seed }), mtx, (n, c, i) => (n.y > 0.8 ? cut[i % 3].clone() : P(n, c, i)));
+}
+export function horns(M, mtx, seed = 1, { span = 1.2, pal = PAL.marble } = {}) {
+  const rnd = mulberry32(seed); const P = painter(pal, rnd, { base: 2, up: 0.8, sun: 1.2, jit: 0.5 });
+  for (const sd of [-1, 1]) { const pts = []; const rad = []; for (let i = 0; i <= 6; i++) { const t = i / 6; pts.push(new V3(sd * (0.12 + t * span * 0.5), Math.sin(t * Math.PI * 0.8) * span * 0.32 + t * t * span * 0.3, Math.sin(t * Math.PI) * 0.12)); rad.push(0.12 * (1 - t * 0.85)); } M.add(tube(pts, rad, 6, { seed: seed + sd, tipLen: 2 }), mtx, P); }
 }
 
 // ================================================================ ARCANE ACCENTS
@@ -448,7 +470,7 @@ export function firePit({ seed = 3 } = {}) {
 }
 // raised bronze brazier on a fluted stone pedestal
 export function brazier(M, B, F, G, mtx, seed = 1, { h = 1.1 } = {}) {
-  const rnd = mulberry32(seed * 11 + 1); column(M, mtx, seed, { h, r: 0.17, drums: 2 }); const top = h + 0.42;
+  const rnd = mulberry32(seed * 11 + 1); column(M, mtx, seed, { h, r: 0.17, drums: 2 }); const top = h - 0.02;
   const P = painter(PAL.bronze, rnd, { base: 1.8, up: 0.7, sun: 1.4, jit: 0.5 });
   B.add(lathe([[0, top], [0.12, top], [0.38, top + 0.12], [0.52, top + 0.3], [0.5, top + 0.34], [0.38, top + 0.24], [0, top + 0.24]], 10, { phase: 0.3 }), mtx, P);
   for (let k = 0; k < 10; k++) { const a = (k / 10) * TAU; B.add(block(0.06, 0.08, 0.06, { bevel: 0.01, seed: k }), mtx.clone().multiply(M4(Math.cos(a) * 0.5, top + 0.37, Math.sin(a) * 0.5, a)), P); }
@@ -460,7 +482,7 @@ export function brazier(M, B, F, G, mtx, seed = 1, { h = 1.1 } = {}) {
 export function waterSheet(W, { x0, x1, z0, z1, y = 0.05, step = 0.9, mask = null, seed = 1, sky = '#e7a07a' } = {}) {
   const rnd = mulberry32(seed * 7 + 99); const pal = PAL.water; const glint = C(sky); const nx = Math.ceil((x1 - x0) / step), nz = Math.ceil((z1 - z0) / step); const V = [];
   for (let j = 0; j <= nz; j++) { const row = []; for (let i = 0; i <= nx; i++) { const x = x0 + i * step + (i && i < nx ? (hash(i, j, 3, seed) - 0.5) * step * 0.6 : 0), z = z0 + j * step + (j && j < nz ? (hash(i, j, 5, seed) - 0.5) * step * 0.6 : 0); row.push(new V3(x, y + (hash(i, j, 7, seed) - 0.5) * 0.03, z)); } V.push(row); }
-  const face = (a, b, c) => { const cx = (a.x + b.x + c.x) / 3, cz = (a.z + b.z + c.z) / 3; if (mask && !mask(cx, cz)) return; const r = rnd(); const col = r < 0.06 ? glint.clone().multiplyScalar(0.8 + rnd() * 0.5) : pal[r < 0.3 ? 1 : r < 0.75 ? 2 : r < 0.93 ? 3 : 4].clone(); W.tri(a, c, b, col, 1); };
+  const face = (a, b, c) => { const cx = (a.x + b.x + c.x) / 3, cz = (a.z + b.z + c.z) / 3; if (mask && !mask(cx, cz)) return; const band = Math.sin(cx * 0.21 + Math.sin(cz * 0.5) * 1.4) * 0.5 + Math.sin(cz * 0.9 + cx * 0.07) * 0.5; const t = Math.max(0, Math.min(4, Math.round(2.1 + band * 0.9 + (rnd() - 0.5) * 0.7))); const col = rnd() < 0.025 ? glint.clone().multiplyScalar(0.7 + rnd() * 0.4) : pal[t].clone().multiplyScalar(0.96 + rnd() * 0.08); W.tri(a, c, b, col, 1); };
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const a = V[j][i], b = V[j][i + 1], c = V[j + 1][i + 1], d = V[j + 1][i]; if ((i + j) % 2) { face(a, b, c); face(a, c, d); } else { face(a, b, d); face(b, c, d); } }
 }
 // faceted heightfield; colorAt(n, centroid) -> Color

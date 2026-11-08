@@ -1,6 +1,6 @@
 // Boot + game flow: menu -> map -> nodes (battle / event / shop / lab) -> rewards -> ... -> death/victory.
 import { Engine } from './core/engine.js';
-import { hud } from './ui/hud.js';
+import { hud } from './ui3d/hud.js';
 import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
 import { save } from './core/save.js';
@@ -14,7 +14,7 @@ const bootMsg = (t, p) => { $('boot-msg').textContent = t; if (p != null) $('boo
 
 class Game {
   constructor() {
-    this.engine = new Engine($('game')); this.input = new Input($('game')); hud.engine = this.engine;
+    this.engine = new Engine($('game')); this.input = new Input($('game')); hud.attach(this.engine, this.input);
     this.journal = save.journal; this.settings = save.settings; window.__settings = this.settings;
     audio.vol = { master: this.settings.master, sfx: this.settings.sfx, music: this.settings.music, amb: this.settings.amb };
     this.input.onFirstInteract = () => { audio.unlock(); };

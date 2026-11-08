@@ -100,7 +100,7 @@ export function paintSurface(S, fn, { shade = null, select = null, into = null }
   const { size, n, off, P, N, B, names } = S;
   let cv = into?.canvas, img = into?.img, orm = into?.orm, em = into?.em;
   if (!cv) {
-    cv = document.createElement('canvas'); cv.width = cv.height = size; img = cv.getContext('2d').createImageData(size, size);
+    cv = document.createElement('canvas'); cv.width = cv.height = size; img = cv.getContext('2d', { willReadFrequently: true }).createImageData(size, size);
     orm = document.createElement('canvas'); orm.width = orm.height = size; orm.img = orm.getContext('2d').createImageData(size, size);
     em = document.createElement('canvas'); em.width = em.height = size; em.img = em.getContext('2d').createImageData(size, size); em.used = false;
   }
@@ -157,7 +157,7 @@ export function paintUV(w, h, fn) {
   return { canvas: cv, orm, em };
 }
 const UVMATS = new Map();
-export function uvMat(key, w, h, fn, extra) { if (!UVMATS.has(key)) { const m = paintedMat(paintUV(w, h, fn), extra); for (const k of ['map', 'roughnessMap', 'metalnessMap', 'emissiveMap']) if (m[k]) m[k].wrapS = THREE.RepeatWrapping; UVMATS.set(key, m); } return UVMATS.get(key); }
+export function uvMat(key, w, h, fn, extra) { if (!UVMATS.has(key)) { const m = paintedMat(paintUV(w, h, fn), extra); for (const k of ['map', 'roughnessMap', 'metalnessMap', 'emissiveMap']) if (m[k]) m[k].wrapS = m[k].wrapT = THREE.RepeatWrapping; UVMATS.set(key, m); } return UVMATS.get(key); }
 
 // ---------------------------------------------------------------- faces (shared by every humanoid)
 // Bind-pose landmarks of the two Quaternius bases (metres, +Y up, facing +Z, character's left = +X).
@@ -289,7 +289,6 @@ export function headPiece(asset, mat, skinned, { push = 0, seed = 1, scale = 1, 
   const w = new THREE.Group(); sk.boneInverses[hi].clone().multiply(src.bindMatrix).decompose(w.position, w.quaternion, w.scale); w.add(m);
   skinned.skeleton.bones.find((b) => b.name === 'Head').add(w); return w;
 }
-export function headBind(skinned) { const sk = skinned.skeleton; const i = sk.bones.findIndex((b) => b.name === 'Head'); return new THREE.Vector3().setFromMatrixPosition(sk.boneInverses[i].clone().invert()).add(new THREE.Vector3(0, 0.1, 0.02)); }
 
 // ---------------------------------------------------------------- animation
 export class Anim {
@@ -336,12 +335,13 @@ export class Loft {
     this.pts = Array.from({ length: rings }, () => new THREE.Vector3());
   }
   /** path(t, outVec3) -> point; radius(t) -> [rx (side), ry (up)] or number; shape(a, t) optional multiplier */
-  set(path, radius, { up = _UP, shape = null, normals = true } = {}) {
+  set(path, radius, { up = _UP, ref = null, shape = null, normals = true } = {}) {
     const { R, M, pts } = this; const pos = this.geo.attributes.position.array;
     for (let r = 0; r < R; r++) path(r / (R - 1), pts[r]);
     _n.copy(up);
     for (let r = 0; r < R; r++) {
       const a = pts[Math.max(0, r - 1)], b = pts[Math.min(R - 1, r + 1)]; _t.subVectors(b, a).normalize();
+      if (ref) ref(r / (R - 1), _n);
       _n.addScaledVector(_t, -_n.dot(_t)); if (_n.lengthSq() < 1e-8) _n.set(1, 0, 0).addScaledVector(_t, -_t.x); _n.normalize(); _b.crossVectors(_t, _n);
       const t = r / (R - 1); const rr = radius(t); const rx = Array.isArray(rr) ? rr[0] : rr, ry = Array.isArray(rr) ? rr[1] : rr;
       for (let s = 0; s <= M; s++) {

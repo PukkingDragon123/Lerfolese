@@ -1,12 +1,12 @@
-// UI kit: canvas-text planes, parchment notes, physical widgets (gauge, bell, bin, pouch, piles), numbers.
+// UI kit: canvas helpers (also used inside textures), the paper Note, and the physical card piles.
 import * as THREE from 'three';
-import * as S from '../models/sculpt.js';
-import { TEX } from '../gfx/textures.js';
-import { R } from '../gfx/palette.js';
 import { Spring } from '../core/tween.js';
-import { sprite } from '../gfx/sprites.js';
-import { standee, safeDrawn, pixelTex } from './standee.js';
+import { Paper } from './objects.js';
+import { Surf, SurfTex, RAMP, pxTex, frontMat, sideMat, slab, wood, brass, groove, rivet, inscribe, measure } from './craft.js';
+import { GR } from '../gfx/art/ramps.js';
+import { hash2 } from '../gfx/art/core.js';
 
+function mk(g, m, p, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; p.add(o); return o; }
 export const UIF = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.6, toneMapped: false, ...o });
 export function canvasTexture(c) { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.minFilter = THREE.LinearMipmapLinearFilter; return t; }
 
@@ -42,157 +42,34 @@ export function parchmentBG(g, w, h, { torn = true, tint = '#f3e6c4', edge = '#b
   const gr = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.2, w / 2, h / 2, Math.max(w, h) * 0.7); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(120,70,20,0.28)'); g.fillStyle = gr; g.fillRect(7, 7, w - 14, h - 14);
 }
 
-// physical paper note that can be pinned anywhere (tooltips, barks, tags)
+// physical paper note (Note API: show(lines, x, y, z) / hide() / update(dt)) -> a pinned parchment scrap
 export class Note {
-  constructor({ w = 5, h = 2, font = 'VT323', size = 40, tail = false } = {}) {
-    this.group = new THREE.Group(); this.w = w; this.h = h; this.font = font; this.size = size; this.tail = tail;
-    this.plane = textPlane([''], { w, h, font, size, bg: (g, cw, ch) => this._bg(g, cw, ch) });
-    this.group.add(this.plane); this.group.visible = false; this.s = new Spring(0, 18, 0.45); this.rot = new Spring(0, 10, 0.3);
-  }
-  _bg(g, cw, ch) { parchmentBG(g, cw, ch); if (this.tail) { g.fillStyle = '#f3e6c4'; g.beginPath(); g.moveTo(cw * 0.18, ch - 8); g.lineTo(cw * 0.12, ch); g.lineTo(cw * 0.3, ch - 8); g.fill(); } }
-  show(lines, x, y, z = 6) { this.plane.userData.setText(lines); this.group.position.set(x, y, z); if (!this.group.visible) { this.s.value = 0.2; this.rot.value = (Math.random() - 0.5) * 0.5; } this.s.target = 1; this.rot.target = (Math.random() - 0.5) * 0.06; this.group.visible = true; this.hideAt = null; }
-  hide() { this.s.target = 0; this.hideAt = 0.15; }
-  update(dt) { this.s.update(dt); this.rot.update(dt); this.group.scale.setScalar(Math.max(0.001, this.s.value)); this.group.rotation.z = this.rot.value; if (this.hideAt != null) { this.hideAt -= dt; if (this.hideAt <= 0) { this.group.visible = false; this.hideAt = null; } } }
+  constructor({ w = 5, tail = false } = {}) { this.paper = new Paper({ font: 'hand', maxW: Math.max(6, w * 1.3), tail: tail ? true : false, pin: !tail, kind: tail ? 'scrap' : 'note' }); this.group = this.paper.group; }
+  show(lines, x, y, z = 6) { this.paper.show(lines, x, y, z); }
+  hide() { this.paper.hide(); }
+  update(dt) { this.paper.update(dt, null); }
 }
 
-// ---------------- widgets ----------------
-const brassM = () => UIF({ color: 0xd9a64a, metalness: 0.85, roughness: 0.3 });
-const woodM = () => UIF({ map: TEX.wood('uiwood', R.wood, { seed: 31 }), roughness: 0.6 });
-function mk(g, m, p, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; p.add(o); return o; }
-
-export class Gauge { // hand-drawn brass pressure gauge for Integrity (HP) + block shield
-  constructor() {
-    const g = (this.group = new THREE.Group()); const H = 3.6;
-    this.dial = standee('gauge', { height: H, anchor: 'center' }); g.add(this.dial);
-    this.needle = new THREE.Group(); this.needle.position.set(0, ((70 - 62) / 140) * H, 0.06); g.add(this.needle);
-    const nh = (64 / 140) * H; const nd = standee('needle', { height: nh, anchor: 'center' }); nd.position.y = ((54 - 32) / 64) * nh; nd.position.z = 0.01; this.needle.add(nd);
-    this.label = textPlane(['64/64'], { w: 2.4, h: 0.8, font: 'Pixelify', size: 64, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 10] }); this.label.position.set(0, -H / 2 - 0.35, 0.3); g.add(this.label);
-    this.tag = textPlane(['INTEGRITY'], { w: 2.6, h: 0.45, font: 'Silkscreen', size: 34, weight: 700, color: '#f3e6c4', stroke: ['#1a1220', 8] }); this.tag.position.set(0, H / 2 + 0.15, 0.3); g.add(this.tag);
-    this.shield = new THREE.Group(); this.shield.position.set(1.75, 0.95, 0.6); g.add(this.shield);
-    this.shield.add(standee(sprite('shield'), { height: 1.5, anchor: 'center' }));
-    this.blockLabel = textPlane(['0'], { w: 1.2, h: 0.8, font: 'Pixelify', size: 80, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 12] }); this.blockLabel.position.set(0, -0.05, 0.1); this.shield.add(this.blockLabel);
-    this.shieldS = new Spring(0, 16, 0.4); this.needleS = new Spring(1, 6, 0.35); this.shake = new Spring(0, 30, 0.2);
-    this.hp = -1; this.max = 1; this.block = 0;
-  }
-  set(hp, max, block) {
-    if (hp !== this.hp || max !== this.max) { if (hp < this.hp) this.shake.kick(12); this.hp = hp; this.max = max; this.label.userData.setText([`${hp}/${max}`]); this.needleS.target = Math.max(0, hp / max); }
-    if (block !== this.block) { if (block > this.block) this.shieldS.kick(8); this.block = block; this.blockLabel.userData.setText([String(block)]); }
-    this.shieldS.target = block > 0 ? 1 : 0;
-  }
-  update(dt) {
-    this.needleS.update(dt); this.shieldS.update(dt); this.shake.update(dt);
-    this.needle.rotation.z = Math.PI * 0.75 - this.needleS.value * Math.PI * 1.5 + Math.sin(performance.now() * 0.02) * 0.008;
-    this.group.rotation.z = this.shake.value * 0.02; const s = Math.max(0.001, this.shieldS.value); this.shield.scale.setScalar(s); this.shield.visible = s > 0.01;
-  }
-}
-
-export class Bell { // hand-drawn brass desk bell: End Turn
-  constructor() {
-    const g = (this.group = new THREE.Group());
-    this.body = new THREE.Group(); g.add(this.body);
-    this.img = standee('bell', { height: 2.6, anchor: 'center', args: [0] }); this.body.add(this.img);
-    this.frames = [safeDrawn('bell', 0), safeDrawn('bell', 1)];
-    this.tag = textPlane(['END TURN'], { w: 2.4, h: 0.55, font: 'Pixelify', size: 46, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 10] }); this.tag.position.set(0, -1.6, 0.3); g.add(this.tag);
-    this.press = new Spring(0, 30, 0.25); this.wob = new Spring(0, 12, 0.15); this.hover = false; this.enabled = true; this.pressT = 0;
-    this.hit = mk(new THREE.BoxGeometry(2.6, 2.4, 1), new THREE.MeshBasicMaterial({ visible: false }), g, 0, 0, 0); this.hit.castShadow = false;
-  }
-  ring() { this.press.kick(-14); this.wob.kick(10); this.pressT = 0.18; this.setFrame(1); }
-  setFrame(i) { const f = this.frames[i]; if (f) { const t = pixelTex(f); if (this.img.material.map !== t) { this.img.material.map = t; this.img.material.needsUpdate = true; } } }
-  update(dt) { this.press.update(dt); this.wob.update(dt); if (this.pressT > 0) { this.pressT -= dt; if (this.pressT <= 0) this.setFrame(0); } this.body.rotation.z = this.wob.value * 0.03 + (this.hover ? Math.sin(performance.now() * 0.012) * 0.03 : 0); this.body.scale.set(1, 1 + Math.min(0, this.press.value) * 0.01, 1); this.group.scale.setScalar(this.enabled ? 1 : 0.92); }
-}
-
-export class Bin { // hand-drawn wicker basket of crumpled theories: Second Thoughts
-  constructor() {
-    const g = (this.group = new THREE.Group());
-    g.add(standee('basket', { height: 2.6, anchor: 'center' }));
-    this.tokens = []; for (let i = 0; i < 4; i++) { const t = standee('token', { height: 0.62, anchor: 'center' }); t.position.set(1.55 + (i % 2) * 0.18, -0.85 + i * 0.36, 0.2 + i * 0.01); g.add(t); this.tokens.push(t); }
-    this.tag = textPlane(['SECOND', 'THOUGHTS'], { w: 2.6, h: 0.9, font: 'Pixelify', size: 40, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 9], lineH: 1.0 }); this.tag.position.set(0.1, -1.75, 0.5); g.add(this.tag);
-    this.hit = mk(new THREE.BoxGeometry(3, 2.6, 1), new THREE.MeshBasicMaterial({ visible: false }), g, 0.2, 0, 0); this.hit.castShadow = false;
-    this.glow = new Spring(0, 12, 0.5); this.jig = new Spring(0, 18, 0.2); this.count = 3;
-  }
-  set(n) { if (n < this.count) this.jig.kick(10); this.count = n; this.tokens.forEach((t, i) => (t.visible = i < n)); }
-  update(dt) { this.glow.update(dt); this.jig.update(dt); this.group.rotation.z = this.jig.value * 0.03; const s = 1 + this.glow.value * 0.08; this.group.scale.setScalar(s); }
-}
-
-export class Pile { // draw / discard pile: stacked card backs + count
+// draw / discard pile: stacked card backs in a felt-lined walnut tray, with an engraved brass counter plate
+const trayTex = (() => { let t = null; return () => { if (t) return t; const S = new Surf(44, 58); wood(S, 0, 0, 44, 58, RAMP.walnut, { seed: 12, base: 2, knots: 1 }); S.bevel(null, { lit: 2, dark: -2 });
+  for (let y = 5; y < 53; y++) for (let x = 5; x < 39; x++) S.set(x, y, GR.clothTeal, (y === 5 || x === 5) ? 0 : (hash2(x, y, 4) > 0.82 ? 2 : 1)); groove(S, 0, 0, 44, 58, 3, { cut: 2, deep: 0, lip: 4 });
+  for (const [x, y] of [[1, 1], [40, 1], [1, 54], [40, 54]]) rivet(S, x, y); t = pxTex(S.toCanvas()); return t; }; })();
+export class Pile {
   constructor(label, backTex) {
-    const g = (this.group = new THREE.Group()); this.cards = [];
+    const g = (this.group = new THREE.Group()); this.cards = []; this.label = label === 'USED' ? 'DISCARD' : label;
+    this.tray = mk(slab(2.75, 3.6, 0.3, { cut: 0.14, bevel: 0.06 }), [frontMat(trayTex()), sideMat('walnut')], g, 0, 0.05, -0.32);
     const mat = [UIF({ color: 0xe8d4a2 }), UIF({ color: 0xe8d4a2 }), UIF({ color: 0xe8d4a2 }), UIF({ color: 0xe8d4a2 }), UIF({ map: backTex, roughness: 0.5, transparent: true, alphaTest: 0.5 }), UIF({ color: 0x3e2b6b })];
-    for (let i = 0; i < 6; i++) { const c = mk(new THREE.BoxGeometry(2.0, 2.8, 0.04), mat, g, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1, i * 0.05); c.rotation.z = (Math.random() - 0.5) * 0.12; this.cards.push(c); }
-    this.count = textPlane(['0'], { w: 1.4, h: 0.8, font: 'Pixelify', size: 70, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 12] }); this.count.position.set(0.85, -1.25, 0.6); g.add(this.count);
-    this.tag = textPlane([label], { w: 2.4, h: 0.45, font: 'Silkscreen', size: 34, weight: 700, color: '#f3e6c4', stroke: ['#1a1220', 8] }); this.tag.position.set(0, 1.75, 0.5); g.add(this.tag);
+    for (let i = 0; i < 6; i++) { const c = mk(new THREE.BoxGeometry(2.0, 2.8, 0.04), mat, g, (Math.random() - 0.5) * 0.1, 0.12 + (Math.random() - 0.5) * 0.1, i * 0.05); c.rotation.z = (Math.random() - 0.5) * 0.12; this.cards.push(c); }
+    this.plate = new SurfTex(40, 11); this.plateMesh = mk(slab(40 / 16, 11 / 16, 0.07, { shape: 'notch', bevel: 0.02 }), [frontMat(this.plate.tex, { metal: 0.3, rough: 0.5, env: 0.8 }), sideMat('brass')], g, 0, -1.72, 0.25);
     this.n = -1; this.bump = new Spring(0, 20, 0.3);
     this.hit = mk(new THREE.BoxGeometry(2.4, 3.2, 1), new THREE.MeshBasicMaterial({ visible: false }), g); this.hit.castShadow = false;
   }
-  set(n) { if (n !== this.n) { this.bump.kick(6); this.n = n; this.count.userData.setText([String(n)]); this.cards.forEach((c, i) => (c.visible = i < Math.min(6, Math.ceil(n / 3) + (n > 0 ? 1 : 0)))); } }
+  set(n) {
+    if (n === this.n) return; this.bump.kick(6); this.n = n; this.cards.forEach((c, i) => (c.visible = i < Math.min(6, Math.ceil(n / 3) + (n > 0 ? 1 : 0))));
+    this.plate.paint((S) => { brass(S, 0, 0, 40, 11, { seed: 3, patina: 0.3 }); S.bevel(null, { lit: 2, dark: -2 }); const t = String(n); const lw = measure(this.label, 'tiny'); inscribe(S, this.label, 6, 8, 'tiny', 'enamel', { fill: RAMP.night }); inscribe(S, t, Math.max(lw + 9, 35 - measure(t, 'tiny')), 8, 'tiny', 'enamel', { fill: RAMP.night }); });
+  }
   update(dt) { this.bump.update(dt); this.group.scale.setScalar(1 + this.bump.value * 0.02); }
 }
 
-export class Pouch { // hand-drawn leather coin pouch: gold. Shake it!
-  constructor() {
-    const g = (this.group = new THREE.Group());
-    this.img = standee('pouch', { height: 2.0, anchor: 'center' }); g.add(this.img);
-    this.label = textPlane(['99'], { w: 1.8, h: 0.8, font: 'Pixelify', size: 70, weight: 700, color: '#ffe08a', stroke: ['#1a1220', 12] }); this.label.position.set(1.45, -0.2, 0.6); g.add(this.label);
-    this.hit = mk(new THREE.BoxGeometry(2.2, 2.2, 1), new THREE.MeshBasicMaterial({ visible: false }), g, 0.3, 0, 0); this.hit.castShadow = false;
-    this.jig = new Spring(0, 22, 0.15); this.gold = -1;
-  }
-  set(n) { if (n !== this.gold) { if (this.gold >= 0) this.jig.kick(8); this.gold = n; this.label.userData.setText([String(n)]); } }
-  update(dt) { this.jig.update(dt); this.group.rotation.z = this.jig.value * 0.05; }
-}
-
-// floating damage/heal numbers with a little physics bounce
-export class Numbers {
-  constructor(scene) { this.scene = scene; this.list = []; }
-  spawn(text, x, y, { color = '#fff6cf', stroke = '#5a1a22', size = 1.4, vx = (Math.random() - 0.5) * 4, vy = 7, life = 1.4, floor = null } = {}) {
-    const m = textPlane([String(text)], { w: size * 2.2, h: size, font: 'Pixelify', size: 110, weight: 700, color, stroke: [stroke, 18] });
-    m.position.set(x, y, 8); this.scene.add(m);
-    this.list.push({ m, vx, vy, life, max: life, floor: floor ?? y - 1.2, rot: (Math.random() - 0.5) * 2 });
-  }
-  update(dt) {
-    for (const n of this.list) {
-      n.life -= dt; n.vy -= 22 * dt; n.m.position.x += n.vx * dt; n.m.position.y += n.vy * dt; n.m.rotation.z += n.rot * dt * (n.vy > 0 ? 1 : 0.3);
-      if (n.m.position.y < n.floor) { n.m.position.y = n.floor; n.vy = Math.abs(n.vy) * 0.38; n.vx *= 0.6; n.rot *= 0.5; }
-      const k = n.max - n.life; const s = k < 0.12 ? 0.4 + k * 6 : 1; n.m.scale.setScalar(s);
-      n.m.material.opacity = Math.min(1, n.life * 3);
-    }
-    this.list = this.list.filter((n) => { if (n.life <= 0) { this.scene.remove(n.m); n.m.material.map.dispose(); n.m.material.dispose(); n.m.geometry.dispose(); return false; } return true; });
-  }
-}
-
-// intent tag (above an enemy) and HP plaque (below)
-const ICONS = {};
-function iconCanvas(name) { if (!ICONS[name]) { const pc = sprite(name); ICONS[name] = pc.scaled(8); } return ICONS[name]; }
-export class EnemyHUD {
-  constructor(name) {
-    const g = (this.group = new THREE.Group());
-    this.intent = textPlane([''], { w: 3.6, h: 1.3, font: 'Pixelify', size: 64, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 12], bg: null });
-    this.intentIcon = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 1.25), new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false, depthWrite: false }));
-    this.intentG = new THREE.Group(); this.intentG.visible = false; this.intentG.add(this.intentIcon, this.intent); this.intentIcon.position.x = -0.9; this.intent.position.x = 0.75; g.add(this.intentG);
-    this.hpc = document.createElement('canvas'); this.hpc.width = 512; this.hpc.height = 112; this.hpt = canvasTexture(this.hpc);
-    this.hp = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 0.74), new THREE.MeshBasicMaterial({ map: this.hpt, transparent: true, toneMapped: false, depthWrite: false })); g.add(this.hp);
-    this.name = name; this.bob = Math.random() * 6; this.shown = new Spring(0, 12, 0.5); this.intentKey = '';
-  }
-  setHP(hp, max, block, st) {
-    const g = this.hpc.getContext('2d'); const W = 512, H = 112; g.clearRect(0, 0, W, H);
-    g.fillStyle = '#1a1220'; g.beginPath(); g.roundRect(4, 34, W - 8, 46, 12); g.fill();
-    g.fillStyle = '#3a0f18'; g.beginPath(); g.roundRect(12, 42, W - 24, 30, 8); g.fill();
-    const f = Math.max(0, hp / max); const gr = g.createLinearGradient(0, 42, 0, 72); gr.addColorStop(0, '#e8705a'); gr.addColorStop(0.5, '#c8443a'); gr.addColorStop(1, '#8f2a2e');
-    g.fillStyle = gr; g.beginPath(); g.roundRect(12, 42, (W - 24) * f, 30, 8); g.fill(); g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(16, 45, (W - 32) * f, 5);
-    g.strokeStyle = '#d9a64a'; g.lineWidth = 4; g.beginPath(); g.roundRect(6, 36, W - 12, 42, 12); g.stroke();
-    g.font = '700 30px "Pixelify"'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 7; g.strokeStyle = '#1a1220'; g.strokeText(`${Math.max(0, hp)}/${max}`, W / 2, 58); g.fillStyle = '#fff6cf'; g.fillText(`${Math.max(0, hp)}/${max}`, W / 2, 58);
-    g.font = '700 24px "Silkscreen"'; g.textAlign = 'left'; g.strokeText(this.name.toUpperCase(), 10, 16); g.fillStyle = '#f3e6c4'; g.fillText(this.name.toUpperCase(), 10, 16);
-    if (block > 0) { g.fillStyle = '#3f7fa8'; g.beginPath(); g.arc(W - 30, 57, 26, 0, 7); g.fill(); g.strokeStyle = '#d9a64a'; g.lineWidth = 4; g.stroke(); g.font = '700 26px "Pixelify"'; g.textAlign = 'center'; g.fillStyle = '#fff'; g.fillText(String(block), W - 30, 58); }
-    // statuses
-    const keys = Object.keys(st || {}).filter((k) => st[k]); let x = 12; g.font = '700 22px "Silkscreen"'; g.textAlign = 'left';
-    const col = { burn: '#f08a2a', wet: '#3f9ac8', venom: '#7cb460', weak: '#9b7cc8', vulnerable: '#e8705a', strength: '#c8443a', stun: '#f2c14e', prone: '#f2c14e', evade: '#8fd3c0', blind: '#cdb6f0', dizzy: '#f6b3a0' };
-    for (const k of keys) { const t = `${k.slice(0, 4).toUpperCase()} ${st[k]}`; const w = g.measureText(t).width + 14; g.fillStyle = col[k] || '#b8935a'; g.beginPath(); g.roundRect(x, 84, w, 26, 6); g.fill(); g.fillStyle = '#1a1220'; g.fillText(t, x + 7, 98); x += w + 6; }
-    this.hpt.needsUpdate = true;
-  }
-  setIntent(it, value, hits) {
-    const key = it ? `${it.icon}:${value}:${hits}:${it.label}` : ''; if (key === this.intentKey) return; this.intentKey = key;
-    if (!it) { this.intentG.visible = false; return; } this.intentG.visible = true;
-    const ic = iconCanvas(it.icon || 'question'); if (!this.intentIcon.material.map || this.intentIcon.material.map.image !== ic) { this.intentIcon.material.map = canvasTexture(ic); this.intentIcon.material.map.magFilter = THREE.NearestFilter; this.intentIcon.material.needsUpdate = true; }
-    const txt = value != null ? `${value}${hits > 1 ? 'x' + hits : ''}` : ''; this.intent.userData.setText([txt]); this.label = it.label;
-  }
-  update(dt, x, y, yTop) { this.bob += dt; this.hp.position.set(x, y, 5); this.intentG.position.set(x, yTop + Math.sin(this.bob * 2.4) * 0.12, 5); }
-}
+// gold pouch and damage numbers are physical objects now (stitched leather pouch, painted wooden chips)
+export { Pouch, NumberChips as Numbers } from './hudparts.js';

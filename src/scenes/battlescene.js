@@ -1,15 +1,16 @@
 // The battle: golden-hour diorama, marionette vs. monsters, physical hand of cards, all juice.
 import * as THREE from 'three';
 import { buildStage } from '../models/world.js';
-import { realStage } from '../models/realworld.js';
+import { realStage, firePit } from '../models/realworld.js';
 import { loadModel } from '../gfx/assets.js';
 import { createProfessor } from '../models/professor.js';
 import { createCreature } from '../models/creatures.js';
 import { Particles } from '../gfx/particles.js';
 import { Critters } from '../gfx/critters.js';
 import { HandView, cardBackTex } from '../ui3d/cards3d.js';
-import { Pile, Numbers, Note } from '../ui3d/kit.js';
-import { hud, HudTip, BattleHUD } from '../ui/hud.js';
+import { Pile, Numbers } from '../ui3d/kit.js';
+import { hud, HudTip, BattleHUD } from '../ui3d/hud.js';
+import { uiRig } from '../ui3d/craft.js';
 import { fieldView, projectileModel } from './fieldviews.js';
 import { Battle } from '../game/battle.js';
 import { describeAttack, describeSelf, FIELD_INFO } from '../game/combos.js';
@@ -69,7 +70,7 @@ export class BattleScene {
     this.fires = [];
     for (const [x, z, s] of [[-6.4, -2.4, 1.6], [7.0, -3.2, 1.7]]) {
       const l = new THREE.PointLight(0xff8a3a, 26, 12, 1.6); l.position.set(x, 1.5, z + 0.4); sc.add(l); this.fires.push({ l, x, z, s, ph: Math.random() * 9 });
-      loadModel('stone_fire_pit').then((o) => { o.position.set(x, 0, z); o.scale.multiplyScalar(s); o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); sc.add(o); }).catch(() => {});
+      { const o = firePit({ seed: Math.round(x * 3 + z) }); o.position.set(x, 0, z); o.scale.multiplyScalar(s); sc.add(o); }
     }
     this.spirit = new THREE.PointLight(0xa58cff, 5, 6, 2); this.spirit.position.set(-3.5, 2.6, 1.8); sc.add(this.spirit);
     this.camera = new THREE.PerspectiveCamera(32, this.engine.aspect, 0.1, 400); this.camBase = new THREE.Vector3(-0.1, 3.0, 11.4); this.camLook = new THREE.Vector3(0.3, 1.7, 0);
@@ -108,13 +109,11 @@ export class BattleScene {
     const ui = (this.ui = { scene: this.engine.ui.scene, W: this.engine.uiW, H: this.engine.uiH });
     ui.root = new THREE.Group(); ui.scene.add(ui.root);
     ui.pointerPlane = (z = 4) => { const ndc = this.input.ndc; const cam = this.engine.ui.camera; const v = new THREE.Vector3(ndc.x, ndc.y, 0.5).unproject(cam).sub(cam.position).normalize(); const t = (z - cam.position.z) / v.z; return cam.position.clone().addScaledVector(v, t); };
-    // lights + shadow catcher for the floating objects
-    const key = new THREE.DirectionalLight(0xfff2e0, 2.2); key.position.set(-8, 12, 30); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -30, right: 30, top: 18, bottom: -18, near: 1, far: 80 });
-    ui.root.add(key, new THREE.AmbientLight(0xffffff, 1.35));
-    const catcher = new THREE.Mesh(new THREE.PlaneGeometry(120, 80), new THREE.ShadowMaterial({ opacity: 0.28 })); catcher.position.z = -2; catcher.receiveShadow = true; ui.root.add(catcher);
+    // shared UI light rig: key light + ambient + rim, and a shadow catcher behind the physical objects
+    uiRig(this.engine);
     this.hand = new HandView(ui);
     this.drawPile = new Pile('DRAW', cardBackTex()); this.discardPile = new Pile('USED', cardBackTex()); ui.root.add(this.drawPile.group, this.discardPile.group);
-    hud.engine = this.engine; hud.clear();
+    hud.attach(this.engine, this.input); hud.clear();
     const enc = this.encounter; this.hudB = new BattleHUD({ floor: (this.runData.stats.floors || 0) + 1, kind: enc.kind, onEnd: () => this.endTurn(), onWell: () => this.toast('Drag cards into Second Thoughts to redraw them. 3 per battle.') });
     this.tooltip = new HudTip(); this.preview = new HudTip();
     this.barks = []; this.numbers = new Numbers(ui.scene);
@@ -122,7 +121,7 @@ export class BattleScene {
   }
   layoutUI() {
     const W = (this.ui.W = this.engine.uiW), H = (this.ui.H = this.engine.uiH);
-    this.drawPile.group.position.set(-W + 2.2, -H + 2.4, 0.5); this.discardPile.group.position.set(W - 7.4, -H + 2.4, 0.5);
+    this.drawPile.group.position.set(-W + 1.95, -H + 2.55, 0.5); this.discardPile.group.position.set(W - 7.6, -H + 2.55, 0.5);
     this.hand?.layout();
   }
 
@@ -161,8 +160,8 @@ export class BattleScene {
     this.hudB.setEnd(B.phase === 'player' && !this.busy && !this.done, B.phase === 'player' || this.done ? 'End Turn' : 'Foes act');
     this.drawPile.set(B.draw.length); this.discardPile.set(B.discard.length); this.drawPile.update(dt); this.discardPile.update(dt);
     this.tooltip.update(dt); this.preview.update(dt); this.numbers.update(dt);
-    for (const b of this.barks) { b.life -= dt; const p = this.engine.worldToUI(b.anchor()); const [sx, sy] = hud.toScreen(p.x + b.ox, p.y + 0.5); b.note.style.transform = `translate(${sx | 0}px,${sy | 0}px) translate(-50%,-100%)`; if (b.life < 0) b.note.classList.add('out'); }
-    this.barks = this.barks.filter((b) => { if (b.life < -0.4) { b.note.remove(); return false; } return true; });
+    for (const b of this.barks) { b.life -= dt; const p = this.engine.worldToUI(b.anchor()); if (!b.note.fall) b.note.at(p.x + b.ox, p.y + b.oy); if (b.life < 0) b.note.drop(); }
+    this.barks = this.barks.filter((b) => b.life >= -0.6);
     this.fieldMarker.material.opacity = this.hand.drag && this.dropTarget?.type === 'field' ? 0.85 : 0;
     this.prof.lookAt(this.input.ndc.x * 0.6, this.input.ndc.y * 0.4);
   }
@@ -283,9 +282,9 @@ export class BattleScene {
     if (!text) return;
     const note = hud.bubble(text, who === 'player' ? 'me' : 'foe');
     const anchor = who === 'player' ? () => this.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, 0.6, 0)) : () => { const v = this.enemyViews.get(who.uid); return v ? v.api.root.position.clone().add(new THREE.Vector3(0, v.h + 0.3, 0)) : new THREE.Vector3(); };
-    const b = { note, anchor, life, ox: who === 'player' ? 1.6 : -0.6 }; this.barks.push(b);
+    const b = { note, anchor, life, ox: who === 'player' ? 0.9 : -0.4, oy: who === 'player' ? 0.5 : 2.3 }; this.barks.push(b);
     if (who === 'player') { this.prof.talk(Math.min(2, text.length * 0.05)); audio.play('wood_knock', { vol: 0.35 }); } else { const v = this.enemyViews.get(who.uid); v?.api.talk(1.2); }
-    if (this.barks.length > 3) { const old = this.barks.shift(); old.note.remove(); }
+    if (this.barks.length > 3) { const old = this.barks.shift(); old.note.drop(); }
   }
   snapFX(slotV) { const v = slotV.views[slotV.views.length - 1]; if (!v) return; v.sc.kick(4); v.rz.kick(3); }
 
@@ -449,8 +448,8 @@ export class BattleScene {
 
   dispose() {
     this.input.remove(this.handler); this.engine.remove(this);
-    this.ui.scene.remove(this.ui.root); this.hudB.dispose(); hud.clear(); for (const [, v] of this.hand.views) this.ui.scene.remove(v.group);
-    this.numbers.list.forEach((n) => this.ui.scene.remove(n.m)); this.battle = null;
+    this.ui.scene.remove(this.ui.root); this.hudB.dispose(); this.tooltip.dispose(); this.preview.dispose(); hud.clear(); for (const [, v] of this.hand.views) this.ui.scene.remove(v.group);
+    this.numbers.clear(); this.battle = null;
   }
 }
 

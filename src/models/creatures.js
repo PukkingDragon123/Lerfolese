@@ -70,10 +70,10 @@ function bodyMat(base, painter) { return K.paintedMat(K.paintSurface(K.surface(b
 
 // lofted pieces
 function horn(pts, r0, mat, rings = 14) { const l = new K.Loft(rings, 8).set(K.curve(pts), (t) => r0 * (1 - t * 0.88) * (1 + Math.sin(t * 40) * 0.04)); return K.mesh(l.geo, mat); }
-const hornMat = (key, base, tip, gold) => K.uvMat(key, 32, 128, (u, v, o) => { const ring = Math.sin(v * 70) * 0.5 + 0.5; K.tone(base, K.band(0.5 + Math.cos(u * Math.PI * 2) * 0.22 + (ring - 0.5) * 0.25, 4), o.col); if (v > 0.6) K.mixc(o.col, tip, K.sstep(0.6, 0.95, v)); if (gold && v > 0.82) { K.tone(hex('#f2c454'), 0.5 + Math.cos(u * 6.28) * 0.3, o.col); o.me = 0.9; o.ro = 0.3; } else o.ro = 0.5; });
+const hornMat = (key, base, tip, gold) => K.uvMat(key, 32, 128, (u, v, o) => { const ring = Math.sin(v * 70) * 0.5 + 0.5; K.tone(base, K.band(0.5 + Math.cos(u * Math.PI * 2) * 0.22 + (ring - 0.5) * 0.25, 4), o.col); if (v > 0.6) K.mixc(o.col, tip, K.sstep(0.6, 0.95, v)); if (gold && v > 0.82) { K.tone(hex('#f2c454'), 0.5 + Math.cos(u * 6.28) * 0.3, o.col); o.me = 0.55; o.ro = 0.3; } else o.ro = 0.5; });
 
 // ================================================================== Drunk Satyr
-const SAT = { skin: hex('#c98552'), fur: hex('#714629'), hair: hex('#3a2216'), hoof: hex('#2a2026'), nose: hex('#e2423a'), blush: hex('#ea6450'), lip: hex('#a84444'), ink: hex('#40182a'), sash: hex('#8a2a64'), gold: hex('#f0c050'), iris: hex('#9a6418') };
+const SAT = { skin: hex('#b8714a'), fur: hex('#6a4a34'), hair: hex('#3a2216'), hoof: hex('#2a2026'), nose: hex('#e2423a'), blush: hex('#ea6450'), lip: hex('#a84444'), ink: hex('#40182a'), sash: hex('#8a2a64'), gold: hex('#f0c050'), iris: hex('#9a6418') };
 const DRUNK = { bin: 0.45, bout: -0.1, by: 0.3, basym: 0.4, curve: 0.75, open: 0.22, asym: 0.45, lid: 0.55, wr: 0.4, frown: 0, teeth: 1, w: 1.15 };
 function satyrPaint(c, o) {
   const ax = Math.abs(c.x), Y = c.y - FM.ey;
@@ -91,7 +91,7 @@ function satyrPaint(c, o) {
     const front = c.z > 0 && c.nz > 0.3; if (front && c.y > 1.16 && c.y < 1.44 && ax < 0.11) { const dens = (1 - ax / 0.11) * K.sstep(1.16, 1.25, c.y); if (K.vnoise(c.x * 160, c.y * 160, c.z * 160) < dens * 0.8) curls(c, o, SAT.hair); }
     const d = c.x * 0.75 + (c.y - 1.22) * 0.66; // wine-stained sash, left shoulder to right hip
     if (Math.abs(d) < 0.04 && c.y > 0.95 && c.y < 1.52) { if (Math.abs(d) > 0.033) { K.tone(SAT.gold, 0.6, o.col); o.me = 0.6; } else K.tone(SAT.sash, K.band(0.5 + c.ny * 0.2 + Math.sin(d * 300) * 0.1 + c.sh * 0.3, 4), o.col); }
-  } else if (Math.abs(ax - 0.62) < 0.012) { K.tone(SAT.gold, 0.5 + c.ny * 0.4, o.col); o.me = 0.9; o.ro = 0.3; }
+  } else if (Math.abs(ax - 0.62) < 0.012) { K.tone(SAT.gold, 0.5 + c.ny * 0.4, o.col); o.me = 0.55; o.ro = 0.3; }
 }
 function beardPaint(c, o) { curls(c, o, SAT.hair); }
 function ivyLeaf(mat) {
@@ -107,8 +107,7 @@ function satyr(seed) {
     build(M) {
       K.headPiece('hair_beard', M.mats.beard, M.body, { push: 0.02, seed: 2, scale: 1.12, offset: new THREE.Vector3(0, -0.006, 0.004) });
       const hm = hornMat('satyr-horn', hex('#d9c8a8'), hex('#5a4232')); const g = new THREE.Group();
-      for (const s of [-1, 1]) horn([[s * 0.035, 1.765, 0.055], [s * 0.06, 1.83, 0.03], [s * 0.1, 1.86, -0.04], [s * 0.13, 1.82, -0.1], [s * 0.125, 1.76, -0.09]], 0.02, hm).parent = g;
-      g.children.forEach((m) => g.add(m));
+      for (const s of [-1, 1]) g.add(horn([[s * 0.035, 1.762, 0.058], [s * 0.065, 1.85, 0.035], [s * 0.115, 1.9, -0.05], [s * 0.15, 1.85, -0.13], [s * 0.14, 1.76, -0.12], [s * 0.12, 1.73, -0.06]], 0.027, hm, 18));
       const leafG = ivyLeaf(); const greens = [hex('#4f8a3a'), hex('#3e7034'), hex('#6aa048')].map((c) => new THREE.MeshStandardMaterial({ color: new THREE.Color(`rgb(${c})`), flatShading: true, roughness: 0.7, side: THREE.DoubleSide }));
       for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; const l = K.mesh(leafG, greens[i % 3], g); l.position.set(Math.sin(a) * 0.088, 1.775 + Math.sin(i * 2.3) * 0.006, Math.cos(a) * 0.098 - 0.01); l.rotation.set(-0.6, a + (i % 2 ? 0.5 : -0.4), 0.3 * Math.sin(i)); }
       K.attachBind(g, M.body, 'Head');
@@ -127,7 +126,7 @@ function satyr(seed) {
 }
 
 // ================================================================== Medusa
-const MED = { skin: hex('#5c9a5c'), belly: hex('#c2d48c'), dark: hex('#2c563c'), cloth: hex('#6a2c7a'), gold: hex('#f0c050'), lip: hex('#5a2650'), ink: hex('#1c3424'), iris: hex('#e8f448') };
+const MED = { skin: hex('#5c9a5c'), belly: hex('#a2c07a'), dark: hex('#2c563c'), cloth: hex('#6a2c7a'), gold: hex('#f0c050'), lip: hex('#5a2650'), ink: hex('#1c3424'), iris: hex('#e8f448') };
 const COLD = { bin: -0.5, bout: 0.45, by: 0, basym: 0.3, curve: 0.3, open: 0, asym: 0.6, lid: 0.3, wr: 0, frown: 0.25, teeth: 0, w: 0.9 };
 function medusaPaint(c, o) {
   const ax = Math.abs(c.x), Y = c.y - FF.ey; const [p1, p2] = planar(c);
@@ -140,11 +139,11 @@ function medusaPaint(c, o) {
   }
   const arm = isArm(c);
   if (!arm && c.y > 1.2 && c.y < 1.36 && ax < 0.2) { // breast band
-    const edge = c.y < 1.212 || c.y > 1.348; if (edge) { K.tone(MED.gold, 0.5 + c.ny * 0.3, o.col); o.me = 0.9; o.ro = 0.3; return; }
+    const edge = c.y < 1.212 || c.y > 1.348; if (edge) { K.tone(MED.gold, 0.5 + c.ny * 0.3, o.col); o.me = 0.55; o.ro = 0.3; return; }
     K.tone(MED.cloth, K.band(0.5 + c.ny * 0.2 + c.nz * 0.1 + Math.sin(c.x * 160 + c.y * 40) * 0.08 + c.sh * 0.2, 4), o.col); o.ro = 0.8; return;
   }
-  if (!arm && c.y > 1.385 && c.y < 1.425) { K.tone(MED.gold, 0.5 + c.ny * 0.3 + (Math.sin(Math.atan2(c.x, c.z) * 24) > 0.6 ? 0.25 : 0), o.col); o.me = 0.9; o.ro = 0.3; if (c.z > 0.05 && ax < 0.015) { K.tone(hex('#30d070'), 0.7, o.col); o.em = [40, 200, 90]; } return; }
-  if (arm && Math.abs(ax - 0.255) < 0.012) { K.tone(MED.gold, 0.5 + c.ny * 0.35, o.col); o.me = 0.9; o.ro = 0.3; return; }
+  if (!arm && c.y > 1.385 && c.y < 1.425 && ax < 0.08) { K.tone(MED.gold, 0.5 + c.ny * 0.3 + (Math.sin(Math.atan2(c.x, c.z) * 24) > 0.6 ? 0.25 : 0), o.col); o.me = 0.55; o.ro = 0.3; if (c.z > 0.05 && ax < 0.015) { K.tone(hex('#30d070'), 0.7, o.col); o.em = [40, 200, 90]; } return; }
+  if (arm && Math.abs(ax - 0.255) < 0.012) { K.tone(MED.gold, 0.5 + c.ny * 0.35, o.col); o.me = 0.55; o.ro = 0.3; return; }
   const front = c.nz > 0.45 && ax < 0.11 && c.y < 1.45 && !arm;
   skin(c, o, front ? MED.belly : MED.skin, 0.45, scales(front ? 0.02 : 0.014, front ? 0.6 : 1)); o.ro = 0.4;
   if (!front && !arm && K.vnoise(p1 * 30, p2 * 30, 4) > 0.68) K.mixc(o.col, K.tone(MED.dark, 0.4, T3), 0.5);
@@ -169,9 +168,8 @@ function medusa(seed) {
     build(M) {
       for (const k of ['thigh_l', 'thigh_r']) M.bones[k].scale.setScalar(0.02); // legs fold away into the serpent body
       const tail = new K.Loft(46, 14, { vRep: 1 }); const tm = K.mesh(tail.geo, tailMat()); M.model.add(tm);
-      const coil = []; for (let i = 0; i <= 10; i++) { const a = 1.9 - i * 0.62; const r = 0.3 - i * 0.012; coil.push(new THREE.Vector3(Math.cos(a) * r, 0.09 + (i > 8 ? (i - 8) * 0.07 : 0), -0.12 + Math.sin(a) * r * 0.85)); }
-      M.x.tail = { tail, coil, pts: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), ...coil] };
-      tailMat().map.wrapT = THREE.RepeatWrapping;
+      const coil = []; for (let i = 0; i <= 10; i++) { const a = Math.PI / 2 - 0.15 - i * 0.55; const r = 0.36 - i * 0.012; coil.push(new THREE.Vector3(Math.cos(a) * r, 0.1 + (i > 8 ? (i - 8) * 0.09 : 0), -0.08 + Math.sin(a) * r * 0.9)); }
+      M.x.tail = { tail, coil, pts: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), ...coil.map((v) => v.clone())] };
       // snake hair: lofted serpents from the scalp, each with a head and glowing eyes
       const g = new THREE.Group(); K.attachBind(g, M.body, 'Head'); const sm = snakeMat(); const snakes = [];
       for (let i = 0; i < 11; i++) {
@@ -187,11 +185,10 @@ function medusa(seed) {
       // serpent tail: from the (animated) pelvis into a coil on the ground
       const { tail, coil, pts } = M.x.tail; R_.root.updateMatrixWorld(true);
       M.bones.pelvis.getWorldPosition(pts[0]); M.model.worldToLocal(pts[0]); pts[0].y += 0.02;
-      pts[1].set(pts[0].x * 0.5, pts[0].y * 0.55, pts[0].z + 0.06); pts[2].set(0.05, 0.16, 0.12);
+      pts[1].set(pts[0].x * 0.5, pts[0].y * 0.52, pts[0].z + 0.04); pts[2].set(0.02, 0.2, 0.16);
       for (let i = 0; i < coil.length; i++) pts[3 + i].copy(coil[i]).add(new THREE.Vector3(Math.sin(t * 1.4 - i * 0.6) * 0.012 * i, 0, Math.cos(t * 1.1 - i * 0.5) * 0.01 * i));
-      if (st.dead > 0) pts[0].lerp(new THREE.Vector3(0.05, 0.15, 0.25), Math.min(1, st.dead) * 0.0);
       const cv = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
-      tail.set((u, out) => cv.getPoint(u, out), (u) => { const r = u < 0.05 ? 0.17 : 0.17 * (1 - (u - 0.05) * 0.95) + 0.006; return [r * 1.05, r * 0.82]; }, { up: new THREE.Vector3(0, 0, -1), normals: !tail.built }); tail.built = true;
+      tail.set((u, out) => cv.getPoint(u, out), (u) => { const r = u < 0.05 ? 0.17 : 0.17 * (1 - (u - 0.05) * 0.95) + 0.006; return [r * 1.05, r * 0.82]; }, { ref: (u, n) => { const k = K.sstep(0.05, 0.32, u); return k < 0.5 ? n.set(k * 2, 0, -(1 - k * 2)) : n.set(1 - (k - 0.5) * 2, (k - 0.5) * 2, 0); }, normals: !tail.built }); tail.built = true;
       for (const s of M.x.snakes) {
         const { base, dir, len, ph } = s; const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
         s.l.set((u, out) => { out.copy(base).addScaledVector(dir, u * len * 0.8).add(new THREE.Vector3(0, -u * u * len * 0.55 + Math.sin(u * 4 + t * 3 + ph) * 0.02 * u, 0)).addScaledVector(side, Math.sin(u * 7 - t * 4 + ph) * 0.025 * u); },
@@ -204,7 +201,7 @@ function medusa(seed) {
 }
 
 // ================================================================== Kobalos (goblin thief)
-const KOB = { skin: hex('#82984a'), wart: hex('#55692e'), rag: hex('#6e4c2e'), p1: hex('#8a4a5a'), p2: hex('#4a5e86'), rope: hex('#cfa564'), ink: hex('#22160c'), lip: hex('#4e3a28'), iris: hex('#ffd02c'), nose: hex('#6e8c36') };
+const KOB = { skin: hex('#8fb04a'), wart: hex('#5e7a2e'), rag: hex('#9a6a34'), p1: hex('#8a4a5a'), p2: hex('#4a5e86'), rope: hex('#cfa564'), ink: hex('#22160c'), lip: hex('#4e3a28'), iris: hex('#ffd02c'), nose: hex('#6e8c36') };
 const GRIN = { ...K.EXPR.grin, open: 0.4, lid: 0.25, bin: -0.9, bout: 0.7 };
 function kobalosPaint(c, o) {
   const ax = Math.abs(c.x), Y = c.y - FM.ey; const wart = K.vnoise(c.x * 70, c.y * 70, c.z * 70) > 0.8;
@@ -224,15 +221,15 @@ function kobalosPaint(c, o) {
   skin(c, o, KOB.skin, 0.5); if (wart) K.mixc(o.col, KOB.wart, 0.55);
   if (/ball/.test(c.b) && c.z > 0.07) K.tone(hex('#2a2418'), 0.5, o.col);
 }
-const sackMat = () => K.uvMat('sack', 128, 128, (u, v, o) => { const w = (Math.sin(u * 420) * Math.sin(v * 420)) * 0.5; const patch = u > 0.15 && u < 0.32 && v > 0.45 && v < 0.62; K.tone(patch ? hex('#7a6a8a') : hex('#a8865a'), K.band(0.5 + Math.cos(u * Math.PI * 2) * 0.2 + w * 0.15 + (K.fbm(u * 8, v * 8, 1, 2) - 0.5) * 0.3, 4), o.col); if (patch && (u < 0.165 || u > 0.305 || v < 0.465 || v > 0.605) && ((u + v) * 200) % 1 < 0.5) K.mixc(o.col, hex('#2a1a10'), 0.7); if (v < 0.12 && v > 0.06) K.tone(hex('#5a3a1c'), 0.5 + Math.sin(u * 60) * 0.2, o.col); if (v < 0.06 && Math.sin(u * 50) > 0.2) { K.tone(hex('#f2c454'), 0.75, o.col); o.me = 0.9; o.ro = 0.3; } else o.ro = 0.95; });
+const sackMat = () => K.uvMat('sack', 128, 128, (u, v, o) => { const w = (Math.sin(u * 420) * Math.sin(v * 420)) * 0.5; const patch = u > 0.15 && u < 0.32 && v > 0.45 && v < 0.62; K.tone(patch ? hex('#7a6a8a') : hex('#a8865a'), K.band(0.5 + Math.cos(u * Math.PI * 2) * 0.2 + w * 0.15 + (K.fbm(u * 8, v * 8, 1, 2) - 0.5) * 0.3, 4), o.col); if (patch && (u < 0.165 || u > 0.305 || v < 0.465 || v > 0.605) && ((u + v) * 200) % 1 < 0.5) K.mixc(o.col, hex('#2a1a10'), 0.7); if (v < 0.12 && v > 0.06) K.tone(hex('#5a3a1c'), 0.5 + Math.sin(u * 60) * 0.2, o.col); if (v < 0.06 && Math.sin(u * 50) > 0.2) { K.tone(hex('#f2c454'), 0.75, o.col); o.me = 0.55; o.ro = 0.3; } else o.ro = 0.95; });
 function earLoft(s, mat) { const l = new K.Loft(10, 8).set(K.curve([[s * 0.075, 1.69, -0.005], [s * 0.13, 1.72, -0.02], [s * 0.2, 1.76, -0.05], [s * 0.25, 1.79, -0.08]]), (t) => [0.008 * (1 - t) + 0.002, 0.035 * Math.sin(Math.min(1, t * 1.3 + 0.15) * Math.PI) * (1 - t * 0.5) + 0.003], { up: new THREE.Vector3(0, 0, 1), shape: (a) => 1 + Math.max(0, Math.sin(a)) * 0.6 }); return K.mesh(l.geo, mat); }
 function kobalos(seed) {
   return humanoid('kobalos', {
-    base: 'male', scale: 0.62, height: 1.15, attack: 'punch', cast: 'throw', speed: 1.25,
+    base: 'male', scale: 0.72, height: 1.3, attack: 'punch', cast: 'throw', speed: 1.25,
     paint: () => ({ body: bodyMat('male', kobalosPaint), eyes: eyeMat('male', { skin: KOB.skin, ink: KOB.ink, iris: KOB.iris, irisR: 0.75, slit: true, glow: true, sclera: hex('#e8e0a0'), lid: 0.25 }), ear: K.uvMat('kob-ear', 64, 64, (u, v, o) => { const inner = Math.sin(u * Math.PI * 2) > 0.3; K.tone(inner ? hex('#b86a5a') : KOB.skin, K.band(0.5 + Math.cos(u * 6.28) * 0.2 - (inner ? 0.1 : 0) + (v > 0.8 ? -0.1 : 0), 4), o.col); o.ro = 0.6; }, { side: THREE.DoubleSide }) }),
     build(M) {
       M.bones.Head.scale.setScalar(1.38); M.bones.hand_l.scale.setScalar(1.25); M.bones.hand_r.scale.setScalar(1.25);
-      const g = new THREE.Group(); earLoft(-1, M.mats.ear).parent = null; for (const s of [-1, 1]) g.add(earLoft(s, M.mats.ear)); K.attachBind(g, M.body, 'Head');
+      const g = new THREE.Group(); for (const s of [-1, 1]) g.add(earLoft(s, M.mats.ear)); K.attachBind(g, M.body, 'Head');
       const sack = new K.Loft(18, 12).set(K.curve([[0.09, 1.5, -0.08], [0.05, 1.42, -0.16], [0.0, 1.28, -0.23], [-0.05, 1.12, -0.22], [-0.07, 1.04, -0.18]]), (t) => { const r = t < 0.12 ? 0.03 : 0.03 + Math.sin(Math.min(1, (t - 0.12) / 0.88) * Math.PI) * 0.15; return [r, r * 0.8]; }, { up: new THREE.Vector3(0, 0, -1), shape: (a, t) => 1 + (K.vnoise(Math.cos(a) * 2 + 3, Math.sin(a) * 2, t * 5) - 0.5) * 0.35 });
       M.x.sack = K.attachBind(K.mesh(sack.geo, sackMat()), M.body, 'spine_03');
     },
@@ -253,16 +250,16 @@ function minoPaint(king) {
     if (!arm && c.y < 0.985) { // leather pteruges with metal studs
       const a = Math.atan2(c.x, c.z); const strip = (a / Math.PI) * 9; const f = strip - Math.floor(strip);
       K.tone(MIN.leather, K.band(0.5 + c.ny * 0.15 + c.nz * 0.1 - (f < 0.1 || f > 0.9 ? 0.3 : 0) + (0.985 - c.y) * -0.4, 4), o.col); o.ro = 0.6;
-      if (Math.abs(f - 0.5) < 0.13 && Math.abs(c.y - 0.76) < 0.015) { K.tone(metal, 0.75, o.col); o.me = 0.9; o.ro = 0.3; }
+      if (Math.abs(f - 0.5) < 0.13 && Math.abs(c.y - 0.76) < 0.015) { K.tone(metal, 0.75, o.col); o.me = 0.55; o.ro = 0.3; }
       return;
     }
-    if (!arm && c.y < 1.05) { K.tone(metal, K.band(0.5 + c.ny * 0.3 + c.nz * 0.1 + (Math.abs(c.y - 1.017) < 0.006 ? -0.25 : 0), 4), o.col); o.me = 0.85; o.ro = 0.35; return; }
+    if (!arm && c.y < 1.05) { K.tone(metal, K.band(0.5 + c.ny * 0.3 + c.nz * 0.1 + (Math.abs(c.y - 1.017) < 0.006 ? -0.25 : 0), 4), o.col); o.me = 0.55; o.ro = 0.35; return; }
     if (king && !arm && c.z < -0.04 && c.nz < -0.2 && c.y < 1.47) { const edge = Math.abs(c.x) > 0.17; K.tone(edge ? MIN.gold : MIN.cape, K.band(0.5 + c.ny * 0.2 + Math.sin(c.x * 90) * 0.12 + c.sh * 0.2, 4), o.col); o.ro = 0.8; if (edge) o.me = 0.8; return; }
-    if (arm && Math.abs(c.x) > 0.55 && Math.abs(c.x) < 0.68) { K.tone(MIN.leather, K.band(0.45 + c.ny * 0.25 + (Math.abs(((ax - 0.55) * 60) % 1 - 0.5) < 0.1 ? -0.25 : 0), 4), o.col); o.ro = 0.55; if (c.ny > 0.7 && Math.abs(ax - 0.615) < 0.01) { K.tone(metal, 0.8, o.col); o.me = 0.9; } return; }
+    if (arm && Math.abs(c.x) > 0.55 && Math.abs(c.x) < 0.68) { K.tone(MIN.leather, K.band(0.45 + c.ny * 0.25 + (Math.abs(((ax - 0.55) * 60) % 1 - 0.5) < 0.1 ? -0.25 : 0), 4), o.col); o.ro = 0.55; if (c.ny > 0.7 && Math.abs(ax - 0.615) < 0.01) { K.tone(metal, 0.8, o.col); o.me = 0.55; } return; }
     skin(c, o, MIN.skin, 0.75);
     const chest = !arm && c.y > 1.22 && c.y < 1.47; if (chest && K.vnoise(c.x * 120, c.y * 40, c.z * 120) < 0.55 + (c.y - 1.22)) fur(c, o, MIN.furL, 14);
     if (arm && ax > 0.7) fur(c, o, MIN.fur, 20);
-    const d = -c.x * 0.72 + (c.y - 1.2) * 0.7; if (!arm && Math.abs(d) < 0.032 && c.y > 1.0) { K.tone(MIN.leather, K.band(0.45 + c.ny * 0.2 + c.nz * 0.1, 4), o.col); o.ro = 0.6; const bd = Math.hypot(c.x + 0.07, c.y - 1.29); if (c.z > 0 && bd < 0.03) { K.tone(metal, bd < 0.02 ? 0.85 : 0.5, o.col); o.me = 0.9; } }
+    const d = -c.x * 0.72 + (c.y - 1.2) * 0.7; if (!arm && Math.abs(d) < 0.032 && c.y > 1.0) { K.tone(MIN.leather, K.band(0.45 + c.ny * 0.2 + c.nz * 0.1, 4), o.col); o.ro = 0.6; const bd = Math.hypot(c.x + 0.07, c.y - 1.29); if (c.z > 0 && bd < 0.03) { K.tone(metal, bd < 0.02 ? 0.85 : 0.5, o.col); o.me = 0.55; } }
     if (!arm && Math.abs(c.y - 1.12) < 0.0015 && ax < 0.05 && c.z > 0) K.mixc(o.col, MIN.ink, 0.4);
   };
 }
@@ -270,7 +267,7 @@ function bullPaint(king) {
   return (c, o) => {
     const ax = Math.abs(c.x);
     const hornT = ax > 0.085 && c.y > 0.27 ? K.clamp01((ax - 0.085) / 0.075) : 0;
-    if (hornT > 0) { K.tone(hex('#e2d4b4'), K.band(0.5 + c.ny * 0.25 + Math.sin(ax * 320) * 0.12, 4), o.col); if (hornT > 0.55) K.mixc(o.col, hex('#3a2a22'), K.sstep(0.55, 0.95, hornT)); if (king && hornT > 0.82) { K.tone(MIN.gold, 0.7 + c.ny * 0.2, o.col); o.me = 0.9; o.ro = 0.3; } else o.ro = 0.45; if (king && Math.abs(hornT - 0.12) < 0.04) { K.tone(MIN.gold, 0.7, o.col); o.me = 0.9; } return; }
+    if (hornT > 0) { K.tone(hex('#e2d4b4'), K.band(0.5 + c.ny * 0.25 + Math.sin(ax * 320) * 0.12, 4), o.col); if (hornT > 0.55) K.mixc(o.col, hex('#3a2a22'), K.sstep(0.55, 0.95, hornT)); if (king && hornT > 0.82) { K.tone(MIN.gold, 0.7 + c.ny * 0.2, o.col); o.me = 0.55; o.ro = 0.3; } else o.ro = 0.45; if (king && Math.abs(hornT - 0.12) < 0.04) { K.tone(MIN.gold, 0.7, o.col); o.me = 0.55; } return; }
     const eye = Math.hypot(ax - 0.07, c.y - 0.287, c.z - 0.035); if (eye < 0.015) { if (eye < 0.01) { o.col[0] = 255; o.col[1] = 70; o.col[2] = 40; o.em = [255, 50, 20]; } else K.tone(hex('#1a0c08'), 0.4, o.col); return; }
     if (c.z > 0.055 && c.y < 0.25) { K.tone(hex('#6e5a52'), K.band(0.5 + c.ny * 0.2 + c.nz * 0.15, 4), o.col); o.ro = 0.35; if (c.z > 0.085 && Math.abs(ax - 0.028) < 0.013 && c.y > 0.165 && c.y < 0.2) K.tone(hex('#1a0e10'), 0.3, o.col); return; }
     if (c.y > 0.32 && ax < 0.07) return curls(c, o, king ? hex('#4a2a1a') : MIN.furL);
@@ -282,15 +279,18 @@ function bullGeo() { // the Poly Haven bull head (plinth cut, decimated), in met
   if (BULL) return BULL; const src = K.srcMesh('bull_head'); src.updateWorldMatrix(true, false);
   const geo = src.geometry.clone(); geo.applyMatrix4(src.matrixWorld); BULL = { geo, src }; return BULL;
 }
-const labrysMat = (king) => K.uvMat(king ? 'labrys-k' : 'labrys', 64, 64, (u, v, o) => { const n = K.fbm(u * 10, v * 10, 4, 2); K.tone(king ? MIN.gold : MIN.bronze, K.band(0.5 + (n - 0.5) * 0.5 + (Math.abs(((u * 6) % 1) - 0.5) < 0.04 ? -0.25 : 0), 4), o.col); o.me = 0.9; o.ro = 0.35; });
-function labrys(king) {
-  const g = new THREE.Group();
-  const haft = new K.Loft(16, 7).set((t, p) => p.set(-0.775, 1.445, -0.25 + t * 1.05), (t) => 0.018 * (1 + (t > 0.1 && t < 0.35 && Math.sin(t * 120) > 0 ? 0.15 : 0)) * (t > 0.97 ? 1.6 : 1));
-  K.mesh(haft.geo, K.uvMat('haft', 32, 64, (u, v, o) => { const wrap = v > 0.1 && v < 0.35; K.tone(wrap ? hex('#3a2416') : hex('#8a5a32'), K.band(0.5 + Math.cos(u * 6.28) * 0.2 + (wrap ? Math.sin(v * 300) * 0.15 : (K.fbm(u * 4, v * 30, 1, 2) - 0.5) * 0.3), 4), o.col); o.ro = 0.6; }), g);
+const labrysMat = (king) => K.uvMat(king ? 'labrys-k' : 'labrys', 64, 64, (u, v, o) => { const n = K.fbm(u * 10, v * 10, 4, 2); K.tone(king ? MIN.gold : MIN.bronze, K.band(0.5 + (n - 0.5) * 0.5 + (Math.abs(((u * 6) % 1) - 0.5) < 0.04 ? -0.25 : 0), 4), o.col); o.me = 0.55; o.ro = 0.35; });
+function labrys(king) { // hangs from the right fist along the forearm axis; blades either side (bind-pose coordinates)
+  const g = new THREE.Group(); const X0 = -0.74, Y0 = 1.445, Z0 = -0.06, L = 0.82;
+  const haft = new K.Loft(16, 7).set((t, p) => p.set(X0 + 0.08 - t * L, Y0, Z0), (t) => 0.017 * (1 + (t > 0.04 && t < 0.24 && Math.sin(t * 160) > 0 ? 0.18 : 0)) * (t > 0.97 ? 1.6 : 1));
+  K.mesh(haft.geo, K.uvMat('haft', 32, 64, (u, v, o) => { const wrap = v > 0.04 && v < 0.24; K.tone(wrap ? hex('#3a2416') : hex('#8a5a32'), K.band(0.5 + Math.cos(u * 6.28) * 0.2 + (wrap ? Math.sin(v * 300) * 0.15 : (K.fbm(u * 4, v * 30, 1, 2) - 0.5) * 0.3), 4), o.col); o.ro = 0.6; }), g);
   const s = new THREE.Shape(); s.moveTo(0, -0.07); s.lineTo(0.12, -0.11); s.quadraticCurveTo(0.2, -0.26, 0.3, -0.3); s.quadraticCurveTo(0.4, 0, 0.3, 0.3); s.quadraticCurveTo(0.2, 0.26, 0.12, 0.11); s.lineTo(0, 0.07); s.closePath();
-  const bg = new THREE.ExtrudeGeometry(s, { depth: 0.022, bevelEnabled: true, bevelSize: 0.012, bevelThickness: 0.01, bevelSegments: 1, curveSegments: 6 }); bg.translate(0, 0, -0.011);
-  const bm = labrysMat(king);
-  for (const sgn of [-1, 1]) { const b = K.mesh(bg, bm, g); b.position.set(-0.775, 1.445, 0.7); b.rotation.set(Math.PI / 2, sgn > 0 ? 0 : Math.PI, 0); b.scale.setScalar(king ? 1.1 : 0.95); }
+  const bm = labrysMat(king); const k = king ? 0.55 : 0.48;
+  for (const sgn of [-1, 1]) {
+    const bg = new THREE.ExtrudeGeometry(s, { depth: 0.04, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.015, bevelSegments: 1, curveSegments: 6 }); bg.translate(0, 0, -0.02);
+    bg.applyMatrix4(new THREE.Matrix4().makeBasis(new THREE.Vector3(0, sgn, 0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -sgn))); bg.scale(k, k, k);
+    bg.translate(X0 + 0.08 - L * 0.88, Y0, Z0); bg.computeVertexNormals(); K.mesh(bg, bm, g);
+  }
   return g;
 }
 function minotaur(seed, king = false) {
@@ -303,7 +303,7 @@ function minotaur(seed, king = false) {
     build(M, root, head) {
       M.bones.spine_03.scale.set(1.16, 1.0, 1.12); M.bones.Head.scale.setScalar(0.01); // the human head folds away inside the bull's
       const fix = new THREE.Group(); fix.scale.setScalar(100); M.bones.Head.add(fix);
-      const bull = K.mesh(BULL.geo, M.mats.bull); bull.position.set(0, 1.62 - 0.115, -0.03); bull.scale.setScalar(1.18); bull.position.y -= 0.115 * 0.18; bull.rotation.x = -0.12;
+      const bull = K.mesh(BULL.geo, M.mats.bull); bull.position.set(0, 1.4, 0.0); bull.scale.setScalar(1.18); bull.rotation.x = -0.1;
       const holder = new THREE.Group(); const sk = M.body.skeleton; const hi = sk.bones.indexOf(M.bones.Head);
       sk.boneInverses[hi].clone().multiply(M.body.bindMatrix).decompose(holder.position, holder.quaternion, holder.scale); holder.add(bull); fix.add(holder);
       holder.add(head); head.position.set(0, 1.86, 0.05);
@@ -334,9 +334,9 @@ function hydra(seed, elder = false) {
   K.mesh(torso.geo, mat, body);
   const legs = [];
   for (const [x, z, f] of [[-1, 0.25, 1], [1, 0.25, 1], [-1, -0.7, -1], [1, -0.7, -1]]) {
-    const g = new THREE.Group(); body.add(g); const pts = [[x * 0.35, 0.0, z], [x * 0.72, -0.12, z + 0.05 * f], [x * 0.8, -0.45, z + 0.12 * f], [x * 0.74, -0.68, z + 0.2], [x * 0.74, -0.72, z + 0.36]];
-    K.mesh(new K.Loft(14, 10).set(K.curve(pts), (t) => { const r = t < 0.4 ? 0.2 - t * 0.2 : t < 0.8 ? 0.12 - (t - 0.4) * 0.08 : 0.09 + (t - 0.8) * 0.15; return [r, t > 0.85 ? r * 0.55 : r]; }).geo, legM, g);
-    for (const cx of [-0.06, 0, 0.06]) K.mesh(new K.Loft(5, 5).set(K.curve([[x * 0.74 + cx, -0.7, z + 0.4], [x * 0.74 + cx * 1.3, -0.72, z + 0.5], [x * 0.74 + cx * 1.4, -0.75, z + 0.55]]), (t) => 0.025 * (1 - t) + 0.002).geo, sp, g);
+    const g = new THREE.Group(); body.add(g); const pts = [[x * 0.3, -0.05, z], [x * 0.6, -0.22, z + 0.06 * f], [x * 0.66, -0.48, z + 0.1 * f], [x * 0.62, -0.68, z + 0.16], [x * 0.62, -0.72, z + 0.32]];
+    K.mesh(new K.Loft(14, 10).set(K.curve(pts), (t) => { const r = t < 0.4 ? 0.26 - t * 0.25 : t < 0.8 ? 0.16 - (t - 0.4) * 0.12 : 0.11 + (t - 0.8) * 0.15; return [r, t > 0.85 ? r * 0.55 : r]; }).geo, legM, g);
+    for (const cx of [-0.06, 0, 0.06]) K.mesh(new K.Loft(5, 5).set(K.curve([[x * 0.62 + cx, -0.7, z + 0.36], [x * 0.62 + cx * 1.3, -0.72, z + 0.46], [x * 0.62 + cx * 1.4, -0.75, z + 0.51]]), (t) => 0.025 * (1 - t) + 0.002).geo, sp, g);
     legs.push({ g, x, z });
   }
   for (let i = 0; i < 9; i++) { const t = 0.2 + i * 0.075; const p = new THREE.CatmullRomCurve3(spinePts.map((q) => new THREE.Vector3(...q))).getPoint(t); const r = prof(t)[1]; K.mesh(new K.Loft(5, 5).set(K.curve([[p.x, p.y + r * 0.9, p.z], [p.x, p.y + r + 0.12, p.z - 0.08], [p.x, p.y + r + 0.2, p.z - 0.2]]), (u) => 0.05 * (1 - u) + 0.003).geo, sp, body); }

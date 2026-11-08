@@ -92,7 +92,7 @@ export class Engine {
     r.autoClear = false;
     this.quality = 'high';
     const qp = new URLSearchParams(location.search).get('q'); this.testMode = qp === 'test';
-    this.pixelRatio = this.testMode ? 0.5 : Math.min(window.devicePixelRatio || 1, 1.75);
+    this.pixelRatio = this.testMode ? (Number(new URLSearchParams(location.search).get('pr')) || 0.5) : Math.min(window.devicePixelRatio || 1, 1.75);
     if (this.testMode) { r.shadowMap.enabled = false; window.__noAutoQuality = true; }
     r.setPixelRatio(this.pixelRatio);
 
