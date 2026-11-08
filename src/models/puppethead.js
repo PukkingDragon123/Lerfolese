@@ -56,7 +56,7 @@ function painter(E) {
   };
 }
 let FACEGRAD = null;
-const faceGradient = () => { if (!FACEGRAD) { FACEGRAD = new THREE.DataTexture(new Uint8Array([168, 168, 168, 255, 255, 255, 255, 255]), 2, 1, THREE.RGBAFormat); FACEGRAD.minFilter = FACEGRAD.magFilter = THREE.NearestFilter; FACEGRAD.generateMipmaps = false; FACEGRAD.needsUpdate = true; } return FACEGRAD; };
+const faceGradient = () => { if (!FACEGRAD) { FACEGRAD = new THREE.DataTexture(new Uint8Array([150, 150, 150, 255, 228, 228, 228, 255]), 2, 1, THREE.RGBAFormat); FACEGRAD.minFilter = FACEGRAD.magFilter = THREE.NearestFilter; FACEGRAD.generateMipmaps = false; FACEGRAD.needsUpdate = true; } return FACEGRAD; };
 
 let RES = null;
 function resources() {

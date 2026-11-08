@@ -17,12 +17,12 @@ const ARENA = { meadow: 'ground_dry_grass', garden: 'ground_rocky_trail', gully:
 const HDRI = { meadow: 'sunset_dry_plain', garden: 'sunset_dry_plain', gully: 'golden_dry_valley', labyrinth: 'sunset_dry_plain', marsh: 'golden_dry_valley', guardian: 'sunset_dry_plain' };
 // sky looks per theme: Preetham sky params, haze colour (fog = aerial perspective), cloud tint
 const LOOKS = {
-  meadow: { turb: 4.6, ray: 1.9, mie: 0.0042, g: 0.78, haze: '#d9b38c', fog: [60, 220], cloud: '#fff1dc', shade: '#9c86a8', grass: 0.12 },
-  garden: { turb: 4.2, ray: 2.1, mie: 0.004, g: 0.77, haze: '#e0b4a0', fog: [60, 220], cloud: '#ffeee4', shade: '#a48ab4', grass: 0.1 },
-  gully: { turb: 4.5, ray: 1.0, mie: 0.0035, g: 0.76, haze: '#d8a878', fog: [52, 200], cloud: '#ffe8cc', shade: '#a08490', grass: 0.55 },
-  labyrinth: { turb: 4, ray: 1.5, mie: 0.0032, g: 0.75, haze: '#d4987c', fog: [52, 200], cloud: '#ffe2cc', shade: '#90709a', grass: 0.5 },
-  marsh: { turb: 6, ray: 1.3, mie: 0.005, g: 0.75, haze: '#a8b4a4', fog: [40, 170], cloud: '#eef0e4', shade: '#7c8a98', grass: 0.03 },
-  guardian: { turb: 6, ray: 2.0, mie: 0.004, g: 0.78, haze: '#b8786a', fog: [46, 190], cloud: '#ffd4b8', shade: '#6a4a6a', grass: 0.35 },
+  meadow: { turb: 4.6, ray: 1.9, mie: 0.0042, g: 0.78, haze: '#d9b38c', fog: [40, 175], cloud: '#fff1dc', shade: '#9c86a8', grass: 0.12 },
+  garden: { turb: 4.2, ray: 2.1, mie: 0.004, g: 0.77, haze: '#e0b4a0', fog: [40, 175], cloud: '#ffeee4', shade: '#a48ab4', grass: 0.1 },
+  gully: { turb: 4.5, ray: 1.0, mie: 0.0035, g: 0.76, haze: '#d8a878', fog: [38, 165], cloud: '#ffe8cc', shade: '#a08490', grass: 0.55 },
+  labyrinth: { turb: 4, ray: 1.5, mie: 0.0032, g: 0.75, haze: '#d4987c', fog: [38, 165], cloud: '#ffe2cc', shade: '#90709a', grass: 0.5 },
+  marsh: { turb: 6, ray: 1.3, mie: 0.005, g: 0.75, haze: '#a8b4a4', fog: [30, 150], cloud: '#eef0e4', shade: '#7c8a98', grass: 0.03 },
+  guardian: { turb: 6, ray: 2.0, mie: 0.004, g: 0.78, haze: '#b8786a', fog: [36, 160], cloud: '#ffd4b8', shade: '#6a4a6a', grass: 0.35 },
 };
 export const SUN_SKY = new V3(Math.sin(0.3), 0.088, -Math.cos(0.3)).normalize(); // visible sun, upper right of the battle view
 const SUN_KEY = new V3(-0.55, 0.62, 0.42).normalize(); // key light kept from the front-left so faces read

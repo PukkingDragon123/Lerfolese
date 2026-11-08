@@ -13,7 +13,7 @@ const DEF = { skin: 0xe8b98f, hair: 0x3b2a1e, hairStyle: 'short', face: 0, build
 let GRAD = null;
 /** 3-band cel ramp for MeshToonMaterial (clean planes that read under the ink outline pass) */
 export function toonGradient() {
-  if (!GRAD) { GRAD = new THREE.DataTexture(new Uint8Array([118, 118, 118, 255, 186, 186, 186, 255, 255, 255, 255, 255]), 3, 1, THREE.RGBAFormat); GRAD.minFilter = GRAD.magFilter = THREE.NearestFilter; GRAD.generateMipmaps = false; GRAD.needsUpdate = true; }
+  if (!GRAD) { GRAD = new THREE.DataTexture(new Uint8Array([104, 104, 104, 255, 168, 168, 168, 255, 228, 228, 228, 255]), 3, 1, THREE.RGBAFormat); GRAD.minFilter = GRAD.magFilter = THREE.NearestFilter; GRAD.generateMipmaps = false; GRAD.needsUpdate = true; }
   return GRAD;
 }
 export const toonMat = (o = {}) => new THREE.MeshToonMaterial({ gradientMap: toonGradient(), ...o });
