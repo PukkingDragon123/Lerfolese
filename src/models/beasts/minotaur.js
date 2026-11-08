@@ -273,6 +273,9 @@ function asset(king) {
   S.release(); return (CACHE[id] = { geo, mat, wound: woundTex(wound.canvas) });
 }
 
+/** build (and cache) geometry + textures ahead of a fight */
+export const warmMinotaur = (king = false) => void asset(king);
+
 export function createMinotaur(seed = 1, king = false) {
   const A = asset(king); const root = new THREE.Group(); root.name = king ? 'minotaur_king' : 'minotaur';
   const model = new THREE.Group(); root.add(model); const sc = king ? 1.06 : 1; model.scale.setScalar(sc);

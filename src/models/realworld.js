@@ -14,7 +14,7 @@ import * as T from './toon.js';
 const V3 = THREE.Vector3;
 const GROUND = { meadow: 'ground_meadow', garden: 'ground_meadow', gully: 'ground_rocky_trail', labyrinth: 'ground_dry_grass', marsh: 'mud_mossy', guardian: 'ground_dry_grass' };
 const ARENA = { meadow: 'ground_dry_grass', garden: 'ground_rocky_trail', gully: 'ground_dry_dirt', labyrinth: 'ground_rocky_trail', marsh: 'mud_wet', guardian: 'ground_rocky_trail' };
-const HDRI = { meadow: 'golden_cape_hill', garden: 'sunset_dry_plain', gully: 'golden_dry_valley', labyrinth: 'sunset_dry_plain', marsh: 'golden_dry_valley', guardian: 'sunset_dry_plain' };
+const HDRI = { meadow: 'sunset_dry_plain', garden: 'sunset_dry_plain', gully: 'golden_dry_valley', labyrinth: 'sunset_dry_plain', marsh: 'golden_dry_valley', guardian: 'sunset_dry_plain' };
 // sky looks per theme: Preetham sky params, haze colour (fog = aerial perspective), cloud tint
 const LOOKS = {
   meadow: { turb: 4.6, ray: 1.9, mie: 0.0042, g: 0.78, haze: '#d9b38c', fog: [60, 220], cloud: '#fff1dc', shade: '#9c86a8', grass: 0.12 },
@@ -113,14 +113,16 @@ function windMotes(theme, hAt) {
 }
 
 // ---------------------------------------------------------------- golden-hour backdrop: the sunset HDRI on a dome, rotated so its sun sits in view
-function hdriDome(tex, rot, exposure = 0.62) {
+function hdriDome(tex, rot, exposure = 0.62, haze = '#d9b38c') {
   const m = new THREE.ShaderMaterial({
-    side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { tEq: { value: tex }, uRot: { value: rot }, uExp: { value: exposure } },
+    side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { tEq: { value: tex }, uRot: { value: rot }, uExp: { value: exposure }, uHaze: { value: new THREE.Color(haze) } },
     vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; gl_Position.z = gl_Position.w; }',
-    fragmentShader: `uniform sampler2D tEq; uniform float uRot, uExp; varying vec3 vW;
+    fragmentShader: `uniform sampler2D tEq; uniform float uRot, uExp; uniform vec3 uHaze; varying vec3 vW;
       void main(){ vec3 d = normalize(vW - cameraPosition); float c = cos(-uRot), s = sin(-uRot); d = vec3(d.x * c + d.z * s, d.y, -d.x * s + d.z * c);
         vec2 uv = vec2(atan(d.z, d.x) * 0.15915494 + 0.5, asin(clamp(d.y, -1.0, 1.0)) * 0.31830989 + 0.5);
         vec3 col = texture2D(tEq, uv).rgb * uExp; col = col / (1.0 + max(0.0, dot(col, vec3(0.333)) - 1.2) * 0.8); col = min(col, vec3(2.6)); float l = dot(col, vec3(0.299, 0.587, 0.114)); col = max(mix(vec3(l), col, 1.18), 0.0);
+        float e = degrees(asin(clamp(normalize(vW - cameraPosition).y, -1.0, 1.0)));
+        col = mix(col, uHaze * (0.9 + 0.25 * smoothstep(-2.0, 6.0, e)), max(smoothstep(1.5, -1.0, e), smoothstep(0.42, 0.05, l) * smoothstep(22.0, 3.0, e) * 0.85));
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -130,13 +132,14 @@ function hdriDome(tex, rot, exposure = 0.62) {
 }
 // layered distant ridges fading into the haze (smooth silhouettes, vertex-colour aerial perspective)
 function ridges(sunDir, haze, cols) {
-  const g = new THREE.Group(); const sunAz = Math.atan2(sunDir.x, -sunDir.z);
-  [[-95, 150, 3.4, 7, 0.55], [-140, 220, 5, 11, 0.35], [-185, 280, 7, 14, 0.18]].reverse().forEach(([z, W, h0, h1, k], li) => {
-    const n = makeNoise(31 + li); const seg = 220; const pos = [], col = [], idx = []; const top = new THREE.Color(cols[li]), bot = new THREE.Color(haze); const hz = new THREE.Color(haze);
-    for (let i = 0; i <= seg; i++) { const x = -W + (2 * W * i) / seg; const az = Math.atan2(x - CAM.x, CAM.z - z); const notch = Math.min(1, Math.abs(az - sunAz) / 0.12); let h = h0 + (h1 - h0) * (n.fbm(x * 0.012 + li * 7, 0.5, 5) * 1.6 - 0.3); h = Math.max(1, h) * (0.45 + 0.55 * notch * notch * (3 - 2 * notch));
-      const c1 = top.clone().lerp(hz, k), c0 = bot.clone(); pos.push(x, h, z, x, -6, z); col.push(c1.r, c1.g, c1.b, c0.r, c0.g, c0.b); if (i < seg) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
+  const g = new THREE.Group(); const sunAz = Math.atan2(sunDir.x, -sunDir.z); const cx = -6, cz = 6;
+  [[118, 3.6, 8, 0.5], [150, 5.5, 12, 0.32], [176, 7.5, 15, 0.16]].reverse().forEach(([R, h0, h1, k], li) => {
+    const n = makeNoise(31 + li); const seg = 360; const pos = [], col = [], idx = []; const top = new THREE.Color(cols[li]), hz = new THREE.Color(haze);
+    for (let i = 0; i <= seg; i++) { const th = (i / seg) * Math.PI * 2; const x = cx + Math.sin(th) * R, z = cz - Math.cos(th) * R; const az = Math.atan2(x - CAM.x, CAM.z - z); let da = Math.abs(az - sunAz); da = Math.min(da, Math.PI * 2 - da); const notch = Math.min(1, da / 0.12);
+      let h = h0 + (h1 - h0) * (n.fbm(th * 9 + li * 7, 0.5, 5) * 1.6 - 0.3); h = Math.max(1, h) * (0.45 + 0.55 * notch * notch * (3 - 2 * notch));
+      const c1 = top.clone().lerp(hz, k); pos.push(x, h, z, x, -8, z); col.push(c1.r, c1.g, c1.b, hz.r, hz.g, hz.b); if (i < seg) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); geo.setIndex(idx);
-    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, side: THREE.DoubleSide })); m.renderOrder = -9 + li; m.userData.noInk = true; m.userData.noAO = true; g.add(m);
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, fog: false, side: THREE.DoubleSide })); m.renderOrder = -9 + li; m.frustumCulled = false; m.userData.noInk = true; m.userData.noAO = true; g.add(m);
   });
   return g;
 }
@@ -221,19 +224,19 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   const g = new THREE.Group(); g.name = 'stage:' + theme; const rnd = mulberry32(seed * 7919 + 13); const trees = []; const jobs = []; const L = LOOKS[theme] || LOOKS.meadow;
   T.WIND.ptrK.value = 0; T.WIND.amp.value = 1;
   const hName = HDRI[theme] || 'golden_cape_hill';
-  const [hdr, groundMat, arenaMat, dirtMat, gravelMat, hSun] = await Promise.all([loadHDRI(hName, renderer).catch(() => null), loadPBR(GROUND[theme] || 'ground_meadow', { repeat: 18 }), loadPBR(ARENA[theme] || 'ground_dry_grass', { repeat: 8 }), loadPBR('ground_dry_dirt', { repeat: 18 }), loadPBR('ground_rocky_trail', { repeat: 18 }), hdriSunDirection(hName).catch(() => new V3(0.8, 0.07, 0.6))]);
+  const [hdr, groundMat, arenaMat, dirtMat, gravelMat, hSun] = await Promise.all([loadHDRI(hName, renderer).catch(() => null), loadPBR(GROUND[theme] || 'ground_meadow', { repeat: 44 }), loadPBR(ARENA[theme] || 'ground_dry_grass', { repeat: 8 }), loadPBR('ground_dry_dirt', { repeat: 44 }), loadPBR('ground_rocky_trail', { repeat: 44 }), hdriSunDirection(hName).catch(() => new V3(0.8, 0.07, 0.6))]);
   // the sunset HDRI as the sky, turned so its real sun sits upper-right of the battle view; hazy ridges; the sun's serene face
   const aHdr = Math.atan2(hSun.x, hSun.z), aWant = Math.atan2(SUN_SKY.x, SUN_SKY.z); const rot = aWant - aHdr;
   const sunDirW = new V3(Math.sin(aWant) * Math.cos(Math.asin(hSun.y)), hSun.y, Math.cos(aWant) * Math.cos(Math.asin(hSun.y))).normalize();
-  if (hdr) g.add(hdriDome(hdr.background, rot, theme === 'marsh' ? 0.75 : 0.85)); else g.add(T.animeSky(theme, sunDirW));
+  if (hdr) g.add(hdriDome(hdr.background, rot, theme === 'marsh' ? 0.75 : 0.85, L.haze)); else g.add(T.animeSky(theme, sunDirW));
   g.add(ridges(sunDirW, L.haze, theme === 'marsh' ? ['#5a6a70', '#6e7c80', '#8a9690'] : theme === 'guardian' ? ['#4a3448', '#5e4458', '#7a5a68'] : ['#8a88a6', '#a69eb6', '#c8b2b4']));
   const sunPos = CAM.clone().addScaledVector(sunDirW, 150); g.add(sunBillboard(sunPos, 11));
   // golden backlight from the sun: warm rims on leaves, trunks and the fighters
   const back = new THREE.DirectionalLight(0xffc27a, 1.7); back.position.copy(sunDirW).multiplyScalar(30).setY(9); g.add(back);
   // ground: gently undulating, rising towards the back so the horizon is softened
   const n = makeNoise(seed + 3); const basin = theme === 'marsh' ? (x, z) => Math.min(1, Math.max(0, Math.min(z + 12.3, -2.9 - z) / 1.2)) * Math.min(1, Math.max(0, 22 - Math.abs(x)) / 2) : () => 0;
-  const hAt = (x, z) => { const far = Math.max(0, -z - 8) * 0.06; const y = (n.fbm(x * 0.08 + 9, z * 0.08, 4) - 0.5) * (Math.abs(z) > 3.5 || Math.abs(x) > 9 ? (Math.abs(z) < 14 ? 0.5 : 1.0) : 0.12) + far * far * 1.3; const b = basin(x, z); return y * (1 - b) - 0.35 * b; };
-  const geo = new THREE.PlaneGeometry(90, 70, 110, 90); geo.rotateX(-Math.PI / 2); const p = geo.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, hAt(p.getX(i), p.getZ(i)));
+  const hAt = (x, z) => { const far = Math.max(0, -z - 8) * 0.06; const y = (n.fbm(x * 0.08 + 9, z * 0.08, 4) - 0.5) * (Math.abs(z) > 3.5 || Math.abs(x) > 9 ? (Math.abs(z) < 14 ? 0.5 : 1.0) : 0.12) + Math.min(3.6, far * far * 1.3); const rr = Math.hypot(x + 6, z - 6); const ring = Math.max(0, rr - 48) * 0.07; const b = basin(x, z); return (y + Math.min(4.2, ring * ring * 1.4) * (z > -8 ? 1 : 0.3)) * (1 - b) - 0.35 * b; };
+  const geo = new THREE.PlaneGeometry(220, 220, 170, 170); geo.translate(-6, -6, 0); geo.rotateX(-Math.PI / 2); const p = geo.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, hAt(p.getX(i), p.getZ(i)));
   geo.computeVertexNormals(); geo.setAttribute('uv2', geo.attributes.uv);
   const ground = new THREE.Mesh(geo, splatGround(geo, groundMat, dirtMat, gravelMat, { tint: theme === 'marsh' ? '#a8b890' : theme === 'gully' || theme === 'labyrinth' ? '#e0d4b0' : '#b8d488', dirt: theme === 'gully' ? 0.5 : 0.63, gravel: 0.68, green: theme === 'gully' || theme === 'labyrinth' ? 0.15 : theme === 'marsh' ? 0.35 : 0.6 })); ground.receiveShadow = true; ground.userData.noInk = true; g.add(ground);
   const aoSpots = [];
@@ -264,6 +267,13 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   // the road in, then wind-blown grass everywhere except the arena, the road and the water
   const road = buildRoad(g, hAt, rnd, jobs, place); const rp = road.getSpacedPoints(200);
   const roadD = (x, z) => { let d = 1e9; for (const q of rp) { const dd = (q.x - x) ** 2 + (q.z - z) ** 2; if (dd < d) d = dd; } return Math.sqrt(d); };
+  // the intro films the land behind the battle camera and along the road: groves, ruins, rocks, shrubs
+  { const dr = mulberry32(seed * 11 + 5); const free = (x, z, r) => roadD(x, z) > r + 1.6 && !(Math.abs(x - 0.3) < 10 && z < 5 && z > -3.5);
+    const groves = [['olive_tree_wide_far', 1.15], ['olive_tree_tall_far', 1.1], ['umbrella_tree_far', 0.32], ['othonna_cerarioides', 1.8], ['olive_tree_wide', 1.0]];
+    for (let i = 0; i < 26; i++) { const x = -38 + dr() * 56, z = 9 + dr() * 26; if (!free(x, z, 2.6)) continue; const [nm, sc] = groves[Math.floor(dr() * groves.length)]; jobs.push(place(nm, x, z, { s: sc * (0.85 + dr() * 0.3), tree: true })); }
+    for (let i = 0; i < 22; i++) { const x = -40 + dr() * 60, z = 6 + dr() * 30; if (!free(x, z, 1.2)) continue; const r = dr(); jobs.push(place(r < 0.4 ? 'shrub_01' : r < 0.7 ? 'searsia_lucida' : r < 0.85 ? 'rock_moss_set_01' : 'rock_moss_set_02', x, z, { s: r < 0.4 ? 2.8 : r < 0.7 ? 1.1 : 0.8 + dr() * 0.5 })); }
+    for (const [cx, cz, ry] of [[-6, 21, 0.4], [-27, 12, -0.6]]) { if (!free(cx, cz, 3)) continue; for (let k = 0; k < 4; k++) jobs.push(place(`greek_column#${k === 2 ? 1 : 0}`, cx + Math.cos(ry) * (k - 1.5) * 2.2, cz - Math.sin(ry) * (k - 1.5) * 2.2, { s: 0.75, ry, tree: k === 0 })); jobs.push(place('stone_wall_kit', cx + 1.5, cz + 2, { s: 0.35, ry: ry + 0.3 }), place('stone_wall_kit', cx - 2.5, cz + 1.2, { s: 0.35, ry: ry - 0.5 })); }
+  }
   const gr = mulberry32(seed * 3 + 1); const nP = makeNoise(seed + 77); const clumps = []; const spots = [];
   const okAt = (x, z) => { const ax = (x - 0.3) / 9.2, az = (z - 0.8) / 3.0; if (arenaClear && ax * ax + az * az < 1.05) return false; if (theme === 'marsh' && z < -2.6 && z > -12.5) return false; if (z > -2 && roadD(x, z) < 1.75) return false; return true; };
   for (let i = 0; i < 3200 && clumps.length < 600; i++) { const z = -24 + Math.pow(gr(), 0.75) * 54, x = (gr() - 0.5) * (14 + Math.abs(5 - z) * 1.2) - (z > 4 ? (z - 4) * 0.9 : 0); if (!okAt(x, z)) continue; const dense = nP.fbm(x * 0.15, z * 0.15, 3); if (gr() > dense * 1.5) continue; clumps.push({ x, y: hAt(x, z) - 0.03, z, s: 1.5 + gr() * 1.3, ry: gr() * 6.28, k: gr(), v: Math.floor(gr() * 17) }); }

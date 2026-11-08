@@ -109,6 +109,9 @@ const BODY_CLIPS = {
   die: [[0, {}], [0.2, { spine3: [-0.25, 0, 0.05], spine2: [-0.12, 0, 0], tail1: [-0.3, 0, 0], tail2: [-0.2, 0.1, 0], farm_L: [0, 0, 0.2], farm_R: [0, 0, -0.2] }],
     [0.6, { spine3: [0.15, 0, 0.1], spine2: [0.08, 0, 0.06], farm_L: [0, 0, 0.75], farm_R: [0, 0, -0.75], fore_L: [0, 0, -0.6], fore_R: [0, 0, 0.6], thigh_L: [0, 0, 0.7], thigh_R: [0, 0, -0.7], shin_L: [0, 0, -0.5], shin_R: [0, 0, 0.5], tail1: [0.15, 0, 0], tail2: [0.1, 0.1, 0], tail3: [0.05, 0.15, 0] }]],
 };
+/** build (and cache) geometry + textures ahead of a fight */
+export const warmHydra = (elder = false) => { bodyAsset(elder); headAsset(); };
+
 export function createHydra(seed = 1, elder = false) {
   const A = bodyAsset(elder); const P = elder ? PAL.elder : PAL.base; const root = new THREE.Group(); root.name = elder ? 'hydra_elder' : 'hydra';
   const model = new THREE.Group(); root.add(model); const sc = elder ? 1.1 : 1; model.scale.setScalar(sc);
@@ -228,7 +231,7 @@ function headAsset() {
 function capGeo() { // the bloody cut face of a severed neck: flesh rings round a white bone core
   const g = new THREE.LatheGeometry([[0, 0.025], [0.04, 0.024], [0.09, 0.016], [0.13, 0.006], [0.15, -0.02]].map(([x, y]) => new THREE.Vector2(x, y)), 20); g.rotateX(Math.PI / 2); return g;
 }
-const capMat = () => K.uvMat('hyd-cap', 64, 64, (u, v, o) => { const r = v; if (r < 0.22) K.tone(hex('#f2e6cc'), K.band(0.6 - r, 3), o.col); else if (r < 0.3) K.tone(hex('#3a0810'), 0.4, o.col); else if (r < 0.85) K.tone(hex('#8a1020'), K.band(0.5 + Math.sin(u * 40) * 0.08 - (r - 0.3) * 0.3, 4), o.col); else K.tone(PAL.base.side, 0.4, o.col); o.ro = 0.25; });
+const capMat = () => K.uvMat('hyd-cap', 64, 64, (u, v, o) => { const r = v + Math.sin(u * 37) * 0.03; if (r < 0.14) K.tone(hex('#eadcc0'), K.band(0.62 - r, 3), o.col); else if (r < 0.86) { const pool = K.vnoise(u * 9, r * 6, 4) > 0.55; K.tone(pool ? hex('#4a0610') : hex('#9a1424'), K.band(0.5 + Math.sin(r * 34) * 0.08 - (r - 0.14) * 0.25, 4), o.col); } else K.tone(PAL.base.side, 0.4, o.col); o.ro = 0.2; });
 
 const HEAD_CLIPS = { // head-group offsets: [px, py, pz, rx, ry, rz]; bite anticipation (rear back, gape), strike, snap shut, recover
   attack: [[0, {}], [0.24, { h: [0, 0.32, -0.42], r: [-0.55, 0, 0], jaw: [0.95, 0, 0] }], [0.32, { h: [0, -0.32, 0.75], r: [0.4, 0, 0], jaw: [0.9, 0, 0] }], [0.37, { h: [0, -0.36, 0.82], r: [0.45, 0, 0], jaw: [0.0, 0, 0] }], [0.5, { h: [0, -0.3, 0.7], r: [0.35, 0, 0.05], jaw: [0.05, 0, 0] }], [0.8, {}]],
