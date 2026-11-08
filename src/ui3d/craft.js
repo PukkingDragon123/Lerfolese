@@ -233,10 +233,10 @@ const NUMG = {
   '!': ['##', '##', '##', '##', '##', '##', '..', '##', '##'],
 };
 export const FONT = {
-  title: { font: 'Jacquard', size: 24, weight: 400, lineH: 26, base: 19 }, head: { font: 'Jacquard', size: 16, weight: 400, lineH: 17, base: 12 },
+  title: { font: 'Alagard', size: 32, weight: 400, lineH: 30, base: 23 }, head: { font: 'Alagard', size: 16, weight: 400, lineH: 16, base: 12 },
   hand: { font: 'Caveat', size: 18, weight: 700, lineH: 18, base: 13 }, handS: { font: 'Caveat', size: 16, weight: 700, lineH: 16, base: 12 },
   print: { font: 'VT323', size: 16, weight: 400, lineH: 14, base: 11 }, caps: { font: 'Silkscreen', size: 8, weight: 400, lineH: 9, base: 7 }, capsB: { font: 'Silkscreen', size: 8, weight: 700, lineH: 9, base: 7 },
-  cap: { font: 'Jacquard', size: 48, weight: 400, lineH: 46, base: 36 },
+  cap: { font: 'Alagard', size: 48, weight: 400, lineH: 44, base: 34 },
   tiny: { font: 'Tiny5', size: 8, weight: 400, lineH: 8, base: 6 }, num: { bitmap: NUMG, scale: 1, lineH: 11, base: 9 }, num2: { bitmap: NUMG, scale: 2, lineH: 20, base: 18 }, bold: { font: 'Pixelify', size: 13, weight: 700, lineH: 13, base: 10 }, big: { font: 'Pixelify', size: 26, weight: 700, lineH: 24, base: 19 },
 };
 const gCanvas = document.createElement('canvas'); const gCtx = gCanvas.getContext('2d', { willReadFrequently: true });

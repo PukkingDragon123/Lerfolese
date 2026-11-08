@@ -30,8 +30,8 @@ export function smoothSkin(geo) {
   n.needsUpdate = true; uv.needsUpdate = true;
 }
 
-/** anime-clean the painted page: 3x3 median (kills pixel dither and speckle) then 5-band luminance posterize
- *  keeping hue; the hand-drawn face block and lids are left as painted */
+/** anime-clean the painted page: 3x3 median kills pixel dither and speckle (flat cel colour fields);
+ *  the hand-drawn face block and lids are left as painted */
 export function cleanPage(d, S, k) {
   const skip = (x, y) => (x < 113 * k && y < 97 * k) || (x >= 231 * k && x < 256 * k && y >= 63 * k && y < 79 * k);
   const src = d.slice(); const r = [], g = [], b = [];
@@ -39,8 +39,7 @@ export function cleanPage(d, S, k) {
     const p = (y * S + x) * 4; if (!src[p + 3] || skip(x, y)) continue; r.length = g.length = b.length = 0;
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const q = ((y + j) * S + x + i) * 4; if (!src[q + 3]) continue; r.push(src[q]); g.push(src[q + 1]); b.push(src[q + 2]); }
     r.sort((a, c) => a - c); g.sort((a, c) => a - c); b.sort((a, c) => a - c); const m = r.length >> 1;
-    let R = r[m], G = g[m], Bb = b[m]; const L = R * 0.3 + G * 0.59 + Bb * 0.11; const Lq = Math.max(8, Math.round(L / 255 * 4) / 4 * 255 * 0.92 + 14); const f = Lq / Math.max(8, L);
-    d[p] = Math.min(255, R * f); d[p + 1] = Math.min(255, G * f); d[p + 2] = Math.min(255, Bb * f);
+    d[p] = r[m]; d[p + 1] = g[m]; d[p + 2] = b[m]; // median only: keeps each material's own colour (cel banding comes from the toon ramp)
   }
 }
 

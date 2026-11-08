@@ -145,7 +145,7 @@ export function animeSky(theme = 'meadow', sunDir = new THREE.Vector3(0.3, 0.12,
     vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; gl_Position.z = gl_Position.w; }',
     fragmentShader: `uniform vec3 uZen, uHi, uMid, uLow, uHor, uGnd, uGlow, uSun; varying vec3 vW;
       void main(){ vec3 d = normalize(vW - cameraPosition); float e = degrees(asin(clamp(d.y, -1.0, 1.0)));
-        vec3 c = mix(uHor, uLow, smoothstep(0.0, 3.0, e)); c = mix(c, uMid, smoothstep(2.0, 9.0, e)); c = mix(c, uHi, smoothstep(8.0, 20.0, e)); c = mix(c, uZen, smoothstep(18.0, 55.0, e));
+        vec3 c = mix(uHor, uLow, smoothstep(0.0, 1.6, e)); c = mix(c, uMid, smoothstep(1.2, 4.2, e)); c = mix(c, uHi, smoothstep(3.8, 7.5, e)); c = mix(c, uZen, smoothstep(7.0, 16.0, e));
         if (e < 0.0) c = mix(uHor, uGnd, smoothstep(0.0, -6.0, e));
         float s = max(0.0, dot(d, normalize(uSun))); c += uGlow * (pow(s, 40.0) * 0.55 + pow(s, 8.0) * 0.22 + pow(s, 2.0) * 0.06);
         gl_FragColor = vec4(c, 1.0);
@@ -177,7 +177,7 @@ export function animeClouds(theme = 'meadow', { seed = 1, n = 7, z = -150, sunDi
   const sunX = cam.x + (sunDir.x / -sunDir.z) * (cam.z - z);
   for (let i = 0; i < n; i++) {
     const x = (i / (n - 1) - 0.5) * 300 + (r() - 0.5) * 30; if (Math.abs(x - sunX) < 22) continue;
-    const w = 55 + r() * 60; const hgt = w * 0.5; const y = 4 + r() * 12; const zz = z - r() * 20;
+    const w = 50 + r() * 55; const hgt = w * 0.5; const y = 16 + r() * 14; const zz = z - r() * 20;
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, hgt), new THREE.MeshBasicMaterial({ map: cloudTexture(S.cloud, seed * 31 + i), transparent: true, depthWrite: false, fog: false }));
     m.position.set(x, y, zz); m.lookAt(cam.x, y * 0.6, cam.z); m.renderOrder = -8; m.userData.noInk = true; m.userData.noAO = true; g.add(m);
   }
@@ -213,8 +213,8 @@ const FLAME_MAT = () => new THREE.ShaderMaterial({
       float w = n(vec2(p.x * 4.0, p.y * 3.0 - t * 3.0)) * 0.5 + n(vec2(p.x * 9.0, p.y * 6.0 - t * 5.0)) * 0.25;
       float shape = (1.0 - p.y) * 1.25 - abs(p.x - 0.5 + (w - 0.37) * 0.35 * p.y) * 2.6 + w * 0.55 - 0.35;
       if (shape < 0.0) discard;
-      vec3 c = shape > 0.9 ? vec3(1.0, 0.92, 0.6) : shape > 0.55 ? vec3(1.0, 0.62, 0.14) : shape > 0.22 ? vec3(0.98, 0.32, 0.07) : vec3(0.62, 0.1, 0.06);
-      gl_FragColor = vec4(c * 1.15, 1.0); }`,
+      vec3 c = shape > 0.95 ? vec3(1.0, 0.86, 0.42) : shape > 0.58 ? vec3(1.0, 0.5, 0.09) : shape > 0.24 ? vec3(0.86, 0.22, 0.04) : vec3(0.5, 0.07, 0.04);
+      gl_FragColor = vec4(c * 0.95, 1.0); }`,
 });
 export function animeFlame(w = 0.7, h = 1.1) {
   const g = new THREE.Group(); g.name = 'flame';

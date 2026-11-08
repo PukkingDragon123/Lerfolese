@@ -92,8 +92,8 @@ export function renderCardFace(card, move) {
   };
   const fit = (str, maxW, size, font, weight = 400) => { g.font = `${weight} ${size}px "${font}"`; while (g.measureText(str).width > maxW && size > 14) { size -= 2; g.font = `${weight} ${size}px "${font}"`; } return size; };
   const title = (isMove ? card.name || move.name : isPower ? (def.short || def.name) : def.name) + (up ? '+' : '');
-  const tsize = fit(title, 300, 38, 'Pixelify', 700);
-  txt(title, (CW / 2) * CS, 11.75 * CS, tsize, '#fff6cf', 'Pixelify', 'center', 700, '#2a1008', 8);
+  const tsize = fit(title, 300, 40, 'Alagard', 400);
+  txt(title, (CW / 2) * CS, 11.75 * CS, tsize, '#fff6cf', 'Alagard', 'center', 400, '#2a1008', 8);
   medal.slice(0, 2).forEach((m, i) => {
     const [x, y] = MED[i]; const v = (m[2] || '') + String(m[1]);
     txt(v, (x + 0.5) * CS, (y + 0.25) * CS, v.length > 2 ? 24 : 32, '#fff6cf', 'Pixelify', 'center', 700, '#1a0c14', 7);
@@ -145,7 +145,7 @@ export function renderCardBack() {
   windowCorners(s, TRIM.brass);
   const out = toCanvas(s, CS); const g = out.getContext('2d');
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = '700 26px "Pixelify"'; g.lineWidth = 8; g.lineJoin = 'round'; g.strokeStyle = '#2a1008'; g.strokeText('APPLE OF DISCORD', CW / 2 * CS, 11.75 * CS); g.fillStyle = '#fff6cf'; g.fillText('APPLE OF DISCORD', CW / 2 * CS, 11.75 * CS);
+  g.font = '32px "Alagard"'; g.lineWidth = 8; g.lineJoin = 'round'; g.strokeStyle = '#2a1008'; g.strokeText('APPLE OF DISCORD', CW / 2 * CS, 11.75 * CS); g.fillStyle = '#fff6cf'; g.fillText('APPLE OF DISCORD', CW / 2 * CS, 11.75 * CS);
   g.font = '400 34px "VT323"'; g.fillStyle = '#d8c6ff'; ['Every action has an', 'equal and opposite', 'god.'].forEach((l, i) => g.fillText(l, CW / 2 * CS, (112 + i * 12.5) * CS));
   backCanvas = out; return out;
 }

@@ -5,6 +5,7 @@
 @font-face { font-family: 'Caveat'; src: url('../assets/fonts/Caveat.woff2') format('woff2'); font-weight: 400 700; font-display: block; }
 @font-face { font-family: 'HomemadeApple'; src: url('../assets/fonts/HomemadeApple.woff2') format('woff2'); font-display: block; }
 @font-face { font-family: 'Jacquard'; src: url('../assets/fonts/Jacquard24.woff2') format('woff2'); font-display: block; }
+@font-face { font-family: 'Alagard'; src: url('../assets/fonts/alagard.ttf') format('truetype'); font-display: block; }
 @font-face { font-family: 'Tiny5'; src: url('../assets/fonts/Tiny5.woff2') format('woff2'); font-display: block; }
 
 html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #120d1c; overscroll-behavior: none; }
@@ -14,8 +15,8 @@ body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit
 
 #boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 40%, #2a1d44 0%, #120d1c 70%); transition: opacity .8s ease; z-index: 10; }
 #boot.gone { opacity: 0; pointer-events: none; }
-.boot-inner { text-align: center; color: #f3e6c4; font-family: 'Pixelify', monospace; }
-.boot-title { font-size: 28px; letter-spacing: 4px; color: #f2c14e; text-shadow: 0 3px 0 #5a1a22; margin-top: 18px; }
+.boot-inner { text-align: center; color: #f3e6c4; font-family: 'Alagard', 'Pixelify', monospace; }
+.boot-title { font-size: 32px; letter-spacing: 4px; color: #f2c14e; text-shadow: 0 3px 0 #5a1a22; margin-top: 18px; }
 .boot-sub { font-family: 'VT323', monospace; font-size: 20px; color: #cdb27a; margin-top: 6px; min-height: 22px; }
 .boot-bar { width: 220px; height: 10px; margin: 14px auto 0; border: 2px solid #cdb27a; background: #1a1220; image-rendering: pixelated; }
 .boot-fill { height: 100%; width: 0%; background: repeating-linear-gradient(90deg, #f2c14e 0 6px, #d99a2b 6px 8px); transition: width .2s; }

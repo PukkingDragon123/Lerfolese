@@ -30,7 +30,7 @@ class Game {
   // -------------------------------------------------------------- flow
   async boot() {
     bootMsg('Loading fonts…', 10);
-    await Promise.all(['700 40px "Pixelify"', '32px "VT323"', '700 22px "Silkscreen"', '400 22px "Silkscreen"', '40px "Caveat"', '700 18px "Caveat"', '40px "HomemadeApple"', '40px "Jacquard"', '24px "Jacquard"', '8px "Tiny5"', '400 8px "Silkscreen"'].map((f) => document.fonts.load(f).catch(() => {})));
+    await Promise.all(['16px "Alagard"', '32px "Alagard"', '700 40px "Pixelify"', '32px "VT323"', '700 22px "Silkscreen"', '400 22px "Silkscreen"', '40px "Caveat"', '700 18px "Caveat"', '40px "HomemadeApple"', '40px "Jacquard"', '24px "Jacquard"', '8px "Tiny5"', '400 8px "Silkscreen"'].map((f) => document.fonts.load(f).catch(() => {})));
     bootMsg('Tuning gravity strings…', 40); await audio.init();
     bootMsg('Convincing the gods…', 80);
     const q = new URLSearchParams(location.search);
