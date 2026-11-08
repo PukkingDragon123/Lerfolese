@@ -24,8 +24,12 @@ export class Battle {
   }
   has(item) { return this.run.items.includes(item); }
 
+  // HARD difficulty: foes are tougher than their base sheet, and grow a little every floor of the run
+  tier(def) { return def.guardian ? 'guardian' : def.elite ? 'elite' : 'normal'; }
+  diffHp(def) { const f = Math.max(0, this.run.floor || 0); return ({ normal: 1.3, elite: 1.18, guardian: 1.12 })[this.tier(def)] * (1 + f * 0.03); }
+  diffDmg(def) { const f = Math.max(0, this.run.floor || 0); return ({ normal: 1.35, elite: 1.22, guardian: 1.15 })[this.tier(def)] * (1 + f * 0.025); }
   spawnEnemy(id, opts = {}) {
-    const def = ENEMIES[id]; const hp = this.rng.int(def.hp[0], def.hp[1]);
+    const def = ENEMIES[id]; const hp = Math.round(this.rng.int(def.hp[0], def.hp[1]) * this.diffHp(def));
     const e = { uid: uid('e'), id, def, hp, maxHp: hp, block: 0, st: {}, turn: 0, alive: true, intent: null, loot: null, lootTurns: 0, pendingHeads: 0, parent: opts.parent || null, slot: opts.slot ?? this.enemies.length };
     this.enemies.push(e);
     if (def.heads) for (let i = 0; i < def.heads; i++) this.spawnEnemy('hydra_head', { parent: e.uid, slot: i });
@@ -459,7 +463,7 @@ export class Battle {
   }
   pickIntent(e) { e.intent = e.def.ai(e, this, this.rng); if (e.loot) e.lootTurns++; e.next = this.has('antikythera') ? e.def.ai({ ...e, turn: e.turn + 1, st: { ...e.st } }, this, this.rng) : null; }
 
-  attackValue(e, base) { let d = base + (e.st.strength || 0); if (e.st.weak) d = Math.floor(d * 0.75); return Math.max(0, d); }
+  attackValue(e, base) { let d = Math.round(base * this.diffDmg(e.def)) + (e.st.strength || 0); if (e.st.weak) d = Math.floor(d * 0.75); return Math.max(0, d); }
 
   async enemyAct(e) {
     const it = e.intent; if (!it) return;

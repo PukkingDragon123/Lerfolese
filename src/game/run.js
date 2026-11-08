@@ -17,7 +17,7 @@ export const AREAS = {
 export function newRun(seed = (Math.random() * 2 ** 31) | 0) {
   const rng = new RNG(seed);
   const run = {
-    seed, area: 'wilderness', floor: -1, pos: null, player: { hp: 64, maxHp: 64 }, gold: 99,
+    seed, area: 'wilderness', floor: -1, pos: null, player: { hp: 56, maxHp: 56 }, gold: 99,
     deck: STARTER_DECK.map((id) => mkCard(id)), items: ['spirit_cross'], stats: { kills: 0, moves: 0, bestHit: 0, floors: 0, elites: 0, combos: 0 },
     flags: {}, foughtElites: [], seenEvents: [], loop: save.journal.loops + 1,
   };
