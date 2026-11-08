@@ -1,6 +1,7 @@
 // The battle: golden-hour diorama, marionette vs. monsters, physical hand of cards, all juice.
 import * as THREE from 'three';
 import { buildStage } from '../models/world.js';
+import { realStage } from '../models/realworld.js';
 import { createProfessor } from '../models/professor.js';
 import { createCreature } from '../models/creatures.js';
 import { Particles } from '../gfx/particles.js';
@@ -28,7 +29,8 @@ export class BattleScene {
 
   async run(run, encounter) {
     this.runData = run; this.encounter = encounter; this.done = false;
-    this.buildWorld(encounter); this.buildUI();
+    let readyRes; this.ready = new Promise((r) => (readyRes = r));
+    await this.buildWorld(encounter); this.buildUI(); readyRes();
     const rng = new RNG((run.seed ^ (run.stats.floors * 7919)) >>> 0);
     this.battle = new Battle({ run, enemies: encounter.enemies, rng, fx: this.fx(), kind: encounter.kind });
     for (const e of this.battle.enemies) this.addEnemyView(e);
@@ -45,17 +47,20 @@ export class BattleScene {
   }
 
   // ---------------------------------------------------------------- world
-  buildWorld(enc) {
+  async buildWorld(enc) {
     const lead = enc.enemies[0]; this.theme = enc.kind === 'guardian' ? 'guardian' : THEME[lead] || 'meadow'; if (lead.startsWith('hydra')) this.theme = 'marsh'; if (lead.startsWith('minotaur')) this.theme = 'labyrinth';
     const sc = (this.scene = new THREE.Scene());
-    const stage = buildStage(this.theme, 7 + this.runData.stats.floors); sc.add(stage.group); this.stage = stage;
+    let stage = null;
+    try { stage = await realStage(this.theme, 7 + this.runData.stats.floors, this.engine.renderer); sc.environment = stage.env; sc.environmentIntensity = 0.75; sc.background = stage.background; sc.backgroundIntensity = 1.25; }
+    catch (e) { console.warn('realistic stage failed, using fallback', e); stage = buildStage(this.theme, 7 + this.runData.stats.floors); }
+    sc.add(stage.group); this.stage = stage;
     this.critters = new Critters(70); this.critters.bounds = { x: [-15, 15], y: [1.5, 8], z: [-10, 1] }; sc.add(this.critters.mesh);
     sc.updateMatrixWorld(true); for (const t of stage.trees) this.critters.perchesFrom(t, 4);
     this.critters.spawnBirds(14, this.theme === 'garden' ? ['crow', 'dove', 'sparrow'] : this.theme === 'marsh' ? ['swallow', 'crow'] : ['sparrow', 'swallow', 'hoopoe', 'dove']); this.critters.spawnButterflies(this.theme === 'labyrinth' ? 2 : 6, new THREE.Vector3(0, 0.5, -2), 14);
-    sc.fog = new THREE.Fog(this.theme === 'marsh' ? 0x9ab0a0 : 0xe8b088, 22, 70);
-    const sun = new THREE.DirectionalLight(0xffd0a0, 3.4); sun.position.set(-9, 11, 7); sun.castShadow = true;
+    sc.fog = new THREE.Fog(this.theme === 'marsh' ? 0xa8b8a8 : 0xe8c09a, 30, 95);
+    const sun = new THREE.DirectionalLight(0xffd8b0, 3.0); const sd = stage.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4); sun.position.copy(sd.clone().normalize().multiplyScalar(22)); if (sun.position.y < 6) sun.position.y = 6; sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 10, bottom: -8, near: 1, far: 40 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
-    sc.add(sun, new THREE.HemisphereLight(0xa8c8ff, 0x6a4a30, 1.15));
+    sc.add(sun, new THREE.HemisphereLight(0xa8c8ff, 0x6a4a30, 0.55));
     const rim = new THREE.DirectionalLight(0xffa860, 1.6); rim.position.set(6, 5, -9); sc.add(rim);
     this.camera = new THREE.PerspectiveCamera(32, this.engine.aspect, 0.1, 400); this.camBase = new THREE.Vector3(-0.1, 3.0, 11.4); this.camLook = new THREE.Vector3(0.3, 1.7, 0);
     this.camera.position.copy(this.camBase); this.camera.lookAt(this.camLook); this.camOff = new THREE.Vector3(); this.camPunch = 0;

@@ -11,7 +11,7 @@ import { audio } from '../core/audio.js';
 
 export default class LabScene extends UIScreen {
   async enter() {
-    const run = (this.run = this.game.run); this.world = tabletopWorld('lab'); this.engine.setWorld(this.world.scene, this.world.camera);
+    const run = (this.run = this.game.run); this.world = tabletopWorld('lab'); await this.world.ready; this.engine.setWorld(this.world.scene, this.world.camera);
     const fire = P3.brazier(); fire.position.set(0, 1.0, -3.5); fire.scale.setScalar(1.6); this.world.scene.add(fire); const l = new THREE.PointLight(0xff9040, 40, 14, 2); l.position.set(0, 3, -3); this.world.scene.add(l); this.fireLight = l;
     for (const [x, k] of [[-4, 'leyden'], [4, 'pendulum']]) { const m = (await import('../models/items3d.js')).ITEM_MODELS[k](); m.position.set(x, 1.2, -4); m.scale.setScalar(1.6); this.world.scene.add(m); }
     this.engine.setFx({ bloom: [0.7, 0.6, 0.7], tilt: { focus: 0.5, width: 0.22, amount: 2.5 }, grade: { warmth: 0.7, vignette: 0.55 } });

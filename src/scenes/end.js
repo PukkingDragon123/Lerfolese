@@ -7,7 +7,7 @@ import { tweens } from '../core/tween.js';
 
 export class EndScene extends UIScreen {
   async enter(won) {
-    this.world = tabletopWorld('end'); this.engine.setWorld(this.world.scene, this.world.camera);
+    this.world = tabletopWorld('end'); await this.world.ready; this.engine.setWorld(this.world.scene, this.world.camera);
     this.engine.setFx({ bloom: [0.8, 0.7, 0.6], tilt: { focus: 0.5, width: 0.2, amount: 3 }, grade: won ? { warmth: 0.8, vignette: 0.5 } : { sat: 0.7, vignette: 0.75, lift: [0.0, 0.0, 0.06] } });
     this.engine.add(this); this.pushInput(); audio.playMusic(won ? 'map' : 'journal');
     const j = this.game.journal; const h = j.history[0] || {}; const H = this.H;

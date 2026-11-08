@@ -224,11 +224,23 @@ function normalTex(hgt, W, H, k, cells) {
 function rmTex(rm, W, H) { const out = new Float32Array(W * H * 4); for (let i = 0; i < W * H; i++) { out[i * 4] = 1; out[i * 4 + 1] = rm[i * 2]; out[i * 4 + 2] = rm[i * 2 + 1]; out[i * 4 + 3] = 1; } return canvasTex(out, W, H, false); }
 
 // ---------------------------------------------------------------- materials
-// studio environment (RoomEnvironment PMREM) used only while the rendered scene has no environment of its own
-let ENV = null, envPending = false, lastScene = null; const MATS = new Set();
+// studio environment: a small procedural HDR equirect (warm key softbox, cool rim, sky / horizon / ground gradient);
+// three.js prefilters it internally. Used only while the rendered scene has no environment of its own.
+let ENV = null, lastScene = null; const MATS = new Set();
+function studioEnv() {
+  const W = 128, Hh = 64, d = new Float32Array(W * Hh * 4), box = (az, el, a0, e0, w, h) => Math.exp(-(((az - a0 + Math.PI * 3) % (Math.PI * 2) - Math.PI) ** 2) / (w * w) - ((el - e0) ** 2) / (h * h));
+  for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+    const az = (x / W) * Math.PI * 2 - Math.PI, el = (0.5 - y / Hh) * Math.PI, up = Math.sin(el), i = (y * W + x) * 4;
+    const sky = sstep(-0.05, 0.6, up), gr = sstep(0.05, -0.4, up), hz = Math.exp(-(up * up) / 0.02);
+    let r = 0.32 * sky + 0.22 * (1 - sky - gr) + 0.12 * gr + 0.5 * hz, g = 0.36 * sky + 0.2 * (1 - sky - gr) + 0.1 * gr + 0.42 * hz, b = 0.46 * sky + 0.18 * (1 - sky - gr) + 0.08 * gr + 0.32 * hz;
+    const k = box(az, el, -0.9, 0.6, 0.45, 0.3) * 4.5, rm = box(az, el, 2.3, 0.4, 0.35, 0.25) * 2.2;
+    d[i] = r + k * 1.0 + rm * 0.6; d[i + 1] = g + k * 0.9 + rm * 0.8; d[i + 2] = b + k * 0.78 + rm * 1.0; d[i + 3] = 1;
+  }
+  const t = new THREE.DataTexture(d, W, Hh, THREE.RGBAFormat, THREE.FloatType); t.mapping = THREE.EquirectangularReflectionMapping; t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true; return t;
+}
 function envHook(r, scene) {
-  if (!ENV && !envPending) { envPending = true; import('three/addons/environments/RoomEnvironment.js').then(({ RoomEnvironment }) => { const pm = new THREE.PMREMGenerator(r); ENV = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose(); lastScene = null; }); }
-  if (ENV && scene !== lastScene) { lastScene = scene; const e = scene.environment ? null : ENV; for (const m of MATS) if (m.envMap !== e) { m.envMap = e; m.needsUpdate = true; } }
+  if (scene === lastScene) return; lastScene = scene; ENV ||= studioEnv();
+  const e = scene.environment ? null : ENV; for (const m of MATS) if (m.envMap !== e) { m.envMap = e; m.needsUpdate = true; }
 }
 export function pbr(tx, { rough = 1, metal = 1, normal = 1, envI = 0.5, side = THREE.FrontSide, alphaTest = 0, transparent = false, color = 0xffffff, emissive = null, emissiveMap = null, emissiveIntensity = 1, opacity = 1, depthWrite = true } = {}) {
   const m = new THREE.MeshStandardMaterial({ map: tx.map, normalMap: tx.normalMap, roughnessMap: tx.roughMap, metalnessMap: tx.roughMap, roughness: rough, metalness: metal, side, alphaTest, transparent, color, envMapIntensity: envI, opacity, depthWrite });

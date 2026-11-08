@@ -4,6 +4,8 @@ import * as S from '../models/sculpt.js';
 import { UIScreen, Button3D, Panel } from '../ui3d/widgets.js';
 import { textPlane } from '../ui3d/kit.js';
 import { buildStage, PROPS } from '../models/world.js';
+import { realStage } from '../models/realworld.js';
+import { loadModel } from '../gfx/assets.js';
 import { createProfessor } from '../models/professor.js';
 import { createCreature } from '../models/creatures.js';
 import { ITEM_MODELS } from '../models/items3d.js';
@@ -46,7 +48,7 @@ export default class EventScene extends UIScreen {
     const pool = EVENTS.filter((e) => !seen.has(e.id)); const ev = (this.ev = run.rng.pick(pool.length ? pool : EVENTS)); run.seenEvents.push(ev.id);
     const j = this.game.journal; (j.events[ev.id] ||= 0); j.events[ev.id]++; this.game.saveJournal();
     // world
-    const sc = (this.scene = new THREE.Scene()); const st = buildStage(ev.theme, 30 + ev.id.length); sc.add(st.group); sc.fog = new THREE.Fog(0xe8b088, 20, 60);
+    const sc = (this.scene = new THREE.Scene()); let st; try { st = await realStage(ev.theme, 30 + ev.id.length, this.engine.renderer); sc.environment = st.env; sc.environmentIntensity = 0.75; sc.background = st.background; } catch (e) { st = buildStage(ev.theme, 30 + ev.id.length); } sc.add(st.group); sc.fog = new THREE.Fog(0xe8c09a, 30, 95);
     const sun = new THREE.DirectionalLight(0xffd0a0, 3.2); sun.position.set(-8, 10, 7); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 10, bottom: -8 }); sc.add(sun, new THREE.HemisphereLight(0xa8c8ff, 0x6a4a30, 1.1));
     this.camera = new THREE.PerspectiveCamera(32, this.engine.aspect, 0.1, 300); this.camera.position.set(-2.5, 3.0, 10.5); this.camera.lookAt(-1.2, 1.4, 0);
     this.prof = createProfessor(); this.prof.root.position.set(-4.4, 0, 1.2); this.prof.root.rotation.y = 0.6; sc.add(this.prof.root);

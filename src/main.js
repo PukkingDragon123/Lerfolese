@@ -32,6 +32,7 @@ class Game {
     await Promise.all(['700 40px "Pixelify"', '32px "VT323"', '700 22px "Silkscreen"', '400 22px "Silkscreen"', '40px "Caveat"', '40px "HomemadeApple"', '40px "Jacquard"'].map((f) => document.fonts.load(f).catch(() => {})));
     bootMsg('Tuning gravity strings…', 40); await audio.init();
     bootMsg('Convincing the gods…', 80);
+    import('./gfx/assets.js').then((A) => A.preload(['olive_tree_tall', 'olive_tree_wide', 'othonna_cerarioides', 'grass_clumps', 'rock_moss_set_01', 'rock_moss_set_02', 'searsia_lucida', 'shrub_01']).catch(() => {}));
     const q = new URLSearchParams(location.search);
     $('boot').classList.add('gone');
     if (q.get('battle')) return this.debugBattle(q.get('battle').split(','), q.get('kind') || 'normal');
@@ -65,7 +66,7 @@ class Game {
     if (node.type === 'battle' || node.type === 'elite' || node.type === 'guardian') {
       const enc = encounterFor(run, node);
       let res;
-      await this.swap(async () => { const bs = new BattleScene(this); this.scene = bs; res = bs.run(run, enc); }, { mode: 1 });
+      await this.swap(async () => { const bs = new BattleScene(this); this.scene = bs; res = bs.run(run, enc); await new Promise((r) => { const w = () => (bs.ready ? bs.ready.then(r) : setTimeout(w, 30)); w(); }); }, { mode: 1 });
       const r = await res;
       if (!r.won) return this.gameOver(r);
       if (enc.kind === 'elite') { run.foughtElites.push(enc.enemies[0]); run.stats.elites++; }

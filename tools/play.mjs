@@ -15,6 +15,6 @@ for (const a of actions.split('@@').filter(Boolean)) {
   if (cmd === 'shot') await p.screenshot({ path: args[0] });
   if (cmd === 'eval') { const r = await p.evaluate(args.join(':')); if (r !== undefined) console.log('eval:', JSON.stringify(r).slice(0, 400)); }
 }
-await p.screenshot({ path: out });
+await p.screenshot({ path: out, timeout: 120000 });
 console.log(logs.slice(0, 15).join('\n') || 'no errors');
 await b.close();

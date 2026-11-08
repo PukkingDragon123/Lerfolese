@@ -106,3 +106,38 @@ export const MAT = {
   jar: mat(RAMP.jar, { amb: 0.3, spec: 1.3, pow: 22 }),
   ink: mat(RAMP.ink, { amb: 0.3 }),
 };
+
+// ---------------------------------------------------------------- geometric low-res palette: 4-5 tones per material
+// (shadow plane, dark, mid, lit plane, highlight sliver). Strong hue shift between planes.
+import { gmat } from './geo.js';
+export const GR = {
+  brass: ['#2c1610', '#7a4818', '#c88a2c', '#f2cc5c', '#fff4c8'], gold: ['#3a1a0c', '#9a5410', '#e09a1c', '#ffd24a', '#fff8d0'],
+  bronze: ['#2a140c', '#6e3a18', '#b06a2c', '#e0a45a', '#fadcaa'], copper: ['#2a1010', '#7a2e18', '#c0582a', '#ec9452', '#ffd2a2'],
+  iron: ['#16161e', '#383c4e', '#6a7488', '#a8b4c2', '#eaf2f4'], oak: ['#22120e', '#5a3420', '#8e5a30', '#c48a4e', '#e8bc80'],
+  walnut: ['#180c0c', '#3e2018', '#6a3c24', '#9a6438', '#c48c58'], leather: ['#1e0c0e', '#52241a', '#8a4228', '#c06e3c', '#e4a06a'],
+  wicker: ['#2a160c', '#6e4018', '#b0722c', '#e0aa52', '#f8e0a0'], rope: ['#2a1a10', '#6a4a28', '#a8824e', '#dcc08a'],
+  paper: ['#6a5848', '#a8987c', '#dccca8', '#fffaea'], stone: ['#1e1a22', '#4a4250', '#7a7076', '#ada498', '#ddd6c4'],
+  marble: ['#4a4658', '#8a8492', '#c6c0c0', '#f6f2ea'], moss: ['#1c2a12', '#3e5a1c', '#6e8c2c', '#a8bc4c'],
+  leaf: ['#10200e', '#244a1a', '#3e7a26', '#6eaa34', '#b4dc5c'], water: ['#0c1a3a', '#164a84', '#2a82bc', '#68c0e2', '#d0f4fc'],
+  wine: ['#160410', '#46102a', '#82203e', '#c04460', '#f08aa0'], fire: ['#5a0e10', '#c0301a', '#f2701e', '#ffc23a', '#fff4c0'],
+  glow: ['#1a1038', '#3c2484', '#7650d8', '#8ee2ff', '#eafcff'], electric: ['#1a2c6a', '#3a7ad0', '#8ad0f8', '#f0feff'],
+  wool: ['#4a3e50', '#8a7e82', '#c8bea8', '#f2ecd8', '#ffffff'], face: ['#120c10', '#2c2026', '#4a3a3c', '#6e5a56'],
+  goat: ['#1a0e0c', '#4e2a1a', '#8a4e2a', '#c27c44', '#e2aa70'], horn: ['#2a221a', '#5e5038', '#9c8a62', '#d8caa0'],
+  lizard: ['#0c1e10', '#1e4e1c', '#3a8a24', '#78c034', '#c4e870'], bone: ['#3a3026', '#7a6a50', '#bcae86', '#f2eacc'],
+  apple: ['#2a0610', '#6a1020', '#b81e2a', '#ec4e3a', '#ffb07a'], clothRed: ['#2a0810', '#6a1424', '#ae2a30', '#e05a44', '#f6a080'],
+  clothPurple: ['#180c2a', '#3a2060', '#62409a', '#9a74cc', '#d0b4f0'], clothTeal: ['#08181c', '#18464a', '#2c7a70', '#5cb09a', '#a8e0c8'],
+  canvas: ['#3a2e26', '#7a6850', '#b8a47e', '#ece0bc'], cream: ['#6a5a4e', '#b0a088', '#e6d8b8', '#fffaec'],
+  smoke: ['#3e3e4c', '#7c7c8a', '#bcbcc6', '#f2f2f6'], cloud: ['#1e2236', '#3a4462', '#64708c', '#9aa6b8', '#d0d8e0'],
+  moon: ['#2a2838', '#5a5a6e', '#9a98a2', '#d6d0c6', '#fbf6e6'], lens: ['#123040', '#2e6a7a', '#6aaab0', '#b8e2d8', '#f4fff8'],
+  dirt: ['#24160e', '#4e3420', '#7a5a36', '#a8875a'], grass: ['#1a2a12', '#34501e', '#5a7e2c', '#94b044'],
+  red: ['#2a0810', '#7a1822', '#c4302c', '#f07050', '#ffc0a0'], ink: ['#0a080e', '#1c1622', '#2e2636', '#40364a'],
+  charred: ['#0e0a0e', '#241a1c', '#3e2c28', '#5e4232'], clay: ['#2a0e08', '#6a2410', '#ac4a1e', '#e0823e', '#f8b878'],
+  verdigris: ['#0e1e1a', '#1e4a3a', '#3a8264', '#7ec09c', '#c4ecd2'], jar: ['#0c1a1e', '#1e4448', '#3e7c78', '#86c2b0', '#d8f2e6'],
+  slime: ['#081a12', '#165028', '#2e8a3a', '#7cc454', '#c8ec90'], white: ['#5c5864', '#9a96a0', '#d4d0d0', '#fcfbf6'],
+  black: ['#08070a', '#16131a', '#2a2430', '#3e3644'], blue: ['#0c1636', '#1c3a7a', '#3466c0', '#74a8ec', '#c4e0ff'],
+  green: ['#0c2410', '#1c4c1c', '#2e7e2c', '#5cb43c', '#a8e070'], purple: ['#1a0e2c', '#3a2060', '#6440a0', '#9a74d4', '#d2b8f4'],
+};
+export const GM = {}; for (const k in GR) GM[k] = gmat(GR[k]);
+for (const k of ['brass', 'gold', 'bronze', 'copper', 'iron']) GM[k] = gmat(GR[k], { metal: 0.45, spec: 1.1, pow: 10 });
+GM.lens = gmat(GR.lens, { amb: 0.4, dif: 0.6, spec: 1.2, pow: 10 }); GM.jar = gmat(GR.jar, { amb: 0.35, spec: 1.2, pow: 10 });
+GM.apple = gmat(GR.apple, { spec: 1.1, pow: 12 }); GM.water = gmat(GR.water, { amb: 0.3 }); GM.fire = gmat(GR.fire, { amb: 0.7, dif: 0.3 }); GM.glow = gmat(GR.glow, { amb: 0.7, dif: 0.3 });

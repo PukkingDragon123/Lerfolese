@@ -26,7 +26,7 @@ export function wrap(t, n) { const w = t.split(' '); const out = []; let c = '';
 
 export class RewardScene extends UIScreen {
   async enter(rewards, enc) {
-    const run = this.game.run; this.world = tabletopWorld('study'); this.engine.setWorld(this.world.scene, this.world.camera);
+    const run = this.game.run; this.world = tabletopWorld('study'); await this.world.ready; this.engine.setWorld(this.world.scene, this.world.camera);
     this.engine.setFx({ bloom: [0.6, 0.6, 0.75], tilt: { focus: 0.5, width: 0.22, amount: 2.5 }, grade: { warmth: 0.6, vignette: 0.55 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('event');
     const W = this.W, H = this.H;

@@ -15,7 +15,7 @@ const F = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness:
 
 export default class ShopScene extends UIScreen {
   async enter() {
-    const run = (this.run = this.game.run); this.world = tabletopWorld('shop'); this.engine.setWorld(this.world.scene, this.world.camera);
+    const run = (this.run = this.game.run); this.world = tabletopWorld('shop'); await this.world.ready; this.engine.setWorld(this.world.scene, this.world.camera);
     const barrel = new THREE.Mesh(S.turn([[0.001, -1.4], [1.2, -1.4], [1.45, 0], [1.2, 1.4], [0.001, 1.4]], { sides: 10, seed: 3 }), F({ map: null, color: 0x8a5634 })); barrel.rotation.z = Math.PI / 2; barrel.position.set(-8, 1.3, -3); barrel.castShadow = true; this.world.scene.add(barrel);
     for (const x of [-1.1, 0, 1.1]) { const hoop = new THREE.Mesh(S.facet(new THREE.TorusGeometry(1.42, 0.07, 3, 10)), F({ color: 0x3a3a42, metalness: 0.6 })); hoop.rotation.y = Math.PI / 2; hoop.position.set(-8 + x, 1.3, -3); this.world.scene.add(hoop); }
     this.engine.setFx({ bloom: [0.6, 0.6, 0.75], tilt: { focus: 0.5, width: 0.22, amount: 2.5 }, grade: { warmth: 0.6, vignette: 0.55 } });

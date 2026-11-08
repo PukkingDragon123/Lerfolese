@@ -1,16 +1,16 @@
 // HD-2D life: detailed 2D pixel-art birds, butterflies, grazing sheep and goats, and lizards living in the 3D world.
-// Sprites are painted procedurally from anatomy (src/gfx/art/birds.js, bugs.js, beasts.js) into one 64px-cell atlas
+// Sprites are low-res geometric pixel art (src/gfx/art/birds.js, bugs.js, beasts.js) packed into one 32px-cell atlas
 // and drawn as camera-facing instanced quads (one draw call). Birds flock, flap with real key poses, glide or bound,
 // land on perches, breathe, blink, peck, look around and hop, and scatter on impacts. Grazers walk, graze and idle on
 // the ground plane; lizards sun themselves on rocks and do push-ups.
 import * as THREE from 'three';
 import { PixelCanvas } from './pixel.js';
 import { mulberry32 } from '../core/util.js';
-import { SPECIES, FRAMES as BIRD_FRAMES, paintBird } from './art/birds.js';
+import { SPECIES, FRAMES as BIRD_FRAMES, FOOT_ROW, paintBird } from './art/birds.js';
 import { BUTTERFLIES, paintButterfly } from './art/bugs.js';
 import { BEASTS, paintBeast } from './art/beasts.js';
 
-const CELL = 64, COLS = 8;
+const CELL = 32, COLS = 8; // low-res geometric sprites: 32px cells, upscaled with nearest filtering
 const B = Object.fromEntries(BIRD_FRAMES.map((n, i) => [n, i])); // frame name -> index within a species block
 const FLY = [0, 1, 2, 3, 4, 5, 6, 7];
 
@@ -146,8 +146,8 @@ export class Critters {
           if (b.hopT > 0) { b.hopT -= dt; f = b.hopT > 0.28 ? B.peck : B.hop; py += Math.max(0, Math.sin((0.28 - b.hopT) / 0.28 * Math.PI)) * 0.12 * (b.hopT <= 0.28 ? 1 : 0); if (b.hopT <= 0) b.flip = !b.flip; }
           else if (cyc > 5.0 && cyc < 5.02 + dt) b.hopT = 0.42;
           b.frame = f;
-          // feet on the perch point (the sprite's foot row is 51 of 64)
-          py = b.pos.y + b.size * (51 / CELL - 0.5) + (py - b.pos.y);
+          // feet on the perch point (the sprite's foot row is FOOT_ROW of CELL)
+          py = b.pos.y + b.size * ((FOOT_ROW + 1) / CELL - 0.5) + (py - b.pos.y);
           if (b.timer < 0) { b.perch.taken = false; b.perch = null; b.state = 'fly'; b.vel.set((this.rng() - 0.5) * 4, 2.5, (this.rng() - 0.5) * 2); b.timer = 3 + this.rng() * 5; }
         } else {
           // flying: steer towards a goal (a free perch when tired, else a wander point)
