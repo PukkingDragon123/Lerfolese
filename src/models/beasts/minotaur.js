@@ -222,19 +222,17 @@ function loincloth(B, king, mats) {
   return { beltMesh, flaps };
 }
 function kingRegalia(B, mats) {
-  const gm = mats.own(mat('mino-gold', 64, 64, (u, v, o) => { const ridge = Math.abs(((v * 5) % 1) - 0.5) < 0.08; K.tone(hex('#f2c040'), K.band(0.55 + Math.cos(u * 6.28) * 0.22 + (ridge ? -0.25 : 0) - v * 0.1, 4), o.col); o.me = 0.65; o.ro = 0.3; }));
+  const gm = mats.own(mat('mino-gold', 64, 64, (u, v, o) => { const ridge = Math.abs(((v * 5) % 1) - 0.5) < 0.08; K.tone(hex('#f2c040'), K.band(0.55 + Math.cos(u * 6.28) * 0.22 + (ridge ? -0.25 : 0) - v * 0.1, 4), o.col); o.me = 0.65; o.ro = 0.3; })); gm.side = THREE.DoubleSide;
   // crown: a spiked circlet seated on the poll between the horns
   const crown = new THREE.Group(); const ring = new K.Loft(4, 28).set((t, p) => p.set(0, t * 0.05, 0), () => [0.13, 0.11]); K.mesh(ring.geo, gm, crown);
   for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; const sp = new K.Loft(8, 8).set(K.curve([[Math.sin(a) * 0.125, 0.03, Math.cos(a) * 0.105], [Math.sin(a) * 0.14, 0.12, Math.cos(a) * 0.12], [Math.sin(a) * 0.15, 0.17 + (i % 2) * 0.04, Math.cos(a) * 0.13]]), (t) => 0.026 * (1 - t) + 0.003); K.mesh(sp.geo, gm, crown); }
   crown.position.set(0, 2.8, 0.16); crown.rotation.x = -0.2; onBone(B, 'head', crown);
-  // layered pauldrons: three lames arched over each deltoid, stepping down the arm
+  // pauldrons: a domed shoulder plate with a rolled rim over a flared lame, tilted down the arm
+  const V2 = (pts) => pts.map(([x, y]) => new THREE.Vector2(x, y));
   for (const s of [-1, 1]) {
-    const pa = new THREE.Group(); pa.position.set(0.56 * s, 2.25, -0.01); pa.rotation.z = -0.62 * s;
-    for (let i = 0; i < 3; i++) {
-      const r = 0.235 - i * 0.012, x0 = (0.02 + i * 0.075) * s;
-      const l = new K.Loft(16, 10).set((t, p) => { const a = (t - 0.5) * 2.5; return p.set(x0, Math.cos(a) * r, Math.sin(a) * r); }, () => [0.06, 0.014], { ref: (t, n) => { const a = (t - 0.5) * 2.5; n.set(0, Math.cos(a), Math.sin(a)); } });
-      K.mesh(l.geo, gm, pa);
-    }
+    const pa = new THREE.Group(); pa.position.set(0.6 * s, 2.29, -0.01); pa.rotation.z = -0.7 * s;
+    K.mesh(new THREE.LatheGeometry(V2([[0.001, 0.14], [0.08, 0.134], [0.15, 0.108], [0.21, 0.06], [0.245, 0.005], [0.258, -0.018], [0.25, -0.034]]), 28), gm, pa);
+    K.mesh(new THREE.LatheGeometry(V2([[0.246, -0.04], [0.272, -0.072], [0.29, -0.108], [0.288, -0.126], [0.276, -0.13]]), 28), gm, pa);
     onBone(B, 'uparm_' + (s > 0 ? 'L' : 'R'), pa);
   }
   // harness strap with a sun medallion
@@ -312,7 +310,7 @@ const CLIPS = {
     [0.3, { spine1: [0.06, 0, 0], spine2: [0.05, 0, 0], head: [0.1, -0.1, 0], thigh_R: [0.15, 0, 0], jaw: [0.15, 0, 0] }], [0.65, {}]],
   die: [[0, {}], [0.16, { spine1: [-0.2, 0, 0.05], spine2: [-0.24, 0, 0], neck: [-0.2, 0, 0], head: [-0.4, 0.2, 0], jaw: [0.55, 0, 0], uparm_L: [0, 0, 0.5], uparm_R: [0, 0, -0.5], thigh_R: [0.3, 0, 0] }],
     [0.42, { hips: [0.25, 0, 0], spine1: [0.25, 0, 0], spine2: [0.2, 0, 0], neck: [0.3, 0, 0], head: [0.5, 0, 0.2], jaw: [0.4, 0, 0], thigh_L: [-1.2, 0, 0], thigh_R: [-1.1, 0, 0], shin_L: [1.3, 0, 0], shin_R: [1.2, 0, 0], hock_L: [-0.3, 0, 0], hock_R: [-0.3, 0, 0], uparm_L: [-0.4, 0, -0.2], uparm_R: [-0.4, 0, 0.2], forearm_L: [-0.4, 0, 0], forearm_R: [-0.4, 0, 0] }],
-    [0.8, { hips: [0.35, 0, 0], spine1: [0.3, 0, 0.12], spine2: [0.25, 0, 0.12], neck: [0.1, 0.4, 0], head: [0.2, 0.5, 0.35], jaw: [0.5, 0, 0], thigh_L: [-1.3, 0, 0], thigh_R: [-0.8, 0, 0.2], shin_L: [1.4, 0, 0], shin_R: [0.9, 0, 0], hock_L: [-0.3, 0, 0], hock_R: [-0.2, 0, 0], uparm_L: [-1.1, 0, 0.5], uparm_R: [-0.3, 0, -0.9], forearm_L: [-0.2, 0, 0], forearm_R: [-0.1, 0, 0], hand_L: [0.4, 0, 0], tail1: [-0.5, 0, 0] }]],
+    [0.8, { hips: [0.35, 0, 0], spine1: [0.3, 0, 0.12], spine2: [0.25, 0, 0.12], neck: [0.1, 0.4, 0], head: [0.2, 0.5, 0.35], jaw: [0.5, 0, 0], thigh_L: [-1.3, 0, 0], thigh_R: [-0.8, 0, 0.2], shin_L: [1.4, 0, 0], shin_R: [0.9, 0, 0], hock_L: [-0.3, 0, 0], hock_R: [-0.2, 0, 0], uparm_L: [-0.7, 0, 0.3], uparm_R: [-0.7, 0, 0.35], forearm_L: [-0.3, 0, 0], forearm_R: [-0.5, 0, 0], hand_L: [0.4, 0, 0], tail1: [-0.5, 0, 0] }]],
 };
 const FOLLOW = { neck: [34, 0.55], head: [28, 0.45], ear_L: [10, 0.25], ear_R: [10, 0.25], jaw: [16, 0.3], tail1: [8, 0.3], tail2: [7, 0.28], tail3: [6, 0.26], tail4: [5.5, 0.25] };
 function animate(api, B, model, flaps, seed, sc) {

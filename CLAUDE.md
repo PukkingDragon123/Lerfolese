@@ -7,7 +7,7 @@
 - Look: anime/cartoon BLACK INK OUTLINES on all 3D (engine InkPass, src/core/ink.js); clean cel-like banded textures.
 - (superseded) Map living layer: removed per user; NO TREES or grass on the map.
 - Humans may reuse the user's Limbo Phobia human generator (repo PukkingDragon123/fictional-octo-train).
-- ENVIRONMENT (LATEST): REALISTIC and absolutely beautiful (PBR, golden light, gorgeous sky with sun rays, wind, little animals, polished road); env meshes noInk (outlines only on characters). Cinematic travel: Sir Isaac walks the road in, enemies revealed cinematically; events are full 3D cinematic scenes with physical text-choice pop-ups.
+- STYLE (USER CHOSE, FINAL): ANIME CEL-SHADED for EVERYTHING (environment AND characters): detailed smooth models, hard 2–3 tone toon shading, black ink outlines, saturated colours, beautiful painted anime sky with stylized clouds and god rays, wind, little animals, polished road. NEVER photoreal (the user never wanted realistic). Characters keep believable anatomy/proportions but are PAINTED/SHADED anime-style (cel bands, crisp shapes). Cinematic travel and 3D cinematic events stay.
 - Presentation: MEDIEVAL STORYTELLING (illuminated-manuscript storybook / puppet theatre): sun and moon WITH FACES (personified, gilded), lapis manuscript sky with curly medieval clouds, layered painted backdrops (castles, towns, stepped mountains), chapter cards with drop caps. Gore welcome: physical blood droplets, splatter decals, severed hydra heads; Sir Isaac splinters (wood), never bleeds.
 - Rendering: HIGH RESOLUTION and CRISP: no tilt-shift blur, no chromatic aberration, minimal grain; supersampled. Card backdrops = detailed nature or space scenes, no cartoon effects.
 - Map = realistic physical map on a table with chess-inspired pieces as nodes (pawn/knight/bishop/rook/king), no grass/plants.
@@ -19,6 +19,8 @@
 - Pixel art = DETAILED hand-placed pixel art at LOW resolution (like the user's gem/rock reference sheet: ~32–48px objects, 5–7-tone hue-shifted ramps, crisp highlights/glints, tinted outlines, clean clusters, texture detail). NOT high-res images, NOT downscaled 3D renders, NOT crude shape fills.
 - Pixel art: LOWER resolution (chunky pixels), GEOMETRIC stylized shapes (angular facets, flat colour planes, 3–5 colours per material, hard light/shadow splits, strong silhouettes; refs: Sword & Sworcery, Hyper Light Drifter, Celeste). NO round blob / pillow / gradient "AI slop" shading.
 - UI is physical but custom-drawn: pixel-art objects presented in 3D (lit, shadowed, springy), not primitive meshes.
+
+- WORKFLOW: ASK THE USER FIRST (short question with options) before any big or ambiguous change or before launching agents; the user pays for every token.
 
 ## Tech
 - Static site, three.js r170 vendored, ES modules, no build. Serve the repo root (`python3 -m http.server`).
