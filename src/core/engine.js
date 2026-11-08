@@ -35,10 +35,13 @@ const GradeShader = {
     uVignette: { value: 0.42 }, uVigColor: { value: new THREE.Color(0x1a0f24) }, uGrain: { value: 0.045 }, uCA: { value: 0.0016 },
     uFlash: { value: 0 }, uFlashColor: { value: new THREE.Color(1, 1, 1) }, uWarmth: { value: 0.0 },
     uGamma: { value: new THREE.Vector3(1, 1, 1) }, uRolloff: { value: 0.5 }, uToe: { value: 0.02 },
+    uHarmony: { value: 0.0 }, uHueLight: { value: 0.1 }, uHueShadow: { value: 0.7 }, uSatTarget: { value: 0.42 }, uSatPull: { value: 0.0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uSat, uContrast, uVignette, uGrain, uCA, uFlash, uWarmth, uRolloff, uToe; uniform vec3 uLift, uGain, uGamma, uVigColor, uFlashColor; uniform vec2 uRes; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uSat, uContrast, uVignette, uGrain, uCA, uFlash, uWarmth, uRolloff, uToe, uHarmony, uHueLight, uHueShadow, uSatTarget, uSatPull; uniform vec3 uLift, uGain, uGamma, uVigColor, uFlashColor; uniform vec2 uRes; varying vec2 vUv;
   float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
+  vec3 rgb2hsv(vec3 c){ vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0); vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g)); vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r)); float d = q.x - min(q.w, q.y); return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)), d / (q.x + 1e-10), q.x); }
+  vec3 hsv2rgb(vec3 c){ vec3 p = abs(fract(c.xxx + vec3(1.0, 2.0/3.0, 1.0/3.0)) * 6.0 - 3.0); return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y); }
   void main(){
     vec2 cc = vUv - 0.5; float dist = length(cc);
     vec2 off = cc * dist * uCA * 8.0;
@@ -53,6 +56,8 @@ const GradeShader = {
     col = (col - 0.5) * uContrast + 0.5;
     // split toning: warm highlights, cool-violet shadows
     col += (smoothstep(0.45, 1.0, l) * vec3(0.03, 0.012, -0.02) + (1.0 - smoothstep(0.0, 0.45, l)) * vec3(-0.01, -0.004, 0.025)) * (1.0 + uWarmth);
+    // painterly colour harmony: every hue drifts toward one shared palette (warm key light, cool shadow), saturation evened out
+    if (uHarmony > 0.0) { vec3 h = rgb2hsv(clamp(col, 0.0, 1.0)); float target = mix(uHueShadow, uHueLight, smoothstep(0.18, 0.75, h.z)); float dh = target - h.x; dh -= floor(dh + 0.5); h.x = fract(h.x + dh * uHarmony * (0.3 + 0.7 * h.y)); h.y = mix(h.y, min(h.y, uSatTarget), uSatPull); col = hsv2rgb(h); }
     float vig = smoothstep(0.85, 0.18, dist * (1.0 + uVignette * 0.6));
     col = mix(uVigColor, col, mix(1.0, vig, uVignette * 1.4));
     float g = hash(vUv * uRes + fract(uTime * 7.13) * 91.7) - 0.5;
@@ -203,6 +208,7 @@ export class Engine {
     gu.uGamma.value.set(...(g.gamma || [1, 1, 1])); gu.uRolloff.value = g.rolloff ?? 0.5; gu.uToe.value = g.toe ?? 0.02; gu.uCA.value = 0;
     const ik = fx.ink ?? {}; this.ink.enabled = fx.ink !== false && (!this.testMode || this.inkForced); this.ink.u.uStrength.value = ik.strength ?? 0.92; this.ink.u.uInk.value.set(ik.color ?? 0x0e0710); this.ink.u.uDepthK.value = ik.depth ?? 0.045; this.ink.u.uNormalK.value = ik.normal ?? 0.42; this.ink.u.uFade.value.set(...(ik.fade || [55, 140]));
     const ry = fx.rays; this.rays.enabled = !!(ry && ry.pos); if (ry) { const u = this.rays.uniforms; this.raysPos = ry.pos; u.uStrength.value = (ry.strength ?? 0.35) * 0.6; u.uTint.value.set(ry.tint ?? 0xffd6a0); u.uThresh.value = ry.thresh ?? 0.85; u.uDecay.value = ry.decay ?? 0.955; u.uDensity.value = ry.density ?? 0.85; }
+    gu.uHarmony.value = g.harmony ?? 0; gu.uHueLight.value = g.hueLight ?? 0.1; gu.uHueShadow.value = g.hueShadow ?? 0.7; gu.uSatTarget.value = g.satMax ?? 0.42; gu.uSatPull.value = g.satPull ?? 0;
     gu.uSat.value = g.sat ?? 1.08; gu.uContrast.value = g.contrast ?? 1.06; gu.uVignette.value = g.vignette ?? 0.42; gu.uGrain.value = Math.min(0.012, (g.grain ?? 0.04) * 0.3); gu.uWarmth.value = g.warmth ?? 0;
     if (g.lift) gu.uLift.value.set(...g.lift); else gu.uLift.value.set(0.015, 0.0, 0.035);
     if (g.gain) gu.uGain.value.set(...g.gain); else gu.uGain.value.set(1.04, 1.0, 0.95);

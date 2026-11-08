@@ -45,7 +45,7 @@ export class BattleScene {
     this.held = new HeldLayer(this); // MANIFEST -> MANIPULATE -> RELEASE (things hung in mid-air until the bell)
     { const names = [...new Set(this.battle.enemies.filter((e) => !e.def.isHead).map((e) => e.def.name))]; this.hudB.setObjective(`Defeat ${names.length > 1 ? names.slice(0, -1).join(', ') + ' & ' + names.at(-1) : names[0] || 'the foe'}`); }
     this.engine.setWorld(this.scene, this.camera);
-    this.engine.setFx({ rays: this.stage?.sunPos ? { pos: this.stage.sunPos, strength: 0.25 } : null, exposure: 1.12, bloom: [0.45, 0.6, 0.82], tilt: false, grade: { sat: 0.92, contrast: 0.97, vignette: 0.2, grain: 0.008, warmth: 0.3, lift: [0.045, 0.035, 0.03], gain: [1.06, 1.03, 0.97], rolloff: 0.45, toe: 0.0, ca: 0 } });
+    this.engine.setFx({ rays: this.stage?.sunPos ? { pos: this.stage.sunPos, strength: 0.25 } : null, exposure: 1.12, bloom: [0.45, 0.6, 0.82], tilt: false, grade: { sat: 0.95, contrast: 0.97, vignette: 0.2, grain: 0.008, warmth: 0.25, lift: [0.045, 0.035, 0.03], gain: [1.06, 1.03, 0.97], rolloff: 0.45, toe: 0.0, ca: 0, harmony: 0.32, hueLight: 0.11, hueShadow: 0.68, satMax: 0.5, satPull: 0.55 } });
     this.handler = this.input.push(this.makeInput());
     this.engine.add(this);
     const kind = encounter.kind; audio.playMusic(kind === 'guardian' ? 'boss' : kind === 'elite' ? 'elite' : vpick(['battle', 'battle2']));
