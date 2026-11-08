@@ -70,7 +70,7 @@ export const EXPR = {
   smug: { b: [-0.15, 0.35], lid: 0.38, m: 0.25, asym: 0.7 }, delight: { b: [0.5, 0.45], lid: 0.08, m: 0.9, asym: 0 }, annoyed: { b: [-0.9, -0.2], lid: 0.45, m: -0.6, asym: 0 },
   hurt: { b: [0.9, -0.5], lid: 0.5, m: -0.85, asym: 0 }, shock: { b: [0.9, 0.9], lid: -0.15, m: -0.2, asym: 0 }, think: { b: [0.45, -0.3], lid: 0.32, m: -0.25, asym: -0.7 }, blink: { b: [0, 0.2], lid: 1.1, m: 0.2, asym: 0 },
 };
-const SKIN = [222, 176, 136], OAK = [176, 112, 60], OAKD = [96, 52, 30], IRIS = [92, 124, 140], LIP = [176, 104, 100], BROW = [244, 240, 236], INK = [52, 30, 30];
+const SKIN = [236, 192, 150], OAK = [176, 112, 60], OAKD = [96, 52, 30], IRIS = [92, 124, 140], LIP = [176, 104, 100], BROW = [244, 240, 236], INK = [52, 30, 30];
 const mixc = (o, c, t) => { for (let k = 0; k < 3; k++) o[k] += (c[k] - o[k]) * t; };
 const MATS = new Map();
 export function headMaterial(name, opts = {}) {
@@ -124,14 +124,14 @@ function hairMat() {
 /** flowing wavy locks with a centre parting: strand-group ribbons that leave the scalp and fall to the shoulders in S-waves */
 function hairLocks() {
   const g = new THREE.Group(); let s = 21; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647); const m = hairMat(); const c = new THREE.Vector3(0, 0.17, -0.01);
-  for (let i = 0; i < 84; i++) {
-    const side = i % 2 ? 1 : -1; const az = side * (0.25 + rnd() * 2.75); const el = 0.25 + rnd() * 1.15; // along the parting down the sides and back
-    if (Math.cos(az) > 0.35 && el < 1.0) continue;
+  for (let i = 0; i < 120; i++) {
+    const side = i % 2 ? 1 : -1; const az = side * (0.45 + rnd() * 2.6); const el = 0.2 + rnd() * 1.2; // along the parting down the sides and back
+    if (Math.cos(az) > 0.2 && el < 1.05) continue;
     const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)); const p0 = c.clone().add(new THREE.Vector3(dir.x * 0.09, dir.y * 0.158, dir.z * 0.112));
-    const out = new THREE.Vector3(dir.x, 0, dir.z).normalize(); const fall = 0.17 + rnd() * 0.15 + (Math.cos(az) < -0.3 ? 0.06 : 0); const ph2 = rnd() * TAU, amp = 0.012 + rnd() * 0.012, wid = 0.022 + rnd() * 0.014;
+    const out = new THREE.Vector3(dir.x + Math.sign(dir.x) * 0.35, 0, Math.min(dir.z, 0) - 0.25).normalize(); /* swept back and to the sides, clear of the face */ const fall = 0.17 + rnd() * 0.15 + (Math.cos(az) < -0.3 ? 0.06 : 0); const ph2 = rnd() * TAU, amp = 0.012 + rnd() * 0.014, wid = 0.03 + rnd() * 0.018;
     const pts = []; for (let k = 0; k <= 6; k++) { const t = k / 6; const q = p0.clone().addScaledVector(out, 0.012 + t * 0.045 + Math.sin(t * 7 + ph2) * amp).add(new THREE.Vector3(0, -t * fall - (1 - Math.cos(t * 1.4)) * 0.01, 0)); if (k === 1) q.addScaledVector(dir, 0.012); pts.push(q); }
     const tang = new THREE.Vector3(-out.z, 0, out.x);
-    const l = new K.Loft(16, 6).set(K.curve(pts), (t) => [(0.006 * (1 - t * 0.5) + 0.0015), wid * (0.7 + Math.sin(Math.min(1, t * 1.6 + 0.2) * Math.PI) * 0.4) * (1 - t * 0.55)], { ref: () => out, shape: (a) => 1 + Math.sin(a * 4) * 0.08 });
+    const l = new K.Loft(16, 6).set(K.curve(pts), (t) => [(0.009 * (1 - t * 0.5) + 0.002), wid * (0.7 + Math.sin(Math.min(1, t * 1.6 + 0.2) * Math.PI) * 0.4) * (1 - t * 0.55)], { ref: () => out, shape: (a) => 1 + Math.sin(a * 4) * 0.08 });
     void tang; K.mesh(l.geo, m, g);
   }
   return g;
@@ -140,7 +140,7 @@ function hairLocks() {
 /** build the head: { group, jawPivot, setExpr(name), setOpen(a) }; origin at the neck joint, facing +Z */
 export function buildHead() {
   const { head, jaw } = geometry(); const group = new THREE.Group();
-  const hm = new THREE.Mesh(head, headMaterial('smug')); hm.castShadow = true; hm.receiveShadow = true; group.add(hm);
+  const hm = new THREE.Mesh(head, headMaterial('smug')); hm.castShadow = true; hm.receiveShadow = false; group.add(hm); // no self-shadow blotches on the carved face
   const jawPivot = new THREE.Group(); jawPivot.position.copy(HEAD.jawHinge); group.add(jawPivot);
   const jm = new THREE.Mesh(jaw, hm.material); jm.position.copy(HEAD.jawHinge).multiplyScalar(-1); jm.castShadow = true; jawPivot.add(jm);
   const back = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.06), new THREE.MeshBasicMaterial({ color: 0x1a0c0e })); back.position.set(0, 0.055, 0.075); group.add(back); // the dark mouth inside

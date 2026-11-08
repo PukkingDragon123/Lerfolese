@@ -363,8 +363,8 @@ export function createProfessor() {
       if (md === 'hurt') { st.slack.omega = m < 0.62 ? 10 : 16; st.slack.target = m < 0.6 ? 1 : 0; if (m > 0.6 && m - dt <= 0.6) { H.y.kick(9); st.j.bodyY.kick(5); } } // crumple, then jerked back up
       st.slack.update(dt); const sl = Math.max(0, st.slack.value); if (sl > 0.02) { H.curl.target = 0.15; P.L.target *= 1 - sl; P.R.target *= 1 - sl; P.kL.target *= 1 - sl; P.kR.target *= 1 - sl; P.head.target *= 1 - sl; }
       for (const k in H) H[k].update(dt); for (const k in P) P[k].update(dt);
-      ctrl.position.set(H.x.value * 0.6, 3.55 + H.y.value, H.z.value * 0.5); cross.rotation.set(H.tilt.value, 0, H.roll.value);
-      ghost.rotation.set(-0.35 + H.tilt.value * 0.6, 0.25 + Math.sin(t * 0.5) * 0.06, H.roll.value * 0.6); ghost.position.y = -0.04 + Math.sin(t * 1.3) * 0.015;
+      ctrl.position.set(H.x.value * 0.6, 3.25 + H.y.value, H.z.value * 0.5); cross.rotation.set(H.tilt.value, 0, H.roll.value);
+      ghost.rotation.set(-0.3 + H.tilt.value * 0.6, -0.9 + Math.sin(t * 0.5) * 0.06, H.roll.value * 0.6); ghost.position.y = -0.04 + Math.sin(t * 1.3) * 0.015;
       S.fingers.forEach((f, i) => f.forEach((j, k) => { j.rotation.x = H.curl.value * (0.9 + k * 0.35) + Math.sin(t * 2.3 + i * 1.3) * 0.05; }));
       S.thumb2.rotation.x = 0.3 + H.curl.value * 0.6; smat.uniforms.uTime.value = fmat.uniforms.uTime.value = t; fmat.uniforms.uGlow.value = smat.uniforms.uGlow.value;
       for (let i = 0; i < NM; i++) { const [a, r, ph, sp2] = moteSeed[i]; const y = ((t * sp2 * 0.25 + ph) % 1.6) - 0.3; mp.set([Math.cos(a + t * sp2 * 0.6) * r, y + 0.3, Math.sin(a + t * sp2 * 0.6) * r * 0.8 - 0.25], i * 3); } mg.attributes.position.needsUpdate = true;
@@ -377,7 +377,7 @@ export function createProfessor() {
       Jn.hipL.target = -P.kL.value * 0.9 - sl * 0.8; Jn.hipR.target = -P.kR.value * 0.9 - sl * 0.7; Jn.knL.target = 0.05 + P.kL.value * 1.3 + sl * 1.4; Jn.knR.target = 0.05 + P.kR.value * 1.3 + sl * 1.3;
       Jn.torso.target = ph === 2 ? -0.15 : ph === 3 ? 0.38 : ph === 4 ? 0.26 : 0.08 + sl * 0.5 - (P.L.value + P.R.value) * 0.06 - (md === 'cast' && m < 1.2 ? 0.12 : 0);
  Jn.torsoZ.target = -H.roll.value * 0.7 + Math.sin(t * 1.1) * 0.03;
-      Jn.headX.target = (1 - P.head.value) * 0.5 - 0.1 + st.look.y * -0.3 + sl * 0.45 - (md === 'cast' && m < 1.2 ? 0.55 : 0); Jn.headY.target = st.look.x * 0.5 + Math.sin(t * 0.6) * 0.1; Jn.headZ.target = Math.sin(t * 0.8) * 0.06;
+      Jn.headX.target = (1 - P.head.value) * 0.3 - 0.27 + st.look.y * -0.3 + sl * 0.45 - (md === 'cast' && m < 1.2 ? 0.55 : 0); Jn.headY.target = st.look.x * 0.5 + Math.sin(t * 0.6) * 0.1; Jn.headZ.target = Math.sin(t * 0.8) * 0.06;
       Jn.tails.target = -Jn.hipL.value * 0.3 + Math.sin(t * 1.9) * 0.05; Jn.bodyX.target = H.x.value * 0.35; Jn.bodyY.target = 0.02 + Math.max(0, H.y.value) * 0.5 - sl * 0.3 + (P.L.value + P.R.value) * 0.03;
       if (ph === 3 || ph === 4) { Jn.hipL.target = -0.55; Jn.knL.target = 0.55; } // step into the throw
       Jn.jaw.target = st.talk > 0 ? Math.abs(Math.sin(t * 17)) * 0.5 : sl * 0.25; if (st.talk > 0) st.talk -= dt;

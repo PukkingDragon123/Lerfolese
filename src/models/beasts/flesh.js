@@ -100,7 +100,9 @@ export class Sculpt {
     return out;
   }
   /** 0 = deep crease, 1 = open surface (how much of the normal-offset point is still clear of flesh) */
-  cavity(c, delta = 0.04) { return Math.min(1, Math.max(0, this.eval(c.x + c.nx * delta, c.y + c.ny * delta, c.z + c.nz * delta) / delta)); }
+  cavity(c, delta = 0.04) { const f = this.tri || ((x, y, z) => this.eval(x, y, z)); return Math.min(1, Math.max(0, f(c.x + c.nx * delta, c.y + c.ny * delta, c.z + c.nz * delta) / delta)); }
+  /** drop the sampled field once painting is done */
+  release() { this.tri = null; this.acc = null; }
 
   // ---------------------------------------------------------------- polygonise (Surface Nets) + relax + skin + unwrap
   build({ cell = 0.025, bones, relax = 2, smoothW = 6, atlas = 1024, pad = 3, maxChart = 0.05, target = 0 } = {}) {
@@ -124,7 +126,7 @@ export class Sculpt {
       const a = F[i] + (F[i + 1] - F[i]) * fx, b = F[i + nx] + (F[i + nx + 1] - F[i + nx]) * fx, c = F[i + sxy] + (F[i + sxy + 1] - F[i + sxy]) * fx, d = F[i + sxy + nx] + (F[i + sxy + nx + 1] - F[i + sxy + nx]) * fx;
       const e = a + (b - a) * fy, f = c + (d - c) * fy; return e + (f - e) * fz;
     };
-    const g = [0, 0, 0]; const e = cell * 0.5;
+    this.tri = tri; const g = [0, 0, 0]; const e = cell * 0.5;
     const tgrad = (x, y, z) => { g[0] = tri(x + e, y, z) - tri(x - e, y, z); g[1] = tri(x, y + e, z) - tri(x, y - e, z); g[2] = tri(x, y, z + e) - tri(x, y, z - e); const l = Math.hypot(g[0], g[1], g[2]) || 1; g[0] /= l; g[1] /= l; g[2] /= l; return g; };
     const onto = (Pv, v, evalF, gradF) => { for (let it = 0; it < 2; it++) { const x = Pv[v * 3], y = Pv[v * 3 + 1], z = Pv[v * 3 + 2]; const f = evalF(x, y, z); const n = gradF(x, y, z); const s = Math.max(-cell, Math.min(cell, f)); Pv[v * 3] -= n[0] * s; Pv[v * 3 + 1] -= n[1] * s; Pv[v * 3 + 2] -= n[2] * s; } };
     // Surface Nets: one vertex per sign-changing cell at the mean of its edge crossings, one quad per crossing edge
@@ -208,13 +210,14 @@ function decimate(P, idxIn, target, imp, proj) {
   const alive = new Uint8Array(nf).fill(1), dead = new Uint8Array(nv), ver = new Int32Array(nv); const heap = [];
   const qerr = (a, b, p) => { const x = p[0], y = p[1], z = p[2]; let e = 0; for (const v of [a, b]) { const q = Q.subarray(v * 10, v * 10 + 10); e += q[0] * x * x + 2 * q[1] * x * y + 2 * q[2] * x * z + 2 * q[3] * x + q[4] * y * y + 2 * q[5] * y * z + 2 * q[6] * y + q[7] * z * z + 2 * q[8] * z + q[9]; } return Math.max(0, e); };
   const push = (a, b) => {
-    const p = proj([(P[a * 3] + P[b * 3]) / 2, (P[a * 3 + 1] + P[b * 3 + 1]) / 2, (P[a * 3 + 2] + P[b * 3 + 2]) / 2]); const l2 = dist2(P, a, b);
-    const c = (qerr(a, b, p) + l2 * l2 * 0.05) * Math.max(imp[a], imp[b]); heapPush(heap, { c, a, b, va: ver[a], vb: ver[b], p });
+    const p = [(P[a * 3] + P[b * 3]) / 2, (P[a * 3 + 1] + P[b * 3 + 1]) / 2, (P[a * 3 + 2] + P[b * 3 + 2]) / 2]; const l2 = dist2(P, a, b);
+    const c = (qerr(a, b, p) + l2 * l2 * 0.05) * Math.max(imp[a], imp[b]); heapPush(heap, { c, a, b, va: ver[a], vb: ver[b] });
   };
   const seen = new Set(); for (let f = 0; f < nf; f++) for (let j = 0; j < 3; j++) { const a = idx[f * 3 + j], b = idx[f * 3 + ((j + 1) % 3)]; const k = Math.min(a, b) * nv + Math.max(a, b); if (!seen.has(k)) { seen.add(k); push(a, b); } }
   const nbrs = (v) => { const s = new Set(); for (const f of vf[v]) for (let j = 0; j < 3; j++) s.add(idx[f * 3 + j]); s.delete(v); return s; };
   while (nf > target && heap.length) {
-    const e = heapPop(heap); const { a, b, p } = e; if (dead[a] || dead[b] || ver[a] !== e.va || ver[b] !== e.vb) continue;
+    const e = heapPop(heap); const { a, b } = e; if (dead[a] || dead[b] || ver[a] !== e.va || ver[b] !== e.vb) continue;
+    const p = proj([(P[a * 3] + P[b * 3]) / 2, (P[a * 3 + 1] + P[b * 3 + 1]) / 2, (P[a * 3 + 2] + P[b * 3 + 2]) / 2]);
     const shared = vf[a].filter((f) => vf[b].includes(f)); const na = nbrs(a), nb = nbrs(b); let common = 0; for (const v of na) if (nb.has(v)) common++;
     if (common !== shared.length || shared.length !== 2) continue;
     let ok = true; // reject collapses that fold or sliver a face

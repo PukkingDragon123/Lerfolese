@@ -21,6 +21,7 @@ import { audio } from '../core/audio.js';
 import { vpick, vrange, clamp, roman } from '../core/util.js';
 import { RNG } from '../core/util.js';
 import { POWERS, BASICS } from '../game/data/cards.js';
+import { battleIntro } from './cinematic.js';
 
 const THEME = { satyr: 'meadow', medusa: 'garden', kobalos: 'gully', minotaur: 'labyrinth', minotaur_king: 'labyrinth', hydra: 'marsh', hydra_elder: 'marsh' };
 const PLAYER_BARKS = {
@@ -48,8 +49,19 @@ export class BattleScene {
     audio.setAmbSet(this.theme === 'marsh' ? ['wilderness', 'stream'] : ['wilderness']);
     for (const e of this.battle.enemies) { const j = this.game.journal; (j.enemies[e.id] ||= { seen: 0, killed: 0, learned: {} }).seen++; }
     this.game.saveJournal();
+    await this.intro();
     await this.battle.start();
     return new Promise((res) => (this.resolve = res));
+  }
+
+  // the chronicle opens on the road: a crane over the stage, Sir Isaac walks in, the foes step out (cinematic.js).
+  // The HUD and the battle wait for it; click / Space skips straight to the settled battle framing.
+  async intro() {
+    const held = [this.ui.root, this.hudB.root]; for (const g of held) g.visible = false;
+    const reveal = () => held.forEach((g, i) => { if (g.visible) return; g.visible = true; g.position.y = i ? 3.2 : -3.6; tweens.to(g.position, { y: 0 }, 0.6, { ease: 'outBack' }); });
+    let cine = null;
+    try { cine = this.cine = battleIntro(this, { onReveal: reveal }); await cine.done; } catch (e) { console.warn('battle intro skipped', e); cine?.abort(); }
+    this.cine = null; reveal();
   }
 
   // ---------------------------------------------------------------- world
@@ -63,7 +75,7 @@ export class BattleScene {
     this.critters = new Critters(70); this.critters.bounds = { x: [-15, 15], y: [1.5, 8], z: [-10, 1] }; sc.add(this.critters.mesh); this.fx3d = new FX3D(this);
     sc.updateMatrixWorld(true); for (const t of stage.trees) this.critters.perchesFrom(t, 4);
     this.critters.spawnBirds(14, this.theme === 'garden' ? ['crow', 'dove', 'sparrow'] : this.theme === 'marsh' ? ['swallow', 'crow'] : ['sparrow', 'swallow', 'hoopoe', 'dove']); this.critters.spawnButterflies(this.theme === 'labyrinth' ? 2 : 6, new THREE.Vector3(0, 0.5, -2), 14);
-    sc.fog = new THREE.Fog(this.theme === 'marsh' ? 0x7a8a86 : 0xb07c62, 26, 90);
+    sc.fog = stage.fog || new THREE.Fog(this.theme === 'marsh' ? 0x7a8a86 : 0xb07c62, 26, 90); stage.animals?.(this.critters);
     const sun = new THREE.DirectionalLight(0xffb070, 2.5); const sd = stage.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4); sun.position.copy(sd.clone().normalize().multiplyScalar(22)); if (sun.position.y < 6) sun.position.y = 6; sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 10, bottom: -8, near: 1, far: 40 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
     sc.add(sun, new THREE.HemisphereLight(0x8a98d8, 0x4a2c1a, 0.38));

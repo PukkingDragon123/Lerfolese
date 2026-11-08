@@ -95,15 +95,15 @@ export function sculpt(king) {
     for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; tuft([0.31 * s + Math.sin(a) * 0.06, 0.23, -0.06 + Math.cos(a) * 0.06], [Math.sin(a) * 0.4, -0.9, Math.cos(a) * 0.35], 0.09, 0.04, 'hoof' + L); }
   });
   // bull head
-  S.blob([0, 2.7, 0.19], [0.15, 0.13, 0.16], 'head', { k: 0.05, tag: 'head' });
+  S.blob([0, 2.7, 0.19], [0.165, 0.135, 0.16], 'head', { k: 0.05, tag: 'head' });
   S.blob([0, 2.79, 0.13], [0.15, 0.055, 0.07], 'head', { k: 0.05, tag: 'head' });
-  S.blob([0, 2.68, 0.3], [0.15, 0.1, 0.07], 'head', { k: 0.05, tag: 'head', dir: [0, 0.68, 0.73] });
-  S.limb([0, 2.65, 0.33], [0, 2.48, 0.53], 0.12, 0.1, 'head', { k: 0.05, tag: 'head' });
-  S.blob([0, 2.45, 0.55], [0.125, 0.095, 0.1], 'head', { k: 0.05, tag: 'muzzle' });
-  S.blob([0, 2.457, 0.615], [0.105, 0.07, 0.04], 'head', { k: 0.03, tag: 'nose', dir: [0, 0.35, 0.94] });
+  S.blob([0, 2.68, 0.3], [0.17, 0.11, 0.075], 'head', { k: 0.05, tag: 'head', dir: [0, 0.68, 0.73] });
+  S.limb([0, 2.65, 0.33], [0, 2.48, 0.51], 0.13, 0.11, 'head', { k: 0.05, tag: 'head' });
+  S.blob([0, 2.45, 0.535], [0.14, 0.1, 0.1], 'head', { k: 0.05, tag: 'muzzle' });
+  S.blob([0, 2.457, 0.598], [0.12, 0.072, 0.04], 'head', { k: 0.03, tag: 'nose', dir: [0, 0.35, 0.94] });
   S.sym((s) => {
-    S.blob([0.056 * s, 2.468, 0.648], [0.026, 0.019, 0.04], 'head', { k: 0.015, tag: 'nostril', sub: true, dir: [0.4 * s, 0.2, 0.9] });
-    S.blob([0.12 * s, 2.55, 0.3], [0.06, 0.08, 0.1], 'head', { k: 0.04, tag: 'head', dir: [0, -0.5, 0.86] });
+    S.blob([0.06 * s, 2.468, 0.632], [0.028, 0.02, 0.04], 'head', { k: 0.015, tag: 'nostril', sub: true, dir: [0.4 * s, 0.2, 0.9] });
+    S.blob([0.13 * s, 2.55, 0.3], [0.07, 0.085, 0.1], 'head', { k: 0.04, tag: 'head', dir: [0, -0.5, 0.86] });
     S.blob([0.125 * s, 2.715, 0.31], [0.065, 0.035, 0.06], 'head', { k: 0.03, tag: 'brow' });
     S.blob([0.148 * s, 2.665, 0.318], [0.03, 0.028, 0.034], 'head', { k: 0.015, tag: 'eye', dir: [0.85 * s, 0.1, 0.5] });
     S.blob([0.14 * s, 2.79, 0.13], [0.065, 0.06, 0.065], 'head', { k: 0.04, tag: 'head' });
@@ -112,7 +112,7 @@ export function sculpt(king) {
   });
   S.limb([0, 2.47, 0.24], [0, 2.375, 0.54], 0.09, 0.072, 'jaw', { k: 0.04, tag: 'jaw' });
   S.blob([0, 2.36, 0.5], [0.08, 0.05, 0.07], 'jaw', { k: 0.03, tag: 'jaw' });
-  S.box([0, 2.408, 0.47], [0.13, 0.013, 0.17], 0.004, 'head', { k: 0.012, tag: 'mouth', sub: true, rot: [0.12, 0, 0] });
+  S.box([0, 2.408, 0.46], [0.14, 0.011, 0.16], 0.004, 'head', { k: 0.012, tag: 'mouth', sub: true, rot: [0.12, 0, 0] });
   for (let i = 0; i < 5; i++) { const a = (i / 4 - 0.5) * 2.2; S.blob([Math.sin(a) * 0.07, 2.8 + Math.cos(a) * 0.015, 0.2 + Math.cos(a) * 0.03], [0.042, 0.035, 0.045], 'head', { k: 0.02, tag: 'curls' }); }
   if (king) S.sym((s) => S.limb([0.05 * s, 2.0, 0.27], [0.25 * s, 2.24, 0.05], 0.012, 0.012, 'spine3', { k: 0.0, tag: 'scar', sub: true, skin: 0 }));
   return S;
@@ -120,7 +120,7 @@ export function sculpt(king) {
 
 // ---------------------------------------------------------------- palette + painter
 const PAL = {
-  base: { hide: hex('#8e4a2e'), chest: hex('#a35a36'), belly: hex('#a8613c'), fur: hex('#4a2a1c'), mane: hex('#3a2016'), shoulder: hex('#432619'), throat: hex('#5c3420'), arm: hex('#874629'), hand: hex('#7a3e26'), muzzle: hex('#a08470'), nose: hex('#2e2428'), jaw: hex('#8a6e5c'), head: hex('#4a2a1c'), brow: hex('#3c2216'), curls: hex('#6a3e26'), hoof: hex('#262022'), mouth: hex('#5a1a22') },
+  base: { hide: hex('#6e3a2c'), chest: hex('#7a4232'), belly: hex('#7e4634'), fur: hex('#3e2418'), mane: hex('#321c14'), shoulder: hex('#3a2016'), throat: hex('#4e2c1c'), arm: hex('#743c2a'), hand: hex('#6a3626'), muzzle: hex('#a08470'), nose: hex('#2e2428'), jaw: hex('#8a6e5c'), head: hex('#4a2a1c'), brow: hex('#3c2216'), curls: hex('#6a3e26'), hoof: hex('#262022'), mouth: hex('#5a1a22') },
   king: { hide: hex('#5e3424'), chest: hex('#6e3c28'), belly: hex('#74422a'), fur: hex('#2a1a16'), mane: hex('#1e1412'), shoulder: hex('#241814'), throat: hex('#3a2418'), arm: hex('#5a3222'), hand: hex('#52301f'), muzzle: hex('#9c9488'), nose: hex('#262024'), jaw: hex('#86786c'), head: hex('#2a1a16'), brow: hex('#201410'), curls: hex('#4a2a1a'), hoof: hex('#1c1818'), mouth: hex('#4a1418') },
 };
 const FURRY = new Set(['fur', 'mane', 'shoulder', 'throat', 'head', 'brow', 'curls']);
@@ -144,11 +144,10 @@ function painter(S, king) {
     }
     if (tag === 'scar') { K.tone(hex('#c8988a'), K.band(L + 0.1, 4), o.col); return; }
     const col = P[tag] || P.hide;
-    if (FURRY.has(tag)) { // anime fur: flat lit planes, long clumps flowing down, a dark strand line under each clump, lit tips
-      const sz = tag === 'curls' ? 0.02 : tag === 'head' || tag === 'brow' ? 0.028 : 0.05, st = tag === 'curls' ? 1.1 : 2.6;
-      const Y = c.y / (sz * st); const C = K.cells3(c.x / sz, Y, c.z / sz); const dy = Y - C[3];
-      let F = L + 0.04; if (C[1] - C[0] < 0.06 && dy < -0.05) F -= 0.24; else if (dy > 0.32 && L > 0.5) F += 0.1;
-      if (q.tag2 && !FURRY.has(q.tag2) && q.d2 - q.d < 0.012) F += 0.08;
+    if (FURRY.has(tag)) { // anime fur: flat lit planes whose band edges break into jagged locks flowing down the body
+      const fs = tag === 'curls' ? 60 : tag === 'head' || tag === 'brow' ? 34 : 22; const str = K.vnoise(c.x * fs, c.y * fs * (tag === 'curls' ? 1 : 0.22), c.z * fs) + K.vnoise(c.x * fs * 2.1, c.y * fs * 0.5, c.z * fs * 2.1) * 0.5;
+      let F = 0.47 + c.ny * 0.13 + c.nz * 0.04 - (1 - cav) * 0.3 + (str - 0.75) * 0.22;
+      if (q.tag2 && !FURRY.has(q.tag2) && q.d2 - q.d < 0.012) F += 0.06;
       K.tone(col, K.band(F, 4), o.col); o.ro = 0.95; return;
     }
     if (tag === 'muzzle' || tag === 'jaw') { const C = K.cells3(c.x / 0.012, c.y / 0.012, c.z / 0.012); K.tone(col, K.band(L + 0.06 + (C[1] - C[0] < 0.06 ? -0.12 : 0), 4), o.col); if (q.tag2 === 'mouth' && q.d2 < 0.012) K.tone(P.mouth, 0.3, o.col); return; }
@@ -171,7 +170,7 @@ function horn(s, king) {
   return K.mesh(l.geo, m);
 }
 function ear(s, B) {
-  const l = new K.Loft(14, 12).set(K.curve([[0.15 * s, 2.715, 0.14], [0.24 * s, 2.715, 0.13], [0.33 * s, 2.69, 0.11], [0.4 * s, 2.66, 0.09]]), (t) => [0.012 * (1 - t) + 0.004, 0.065 * Math.sin(Math.min(1, t * 1.2 + 0.12) * Math.PI) * (1 - t * 0.35) + 0.004], { ref: (t, n) => n.set(0, 0.25, 1), shape: (a) => 1 + Math.max(0, Math.sin(a)) * 0.55 });
+  const l = new K.Loft(16, 14).set(K.curve([[0.15 * s, 2.705, 0.14], [0.26 * s, 2.7, 0.15], [0.37 * s, 2.665, 0.15], [0.46 * s, 2.62, 0.14]]), (t) => [0.016 * (1 - t) + 0.005, 0.085 * Math.sin(Math.min(1, t * 1.15 + 0.12) * Math.PI) * (1 - t * 0.3) + 0.005], { ref: (t, n) => n.set(0, 0.35, 1), shape: (a) => 1 + Math.max(0, Math.sin(a)) * 0.6 });
   const m = mat('mino-ear', 64, 64, (u, v, o) => { const inner = Math.sin(u * Math.PI * 2) * s > 0.25; if (inner && v > 0.15 && v < 0.92) { K.tone(hex('#d48a7a'), K.band(0.55 - Math.abs(u - 0.5) * 0.2, 3), o.col); if (Math.abs(((u * 9) % 1) - 0.5) < 0.12 && v > 0.5) K.tone(hex('#e8d0b8'), 0.6, o.col); return; } K.fur2(u, v, o, hex('#4a2a1c'), 10, 6, 0.5); });
   return onBone(B, 'ear_' + (s > 0 ? 'L' : 'R'), K.mesh(l.geo, m));
 }
@@ -253,7 +252,7 @@ function bracer(s, B, king, mats) {
   return onBone(B, 'forearm_' + L, K.mesh(l.geo, m));
 }
 function noseRing(king) {
-  const l = new K.Loft(24, 10).set((t, p) => { const a = t * Math.PI * 2 * 0.86 + 0.45; return p.set(0, 2.43 - Math.cos(a) * 0.05 + 0.02, 0.645 + Math.sin(a) * 0.035); }, () => 0.011);
+  const l = new K.Loft(24, 10).set((t, p) => { const a = t * Math.PI * 2 * 0.86 + 0.45; return p.set(0, 2.43 - Math.cos(a) * 0.05 + 0.02, 0.628 + Math.sin(a) * 0.035); }, () => 0.011);
   return K.mesh(l.geo, mat(king ? 'ring-k' : 'ring', 16, 16, (u, v, o) => { K.tone(king ? hex('#f2c040') : hex('#d0a040'), K.band(0.55 + Math.cos(u * 6.28) * 0.3, 4), o.col); o.me = 0.7; o.ro = 0.25; }));
 }
 
@@ -262,8 +261,8 @@ const CACHE = {};
 function asset(king) {
   const id = king ? 'minotaur_king' : 'minotaur'; if (CACHE[id]) return CACHE[id];
   const S = sculpt(king); const names = BONES.map((b) => b[0]);
-  const geo = S.build({ cell: 0.022, bones: names, atlas: 1024, target: 15000 });
-  const surf = K.surface('beast-' + id, { geometry: geo, isSkinnedMesh: false, skeleton: { bones: names.map((name) => ({ name })) } }, 1024);
+  const geo = S.build({ cell: 0.022, bones: names, atlas: 768, target: 15000 });
+  const surf = K.surface('beast-' + id, { geometry: geo, isSkinnedMesh: false, skeleton: { bones: names.map((name) => ({ name })) } }, 768);
   const mat = K.paintedMat(K.paintSurface(surf, painter(S, king)));
   // gashes across chest, belly, arms, thighs, flank and brow, deepest last
   const sites = [[[0.22, 2.1, 0.27], [0.3, 0.2, 1], [1, -0.6, 0]], [[-0.1, 1.72, 0.24], [0, 0, 1], [1, 0.4, 0]], [[0.68, 1.95, 0.08], [0.6, 0, 0.8], [0.3, -1, 0]], [[-0.3, 1.18, 0.2], [-0.4, 0, 1], [0.2, -1, 0]],
@@ -271,7 +270,7 @@ function asset(king) {
     [[0.12, 1.92, 0.3], [0.2, 0.1, 1], [-1, -0.8, 0]], [[0.1, 2.68, 0.36], [0.3, 0.7, 0.7], [1, -0.3, 0]], [[-0.2, 2.25, 0.18], [-0.3, 0.6, 0.7], [1, 0.2, 0]], [[0.36, 1.6, 0.08], [0.9, 0, 0.4], [0, -1, 0.2]]]
     .map(([p, n, dir], i) => ({ p, n, dir, len: 0.12 + (i % 3) * 0.05, wid: 0.016 + (i % 2) * 0.008 }));
   const wq = {}; const wound = K.paintSurface(surf, paintWounds(surf, { sites, seed: 3, select: (c) => { S.query(c.x, c.y, c.z, wq); return !['eye', 'hoof', 'cleft', 'nose', 'nostril', 'mouth'].includes(wq.tag); } }));
-  return (CACHE[id] = { geo, mat, wound: woundTex(wound.canvas) });
+  S.release(); return (CACHE[id] = { geo, mat, wound: woundTex(wound.canvas) });
 }
 
 export function createMinotaur(seed = 1, king = false) {
@@ -299,9 +298,9 @@ export function createMinotaur(seed = 1, king = false) {
 const IMPACT = 0.4;
 const CLIPS = {
   attack: [[0, {}],
-    [0.28, { hips: [-0.08, 0.2, 0], spine1: [-0.14, 0.28, 0], spine2: [-0.14, 0.2, 0], spine3: [-0.12, 0.12, 0], neck: [-0.15, 0, 0], head: [-0.25, 0.1, 0], uparm_L: [-2.35, 0.3, 0.35], forearm_L: [-0.75, 0, 0], hand_L: [0.55, 0, 0], uparm_R: [-0.5, 0, -0.45], forearm_R: [-0.8, 0, 0], thigh_L: [-0.3, 0, 0], shin_L: [0.3, 0, 0], thigh_R: [0.15, 0, 0], shin_R: [0.12, 0, 0] }],
-    [IMPACT, { hips: [0.12, -0.22, 0], spine1: [0.26, -0.28, 0], spine2: [0.24, -0.2, 0], spine3: [0.16, -0.12, 0], neck: [0.1, 0, 0], head: [0.2, -0.1, 0], uparm_L: [-0.45, -0.15, -0.1], forearm_L: [0.2, 0, 0], hand_L: [-0.45, 0, 0], uparm_R: [0.45, 0, -0.25], forearm_R: [-0.3, 0, 0], thigh_L: [-0.6, 0, 0], shin_L: [0.55, 0, 0], hock_L: [-0.1, 0, 0], thigh_R: [0.3, 0, 0], shin_R: [0.1, 0, 0] }],
-    [0.5, { hips: [0.16, -0.25, 0], spine1: [0.3, -0.3, 0], spine2: [0.26, -0.22, 0], spine3: [0.18, -0.14, 0], neck: [0.12, 0, 0], head: [0.22, -0.12, 0], uparm_L: [-0.3, -0.15, -0.12], forearm_L: [0.25, 0, 0], hand_L: [-0.5, 0, 0], uparm_R: [0.5, 0, -0.25], forearm_R: [-0.3, 0, 0], thigh_L: [-0.65, 0, 0], shin_L: [0.6, 0, 0], hock_L: [-0.1, 0, 0], thigh_R: [0.32, 0, 0], shin_R: [0.12, 0, 0] }],
+    [0.28, { hips: [-0.1, 0.22, 0], spine1: [-0.16, 0.3, 0], spine2: [-0.16, 0.2, 0], spine3: [-0.12, 0.12, 0], neck: [-0.1, 0, 0], head: [-0.15, 0.1, 0], uparm_L: [-2.3, -0.2, 0.25], forearm_L: [-0.6, 0, 0], hand_L: [-0.8, 0, 0], uparm_R: [-0.5, 0, -0.45], forearm_R: [-0.8, 0, 0], thigh_L: [-0.3, 0, 0], shin_L: [0.3, 0, 0], thigh_R: [0.15, 0, 0], shin_R: [0.12, 0, 0] }],
+    [IMPACT, { hips: [0.14, -0.22, 0], spine1: [0.28, -0.28, 0], spine2: [0.24, -0.2, 0], spine3: [0.16, -0.12, 0], neck: [0.15, 0, 0], head: [0.3, -0.1, 0], uparm_L: [-0.6, -0.3, 0.1], forearm_L: [0.85, 0, 0], hand_L: [1.0, 0, 0], uparm_R: [0.45, 0, -0.25], forearm_R: [-0.3, 0, 0], thigh_L: [-0.6, 0, 0], shin_L: [0.55, 0, 0], hock_L: [-0.1, 0, 0], thigh_R: [0.3, 0, 0], shin_R: [0.1, 0, 0] }],
+    [0.52, { hips: [0.18, -0.25, 0], spine1: [0.32, -0.3, 0], spine2: [0.27, -0.22, 0], spine3: [0.18, -0.14, 0], neck: [0.18, 0, 0], head: [0.34, -0.12, 0], uparm_L: [-0.35, -0.3, 0.05], forearm_L: [0.9, 0, 0], hand_L: [1.15, 0, 0], uparm_R: [0.5, 0, -0.25], forearm_R: [-0.3, 0, 0], thigh_L: [-0.65, 0, 0], shin_L: [0.6, 0, 0], hock_L: [-0.1, 0, 0], thigh_R: [0.32, 0, 0], shin_R: [0.12, 0, 0] }],
     [0.85, {}]],
   cast: [[0, {}], [0.22, { neck: [0.35, 0, 0], head: [0.4, 0, 0], spine3: [0.12, 0, 0], jaw: [0.12, 0, 0], thigh_R: [-0.55, 0, 0], shin_R: [0.7, 0, 0], hock_R: [-0.5, 0, 0], ear_L: [0, 0, -0.4], ear_R: [0, 0, 0.4] }],
     [0.42, { neck: [-0.35, 0.1, 0], head: [-0.55, 0.3, 0.25], spine3: [-0.12, 0, 0], spine2: [-0.06, 0, 0], jaw: [0.4, 0, 0], uparm_R: [0, 0, -0.5], forearm_R: [-0.6, 0, 0], ear_L: [0, 0, 0.3], ear_R: [0, 0, -0.3] }],
@@ -312,7 +311,7 @@ const CLIPS = {
     [0.42, { hips: [0.25, 0, 0], spine1: [0.25, 0, 0], spine2: [0.2, 0, 0], neck: [0.3, 0, 0], head: [0.5, 0, 0.2], jaw: [0.4, 0, 0], thigh_L: [-1.2, 0, 0], thigh_R: [-1.1, 0, 0], shin_L: [1.3, 0, 0], shin_R: [1.2, 0, 0], hock_L: [-0.3, 0, 0], hock_R: [-0.3, 0, 0], uparm_L: [-0.4, 0, -0.2], uparm_R: [-0.4, 0, 0.2], forearm_L: [-0.4, 0, 0], forearm_R: [-0.4, 0, 0] }],
     [0.8, { hips: [0.35, 0, 0], spine1: [0.3, 0, 0.12], spine2: [0.25, 0, 0.12], neck: [0.1, 0.4, 0], head: [0.2, 0.5, 0.35], jaw: [0.5, 0, 0], thigh_L: [-1.3, 0, 0], thigh_R: [-0.8, 0, 0.2], shin_L: [1.4, 0, 0], shin_R: [0.9, 0, 0], hock_L: [-0.3, 0, 0], hock_R: [-0.2, 0, 0], uparm_L: [-1.1, 0, 0.5], uparm_R: [-0.3, 0, -0.9], forearm_L: [-0.2, 0, 0], forearm_R: [-0.1, 0, 0], hand_L: [0.4, 0, 0], tail1: [-0.5, 0, 0] }]],
 };
-const FOLLOW = { neck: [11, 0.42], head: [9, 0.36], ear_L: [8, 0.25], ear_R: [8, 0.25], jaw: [12, 0.3], tail1: [7, 0.3], tail2: [6, 0.28], tail3: [5, 0.26], tail4: [4.5, 0.25] };
+const FOLLOW = { neck: [20, 0.5], head: [17, 0.42], ear_L: [10, 0.25], ear_R: [10, 0.25], jaw: [16, 0.3], tail1: [8, 0.3], tail2: [7, 0.28], tail3: [6, 0.26], tail4: [5.5, 0.25] };
 function animate(api, B, model, flaps, seed, sc) {
   const st = api.st; const P = {}; let lastX = null, charge = 0, gait = 0, snortT = 4 + (seed % 5), snort = -1, impactDone = true;
   const parentOf = Object.fromEntries(BONES.map(([n, p]) => [n, p])); const anc = (n) => { const a = []; for (let p = parentOf[n]; p; p = parentOf[p]) a.push(p); return a; };
@@ -333,7 +332,7 @@ function animate(api, B, model, flaps, seed, sc) {
     const br = Math.sin(t * 1.6), sw = Math.sin(t * 0.7);
     add(P, 'hips', 0, sw * 0.03, sw * 0.02); add(P, 'spine1', -0.04 + br * 0.012, -sw * 0.02, -sw * 0.02); add(P, 'spine2', br * 0.025, 0, 0); add(P, 'spine3', 0.05 + br * 0.02, -sw * 0.02, 0);
     add(P, 'neck', 0.1 - br * 0.02, Math.sin(t * 0.43) * 0.08, 0); add(P, 'head', 0.18 + Math.sin(t * 1.6 + 1) * 0.03, Math.sin(t * 0.43 + 0.6) * 0.14, Math.sin(t * 0.31) * 0.05);
-    add(P, 'jaw', 0.04 + Math.max(0, br) * 0.03 + (st.talk > 0 ? Math.abs(Math.sin(t * 15)) * 0.32 : 0));
+    add(P, 'jaw', -0.02 + Math.max(0, br) * 0.025 + (st.talk > 0 ? Math.abs(Math.sin(t * 15)) * 0.32 : 0));
     add(P, 'clav_L', 0, 0, br * 0.02); add(P, 'clav_R', 0, 0, -br * 0.02);
     add(P, 'uparm_L', -0.42, 0.25, -0.3); add(P, 'forearm_L', -1.05, 0.25, 0); add(P, 'hand_L', 0.15, 0, -0.1); // labrys held at the ready
     add(P, 'uparm_R', -0.08 + br * 0.02, 0, 0.18); add(P, 'forearm_R', -0.35, 0, 0);

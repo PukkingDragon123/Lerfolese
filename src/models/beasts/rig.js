@@ -45,6 +45,7 @@ export const add = (P, n, x = 0, y = 0, z = 0) => { const o = (P[n] ||= [0, 0, 0
 /** write a pose (bone -> euler) onto the bones (every bone resets to rest first) */
 export function apply(B, P) { for (const b of B.bones) { const p = P[b.name]; if (p) b.rotation.set(p[0], p[1], p[2]); else b.rotation.set(0, 0, 0); } }
 
+const WHITE = new THREE.Color(1, 1, 1), _hc = new THREE.Color();
 // ---------------------------------------------------------------- battle conventions (mirrors creatures.js rig())
 export function battleRig(root, height) {
   const st = { t: Math.random() * 10, mode: 'idle', modeT: 0, hit: new Spring(0, 14, 0.35), lunge: new Spring(0, 9, 0.45), lift: new Spring(0, 10, 0.4), dead: 0, deadT: 0, talk: 0 };
@@ -61,8 +62,8 @@ export function battleRig(root, height) {
       if (st.talk > 0) st.talk -= dt;
       if (st.dead > 0) { st.deadT += dt; st.dead = Math.min(1, st.dead + dt * 1.4); }
       if (st.mode !== 'idle' && st.mode !== 'die' && st.modeT > hold) st.mode = 'idle';
-      const hl = !!root.userData.hl; if (hl !== api._hl) { api._hl = hl; for (const m of api.mats) m.color.setScalar(hl ? 1.32 : 1); }
-      if (hl) { const k = 1.22 + Math.sin(st.t * 7) * 0.1; for (const m of api.mats) m.color.setRGB(k, k * 0.97, k * 0.9); }
+      const hl = !!root.userData.hl; if (hl !== api._hl) { api._hl = hl; for (const m of api.mats) m.color.copy(m.userData.tint || WHITE); }
+      if (hl) { const k = 1.22 + Math.sin(st.t * 7) * 0.1; for (const m of api.mats) m.color.copy(m.userData.tint || WHITE).multiply(_hc.setRGB(k, k * 0.97, k * 0.9)); }
     },
     /** gore: 0 = pristine .. 1 = cut to ribbons (battle passes 1 - hp / maxHp) */
     setWounds(v) { api.wounds = Math.max(0, Math.min(1, v)); for (const m of api.mats) if (m.userData.uW) m.userData.uW.value = api.wounds; },
@@ -85,13 +86,14 @@ export function paintWounds(surf, { sites, select = null, seed = 1 }) {
   const d = new THREE.Vector3();
   return (c, o) => {
     let thr = 1, kind = 0;
-    if (!select || select(c)) for (const w of W) {
+    for (const w of W) {
       d.set(c.x - w.p.x, c.y - w.p.y, c.z - w.p.z); const dep = d.dot(w.n); if (Math.abs(dep) > 0.09) continue;
       const a = d.dot(w.t), x = d.dot(w.b); const u = (2 * a) / w.len; let k = 0;
       if (Math.abs(u) < 1) { const half = w.wid * Math.sqrt(1 - u * u) * (1 + Math.sin(a * 160) * 0.18); const ax = Math.abs(x); k = ax < half * 0.5 ? 1 : ax < half ? 0.6 : ax < half * 2.4 ? 0.3 : 0; }
       if (!k && c.ny < 0.85) for (const [da, dl] of w.drips) { const ry = w.p.y + w.t.y * da - c.y; const rx = a - da; if (ry > 0 && ry < dl && Math.abs(rx) < 0.007 + (1 - ry / dl) * 0.006 && Math.abs(x) < w.wid * 3 + ry) { k = 0.3; break; } }
       if (k && (w.thr < thr || (w.thr === thr && k > kind))) { thr = w.thr; kind = k; }
     }
+    if (kind && select && !select(c)) { thr = 1; kind = 0; }
     o.col[0] = thr * 255; o.col[1] = kind * 255; o.col[2] = 0;
   };
 }

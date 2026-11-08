@@ -86,7 +86,7 @@ export function toon(params = {}, { sat = 1.25, tint = null } = {}) { return too
 // ---------------------------------------------------------------- instanced grass blades (wind + pointer push)
 function bladeGeometry() {
   const segs = 4, w = 0.055; const pos = [], col = [], idx = [];
-  const base = C('#284620'), mid = C('#4c7e2a'), tip = C('#a6c050');
+  const base = C('#33521f'), mid = C('#5f9030'), tip = C('#c2d066');
   for (let i = 0; i <= segs; i++) {
     const t = i / segs; const ww = w * (1 - t) ** 0.9; const z = t * t * 0.18; const c = t < 0.5 ? base.clone().lerp(mid, t * 2) : mid.clone().lerp(tip, (t - 0.5) * 2);
     pos.push(-ww, t, z, ww, t, z); col.push(c.r, c.g, c.b, c.r, c.g, c.b);
