@@ -5,11 +5,12 @@
 // from far behind the battle camera into the arena (exported as stage.road for the intro cinematic).
 // Environment meshes never get ink outlines (userData.noInk); the black lines stay on the characters.
 import * as THREE from 'three';
-import { loadModel, loadGLTF, loadPBR, loadHDRI, variantCount, hdriSunDirection } from '../gfx/assets.js';
+import { loadModel, loadPBR, loadHDRI, variantCount, hdriSunDirection } from '../gfx/assets.js';
 import { mulberry32 } from '../core/util.js';
 import { makeNoise } from '../gfx/pixel.js';
 import { Particles } from '../gfx/particles.js';
 import * as T from './toon.js';
+import { plantField } from '../gfx/plants.js';
 
 const V3 = THREE.Vector3;
 const GROUND = { meadow: 'ground_meadow', garden: 'ground_meadow', gully: 'ground_rocky_trail', labyrinth: 'ground_dry_grass', marsh: 'mud_mossy', guardian: 'ground_dry_grass' };
@@ -176,19 +177,11 @@ function splatGround(geo, grassM, dirtM, gravelM, { tint = '#c8d8a0', dirt = 0.6
   };
   m.customProgramCacheKey = () => 'splatGround'; return m;
 }
-// ---------------------------------------------------------------- grass: instanced Poly Haven clump cards (alpha, wind) + soft blades
-async function grassClumps(g, places) {
-  const gltf = await loadGLTF('grass_clumps'); const kids = gltf.scene.children; const byV = new Map();
-  for (const p of places) { const v = p.v % kids.length; if (!byV.has(v)) byV.set(v, []); byV.get(v).push(p); }
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new V3(), o = new V3();
-  for (const [v, list] of byV) {
-    const child = kids[v]; child.updateMatrixWorld(true); const inv = child.matrixWorld.clone().invert(); const base = new THREE.Matrix4().compose(new V3(), child.quaternion, child.scale);
-    child.traverse((mesh) => { if (!mesh.isMesh) return; const rel = base.clone().multiply(inv.clone().multiply(mesh.matrixWorld)); const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-      const im = new THREE.InstancedMesh(mesh.geometry, T.toonMaterial(mat, { sat: 1.5, tint: '#eef6c4', wind: 1.3, windH: 3.5, bands: [0.55, 0.8, 1.0] }), list.length);
-      list.forEach((p, i) => { m4.compose(o.set(p.x, p.y, p.z), q.setFromEuler(e.set(0, p.ry, 0)), s.set(p.s, p.s * (0.85 + p.k * 0.4), p.s)).multiply(rel); im.setMatrixAt(i, m4); });
-      im.castShadow = false; im.receiveShadow = true; im.userData.noInk = true; im.onBeforeRender = T.tickWind; im.frustumCulled = false; g.add(im); });
-  }
-}
+// ---------------------------------------------------------------- grass, flowers, bushes: 2D pixel-art billboards (src/gfx/plants.js)
+const FLOWERS = { meadow: ['poppy', 'chamomile', 'cornflower', 'poppy', 'lavender', 'clover'], garden: ['poppy', 'lavender', 'chamomile', 'cornflower', 'clover'], marsh: ['chamomile', 'clover', 'clover'], gully: ['thistle', 'lavender', 'poppy', 'thistle'], labyrinth: ['thistle', 'lavender', 'cornflower'], guardian: ['thistle', 'lavender', 'poppy'] };
+const BUSHES = { meadow: ['olive', 'berry', 'broom', 'rosemary'], garden: ['rosemary', 'berry', 'olive', 'broom'], marsh: ['berry', 'olive', 'berry'], gully: ['olive', 'rosemary', 'broom'], labyrinth: ['rosemary', 'olive', 'broom'], guardian: ['olive', 'rosemary', 'broom'] };
+const PLANT_TINT = { meadow: '#fff2dc', garden: '#fff0e4', gully: '#fff0d8', labyrinth: '#ffecd8', marsh: '#eef2e4', guardian: '#ffe4d4' };
+const pickOf = (list, v) => list[Math.min(list.length - 1, Math.floor(v * list.length))];
 // a cobblestone texture (rounded setts in sandy joints) + its height map, painted once
 let COBBLE = null;
 function cobbleTex() {
@@ -210,7 +203,7 @@ function ribbon(curve, t0, t1, W, hAt, { segs = 160, across = [-1, -0.7, -0.4, -
   const A = across.length; for (let i = 0; i < segs; i++) for (let j = 0; j < A - 1; j++) { const a = i * A + j, b = a + 1, c = a + A, d = c + 1; idx.push(a, c, b, b, c, d); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 4)); geo.setIndex(idx); geo.computeVertexNormals(); return geo;
 }
-function buildRoad(g, hAt, rnd, jobs, place) {
+function buildRoad(g, hAt, rnd, jobs, place, plant, theme) {
   const pts = [[-40, 33], [-33, 27], [-28, 20.5], [-21, 16.5], [-15.5, 11.5], [-11.5, 7.2], [-8.2, 4.2], [-6, 2.4], [-4.6, 1.5]].map(([x, z]) => new V3(x, hAt(x, z), z));
   const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal'); const W = 2.7; const tmp = new V3(), tan = new V3(), side = new V3();
   // packed dirt and gravel trail, soft edges blending into the meadow, grooved wheel ruts
@@ -224,8 +217,8 @@ function buildRoad(g, hAt, rnd, jobs, place) {
   for (const s of [0.3, 0.61, 0.7]) { curve.getPointAt(s, tmp); curve.getTangentAt(s, tan); side.set(-tan.z, 0, tan.x).normalize(); const o = tmp.clone().addScaledVector(side, (rnd() < 0.5 ? -1 : 1) * 0.4); const sh = new THREE.Shape(); const n = 16; for (let i = 0; i <= n; i++) { const a = (i / n) * Math.PI * 2; const r = (0.5 + Math.sin(a * 3 + s * 9) * 0.1 + Math.sin(a * 5) * 0.05); i ? sh.lineTo(Math.cos(a) * r * 1.5, Math.sin(a) * r * 0.55) : sh.moveTo(Math.cos(a) * r * 1.5, Math.sin(a) * r * 0.55); } const pm = new THREE.Mesh(new THREE.ShapeGeometry(sh, 8).rotateX(-Math.PI / 2), pudMat); pm.position.set(o.x, hAt(o.x, o.z) + 0.035, o.z); pm.rotation.y = -Math.atan2(tan.z, tan.x); pm.renderOrder = 3; pm.userData.noInk = true; g.add(pm); }
   // occasional flat stones half-buried at the verges, wildflowers, scenery along the way
   for (let s = 0.08; s < 0.95; s += 0.09 + rnd() * 0.08) { curve.getPointAt(s, tmp); curve.getTangentAt(s, tan); side.set(-tan.z, 0, tan.x).normalize(); const o = tmp.clone().addScaledVector(side, (rnd() < 0.5 ? -1 : 1) * (W / 2 + 0.15 + rnd() * 0.3)); jobs.push(place('namaqualand_boulder_05', o.x, o.z, { s: 0.14 + rnd() * 0.1, y: -0.06 })); }
-  for (let s = 0.04; s < 0.95; s += 0.035 + rnd() * 0.03) { curve.getPointAt(s, tmp); curve.getTangentAt(s, tan); side.set(-tan.z, 0, tan.x).normalize(); const sd = rnd() < 0.5 ? -1 : 1; const o = tmp.clone().addScaledVector(side, sd * (W / 2 + 0.5 + rnd() * 1.2)); jobs.push(place(['flower_gazania', 'celandine_01', 'shrub_sorrel_01', 'dandelion_01'][Math.floor(rnd() * 4)], o.x, o.z, { s: 2.2 + rnd() * 1.2 })); }
-  for (const [s, sd, nm, sc] of [[0.16, 1, 'olive_tree_wide_far', 1.2], [0.24, -1, 'othonna_cerarioides', 1.9], [0.3, 1, 'rock_moss_set_01', 0.9], [0.38, -1, 'olive_tree_tall_far', 1.1], [0.55, 1, 'shrub_01', 2.6], [0.66, -1, 'greek_column', 0.75], [0.72, 1, 'searsia_lucida', 1.1], [0.2, 1, 'umbrella_tree_far', 0.33]]) { curve.getPointAt(s, tmp); curve.getTangentAt(s, tan); side.set(-tan.z, 0, tan.x).normalize(); const o = tmp.clone().addScaledVector(side, sd * (W / 2 + 3.2 + rnd() * 1.5)); jobs.push(place(nm, o.x, o.z, { s: sc, tree: /olive|umbrella|othonna/.test(nm) })); }
+  for (let s = 0.04; s < 0.95; s += 0.035 + rnd() * 0.03) { curve.getPointAt(s, tmp); curve.getTangentAt(s, tan); side.set(-tan.z, 0, tan.x).normalize(); const sd = rnd() < 0.5 ? -1 : 1; const o = tmp.clone().addScaledVector(side, sd * (W / 2 + 0.5 + rnd() * 1.2)); const v = rnd(), sc = rnd(); rnd(); plant(pickOf([...(FLOWERS[theme] || FLOWERS.meadow), 'tall', 'seed'], v), o.x, o.z, { s: 0.9 + sc * 0.3 }); }
+  for (const [s, sd, nm, sc] of [[0.16, 1, 'olive_tree_wide_far', 1.2], [0.24, -1, 'othonna_cerarioides', 1.9], [0.3, 1, 'rock_moss_set_01', 0.9], [0.38, -1, 'olive_tree_tall_far', 1.1], [0.55, 1, 'shrub_01', 2.6], [0.66, -1, 'greek_column', 0.75], [0.72, 1, 'searsia_lucida', 1.1], [0.2, 1, 'umbrella_tree_far', 0.33]]) { curve.getPointAt(s, tmp); curve.getTangentAt(s, tan); side.set(-tan.z, 0, tan.x).normalize(); const o = tmp.clone().addScaledVector(side, sd * (W / 2 + 3.2 + rnd() * 1.5)); if (/shrub|searsia/.test(nm)) { rnd(); plant(nm === 'shrub_01' ? 'broom' : 'olive', o.x, o.z, { s: 1.3 }); continue; } jobs.push(place(nm, o.x, o.z, { s: sc, tree: /olive|umbrella|othonna/.test(nm) })); }
   return curve;
 }
 
@@ -268,9 +261,11 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   for (let i = 0; i < 8; i++) { const nm = rnd() < 0.4 ? 'umbrella_tree_far' : rnd() < 0.5 ? 'olive_tree_tall_far' : 'olive_tree_wide_far'; jobs.push(place(nm, -26 + i * 7.5 + rnd() * 3, -15 - rnd() * 7, { s: (1.1 + rnd() * 0.5) * (nm.startsWith('umbrella') ? 0.3 : 1), far: true, tree: true })); }
   for (let i = 0; i < 5; i++) jobs.push(place('othonna_cerarioides', -13 + i * 6.5 + rnd() * 2, -10 - rnd() * 3, { s: 1.6 + rnd() * 0.6, tree: true }));
   jobs.push(place('olive_tree_wide', 12.5, 0.5, { s: 1.25, tree: true }));
-  for (let i = 0; i < 9; i++) jobs.push(place(rnd() < 0.5 ? 'searsia_lucida' : 'shrub_01', (rnd() - 0.5) * 30, -4 - rnd() * 4, { s: rnd() < 0.5 ? 1.1 : 3.2 }));
+  const plants = []; const plant = (kind, x, z, o = {}) => { plants.push({ kind, x, y: hAt(x, z), z, ...o }); if (BUSHES.meadow.includes(kind) || /bush/.test(kind)) aoSpots.push([x, z, 0.9 * (o.s || 1)]); };
+  const bushes = BUSHES[theme] || BUSHES.meadow;
+  for (let i = 0; i < 9; i++) { const c = rnd(), x = (rnd() - 0.5) * 30, z = -4 - rnd() * 4, sc = rnd(); rnd(); plant(pickOf(bushes, c), x, z, { s: sc < 0.5 ? 1.15 : 1.45 }); }
   const rocks = []; for (let i = 0; i < 8; i++) { const x = (rnd() - 0.5) * 28, z = -3.5 - rnd() * 5; rocks.push([x, z]); jobs.push(place(rnd() < 0.5 ? 'rock_moss_set_01' : 'rock_moss_set_02', x, z, { s: 0.6 + rnd() * 0.6, y: -0.1 })); }
-  for (let i = 0; i < 40; i++) { const x = (rnd() - 0.5) * 34, z = -9 + rnd() * 15; if (Math.abs(x - 0.3) < 8.5 && Math.abs(z - 0.8) < 2.6) continue; jobs.push(place(i % 4 === 0 ? (theme === 'marsh' ? 'nettle_plant' : rnd() < 0.5 ? 'celandine_01' : 'flower_gazania') : i % 7 === 0 ? 'fern_02' : 'grass_clumps', x, z, { s: 1.6 + rnd() * 1.4 })); }
+  for (let i = 0; i < 40; i++) { const x = (rnd() - 0.5) * 34, z = -9 + rnd() * 15; if (Math.abs(x - 0.3) < 8.5 && Math.abs(z - 0.8) < 2.6) continue; if (theme === 'marsh' && z < -2.6 && z > -12.5) { rnd(); rnd(); continue; } const v = i % 4 === 0 && theme !== 'marsh' ? rnd() : 0.5; const sc = rnd(); rnd(); plant(i % 4 === 0 ? (theme === 'marsh' ? 'fern' : pickOf(FLOWERS[theme] || FLOWERS.meadow, v)) : i % 7 === 0 ? 'fern' : pickOf(['tall', 'wispy', 'seed'], sc), x, z, { s: 0.95 + sc * 0.25 }); }
   // theme dressing
   if (theme === 'garden' || theme === 'guardian') {
     for (let i = 0; i < 5; i++) jobs.push(place('greek_column', -12 + i * 6 + rnd(), -5.5 - rnd() * 2, { s: 0.75, tree: i % 2 === 0 }));
@@ -283,23 +278,38 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   if (theme === 'marsh') { jobs.push(place('dead_tree_trunk_02', -7, -4, { s: 1.4 }), place('tree_stump_01', 6.5, -3.6, { s: 1.6 }), place('dry_branches_medium_01', 2, -4.5, { s: 2 })); const water = animeWater(46, 10); water.position.set(0, -0.06, -7.5); g.add(water); g.add(dragonflies(5, { x: [-10, 10], z: [-11, -4] }, -0.06)); }
   if (theme === 'guardian') { for (const [x, z] of [[-9.6, -5.2], [10.4, -5.6]]) { const f = firePit({ seed: Math.round(x) }); f.position.set(x, hAt(x, z), z); f.scale.setScalar(1.8); g.add(f); } }
   // the road in, then wind-blown grass everywhere except the arena, the road and the water
-  const road = buildRoad(g, hAt, rnd, jobs, place); const rp = road.getSpacedPoints(200);
+  const road = buildRoad(g, hAt, rnd, jobs, place, plant, theme); const rp = road.getSpacedPoints(200);
   const roadD = (x, z) => { let d = 1e9; for (const q of rp) { const dd = (q.x - x) ** 2 + (q.z - z) ** 2; if (dd < d) d = dd; } return Math.sqrt(d); };
   // the intro films the land behind the battle camera and along the road: groves, ruins, rocks, shrubs
   { const dr = mulberry32(seed * 11 + 5); const free = (x, z, r) => roadD(x, z) > r + 1.6 && !(Math.abs(x - 0.3) < 10 && z < 5 && z > -3.5);
     const groves = [['olive_tree_wide_far', 1.15], ['olive_tree_tall_far', 1.1], ['umbrella_tree_far', 0.32], ['othonna_cerarioides', 1.8], ['olive_tree_wide', 1.0]];
     for (let i = 0; i < 26; i++) { const x = -38 + dr() * 56, z = 9 + dr() * 26; if (!free(x, z, 2.6)) continue; const [nm, sc] = groves[Math.floor(dr() * groves.length)]; jobs.push(place(nm, x, z, { s: sc * (0.85 + dr() * 0.3), tree: true })); }
-    for (let i = 0; i < 22; i++) { const x = -40 + dr() * 60, z = 6 + dr() * 30; if (!free(x, z, 1.2)) continue; const r = dr(); jobs.push(place(r < 0.4 ? 'shrub_01' : r < 0.7 ? 'searsia_lucida' : r < 0.85 ? 'rock_moss_set_01' : 'rock_moss_set_02', x, z, { s: r < 0.4 ? 2.8 : r < 0.7 ? 1.1 : 0.8 + dr() * 0.5 })); }
+    for (let i = 0; i < 22; i++) { const x = -40 + dr() * 60, z = 6 + dr() * 30; if (!free(x, z, 1.2)) continue; const r = dr(); if (r < 0.7) { rnd(); plant(pickOf(bushes, r / 0.7), x, z, { s: 1.2 + (r % 0.1) * 4 }); continue; } jobs.push(place(r < 0.85 ? 'rock_moss_set_01' : 'rock_moss_set_02', x, z, { s: 0.8 + dr() * 0.5 })); }
     for (const [cx, cz, ry] of [[-6, 21, 0.4], [-27, 12, -0.6]]) { if (!free(cx, cz, 3)) continue; for (let k = 0; k < 4; k++) jobs.push(place(`greek_column#${k === 2 ? 1 : 0}`, cx + Math.cos(ry) * (k - 1.5) * 2.2, cz - Math.sin(ry) * (k - 1.5) * 2.2, { s: 0.75, ry, tree: k === 0 })); jobs.push(place('stone_wall_kit', cx + 1.5, cz + 2, { s: 0.35, ry: ry + 0.3 }), place('stone_wall_kit', cx - 2.5, cz + 1.2, { s: 0.35, ry: ry - 0.5 })); }
   }
-  const gr = mulberry32(seed * 3 + 1); const nP = makeNoise(seed + 77); const clumps = []; const spots = [];
+  const gr = mulberry32(seed * 3 + 1); const nP = makeNoise(seed + 77); const nF = makeNoise(seed + 19);
   const okAt = (x, z) => { const ax = (x - 0.3) / 9.2, az = (z - 0.8) / 3.0; if (arenaClear && ax * ax + az * az < 1.05) return false; if (theme === 'marsh' && z < -2.6 && z > -12.5) return false; if (z > -2 && roadD(x, z) < 1.75) return false; return true; };
-  for (let i = 0; i < 3200 && clumps.length < 600; i++) { const z = -24 + Math.pow(gr(), 0.75) * 54, x = (gr() - 0.5) * (14 + Math.abs(5 - z) * 1.2) - (z > 4 ? (z - 4) * 0.9 : 0); if (!okAt(x, z)) continue; const dense = nP.fbm(x * 0.15, z * 0.15, 3); if (gr() > dense * 1.5) continue; clumps.push({ x, y: hAt(x, z) - 0.03, z, s: 1.5 + gr() * 1.3, ry: gr() * 6.28, k: gr(), v: Math.floor(gr() * 17) }); }
-  jobs.push(grassClumps(g, clumps).catch(() => {}));
-  for (let i = 0; i < 12000; i++) { const z = -28 + Math.pow(gr(), 0.7) * 58, x = (gr() - 0.5) * (14 + Math.abs(5 - z) * 1.25) - (z > 4 ? (z - 4) * 0.9 : 0); if (!okAt(x, z)) continue; const patch = nP.fbm(x * 0.2 + 9, z * 0.2, 3); spots.push([x, hAt(x, z) - 0.02, z, (0.08 + gr() * 0.12) * (0.7 + patch * 0.9) + Math.max(0, -z - 4) * 0.01, gr()]); }
-  g.add(T.grassBlades(spots, { dry: L.grass, colorJitter: 0.1 }));
+  // wind-blown pixel-art grass everywhere except the arena, the road and the water: tuft mixes, flower drifts, a few bushes
+  const flowers = FLOWERS[theme] || FLOWERS.meadow;
+  for (let i = 0; i < 9000 && plants.length < 4200; i++) {
+    const z = -26 + Math.pow(gr(), 0.72) * 56, x = (gr() - 0.5) * (16 + Math.abs(5 - z) * 1.25) - (z > 4 ? (z - 4) * 0.9 : 0); if (!okAt(x, z)) continue;
+    const patch = nP.fbm(x * 0.15, z * 0.15, 3); if (gr() > 0.25 + patch * 1.1) continue;
+    const fl = nF.fbm(x * 0.22 + 31, z * 0.22, 3), k = gr(); const ar = ((x - 0.3) / 9.2) ** 2 + ((z - 0.8) / 3.0) ** 2; const edge = ar < 1.6; // short grass hugging the arena rim
+    let kind;
+    if (fl > 0.6 && k < 0.42) kind = pickOf(flowers, nF.fbm(x * 0.06 + 7, z * 0.06 + 3, 2));
+    else if (gr() < L.grass * (0.5 + patch)) kind = k < 0.3 ? 'seed' : 'dry';
+    else if (gr() < 0.012 && !edge && Math.abs(z - 0.8) > 4) kind = pickOf(BUSHES[theme] || BUSHES.meadow, gr());
+    else kind = edge ? (k < 0.7 ? 'short' : 'clover') : k < 0.38 ? 'tall' : k < 0.64 ? 'short' : k < 0.82 ? 'wispy' : k < 0.88 ? 'seed' : k < 0.95 ? 'clover' : 'fern';
+    plant(kind, x, z, { s: 0.85 + gr() * 0.35, v: gr() });
+  }
+  if (theme === 'marsh') for (let i = 0; i < 300; i++) { // reeds and cattails standing in the shallows of both shores
+    const front = gr() < 0.6; const x = (gr() - 0.5) * 46, z = front ? -2.55 - gr() * 1.2 : -12.6 + gr() * 1.4; if (front && Math.abs(x) < 5 && gr() < 0.55) continue;
+    plants.push({ kind: gr() < 0.3 ? 'cattail' : 'reeds', x, y: -0.1, z, s: 0.85 + gr() * 0.4, v: gr(), flex: 1.1 });
+  }
   g.add(windMotes(theme, hAt));
   await Promise.all(jobs);
+  { const c = new THREE.Color(); for (const it of plants) { let k = 1; for (const [ax, az, r] of aoSpots) { const d = Math.hypot(it.x - ax, it.z - az); if (d < r) k -= (1 - d / r) * 0.32; } const j = (Math.sin(it.x * 12.9898 + it.z * 78.233) * 43758.5453) % 1; c.setRGB(1, 1, 1).offsetHSL(j * 0.025, 0, j * 0.05).multiplyScalar(Math.max(0.6, k)); it.tint = c.clone(); }
+    g.add(plantField(plants, { wind: T.WIND, tick: T.tickWind, cam: CAM, tint: PLANT_TINT[theme] || PLANT_TINT.meadow })); }
   // vertex AO on the ground: darker under trees, rocks and ruins
   { const cc = []; const pp = geo.attributes.position; for (let i = 0; i < pp.count; i++) { const x = pp.getX(i), z = pp.getZ(i); let k = 1; for (const [ax, az, r] of aoSpots) { const d = Math.hypot(x - ax, z - az); if (d < r) k -= (1 - d / r) * 0.38; } k = Math.max(0.5, k); cc.push(k, k * 0.98, k * 0.96); } geo.setAttribute('color', new THREE.Float32BufferAttribute(cc, 3)); }
   const rockTops = rocks.map(([x, z]) => new V3(x, hAt(x, z) + 0.45, z));

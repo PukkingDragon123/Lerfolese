@@ -76,6 +76,18 @@ if (secs.includes('icons')) {
   for (const k of Object.keys(SPR)) { if (only && !only.includes(k)) continue; try { show(sprite(k), k, r, { scale: Z || 4, bgs: ['neutral', 'dark'] }); } catch (e) { const s = document.createElement('pre'); s.textContent = k + ': ' + e.stack; r.appendChild(s); } }
   const ra = section('Particle atlas (16px cells, x3)'); const A = buildAtlas(); show(A.pc, 'atlas', ra, { scale: 3, bgs: ['dark'] });
 }
+if (secs.includes('plants')) {
+  const { PLANT_DEFS, plantFrames, plantAtlas } = await import('../src/gfx/art/plants.js'); const sc = Z || 4;
+  // a little meadow scene: rows of sprites at 1x and zoomed, back to front, on a ground strip (calm frame)
+  { const r = section(`Plants in a patch (frame 2 = calm, x${sc / 2})`); const names = Object.keys(PLANT_DEFS); const W = 360, H = 120; const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#f2c08a'); gr.addColorStop(0.3, '#e8d0a0'); gr.addColorStop(0.31, '#7a9a50'); gr.addColorStop(1, '#4e6e30'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    let s = 9; const rr = () => ((s = (s * 16807) % 2147483647) / 2147483647); const fr = Object.fromEntries(names.map((n) => [n, plantFrames(n)[2].commit()]));
+    for (let row = 0; row < 5; row++) for (let i = 0; i < 16; i++) { const n = names[Math.floor(rr() * names.length)]; const cv = fr[n]; const x = (i / 16) * W + rr() * 12 - 6, y = 46 + row * 17 + rr() * 5; g.drawImage(cv, Math.round(x - cv.width / 2), Math.round(y - cv.height)); }
+    const z = document.createElement('canvas'); z.width = W * (sc / 2); z.height = H * (sc / 2); const zg = z.getContext('2d'); zg.imageSmoothingEnabled = false; zg.drawImage(c, 0, 0, z.width, z.height); r.appendChild(z); }
+  for (const name of Object.keys(PLANT_DEFS)) { if (only && !only.includes(name)) continue; const fr = plantFrames(name); const w = fr[0].w, h = fr[0].h; const strip = document.createElement('canvas'); strip.width = (w + 2) * fr.length; strip.height = h; const g = strip.getContext('2d'); fr.forEach((pc, i) => g.drawImage(pc.commit(), i * (w + 2), 0));
+    const r = section(`${name}: 5 wind frames (x${sc})`); show(strip, name, r, { scale: sc, bgs: ['#6a8a44', 'dark'] }); }
+  const ra = section('Plant atlas (1x)'); const A = plantAtlas(); show(A.canvas, 'atlas', ra, { scale: 1, bgs: ['#6a8a44'] });
+}
 const info = document.createElement('div'); info.textContent = `built in ${(performance.now() - t0).toFixed(0)} ms`; document.body.appendChild(info);
 window.__done = true;
 </script></body></html>

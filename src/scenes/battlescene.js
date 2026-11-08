@@ -20,7 +20,9 @@ import { tweens } from '../core/tween.js';
 import { audio } from '../core/audio.js';
 import { vpick, vrange, clamp, roman } from '../core/util.js';
 import { RNG } from '../core/util.js';
-import { POWERS, BASICS } from '../game/data/cards.js';
+import { POWERS, BASICS, describeCard } from '../game/data/cards.js';
+import { HeldLayer, heldFx } from './manifest.js';
+import { wrapText, PXP } from '../ui3d/craft.js';
 import { battleIntro } from './cinematic.js';
 
 const THEME = { satyr: 'meadow', medusa: 'garden', kobalos: 'gully', minotaur: 'labyrinth', minotaur_king: 'labyrinth', hydra: 'marsh', hydra_elder: 'marsh' };
@@ -40,6 +42,7 @@ export class BattleScene {
     const rng = new RNG((run.seed ^ (run.stats.floors * 7919)) >>> 0);
     this.battle = new Battle({ run, enemies: encounter.enemies, rng, fx: this.fx(), kind: encounter.kind });
     for (const e of this.battle.enemies) this.addEnemyView(e);
+    this.held = new HeldLayer(this); // MANIFEST -> MANIPULATE -> RELEASE (things hung in mid-air until the bell)
     { const names = [...new Set(this.battle.enemies.filter((e) => !e.def.isHead).map((e) => e.def.name))]; this.hudB.setObjective(`Defeat ${names.length > 1 ? names.slice(0, -1).join(', ') + ' & ' + names.at(-1) : names[0] || 'the foe'}`); }
     this.engine.setWorld(this.scene, this.camera);
     this.engine.setFx({ rays: this.stage?.sunPos ? { pos: this.stage.sunPos, strength: 0.25 } : null, exposure: 1.0, bloom: [0.4, 0.5, 0.86], tilt: false, grade: { sat: 1.22, contrast: 1.1, vignette: 0.28, grain: 0.01, warmth: 0.12, lift: [0.0, 0.0, 0.012], gain: [1.03, 1.0, 0.97], rolloff: 0.3, toe: 0.0, ca: 0 } });
@@ -185,7 +188,8 @@ export class BattleScene {
   rayUI(objs) { const r = new THREE.Raycaster(); r.setFromCamera(this.input.ndc, this.engine.ui.camera); return r.intersectObjects(objs, true); }
   rayWorld() {
     const r = new THREE.Raycaster(); r.setFromCamera(this.input.ndc, this.camera);
-    const objs = [this.profHit, this.fieldHit]; for (const [, v] of this.enemyViews) if (v.e.alive) objs.push(v.hit); for (const [, fv] of this.fieldViews) if (fv.hit) objs.push(fv.hit);
+    const held = this.held?.pick(); if (held) return held;
+    const objs = [this.profHit, this.fieldHit, ...(this.held?.hits() || [])]; for (const [, v] of this.enemyViews) if (v.e.alive) objs.push(v.hit); for (const [, fv] of this.fieldViews) if (fv.hit) objs.push(fv.hit);
     const h = r.intersectObjects(objs, false); return h.length ? h[0].object.userData.target : null;
   }
   cardMeshes() { const out = []; for (const s of this.hand.slots) if (!this.hand.drag || s !== this.hand.drag.slot) for (const v of s.views) out.push(v.mesh); return out; }
@@ -196,25 +200,29 @@ export class BattleScene {
         if (S.done || S.hand.drag) return;
         const hits = S.rayUI(S.cardMeshes()); const s = S.hand.pick(hits);
         if (s !== S.hand.hover) { S.hand.hover = s; S.hand.layout(); if (s) { audio.play('ui_hover', { vol: 0.5 }); S.showCardTip(s); } else S.tooltip.hide(); }
+        if (!s) S.showHeldTip(S.held?.pick());
         S.engine.canvas.classList.toggle('show-cursor', true);
       },
       dragstart() {
         if (S.done || S.battle.phase !== 'player' || S.busy) return;
-        const s = S.hand.pick(S.rayUI(S.cardMeshes())); if (!s) return;
+        const s = S.hand.pick(S.rayUI(S.cardMeshes())); if (!s) { if (S.held?.beginAim()) { S.tooltip.hide(); return true; } return; }
         S.hand.drag = { slot: s }; S.hand.hover = null; S.tooltip.hide(); S.hand.layout(); audio.play('card_pick');
         return true;
       },
-      drag() { if (S.hand.drag) S.updateDrop(); },
+      drag() { if (S.hand.drag) S.updateDrop(); else if (S.held?.aiming) { const w = S.rayWorld(); S.held.aimMove(w?.type === 'enemy' ? w.uid : null); } },
       shake() { const d = S.hand.drag; if (!d || d.slot.slot.cards.length < 2) return; const uid = d.slot.uid; S.hand.drag = null; S.dropTarget = null; S.preview.hide(); S.battle.split(uid); audio.play('paper_rustle'); audio.play('card_fan'); S.syncHand(); S.bark('player', vpick(['Fine. Back to basics.', 'Decombobulated.', 'Unmixing. Very scientific.'])); },
       async dragend(e) {
-        const d = S.hand.drag; if (!d) return; S.hand.drag = null; S.preview.hide(); let tgt = S.dropTarget; S.dropTarget = null; S.hand.dropTarget = null;
+        if (S.held?.aiming) { const w = S.rayWorld(); S.held.endAim(w?.type === 'enemy' ? w.uid : null); return; }
+        const d = S.hand.drag; if (!d) return; S.hand.drag = null; S.preview.hide(); S.held?.ghost(null); let tgt = S.dropTarget; S.dropTarget = null; S.hand.dropTarget = null;
         if (!tgt && e.flick && e.vy < -300) tgt = S.flickTarget(e);
+        if (tgt?.type === 'air') { const pos = S.held.airPoint(); tgt = { type: 'air', pos: { x: pos.x, y: pos.y, z: pos.z }, aim: S.held.nearestFoe(pos) }; }
+        if (tgt?.type === 'held' && d.slot.slot.cards.some((c) => c.type !== 'power' && (c.type === 'move' ? c.comps.some((k) => /force/.test(k.id)) : /force/.test(c.id)))) { const v = S.held.views.get(tgt.uid); tgt = { ...tgt, aim: v ? S.held.nearestFoe(v.home) : undefined }; } // a push re-aims at the nearest foe
         if (tgt?.type === 'combine') { const ok = S.battle.combine(d.slot.uid, tgt.slot.uid); if (ok) { audio.play('card_snap'); S.snapFX(tgt.slot); } else { audio.play('ui_error'); S.bark('player', 'Laws do not mix with matter. Or each other. Rules.'); } S.syncHand(); return; }
         if (tgt && tgt.type !== 'combine') { await S.playSlot(d.slot, tgt); return; }
         // reorder within hand
         const p = S.ui.pointerPlane(4); const idx = S.hand.slots.filter((s) => s !== d.slot && s.base.x < p.x).length; S.battle.reorder(d.slot.uid, idx); audio.play('card_place'); S.syncHand();
       },
-      dragcancel() { if (S.hand.drag) { S.hand.drag = null; S.syncHand(); } },
+      dragcancel() { S.held?.ghost(null); if (S.held?.aiming) S.held.endAim(null); if (S.hand.drag) { S.hand.drag = null; S.syncHand(); } },
       click(e) {
         if (S.done) return;
         const s = S.hand.pick(S.rayUI(S.cardMeshes())); if (s && s.slot.cards.length > 1 && e.long) { S.battle.split(s.uid); S.syncHand(); return true; }
@@ -235,7 +243,7 @@ export class BattleScene {
     else { const w = this.rayWorld(); if (w) tgt = w; }
     const changed = JSON.stringify(tgt && { ...tgt, slot: tgt.slot?.uid }) !== JSON.stringify(this.dropTarget && { ...this.dropTarget, slot: this.dropTarget.slot?.uid });
     this.dropTarget = tgt; this.hand.dropTarget = tgt?.type === 'combine' ? tgt : null;
-    this.hudB.setWellHot(tgt?.type === 'bin');
+    this.hudB.setWellHot(tgt?.type === 'bin'); this.held?.ghost(tgt?.type === 'air' && !this.battle.manifestBlock(d.slot.slot) ? d.slot : null);
     for (const [, v] of this.enemyViews) v.api.root.userData.hl = tgt?.uid === v.e.uid;
     if (changed) { this.hand.layout(); if (tgt) audio.play('ui_hover', { vol: 0.35 }); }
     const p = this.ui.pointerPlane(8);
@@ -244,7 +252,7 @@ export class BattleScene {
   }
   previewLines(slotV, tgt) {
     const B = this.battle; const s = slotV.slot;
-    if (!tgt) { const mv = B.moveOf(s); if (!mv) return null; return [[[mv.name, '#3a2410']], [['Drop on a foe, yourself, or the ground', '#8a6a44']]]; }
+    if (!tgt) { const mv = B.moveOf(s); if (!mv) return null; return [[[mv.name, '#3a2410']], [[B.manifestBlock(s) ? 'Drop on a foe, yourself, the ground, or a held object' : 'Drop on a foe, yourself, the ground, or up in the air', '#8a6a44']]]; }
     if (tgt.type === 'combine') { const tmp = { uid: 'x', cards: [...tgt.slot.slot.cards, ...s.cards] }; if (tmp.cards.some((c) => c.type === 'power')) return [[['Laws do not combine', '#8f2a2e']]]; const mv = B.moveOf(tmp); const a = mv.attack; return [[['COMBINE → ', '#8f2a2e'], [mv.name, '#3a2410']], [[a.perHit ? `${a.m}kg × ${a.v}m/s = ${a.perHit}${a.hits > 1 ? ' ×' + a.hits : ''}` : describeSelf(mv.self).slice(0, 2).join(', '), '#2a160c']]]; }
     const pv = B.preview(s.uid, tgt);
     if (pv.kind === 'bin') return [[[pv.text, pv.ok ? '#2a160c' : '#8f2a2e']]];
@@ -253,7 +261,9 @@ export class BattleScene {
     const mv = pv.move;
     if (pv.kind === 'attack') { const e = B.enemies.find((x) => x.uid === tgt.uid); const est = pv.est; const ex = describeAttack(mv.attack).slice(mv.attack.perHit > 0 ? 1 : 0, 3).join(' · '); return [[['ATTACK ', '#8f2a2e'], [e.def.name, '#3a2410'], [`  ${est.total}${mv.attack.spread ? ' each' : ''}`, '#c8443a']], [[mv.name + (ex ? ' · ' + ex : ''), '#2a160c']]]; }
     if (pv.kind === 'self') return [[['SELF ', '#2d6e6a'], [mv.name, '#3a2410']], [[describeSelf(mv.self).join(' · '), '#2a160c']]];
-    if (pv.kind === 'field') return [[['FIELD ', '#5f8a3a'], [mv.field.name, '#3a2410']], [[fieldDesc(mv.field), '#2a160c']]];
+    if (pv.kind === 'field') return [[['FIELD ', '#5f8a3a'], [mv.field.name, '#3a2410']], [[fieldDesc(mv.field), '#2a160c']], ...(B.manifestBlock(s) ? [] : [[['Higher up, in the air: MANIFEST it instead', '#8a6a44']]])];
+    if (pv.kind === 'manifest') { const a = mv.attack; return [[['MANIFEST ', '#4e2e7e'], [mv.name, '#3a2410']], [['It hangs in the air on a gravity string.', '#2a160c']], [[`Now ${a.perHit ? `${a.m}kg × ${a.v}m/s = ${a.total}` : describeAttack(a)[0] || 'a charge'}. Drop Laws on it; the bell releases it.`, '#5a3622']]]; }
+    if (pv.kind === 'manipulate') { const a = mv.attack; const t = pv.target; return [[['MANIPULATE → ', '#4e2e7e'], [mv.name, '#3a2410']], [[a.perHit ? `${a.m}kg × ${a.v}m/s${a.hits > 1 ? ' ×' + a.hits : ''}` : describeAttack(a)[0] || '', '#2a160c'], [t && pv.est ? `  → ${t.def.name} ${pv.est.total}` : '', '#c8443a']], [[describeAttack(a).slice(a.perHit ? 1 : 0, 3).join(' · ') || 'Winds it up: +1 m/s', '#5a3622']]]; }
     if (pv.kind === 'object') return [[['USE ON OBJECT', '#6b4c9a']], [[pv.text, '#2a160c']]];
     return null;
   }
@@ -263,7 +273,19 @@ export class BattleScene {
     if (c.type === 'power') lines = [[[POWERS[c.id].name, '#3a2410']], [['Drop on Sir Isaac to enact this Law.', '#2a160c']], [[POWERS[c.id].flavor, '#8a6a44']]];
     else if (s.slot.cards.length > 1) lines = [[[mv.name, '#3a2410']], [['Drag to a target. Shake to split.', '#2a160c']], [[`ATK ${mv.attack.perHit}${mv.attack.hits > 1 ? '×' + mv.attack.hits : ''} · SELF ${describeSelf(mv.self).slice(0, 2).join(', ')}`, '#5a3622']]];
     else lines = [[[mv.name, '#3a2410']], [['Stack cards to combine. m × v = damage.', '#2a160c']], [[(c.petrified ? 'PETRIFIED: acts as Stone this battle.' : '') || flavorOf(c), '#8a6a44']]];
-    const b = s.base; this.tooltip.show(lines, clamp(b.x + 6.4, -this.ui.W + 4, this.ui.W - 4.5), b.y + 3.5, 10);
+    const lore = s.slot.cards.length === 1 && !c.petrified ? describeCard(c) : null; const W = 19;
+    if (lore) { // the full entry: alone, combined, manifested, as a manipulator, and a line of flavour
+      const maxT = Math.round(W * PXP) - 30; lines = [[[lore.title, '#3a2410'], [lore.kind ? `  ${lore.kind}` : '', '#7a5638']]];
+      for (const [label, text] of lore.lines) wrapText(`${label}: ${text}`, 'handS', maxT).forEach((l, i) => lines.push(i ? [[l, '#2a160c']] : [[label + ':', '#8a1a1c'], [l.slice(label.length + 1), '#2a160c']]));
+      lines.push([[lore.flavor, '#8a6a44']]);
+    }
+    const b = s.base; this.tooltip.show(lines, clamp(b.x + (lore ? 9 : 6.4), -this.ui.W + 4, this.ui.W - 4.5), b.y + (lore ? 6.5 : 3.5), 10, lore ? { maxW: W } : {});
+  }
+  // hovering something held in the air: its Move, its target, how to aim and release it
+  showHeldTip(h) {
+    if (h?.uid === this._heldTip) return; this._heldTip = h?.uid || null; if (!h) { this.tooltip.hide(); return; }
+    const o = this.battle.held.find((x) => x.uid === h.uid); if (!o) return; const pv = this.battle.heldPreview(o); const a = pv.mv.attack; const v = this.held.views.get(o.uid); const p = this.engine.worldToUI(v.g.position);
+    this.tooltip.show([[[pv.mv.name, '#3a2410']], [[a.perHit ? `${a.m}kg × ${a.v}m/s${a.hits > 1 ? ' ×' + a.hits : ''}` : describeAttack(a)[0] || '', '#2a160c'], [pv.target && pv.est ? `  → ${pv.target.def.name} ${pv.est.total}` : '', '#c8443a']], [['Drop Laws on it to change it. Drag it onto a foe to aim.', '#5a3622']], [['The bell releases it.', '#8a6a44']]], clamp(p.x + 4.5, -this.ui.W + 4, this.ui.W - 4.5), p.y + 2.5, 10);
   }
   toast(text) { hud.toast(text); }
 
@@ -333,6 +355,7 @@ export class BattleScene {
   fx() {
     const S = this; const W = () => S.ui.W, H = () => S.ui.H;
     return {
+      ...heldFx(S),
       async battleStart(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); await S.chapterCard(B); await tweens.wait(0.25); const lead = B.enemies.find((e) => !e.def.isHead); if (lead) S.bark(lead, vpick(lead.def.barks.start), 2.6); await tweens.wait(0.8); S.bark('player', vpick(PLAYER_BARKS.start), 2.4); },
       async playerTurn(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); S.hudB.setTurn(B.turn); S.showBanner('Your Turn', `TURN ${roman(B.turn)}`); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); },
       async drew(slots) { S.syncHand(); audio.play('card_slide', { vol: 0.8 }); for (let i = 0; i < Math.min(slots.length, 6); i++) audio.play('card_slide', { delay: i * 0.07, vol: 0.6 }); await tweens.wait(0.12); },
