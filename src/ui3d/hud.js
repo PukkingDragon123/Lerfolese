@@ -3,7 +3,7 @@
 // pinned parchment notes (tooltips) and the battle / map instrument cluster.
 import * as THREE from 'three';
 import { uiRig, uiPos, disposeTree } from './craft.js';
-import { Paper, NoteTip, Pennant } from './objects.js';
+import { Paper, NoteTip, Pennant, ChapterCard } from './objects.js';
 import { Manometer, WardShield, Pouch, Bell, Bin, LawTag, EnemyBoard, roman } from './hudparts.js';
 import { audio } from '../core/audio.js';
 
@@ -15,7 +15,7 @@ class Hud {
   attach(engine, input) {
     if (this.root) return this; this.engine = engine; this.input = input || window.__game?.input || null;
     uiRig(engine); this.root = new THREE.Group(); this.root.name = 'hud'; engine.ui.scene.add(this.root);
-    this.pennant = new Pennant(); this.root.add(this.pennant.group); engine.add(this); return this;
+    this.pennant = new Pennant(); this.root.add(this.pennant.group); this.chapterCard = new ChapterCard(); this.root.add(this.chapterCard.group); engine.add(this); return this;
   }
   get W() { return this.engine.uiW; } get H() { return this.engine.uiH; }
   pointer(z = 1) { const cam = this.engine.ui.camera; const ndc = this.input?.ndc || { x: 0, y: 0 }; _v.set(ndc.x, ndc.y, 0.5).unproject(cam).sub(cam.position).normalize(); return this.ptr.copy(cam.position).addScaledVector(_v, (z - cam.position.z) / _v.z); }
@@ -23,22 +23,25 @@ class Hud {
   // important events become pinned slips; the rest is shown by the scene itself (numbers, barks, banners)
   feed(text, kind = '') { if (kind === 'arc') this.toast(plain(text)); }
   toast(text) {
-    this.attach(window.__game?.engine); const p = new Paper({ font: 'handS', maxW: 13, pin: true, kind: 'note' }); p.set([String(text)]);
+    this.attach(window.__game?.engine); const tx = String(text); const p = new Paper({ font: 'handS', maxW: 13, pin: true, kind: 'note' }); p.set([[[tx[0] || '', '#8a1a1c'], [tx.slice(1), '#2a160c']]]); // chronicle caption with a rubricated initial
     const slot = this.slips.length; const y = this.H - 4.4 - slot * 1.5; p.place(0, this.H + 3, 9); p.group.visible = true; p.st.set(1); p.restRz = (Math.random() - 0.5) * 0.8; this.root.add(p.group);
     const s = { paper: p, y, t: 0, life: 2.8, fall: null }; this.slips.push(s); audio.play('paper_rustle', { vol: 0.5 });
     while (this.slips.filter((x) => !x.fall).length > 3) { const o = this.slips.find((x) => !x.fall); o.life = 0; }
     return s;
   }
   banner(title, sub = '', kind = '', hold = 0.9) { this.attach(window.__game?.engine); this.pennant.y0 = this.H + 0.25; return this.pennant.show(title, plain(sub), kind, hold); }
-  bubble(text, kind = '') {
-    this.attach(window.__game?.engine); const p = new Paper({ font: 'handS', maxW: 7.5, tail: kind === 'foe' ? 'right' : true, pin: false, kind: 'scrap', tone: kind === 'foe' ? 3 : 4 }); p.set([String(text)]);
+  // battle start: an illuminated storybook leaf slides onto the table ("Chapter IV / In Which ...")
+  chapter(num, title, note = '') { this.attach(window.__game?.engine); return this.chapterCard.show(roman(num), title, note); }
+  skipChapter() { this.chapterCard?.away(); }
+  bubble(text, kind = '', speaker = null) {
+    this.attach(window.__game?.engine); const p = new Paper({ font: 'handS', maxW: 7.5, tail: kind === 'foe' ? 'right' : true, pin: false, kind: 'scrap', tone: kind === 'foe' ? 3 : 4, title: 'head' }); p.set(speaker ? [[[`Quoth ${speaker}`, '#8a1a1c']], [[String(text), '#2a160c']]] : [String(text)], { title: !!speaker });
     p.group.visible = true; p.st.set(0.2); p.st.target = 1; p.rz.kick((Math.random() - 0.5) * 20); this.root.add(p.group);
     const b = { paper: p, kind, at: (x, y) => { const off = kind === 'foe' ? -(p.w / 2 - 22 / 24 - 0.25) : p.w / 2 - 14 / 24 - 0.25; const k = 33 / 40; p.baseScale = k; p.group.position.set((x + off) * k, (y + p.h - 0.22) * k, 7); }, fall: null, remove: () => { this.root.remove(p.group); p.dispose(); this.speech.delete(b); }, drop: () => { if (!b.fall) b.fall = { vy: 1.5, vx: (Math.random() - 0.5) * 2, t: 0 }; } };
     this.speech.add(b); return b;
   }
   update(dt) {
     if (!this.root) return; const ptr = this.pointer(6);
-    this.pennant.update(dt);
+    this.pennant.update(dt); this.chapterCard.update(dt);
     let i = 0;
     for (const s of this.slips) {
       const p = s.paper; s.t += dt;
@@ -128,6 +131,7 @@ export class BattleHUD {
     if (law !== this._law) { this._law = law; if (law) this.lawTip.show([[[law.name, '#3a2410']], ...(law.tip ? [[[law.tip, '#2a160c']]] : [])], law.group.position.x + 4.5, law.group.position.y - 2.5, 9); else this.lawTip.hide(); }
   }
   click() {
+    if (hud.chapterCard?._done) { hud.skipChapter(); return true; }
     const hit = this.ray([...this.bell.hit, ...this.bin.hit]); if (!hit) return;
     if (this.bell.hit.includes(hit.object)) { if (this.bell.enabled) this.onEnd?.(); else { this.bell.rz.kick(4); audio.play('ui_error'); } return true; }
     if (this.bin.hit.includes(hit.object)) { this.bin.kick(0.5); this.onWell?.(); return true; }
@@ -141,4 +145,14 @@ export class BattleHUD {
     this.engine.remove(this); this.engine.ui.scene.remove(this.root); if (this.handler) window.__game.input.remove(this.handler); this.lawTip?.dispose(); disposeTree(this.root);
     for (const p of this.plates) p.dispose(); this.plates.clear();
   }
+}
+
+// chapter titles in the manner of an old chronicle
+const WHO = { satyr: 'a Drunken Satyr', kobalos: 'a Thieving Kobalos', medusa: 'the Gorgon Medusa', minotaur: 'the Minotaur', minotaur_king: 'the Minotaur King', hydra: 'the Hydra', hydra_elder: 'the Elder Hydra' };
+const DOES = { satyr: 'Objects to Physics', kobalos: 'Pockets the Laws of Motion', medusa: 'Takes a Hard Look at Science', minotaur: 'Charges Headlong at Reason', minotaur_king: 'Will Not Be Reasoned With', hydra: 'Grows More Heads Than Arguments', hydra_elder: 'Has Heard All Your Theories Before' };
+export function chapterTitle(foes) {
+  const ids = [...new Set(foes.map((e) => e.id))]; const name = (id, d) => WHO[id] || ('the ' + (d || id));
+  const names = ids.slice(0, 2).map((id) => name(id, foes.find((e) => e.id === id)?.def?.name)); const lead = ids[0];
+  if (ids.length === 1) return `In Which ${names[0]} ${DOES[lead] || 'Objects to Physics'}`;
+  return `In Which ${names.join(' and ')}${ids.length > 2 ? ' and Company' : ''} Conspire Against Physics`;
 }

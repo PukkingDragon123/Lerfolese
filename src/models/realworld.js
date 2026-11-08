@@ -7,6 +7,7 @@ import { loadModel, loadPBR, variantCount } from '../gfx/assets.js';
 import { mulberry32 } from '../core/util.js';
 import { makeNoise } from '../gfx/pixel.js';
 import * as T from './toon.js';
+import { storybookBackdrop } from './storybook.js';
 
 const V3 = THREE.Vector3;
 const GROUND = { meadow: 'ground_meadow', garden: 'ground_dry_grass', gully: 'ground_rocky_trail', labyrinth: 'ground_dry_dirt', marsh: 'mud_mossy', guardian: 'ground_dry_grass' };
@@ -64,7 +65,7 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   const sk = T.SKY[theme] ? theme : 'meadow';
   const [groundSrc, arenaSrc] = await Promise.all([loadPBR(GROUND[theme] || 'ground_meadow', { repeat: 18 }), loadPBR(ARENA[theme] || 'ground_dry_grass', { repeat: 8 })]);
   // sky: painted gradient, cel cumulus, layered mountains (no photo background)
-  g.add(T.animeSky(sk, SUN_SKY), T.animeClouds(sk, { seed, sunDir: SUN_SKY, cam: CAM }), T.mountainBackdrop(sk, { seed, sunDir: SUN_SKY, cam: CAM }));
+  g.add(storybookBackdrop(theme, { seed, cam: CAM })); // medieval storybook: gilded Sol / moon with a face, vellum sky, scenery flats
   // ground: gently undulating, rising towards the back so the horizon is softened
   const n = makeNoise(seed + 3); const basin = theme === 'marsh' ? (x, z) => Math.min(1, Math.max(0, Math.min(z + 12.3, -2.9 - z) / 1.2)) * Math.min(1, Math.max(0, 22 - Math.abs(x)) / 2) : () => 0;
   const hAt = (x, z) => { const far = Math.max(0, -z - 8) * 0.06; const y = (n.fbm(x * 0.08 + 9, z * 0.08, 4) - 0.5) * (Math.abs(z) > 3.5 || Math.abs(x) > 9 ? 0.9 : 0.12) + far * far * 1.3; const b = basin(x, z); return y * (1 - b) - 0.35 * b; };
@@ -87,7 +88,6 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   for (let i = 0; i < 9; i++) jobs.push(place(rnd() < 0.5 ? 'searsia_lucida' : 'shrub_01', (rnd() - 0.5) * 30, -4 - rnd() * 4, { s: rnd() < 0.5 ? 1.1 : 3.2 }));
   for (let i = 0; i < 8; i++) jobs.push(place(rnd() < 0.5 ? 'rock_moss_set_01' : 'rock_moss_set_02', (rnd() - 0.5) * 28, -3.5 - rnd() * 5, { s: 0.6 + rnd() * 0.6, y: -0.1 }));
   for (let i = 0; i < 60; i++) { const x = (rnd() - 0.5) * 34, z = -9 + rnd() * 15; if (Math.abs(x - 0.3) < 8.5 && Math.abs(z - 0.8) < 2.6) continue; jobs.push(place(i % 4 === 0 ? (theme === 'marsh' ? 'nettle_plant' : rnd() < 0.5 ? 'celandine_01' : 'flower_gazania') : i % 7 === 0 ? 'fern_02' : 'grass_clumps', x, z, { s: 1.6 + rnd() * 1.4 })); }
-  jobs.push(place('cliff_mountainside', -34, -58, { s: 2.6, far: true, ry: 0.9 }), place('cliff_mountainside', 38, -62, { s: 2.8, far: true, ry: -2.2 }));
   // theme dressing
   if (theme === 'garden' || theme === 'guardian') {
     for (let i = 0; i < 5; i++) jobs.push(place('greek_column', -12 + i * 6 + rnd(), -5.5 - rnd() * 2, { s: 0.75, tree: i % 2 === 0 }));

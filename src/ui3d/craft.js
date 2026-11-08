@@ -236,6 +236,7 @@ export const FONT = {
   title: { font: 'Jacquard', size: 24, weight: 400, lineH: 26, base: 19 }, head: { font: 'Jacquard', size: 16, weight: 400, lineH: 17, base: 12 },
   hand: { font: 'Caveat', size: 18, weight: 700, lineH: 18, base: 13 }, handS: { font: 'Caveat', size: 16, weight: 700, lineH: 16, base: 12 },
   print: { font: 'VT323', size: 16, weight: 400, lineH: 14, base: 11 }, caps: { font: 'Silkscreen', size: 8, weight: 400, lineH: 9, base: 7 }, capsB: { font: 'Silkscreen', size: 8, weight: 700, lineH: 9, base: 7 },
+  cap: { font: 'Jacquard', size: 48, weight: 400, lineH: 46, base: 36 },
   tiny: { font: 'Tiny5', size: 8, weight: 400, lineH: 8, base: 6 }, num: { bitmap: NUMG, scale: 1, lineH: 11, base: 9 }, num2: { bitmap: NUMG, scale: 2, lineH: 20, base: 18 }, bold: { font: 'Pixelify', size: 13, weight: 700, lineH: 13, base: 10 }, big: { font: 'Pixelify', size: 26, weight: 700, lineH: 24, base: 19 },
 };
 const gCanvas = document.createElement('canvas'); const gCtx = gCanvas.getContext('2d', { willReadFrequently: true });
@@ -483,3 +484,39 @@ export function uiPos(o, x, y, z = 1) { const k = (40 - z) / 40; o.position.set(
 export function disposeTree(root) {
   root.traverse((o) => { if (!o.isMesh) return; for (const m of Array.isArray(o.material) ? o.material : [o.material]) { if (!m?.userData?.own) continue; m.map?.dispose(); m.dispose(); } });
 }
+
+// ---------------------------------------------------------------- illuminated manuscript work (gold leaf, vines, drop caps, marginalia)
+export function goldRule(S, x0, y, x1) { for (let x = x0; x <= x1; x++) { S.set(x, y, RAMP.gold, (x % 5 === 0) ? 5 : 4); S.set(x, y + 1, RAMP.gold, 2); } }
+// a green vine with leaves, red berries and gold bezants climbing inside a gold-ruled frame
+export function vineBorder(S, x0, y0, w, h, { inset = 4, seed = 3 } = {}) {
+  const X0 = x0 + inset, Y0 = y0 + inset, X1 = x0 + w - 1 - inset, Y1 = y0 + h - 1 - inset; const G = GR.leaf;
+  goldRule(S, X0, Y0, X1); goldRule(S, X0, Y1 - 1, X1); for (let y = Y0; y < Y1; y++) { S.set(X0, y, RAMP.gold, 4); S.set(X0 + 1, y, RAMP.gold, 2); S.set(X1 - 1, y, RAMP.gold, 4); S.set(X1, y, RAMP.gold, 2); }
+  const run = (pts) => { // stem along a polyline of [u, x, y] samples, leaves alternate sides
+    pts.forEach(([u, x, y, nx, ny], i) => { const o = Math.round(Math.sin(u * 0.35 + seed) * 1.6); const X = Math.round(x + nx * o), Y = Math.round(y + ny * o); S.set(X, Y, G, 2);
+      if (i % 9 === 0) { const sd = (i / 9) % 2 ? 1 : -1; for (const [a, b, t] of [[1, 0, 3], [2, 0, 4], [1, 1, 3], [2, 1, 3], [3, 1, 4], [2, 2, 2]]) S.set(X + nx * sd * (a) + (nx ? 0 : b * sd), Y + ny * sd * (a) + (ny ? 0 : b * sd), G, t); }
+      if (i % 23 === 11) { S.set(X + 1, Y - 1, RAMP.wax, 3); S.set(X + 2, Y - 1, RAMP.wax, 2); S.set(X + 1, Y - 2, RAMP.wax, 4); }
+      if (i % 31 === 20) for (const [a, b, t] of [[0, 0, 4], [1, 0, 3], [0, 1, 3], [1, 1, 2]]) S.set(X - nx * 3 + a, Y - ny * 3 + b, RAMP.gold, t); });
+  };
+  const side = []; for (let y = Y0 + 4; y < Y1 - 4; y++) side.push([y, X0 + 5, y, 1, 0]); run(side);
+  const side2 = []; for (let y = Y0 + 4; y < Y1 - 4; y++) side2.push([y + 7, X1 - 5, y, -1, 0]); run(side2);
+  const bot = []; for (let x = X0 + 8; x < X1 - 8; x++) bot.push([x, x, Y1 - 5, 0, -1]); run(bot);
+}
+// illuminated initial: gold-leaf frame, coloured field with white filigree, the letter in raised gold
+export function dropCap(S, x, y, size, letter, { field = GR.blue, seed = 1 } = {}) {
+  for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) {
+    const e = Math.min(i, j, size - 1 - i, size - 1 - j);
+    if (e < 3) S.set(x + i, y + j, RAMP.gold, e === 0 ? (i === 0 || j === 0 ? 5 : 1) : e === 1 ? 4 : 2);
+    else S.set(x + i, y + j, field, ((i + j) % 6 === 0 && (i * 3 + j) % 4 === 0) ? 4 : (fbm(i * 0.2, j * 0.2, seed) > 0.6 ? 3 : 2));
+  }
+  for (let k = 0; k < size - 8; k += 3) { S.set(x + 4 + k, y + size - 5 - Math.round(Math.sin(k * 0.5) * 1.5), field, 5); }
+  const f = size >= 44 ? 'cap' : 'title'; const F = FONT[f]; const m = runMask(letter, F); const lx = x + Math.round((size - m.w) / 2), by = y + Math.round(size / 2 + (F.base - F.lineH / 2)) + (f === 'cap' ? 3 : 1);
+  inscribe(S, letter, lx, by, f, 'gild', { ramp: RAMP.gold });
+}
+// marginalia: little ink doodles a bored monk would draw (manicule, snail knight's snail, apple, vine curl)
+const DOODLES = {
+  manicule: ['##..............', '#.#####.........', '#......#######..', '#.............##', '#......#######..', '#.....#.........', '#......####.....', '#.##...#........', '##..###.........'],
+  snail: ['....####......', '...#....#.....', '..#..##..#....', '..#.#..#.#....', '..#.#.##.#..#.', '..#..#..#..#..', '#..#....#.#...', '.###########..'],
+  apple: ['....#....', '....#.##.', '..##.#...', '.#.....#.', '#.......#', '#.......#', '#.......#', '.#.....#.', '..#.#.#..', '...#.#...'],
+  curl: ['......##........', '....##..#.......', '...#..#..#..##..', '...#.#...#.#..#.', '....#...#..#.#..', '#......#....#...', '.######.........'],
+};
+export function doodle(S, name, x, y, color = '#4a2c1a') { const g = DOODLES[name]; if (!g) return; g.forEach((row, j) => { for (let i = 0; i < row.length; i++) if (row[i] === '#') S.pix(x + i, y + j, color); }); if (name === 'apple') { S.pix(x + 6, y + 1, '#3e6a22'); S.pix(x + 7, y + 1, '#3e6a22'); S.pix(x + 3, y + 5, '#9e2218'); S.pix(x + 3, y + 6, '#9e2218'); } }

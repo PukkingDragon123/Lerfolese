@@ -8,7 +8,8 @@
 import * as THREE from 'three';
 import * as K from '../charkit.js';
 import { Sculpt } from './flesh.js';
-import { makeBones, skinned, onBone, skinAttrs, sample, add, apply, battleRig } from './rig.js';
+import { Spring } from '../../core/tween.js';
+import { makeBones, skinned, onBone, skinAttrs, sample, add, apply, battleRig, paintWounds, woundMat, woundTex } from './rig.js';
 
 const { hex } = K;
 export const BONES = [
@@ -143,12 +144,11 @@ function painter(S, king) {
     }
     if (tag === 'scar') { K.tone(hex('#c8988a'), K.band(L + 0.1, 4), o.col); return; }
     const col = P[tag] || P.hide;
-    if (FURRY.has(tag)) { // hand-painted clumps flowing down the body: lit tops, scalloped dark lower edges
-      const sz = tag === 'curls' ? 0.018 : tag === 'head' || tag === 'brow' ? 0.022 : 0.034, st = tag === 'curls' ? 1.1 : 1.9;
+    if (FURRY.has(tag)) { // anime fur: flat lit planes, long clumps flowing down, a dark strand line under each clump, lit tips
+      const sz = tag === 'curls' ? 0.02 : tag === 'head' || tag === 'brow' ? 0.028 : 0.05, st = tag === 'curls' ? 1.1 : 2.6;
       const Y = c.y / (sz * st); const C = K.cells3(c.x / sz, Y, c.z / sz); const dy = Y - C[3];
-      let F = L + dy * 0.42 + (C[5] - 0.5) * 0.12; if (C[1] - C[0] < 0.08 && dy < 0.05) F -= 0.26;
-      // fringe where fur meets bare hide: lighter tips
-      if (q.tag2 && !FURRY.has(q.tag2) && q.d2 - q.d < 0.015) F += 0.08;
+      let F = L + 0.04; if (C[1] - C[0] < 0.06 && dy < -0.05) F -= 0.24; else if (dy > 0.32 && L > 0.5) F += 0.1;
+      if (q.tag2 && !FURRY.has(q.tag2) && q.d2 - q.d < 0.012) F += 0.08;
       K.tone(col, K.band(F, 4), o.col); o.ro = 0.95; return;
     }
     if (tag === 'muzzle' || tag === 'jaw') { const C = K.cells3(c.x / 0.012, c.y / 0.012, c.z / 0.012); K.tone(col, K.band(L + 0.06 + (C[1] - C[0] < 0.06 ? -0.12 : 0), 4), o.col); if (q.tag2 === 'mouth' && q.d2 < 0.012) K.tone(P.mouth, 0.3, o.col); return; }
@@ -262,17 +262,23 @@ const CACHE = {};
 function asset(king) {
   const id = king ? 'minotaur_king' : 'minotaur'; if (CACHE[id]) return CACHE[id];
   const S = sculpt(king); const names = BONES.map((b) => b[0]);
-  const geo = S.build({ cell: 0.026, bones: names, atlas: 1024 });
+  const geo = S.build({ cell: 0.022, bones: names, atlas: 1024, target: 15000 });
   const surf = K.surface('beast-' + id, { geometry: geo, isSkinnedMesh: false, skeleton: { bones: names.map((name) => ({ name })) } }, 1024);
   const mat = K.paintedMat(K.paintSurface(surf, painter(S, king)));
-  return (CACHE[id] = { geo, mat });
+  // gashes across chest, belly, arms, thighs, flank and brow, deepest last
+  const sites = [[[0.22, 2.1, 0.27], [0.3, 0.2, 1], [1, -0.6, 0]], [[-0.1, 1.72, 0.24], [0, 0, 1], [1, 0.4, 0]], [[0.68, 1.95, 0.08], [0.6, 0, 0.8], [0.3, -1, 0]], [[-0.3, 1.18, 0.2], [-0.4, 0, 1], [0.2, -1, 0]],
+    [[-0.36, 1.9, 0.12], [-0.8, 0, 0.6], [0, -1, 0.3]], [[0.05, 2.0, -0.32], [0, 0.2, -1], [1, 0.3, 0]], [[-0.65, 1.95, 0.05], [-0.7, 0, 0.7], [0.3, 1, 0]], [[0.3, 1.25, 0.24], [0.3, 0, 1], [0.4, -1, 0]],
+    [[0.12, 1.92, 0.3], [0.2, 0.1, 1], [-1, -0.8, 0]], [[0.1, 2.68, 0.36], [0.3, 0.7, 0.7], [1, -0.3, 0]], [[-0.2, 2.25, 0.18], [-0.3, 0.6, 0.7], [1, 0.2, 0]], [[0.36, 1.6, 0.08], [0.9, 0, 0.4], [0, -1, 0.2]]]
+    .map(([p, n, dir], i) => ({ p, n, dir, len: 0.12 + (i % 3) * 0.05, wid: 0.016 + (i % 2) * 0.008 }));
+  const wq = {}; const wound = K.paintSurface(surf, paintWounds(surf, { sites, seed: 3, select: (c) => { S.query(c.x, c.y, c.z, wq); return !['eye', 'hoof', 'cleft', 'nose', 'nostril', 'mouth'].includes(wq.tag); } }));
+  return (CACHE[id] = { geo, mat, wound: woundTex(wound.canvas) });
 }
 
 export function createMinotaur(seed = 1, king = false) {
   const A = asset(king); const root = new THREE.Group(); root.name = king ? 'minotaur_king' : 'minotaur';
   const model = new THREE.Group(); root.add(model); const sc = king ? 1.06 : 1; model.scale.setScalar(sc);
   const api = battleRig(root, 3.0 * sc); const B = makeBones(BONES);
-  const body = skinned(A.geo, api.own(A.mat), B, model);
+  const body = skinned(A.geo, woundMat(api.own(A.mat), A.wound, [0.12, 0.004, 0.005]), B, model);
   for (const s of [-1, 1]) { onBone(B, 'head', horn(s, king)); ear(s, B); bracer(s, B, king, api); }
   onBone(B, 'head', noseRing(king));
   for (const m of tail(B, api)) model.add(m);
@@ -281,33 +287,47 @@ export function createMinotaur(seed = 1, king = false) {
   // labrys in the left fist: haft along the grip (knuckle line), blades along the forearm axis
   const F = handFrame(1); const ax = labrys(king); ax.position.copy(fistC(1)); ax.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(F.z, F.y, F.x.clone().negate())); onBone(B, 'hand_L', ax);
   for (const m of [...root.children]) m.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh && api.mats.indexOf(o.material) < 0 && o.material.map) o.material = api.own(o.material); });
-  api.head = B.map.head; api.bones = B.map; api.body = body;
+  api.head = B.map.head; api.bones = B.map; api.body = body; api.weapon = ax;
   animate(api, B, model, cloth.flaps, seed, sc);
   return api;
 }
 
 // ---------------------------------------------------------------- animation
+// Additive key poses (radians, world-aligned rest frames). Attack: anticipation (weight back, labrys cocked overhead),
+// a fast overhead chop that lands at IMPACT, overshoot, recovery. Neck, head, ears and tail are driven by springs in
+// accumulated (parent-relative) space so they drag behind the body and follow through.
+const IMPACT = 0.4;
 const CLIPS = {
-  attack: [[0, {}], [0.34, { hips: [0, 0.18, 0], spine1: [-0.12, 0.25, 0], spine2: [-0.12, 0.2, 0], spine3: [-0.1, 0.12, 0], neck: [-0.1, 0, 0], head: [-0.25, 0.15, 0], uparm_L: [-2.0, 0.4, 0.45], forearm_L: [-0.5, 0, 0], hand_L: [0.5, 0, 0], uparm_R: [-0.4, 0, -0.35], forearm_R: [-0.6, 0, 0], thigh_L: [-0.25, 0, 0], shin_L: [0.25, 0, 0] }],
-    [0.52, { hips: [0.08, -0.2, 0], spine1: [0.22, -0.25, 0], spine2: [0.2, -0.2, 0], spine3: [0.14, -0.12, 0], neck: [0.15, 0, 0], head: [0.3, -0.15, 0], uparm_L: [-0.55, -0.1, -0.05], forearm_L: [0.25, 0, 0], hand_L: [-0.3, 0, 0], uparm_R: [0.3, 0, -0.2], thigh_L: [-0.45, 0, 0], shin_L: [0.4, 0, 0], thigh_R: [0.25, 0, 0] }],
-    [0.8, { hips: [0.06, -0.15, 0], spine1: [0.18, -0.2, 0], spine2: [0.16, -0.15, 0], spine3: [0.1, -0.1, 0], neck: [0.1, 0, 0], head: [0.2, -0.1, 0], uparm_L: [-0.5, -0.1, 0], forearm_L: [0.2, 0, 0], hand_L: [-0.2, 0, 0], thigh_L: [-0.35, 0, 0], shin_L: [0.3, 0, 0], thigh_R: [0.2, 0, 0] }], [1.3, {}]],
+  attack: [[0, {}],
+    [0.28, { hips: [-0.08, 0.2, 0], spine1: [-0.14, 0.28, 0], spine2: [-0.14, 0.2, 0], spine3: [-0.12, 0.12, 0], neck: [-0.15, 0, 0], head: [-0.25, 0.1, 0], uparm_L: [-2.35, 0.3, 0.35], forearm_L: [-0.75, 0, 0], hand_L: [0.55, 0, 0], uparm_R: [-0.5, 0, -0.45], forearm_R: [-0.8, 0, 0], thigh_L: [-0.3, 0, 0], shin_L: [0.3, 0, 0], thigh_R: [0.15, 0, 0], shin_R: [0.12, 0, 0] }],
+    [IMPACT, { hips: [0.12, -0.22, 0], spine1: [0.26, -0.28, 0], spine2: [0.24, -0.2, 0], spine3: [0.16, -0.12, 0], neck: [0.1, 0, 0], head: [0.2, -0.1, 0], uparm_L: [-0.45, -0.15, -0.1], forearm_L: [0.2, 0, 0], hand_L: [-0.45, 0, 0], uparm_R: [0.45, 0, -0.25], forearm_R: [-0.3, 0, 0], thigh_L: [-0.6, 0, 0], shin_L: [0.55, 0, 0], hock_L: [-0.1, 0, 0], thigh_R: [0.3, 0, 0], shin_R: [0.1, 0, 0] }],
+    [0.5, { hips: [0.16, -0.25, 0], spine1: [0.3, -0.3, 0], spine2: [0.26, -0.22, 0], spine3: [0.18, -0.14, 0], neck: [0.12, 0, 0], head: [0.22, -0.12, 0], uparm_L: [-0.3, -0.15, -0.12], forearm_L: [0.25, 0, 0], hand_L: [-0.5, 0, 0], uparm_R: [0.5, 0, -0.25], forearm_R: [-0.3, 0, 0], thigh_L: [-0.65, 0, 0], shin_L: [0.6, 0, 0], hock_L: [-0.1, 0, 0], thigh_R: [0.32, 0, 0], shin_R: [0.12, 0, 0] }],
+    [0.85, {}]],
   cast: [[0, {}], [0.22, { neck: [0.35, 0, 0], head: [0.4, 0, 0], spine3: [0.12, 0, 0], jaw: [0.12, 0, 0], thigh_R: [-0.55, 0, 0], shin_R: [0.7, 0, 0], hock_R: [-0.5, 0, 0], ear_L: [0, 0, -0.4], ear_R: [0, 0, 0.4] }],
     [0.42, { neck: [-0.35, 0.1, 0], head: [-0.55, 0.3, 0.25], spine3: [-0.12, 0, 0], spine2: [-0.06, 0, 0], jaw: [0.4, 0, 0], uparm_R: [0, 0, -0.5], forearm_R: [-0.6, 0, 0], ear_L: [0, 0, 0.3], ear_R: [0, 0, -0.3] }],
     [0.75, { neck: [-0.15, -0.1, 0], head: [-0.25, -0.2, -0.15], jaw: [0.25, 0, 0], uparm_R: [0, 0, -0.3] }], [1.3, {}]],
-  hurt: [[0, {}], [0.12, { spine1: [-0.12, 0, 0.06], spine2: [-0.16, 0.1, 0.05], spine3: [-0.12, 0.1, 0], neck: [-0.2, 0, 0], head: [-0.35, 0.35, 0.15], jaw: [0.35, 0, 0], uparm_R: [-0.3, 0, -0.45], forearm_R: [-0.6, 0, 0], uparm_L: [0.2, 0, 0.2], ear_L: [0, 0, -0.5], ear_R: [0, 0, 0.5] }], [0.6, {}]],
-  die: [[0, {}], [0.25, { spine1: [-0.2, 0, 0.05], spine2: [-0.22, 0, 0], neck: [-0.3, 0, 0], head: [-0.5, 0.2, 0], jaw: [0.5, 0, 0], uparm_L: [0, 0, 0.5], uparm_R: [0, 0, -0.5], ear_L: [0, 0, -0.5], ear_R: [0, 0, 0.5] }],
-    [0.55, { hips: [0.25, 0, 0], spine1: [0.25, 0, 0], spine2: [0.2, 0, 0], neck: [0.3, 0, 0], head: [0.5, 0, 0.2], jaw: [0.4, 0, 0], thigh_L: [-1.2, 0, 0], thigh_R: [-1.1, 0, 0], shin_L: [1.3, 0, 0], shin_R: [1.2, 0, 0], hock_L: [-0.3, 0, 0], hock_R: [-0.3, 0, 0], uparm_L: [-0.4, 0, -0.2], uparm_R: [-0.4, 0, 0.2], forearm_L: [-0.4, 0, 0], forearm_R: [-0.4, 0, 0] }],
-    [1.05, { hips: [0.4, 0, 0], spine1: [0.3, 0, 0.1], spine2: [0.25, 0, 0.1], neck: [0.2, 0.3, 0], head: [0.4, 0.4, 0.3], jaw: [0.45, 0, 0], thigh_L: [-1.3, 0, 0], thigh_R: [-0.9, 0, 0], shin_L: [1.4, 0, 0], shin_R: [1.0, 0, 0], hock_L: [-0.3, 0, 0], hock_R: [-0.3, 0, 0], uparm_L: [-0.9, 0, 0.3], uparm_R: [-0.5, 0, -0.6], forearm_L: [-0.3, 0, 0], forearm_R: [-0.2, 0, 0], tail1: [-0.4, 0, 0] }]],
+  hurt: [[0, {}], [0.09, { hips: [-0.08, 0, 0.04], spine1: [-0.14, 0.05, 0.06], spine2: [-0.2, 0.12, 0.05], spine3: [-0.14, 0.12, 0], neck: [-0.15, 0, 0], head: [-0.3, 0.4, 0.2], jaw: [0.4, 0, 0], uparm_R: [-0.35, 0, -0.55], forearm_R: [-0.7, 0, 0], uparm_L: [0.25, 0, 0.25], thigh_R: [0.35, 0, 0], shin_R: [0.3, 0, 0], thigh_L: [-0.15, 0, 0] }],
+    [0.3, { spine1: [0.06, 0, 0], spine2: [0.05, 0, 0], head: [0.1, -0.1, 0], thigh_R: [0.15, 0, 0], jaw: [0.15, 0, 0] }], [0.65, {}]],
+  die: [[0, {}], [0.16, { spine1: [-0.2, 0, 0.05], spine2: [-0.24, 0, 0], neck: [-0.2, 0, 0], head: [-0.4, 0.2, 0], jaw: [0.55, 0, 0], uparm_L: [0, 0, 0.5], uparm_R: [0, 0, -0.5], thigh_R: [0.3, 0, 0] }],
+    [0.42, { hips: [0.25, 0, 0], spine1: [0.25, 0, 0], spine2: [0.2, 0, 0], neck: [0.3, 0, 0], head: [0.5, 0, 0.2], jaw: [0.4, 0, 0], thigh_L: [-1.2, 0, 0], thigh_R: [-1.1, 0, 0], shin_L: [1.3, 0, 0], shin_R: [1.2, 0, 0], hock_L: [-0.3, 0, 0], hock_R: [-0.3, 0, 0], uparm_L: [-0.4, 0, -0.2], uparm_R: [-0.4, 0, 0.2], forearm_L: [-0.4, 0, 0], forearm_R: [-0.4, 0, 0] }],
+    [0.8, { hips: [0.35, 0, 0], spine1: [0.3, 0, 0.12], spine2: [0.25, 0, 0.12], neck: [0.1, 0.4, 0], head: [0.2, 0.5, 0.35], jaw: [0.5, 0, 0], thigh_L: [-1.3, 0, 0], thigh_R: [-0.8, 0, 0.2], shin_L: [1.4, 0, 0], shin_R: [0.9, 0, 0], hock_L: [-0.3, 0, 0], hock_R: [-0.2, 0, 0], uparm_L: [-1.1, 0, 0.5], uparm_R: [-0.3, 0, -0.9], forearm_L: [-0.2, 0, 0], forearm_R: [-0.1, 0, 0], hand_L: [0.4, 0, 0], tail1: [-0.5, 0, 0] }]],
 };
+const FOLLOW = { neck: [11, 0.42], head: [9, 0.36], ear_L: [8, 0.25], ear_R: [8, 0.25], jaw: [12, 0.3], tail1: [7, 0.3], tail2: [6, 0.28], tail3: [5, 0.26], tail4: [4.5, 0.25] };
 function animate(api, B, model, flaps, seed, sc) {
-  const st = api.st; const P = {}; let lastX = null, charge = 0, gait = 0, snortT = 4 + seed % 5, snort = -1, toss = 0;
-  api.onAct = (m) => { if (m === 'attack') toss = 0; };
+  const st = api.st; const P = {}; let lastX = null, charge = 0, gait = 0, snortT = 4 + (seed % 5), snort = -1, impactDone = true;
+  const parentOf = Object.fromEntries(BONES.map(([n, p]) => [n, p])); const anc = (n) => { const a = []; for (let p = parentOf[n]; p; p = parentOf[p]) a.push(p); return a; };
+  const SPR = {}; for (const [n, [w, z]] of Object.entries(FOLLOW)) SPR[n] = { anc: anc(n), s: [0, 1, 2].map(() => new Spring(0, w, z)) };
+  const kb = new Spring(0, 9, 0.5); // knockback travel
+  api.impactTime = IMPACT; api.attackTime = 0.85;
+  api.onAct = (m) => { if (m === 'attack') impactDone = false; if (m === 'hurt') kb.kick(-2.6); if (m === 'die') kb.kick(-1.5); };
   api.update = (dt) => {
-    api.common(dt, st.mode === 'charge' ? 1.1 : 1.3); const t = st.t + seed * 1.37;
-    // charge: the battle scene tweens the root at the player; read that as a gallop with the horns down
+    api.common(dt, st.mode === 'charge' ? 1.0 : st.mode === 'attack' ? 0.85 : st.mode === 'hurt' ? 0.65 : 1.3); const t = st.t + seed * 1.37; kb.update(dt);
+    if (!impactDone && st.mode === 'attack' && st.modeT >= IMPACT) { impactDone = true; api.onImpact?.(); }
+    // a very fast root move (the battle charge) reads as a gallop with the horns down
     const x = api.root.position.x; const v = lastX === null || dt <= 0 ? 0 : (x - lastX) / dt; lastX = x;
-    if (st.mode === 'attack' && st.modeT < 0.2 && Math.abs(v) > 3) { st.mode = 'charge'; }
-    charge += ((st.mode === 'charge' && st.modeT < 0.95 ? 1 : 0) - charge) * Math.min(1, dt * 10); gait += dt * (6 + Math.abs(v) * 0.9) * charge;
+    if (st.mode === 'attack' && st.modeT < 0.25 && Math.abs(v) > 9) st.mode = 'charge';
+    const moving = Math.min(1, Math.abs(v) / 4);
+    charge += ((st.mode === 'charge' && st.modeT < 0.9 ? 1 : 0) - charge) * Math.min(1, dt * 10); gait += dt * (5 + Math.abs(v) * 0.9) * Math.max(charge, moving);
     for (const k in P) delete P[k];
     // idle: deep breaths through the ribcage, weight shifts, a slow searching head, tail swish, ear flicks
     const br = Math.sin(t * 1.6), sw = Math.sin(t * 0.7);
@@ -316,33 +336,34 @@ function animate(api, B, model, flaps, seed, sc) {
     add(P, 'jaw', 0.04 + Math.max(0, br) * 0.03 + (st.talk > 0 ? Math.abs(Math.sin(t * 15)) * 0.32 : 0));
     add(P, 'clav_L', 0, 0, br * 0.02); add(P, 'clav_R', 0, 0, -br * 0.02);
     add(P, 'uparm_L', -0.42, 0.25, -0.3); add(P, 'forearm_L', -1.05, 0.25, 0); add(P, 'hand_L', 0.15, 0, -0.1); // labrys held at the ready
-    add(P, 'uparm_R', -0.08 + br * 0.02, 0, 0.16); add(P, 'forearm_R', -0.35, 0, 0);
+    add(P, 'uparm_R', -0.08 + br * 0.02, 0, 0.18); add(P, 'forearm_R', -0.35, 0, 0);
     add(P, 'thigh_L', -0.06, 0, -0.04); add(P, 'thigh_R', -0.04, 0, 0.04); add(P, 'shin_L', 0.08, 0, 0); add(P, 'shin_R', 0.06, 0, 0); add(P, 'hock_L', -0.03, 0, 0.04); add(P, 'hock_R', -0.03, 0, -0.04);
     for (let i = 1; i <= 4; i++) add(P, 'tail' + i, 0.12 + Math.sin(t * 1.9 - i * 0.7) * 0.05 * i, Math.sin(t * 1.3 - i * 0.6) * 0.1 * i, Math.sin(t * 1.3 - i * 0.6 + 0.8) * 0.06 * i);
     const flick = Math.max(0, Math.sin(t * 0.9) - 0.93) * 8; add(P, 'ear_L', 0, 0, -0.1 - flick * 0.4); add(P, 'ear_R', 0, 0, 0.1 + Math.max(0, Math.sin(t * 0.77 + 2) - 0.93) * 3);
-    // ambient snort: a short head toss every few seconds while idle
     snortT -= dt; if (snortT < 0 && st.mode === 'idle' && !st.dead) { snort = 0; snortT = 6 + ((seed * 7 + t) % 5); }
     if (snort >= 0) { snort += dt; const k = Math.sin(Math.min(1, snort / 0.7) * Math.PI); add(P, 'head', -0.25 * k, 0.15 * k, 0.1 * k); add(P, 'neck', -0.08 * k); add(P, 'jaw', 0.12 * k); if (snort > 0.7) snort = -1; }
-    // clips
     const clip = st.dead > 0 ? 'die' : CLIPS[st.mode] ? st.mode : null;
     if (clip) sample(CLIPS[clip], st.dead > 0 ? st.deadT : st.modeT, P);
-    if (charge > 0.01) { // head down, horns levelled, galloping legs, arms pumping
-      const g = gait, c = charge;
-      add(P, 'hips', 0.2 * c); add(P, 'spine1', 0.18 * c); add(P, 'spine2', 0.12 * c); add(P, 'neck', 0.35 * c); add(P, 'head', 0.55 * c, 0, 0); add(P, 'jaw', 0.2 * c);
+    const g = gait, c = Math.max(charge, st.dead ? 0 : moving * 0.6);
+    if (c > 0.01) { // stride: galloping legs, pumping arm; the charge also drops the head to level the horns
       add(P, 'thigh_L', (-0.3 + Math.sin(g) * 0.8) * c); add(P, 'thigh_R', (-0.3 - Math.sin(g) * 0.8) * c); add(P, 'shin_L', (0.5 + Math.cos(g) * 0.5) * c); add(P, 'shin_R', (0.5 - Math.cos(g) * 0.5) * c);
-      add(P, 'hock_L', -Math.max(0, Math.cos(g)) * 0.6 * c); add(P, 'hock_R', -Math.max(0, -Math.cos(g)) * 0.6 * c); add(P, 'uparm_R', (0.4 - Math.sin(g) * 0.6) * c, 0, -0.1 * c); add(P, 'uparm_L', 0.5 * c, 0, 0); add(P, 'forearm_L', 0.3 * c);
-      for (let i = 1; i <= 4; i++) add(P, 'tail' + i, -0.25 * c);
+      add(P, 'hock_L', -Math.max(0, Math.cos(g)) * 0.6 * c); add(P, 'hock_R', -Math.max(0, -Math.cos(g)) * 0.6 * c); add(P, 'uparm_R', (0.4 - Math.sin(g) * 0.6) * c, 0, -0.1 * c);
+    }
+    if (charge > 0.01) { add(P, 'hips', 0.2 * charge); add(P, 'spine1', 0.18 * charge); add(P, 'spine2', 0.12 * charge); add(P, 'neck', 0.35 * charge); add(P, 'head', 0.55 * charge); add(P, 'jaw', 0.2 * charge); add(P, 'uparm_L', 0.5 * charge); add(P, 'forearm_L', 0.3 * charge); }
+    // secondary motion: followers track their accumulated angle on springs, so they lag the body and overshoot
+    for (const [n, S] of Object.entries(SPR)) {
+      const own = P[n] || [0, 0, 0]; const base = [0, 0, 0]; for (const a of S.anc) { const p = P[a]; if (p) { base[0] += p[0]; base[1] += p[1]; base[2] += p[2]; } }
+      const o = (P[n] = [0, 0, 0]); for (let j = 0; j < 3; j++) { S.s[j].target = base[j] + own[j]; S.s[j].update(dt); o[j] = S.s[j].value - base[j]; }
     }
     apply(B, P);
-    // body offsets (inner model group; the battle scene owns root position/scale)
-    const fwd = st.lunge.value * 0.22 - st.hit.value * 0.06 + charge * 0.15;
-    model.position.set(0, Math.abs(Math.sin(gait)) * 0.12 * charge, fwd);
-    model.rotation.set(0, 0, 0);
-    if (st.dead > 0) { // knees buckle, then he topples onto his side
-      const T = st.deadT; const drop = THREE.MathUtils.smoothstep(T, 0.25, 0.6); const fall = THREE.MathUtils.smoothstep(T, 0.55, 1.1);
-      model.position.y = -drop * 0.55 * sc - fall * 0.25 * sc; model.rotation.z = -fall * 1.25; model.rotation.x = fall * 0.25; model.position.x = fall * 0.6 * sc;
+    // body offsets on the inner model group (the battle scene owns root position/scale)
+    model.position.set(0, Math.abs(Math.sin(gait)) * 0.12 * c, st.lunge.value * 0.12 + kb.value * 0.12 + charge * 0.15);
+    model.rotation.set(-kb.value * 0.03, 0, 0);
+    if (st.dead > 0) { // knees buckle, he pitches over, slams down, bounces once and settles
+      const T = st.deadT; const drop = THREE.MathUtils.smoothstep(T, 0.16, 0.42); const fT = Math.min(1, Math.max(0, (T - 0.4) / 0.38)); let fall = fT * fT;
+      if (T > 0.78) { const u = T - 0.78; fall = 1 - Math.exp(-u * 7) * Math.sin(u * 22) * 0.07; }
+      model.position.y = -drop * 0.5 * sc - Math.min(1, fall) * 0.3 * sc; model.rotation.z = -fall * 1.32; model.rotation.x = fall * 0.22; model.position.x = fall * 0.55 * sc;
     }
-    // loincloth flaps swing with the thighs
     const tl = B.map.thigh_L.rotation.x, tr = B.map.thigh_R.rotation.x;
     for (const f of flaps) { const a = f.userData.ang; const front = Math.cos(a), side = Math.sin(a); const leg = side > 0.3 ? tl : side < -0.3 ? tr : (tl + tr) / 2; f.rotation.x = Math.min(0.1, leg * 0.8) * (front > 0 ? 1 : -0.5) + Math.sin(t * 2 + a) * 0.03 + charge * (front > 0 ? -0.25 : 0.35); }
   };

@@ -1,9 +1,10 @@
 // Physical UI objects built from craft.js: carved / brass / lacquer plaques (buttons), parchment notes, scrolls,
 // speech scraps, hanging signboards (titles), cloth pennants (banners), paper slips (toasts).
 import * as THREE from 'three';
-import { PX, PXP, RAMP, Surf, SurfTex, pxTex, frontMat, sideMat, plainMat, slab, sheet, mesh, turned, ROLLER, TACK, Body, paperMat, LK, toon, inkHull,
+import { PX, PXP, RAMP, Surf, SurfTex, pxTex, frontMat, sideMat, plainMat, slab, sheet, mesh, turned, ROLLER, TACK, Body, paperMat, LK, toon, inkHull, vineBorder, dropCap, doodle, goldRule,
   wood, brass, screw, rivet, groove, parchment, leather, waxSeal, cloth, inscribe, inscribeLines, measure, wrapText, FONT } from './craft.js';
 import { hash2 } from '../gfx/art/core.js';
+import { GR } from '../gfx/art/ramps.js';
 import { Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
 
@@ -189,21 +190,33 @@ export class Scroll extends Body {
     this.open = new Spring(0, 9, 0.75); this.open.target = 1; this.s = this.open; this.h = 4;
   }
   set(title, lines, titleColor = '#5a1a22') {
-    const Wt = round(this.wU * PXP); const pad = 16; const maxT = Wt - pad * 2; const out = []; const fonts = [];
+    // a manuscript leaf: rubricated blackletter title, an illuminated initial with the text wrapped around it,
+    // and ink marginalia doodled in the margins
+    const Wt = round(this.wU * PXP); const pad = 30, top = 14; const maxT = Wt - pad * 2; const out = []; const fonts = []; const indent = [];
     const tf = title && measure(titleCase(title), 'title') > maxT && measure(titleCase(title), 'head') <= maxT ? 'head' : 'title';
-    if (title) for (const l of wrapText(titleCase(title), tf, maxT)) { out.push([[l, titleColor]]); fonts.push(tf); }
-    for (const l of lines) { const ss = segs(l); if (measure(lineText(l), 'hand') <= maxT) { out.push(ss.map(([t, c]) => [t, c || '#2a160c'])); fonts.push('hand'); } else for (const w of wrapText(lineText(l), 'hand', maxT)) { out.push([[w, ss[0][1] || '#2a160c']]); fonts.push('hand'); } }
-    let th = 0; out.forEach((_, i) => (th += FONT[fonts[i]].lineH + (fonts[i] === tf ? 2 : 1))); th += title ? 6 : 0;
-    const Ht = Math.min(round(this.maxH * PXP), th + pad * 2); const S = new Surf(Wt, Ht);
+    if (title) for (const l of wrapText(titleCase(title), tf, maxT)) { out.push([[l, titleColor]]); fonts.push(tf); indent.push(0); }
+    const body = lines.map((l) => [lineText(l), segs(l)[0][1] || '#2a160c']); const CAP = 34; let cap = null;
+    body.forEach(([txt, col], bi) => {
+      let words = txt.split(' '); if (bi === 0 && /^[A-Za-z]/.test(txt)) { cap = txt[0]; words[0] = words[0].slice(1); }
+      let cur = ''; const flush = () => { out.push([[cur, col]]); fonts.push('hand'); indent.push(cap && bi === 0 && out.filter((_, k) => fonts[k] === 'hand').length <= 2 ? CAP + 4 : 0); cur = ''; };
+      for (const w of words) { const hl = out.filter((_, k) => fonts[k] === 'hand').length; const lim = maxT - (cap && bi === 0 && hl < 2 ? CAP + 4 : 0); const t = cur ? cur + ' ' + w : w; if (measure(t, 'hand') > lim && cur) { flush(); cur = w; } else cur = t; }
+      if (cur || !words.length) flush();
+    });
+    let th = 0; out.forEach((_, i) => (th += FONT[fonts[i]].lineH + (fonts[i] === tf ? 2 : 1))); th += title ? 8 : 0;
+    const Ht = Math.min(round(this.maxH * PXP), Math.max(th + top * 2, cap ? CAP + top * 2 + 12 : 0)); const S = new Surf(Wt, Ht);
     parchment(S, 0, 0, Wt, Ht, { seed: this.seed, torn: 0, tone: 4, age: 2 });
     for (let x = 0; x < Wt; x++) { S.shift(x, 0, -1); S.shift(x, 1, -1); S.shift(x, Ht - 1, -1); S.shift(x, Ht - 2, -1); }
-    let y = pad - 2;
+    for (let y = 6; y < Ht - 6; y++) { if (y % 2) { S.pix(pad - 6, y, '#b07a5a'); S.pix(Wt - pad + 5, y, '#b07a5a'); } } // ruled margins (faint red-brown)
+    doodle(S, 'manicule', 6, top + 4); if (Ht > 90) doodle(S, 'snail', Wt - 22, round(Ht * 0.55)); if (Ht > 70) doodle(S, 'curl', 6, Ht - 18); doodle(S, 'apple', Wt - 18, top + 2);
+    let y = top - 2; let capY = null;
     out.forEach((ss, i) => {
-      const f = fonts[i]; const F = FONT[f]; const wsum = ss.reduce((s, [t]) => s + measure(t, f), 0); let x = f === tf ? round((Wt - wsum) / 2) : pad;
-      for (const [t, c] of ss) { inscribe(S, t, x, y + F.base, f, 'ink', { color: ink(c), seed: i + 3 }); x += measure(t, f); }
+      const f = fonts[i]; const F = FONT[f]; const wsum = ss.reduce((s, [t]) => s + measure(t, f), 0); let x = f === tf && title ? round((Wt - wsum) / 2) : pad + indent[i];
+      if (f === 'hand' && capY == null && cap) capY = y + 1;
+      for (const [t, c] of ss) { if (f === tf && title && x === round((Wt - wsum) / 2) && t.length) { inscribe(S, t[0], x, y + F.base, f, 'gild'); const w0 = measure(t[0], f); inscribe(S, t.slice(1), x + w0, y + F.base, f, 'ink', { color: ink(c), seed: i + 3 }); x += measure(t, f); continue; } inscribe(S, t, x, y + F.base, f, 'ink', { color: ink(c), seed: i + 3 }); x += measure(t, f); }
       y += F.lineH + (f === tf ? 2 : 1);
-      if (title && f === tf && fonts[i + 1] !== tf) { const cx = round(Wt / 2); for (let xx = -40; xx <= 40; xx++) if (Math.abs(xx) > 3) S.pix(cx + xx, y + 1, Math.abs(xx) > 34 ? '#7a5638' : '#5a1a14'); for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]]) S.pix(cx + dx, y + 1 + dy, '#8a1a1c'); y += 6; }
+      if (title && f === tf && fonts[i + 1] !== tf) { const cx = round(Wt / 2); goldRule(S, cx - 44, y + 1, cx - 5); goldRule(S, cx + 5, y + 1, cx + 44); for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1], [0, 0], [0, 2], [0, -2]]) S.pix(cx + dx, y + 1 + dy, '#8a1a1c'); y += 8; }
     });
+    if (cap && capY != null) dropCap(S, pad, capY - 2, CAP, cap.toUpperCase(), { field: titleColor === '#1e5a5a' ? GR.clothTeal : GR.blue, seed: 5 });
     for (let y = 2; y < Ht - 2; y++) { S.pix(0, y, '#1a0e12'); S.pix(Wt - 1, y, '#1a0e12'); }
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
     S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.paper.map = this.tex; this.paper.needsUpdate = true; } else this.tex.needsUpdate = true;
@@ -273,7 +286,8 @@ export class Strip extends Body {
 export { titleCase, lineText };
 
 // ================================================================ PENNANT (banners): embroidered cloth that unrolls from a turned rod
-const PEN = { '': { ramp: RAMP.cloth, thread: RAMP.thread }, arc: { ramp: RAMP.teal, thread: RAMP.thread }, dread: { ramp: RAMP.night, thread: RAMP.ivory } };
+// banners are vellum banderoles: rubricated blackletter with a gold-leaf initial, gold rules, swallowtail ends
+const PEN = { '': { ink: '#2a1408', rub: '#8a1a1c', tone: 5 }, arc: { ink: '#1e3a5a', rub: '#1e5a5a', tone: 5 }, dread: { ink: '#140c10', rub: '#5a1a22', tone: 3 } };
 export class Pennant {
   constructor() {
     this.group = new THREE.Group(); this.group.visible = false; this.cloth = mesh(new THREE.BufferGeometry(), toon({ alphaTest: 0.5, side: THREE.DoubleSide }), this.group);
@@ -282,13 +296,17 @@ export class Pennant {
     this.k = new Spring(0, 10, 0.9); this.drop = new Spring(0, 9, 0.55); this.t = 0;
   }
   show(title, sub = '', kind = '', hold = 0.9) {
-    const P = PEN[kind] || PEN['']; const t = titleCase(title); const f = measure(t, 'title') > 300 ? 'head' : 'title'; const F = FONT[f];
-    const sw = sub ? measure(sub.toUpperCase(), 'caps') : 0; const Wt = Math.max(measure(t, f), sw) + 40; const tail = 11; const Ht = 9 + F.lineH + (sub ? 11 : 0) + 5 + tail;
+    const P = PEN[kind] || PEN['']; const t = titleCase(title) || ' '; const f = measure(t, 'title') > 300 ? 'head' : 'title'; const F = FONT[f];
+    const sw = sub ? measure(sub.toUpperCase(), 'caps') : 0; const Wt = Math.max(measure(t, f), sw) + 44; const tail = 11; const Ht = 9 + F.lineH + (sub ? 11 : 0) + 7 + tail;
     const S = new Surf(Wt, Ht); const mask = (x, y) => y < Ht - tail || Math.abs(x - Wt / 2 + 0.5) >= (y - (Ht - tail) + 1) * (Wt * 0.22 / tail);
-    cloth(S, 0, 0, Wt, Ht, { ramp: P.ramp, base: 3, border: 3, seed: 3, mask }); S.bevel(mask, { lit: 1, dark: -1 });
-    for (let x = 0; x < Wt; x++) for (let y = 0; y < 5; y++) S.setT(x, y, y < 2 ? 1 : y === 4 ? 4 : 2); // hem around the rod
-    inscribeLines(S, [t], { x: 0, y: 8, w: Wt, h: F.lineH }, f, 'emb', { ramp: P.thread }); S.inkEdge();
-    if (sub) inscribeLines(S, [sub.toUpperCase()], { x: 0, y: 9 + F.lineH, w: Wt, h: 10 }, 'caps', 'emb', { ramp: P.thread });
+    parchment(S, 0, 0, Wt, Ht, { seed: 7, torn: 0, tone: P.tone, age: kind === 'dread' ? 2 : 1, mask });
+    for (let x = 0; x < Wt; x++) for (let y = 0; y < 4; y++) S.setT(x, y, y < 2 ? P.tone - 3 : P.tone - 1); // where it wraps the roller
+    goldRule(S, 4, 5, Wt - 5); goldRule(S, 4, Ht - tail - 3, Wt - 5);
+    const tw = measure(t, f); const tx = Math.round((Wt - tw) / 2), ty = 8 + F.base;
+    inscribe(S, t[0], tx, ty, f, 'gild'); inscribe(S, t.slice(1), tx + measure(t[0], f), ty, f, 'ink', { color: P.ink, seed: 2 });
+    if (sub) inscribeLines(S, [sub.toUpperCase()], { x: 0, y: 9 + F.lineH, w: Wt, h: 10 }, 'caps', 'ink', { color: P.rub });
+    for (const x of [8, Wt - 12]) { S.pix(x, 8 + F.lineH / 2, P.rub); S.pix(x + 1, 7 + F.lineH / 2, P.rub); S.pix(x + 1, 9 + F.lineH / 2, P.rub); S.pix(x + 2, 8 + F.lineH / 2, P.rub); }
+    S.inkEdge();
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
     S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.cloth.material.map = this.tex; this.cloth.material.needsUpdate = true; } else this.tex.needsUpdate = true;
     const w = Wt / PX, h = Ht / PX; this.w = w; this.h = h;
@@ -337,4 +355,32 @@ export function carvedSign(text, { maxW = 2.4 } = {}) {
   inscribe(S, t, 6, f === 'bold' ? 13 : 9, f, 'burn'); for (const x of [2, Wt - 4]) rivet(S, x, Math.round(Ht / 2) - 1, RAMP.iron);
   const m = new THREE.Mesh(slab(Wt / PX, Ht / PX, 0.08, { cut: 0.05, bevel: 0.02 }), [new THREE.MeshStandardMaterial({ map: pxTex(S.toCanvas()), roughness: 0.85 }), new THREE.MeshStandardMaterial({ map: sideMat('oak').map, roughness: 0.85 })]);
   m.castShadow = true; m.receiveShadow = true; return m;
+}
+
+// ================================================================ CHAPTER CARD: an illuminated storybook leaf that slides onto the table at battle start
+export class ChapterCard extends Body {
+  constructor() {
+    super(); this.tiltK = 0; this.hoverLift = 0; this.group.visible = false; this.mat = paperMat(); this.sheet = mesh(new THREE.BufferGeometry(), this.mat, this.pivot); this.canvas = document.createElement('canvas'); this.tex = null;
+    this.x = new Spring(-40, 7, 0.78); this.y = new Spring(0, 7, 0.78); this.r = new Spring(0, 6, 0.6);
+  }
+  show(chapter, title, note = '', { hold = 2.4, z = 9 } = {}) {
+    const Wt = 300; const pad = 22, CAP = 50; const maxT = Wt - pad * 2 - 8; const words = title.split(' '); const cap = words[0][0]; words[0] = words[0].slice(1);
+    const lines = []; let cur = ''; for (const w of words) { const lim = maxT - (lines.length < 2 ? CAP + 6 : 0); const t = cur ? cur + ' ' + w : w; if (measure(t, 'title') > lim && cur) { lines.push(cur); cur = w; } else cur = t; } if (cur) lines.push(cur);
+    const Ht = 30 + Math.max(CAP + 8, lines.length * 27 + 4) + (note ? 16 : 0) + 26; const S = new Surf(Wt, Ht);
+    parchment(S, 0, 0, Wt, Ht, { seed: 21, torn: 1, tone: 5, age: 1 }); vineBorder(S, 0, 0, Wt, Ht, { inset: 5, seed: 2 });
+    inscribeLines(S, [`Chapter ${chapter}`], { x: 0, y: 12, w: Wt, h: 17 }, 'head', 'ink', { color: '#8a1a1c' });
+    const cx = Wt / 2; goldRule(S, round(cx - 52), 30, round(cx - 6)); goldRule(S, round(cx + 6), 30, round(cx + 52)); for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]]) S.pix(round(cx) + dx, 31 + dy, '#8a1a1c');
+    const y0 = 38; dropCap(S, pad + 4, y0, CAP, cap.toUpperCase(), { field: GR.blue, seed: 9 });
+    lines.forEach((l, i) => inscribe(S, l, pad + 4 + (i < 2 ? CAP + 6 : 0), y0 + 19 + i * 27, 'title', 'ink', { color: '#1e120c', seed: i }));
+    if (note) inscribeLines(S, [note], { x: 0, y: Ht - 36, w: Wt, h: 14 }, 'handS', 'ink', { color: '#8a1a1c' });
+    waxSeal(S, Wt - 28, Ht - 24, 8, { seed: 4 }); S.inkEdge();
+    if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
+    S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.mat.map = this.tex; this.mat.needsUpdate = true; } else this.tex.needsUpdate = true;
+    this.w = Wt / PXP; this.h = Ht / PXP; this.sheet.geometry = sheet(this.w, this.h, { curl: 0.16, sag: 0.05 });
+    const k = (40 - z) / 40; this.k = k; this.z = z; this.group.scale.setScalar(k); this.group.visible = true;
+    this.x.set(-34); this.x.target = 0; this.y.set(-3); this.y.target = 0.4; this.r.set(0.5); this.r.target = -0.035; audio.play('paper_rustle');
+    return new Promise((res) => { clearTimeout(this._t); this._done?.(); this._done = res; this._t = setTimeout(() => this.away(), 650 + hold * 1000); });
+  }
+  away() { if (!this._done) return; clearTimeout(this._t); this.x.target = 36; this.y.target = 2.5; this.r.target = -0.45; audio.play('paper_rustle', { vol: 0.6 }); const r = this._done; this._done = null; setTimeout(() => { this.group.visible = false; r(); }, 700); }
+  update(dt) { if (!this.group.visible) return; for (const s of [this.x, this.y, this.r]) s.update(dt); this.updateBody(dt, null); this.group.position.set(this.x.value * this.k, this.y.value * this.k, this.z); this.pivot.rotation.z = this.r.value; }
 }

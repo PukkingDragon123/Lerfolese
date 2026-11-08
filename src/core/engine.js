@@ -63,6 +63,20 @@ const GradeShader = {
   }`,
 };
 
+// Crepuscular sun rays: radial light scattering from the bright sky around the sun; dark occluders (trees, figures) cut shafts
+const RaysShader = {
+  uniforms: { tDiffuse: { value: null }, uSun: { value: new THREE.Vector2(0.5, 0.7) }, uAspect: { value: 1.7 }, uStrength: { value: 0.35 }, uDecay: { value: 0.955 }, uDensity: { value: 0.85 }, uThresh: { value: 0.85 }, uTint: { value: new THREE.Color(0xffd6a0) }, uFade: { value: 1 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 uSun; uniform float uAspect, uStrength, uDecay, uDensity, uThresh, uFade; uniform vec3 uTint; varying vec2 vUv;
+  void main(){
+    vec4 base = texture2D(tDiffuse, vUv);
+    vec2 delta = (vUv - uSun) * uDensity / 40.0; vec2 uv = vUv; float illum = 1.0; vec3 acc = vec3(0.0);
+    for (int i = 0; i < 40; i++) { uv -= delta; vec2 cuv = clamp(uv, 0.001, 0.999); vec3 s = texture2D(tDiffuse, cuv).rgb; float l = dot(s, vec3(0.299, 0.587, 0.114)); acc += s * smoothstep(uThresh, uThresh + 0.6, l) * illum; illum *= uDecay; }
+    float fall = 1.0 - smoothstep(0.05, 1.25, length((vUv - uSun) * vec2(uAspect, 1.0)));
+    gl_FragColor = vec4(base.rgb + acc / 40.0 * uTint * uStrength * fall * uFade * 6.0, base.a);
+  }`,
+};
+
 const WipeShader = {
   uniforms: { uT: { value: 0 }, uCenter: { value: new THREE.Vector2(0.5, 0.5) }, uAspect: { value: 1.7 }, uColor: { value: new THREE.Color(0x120d1c) }, uTime: { value: 0 }, uMode: { value: 0 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
@@ -119,6 +133,7 @@ export class Engine {
     // anime/cartoon black ink lines on the 3D world
     this.inkForced = new URLSearchParams(location.search).get('ink') === '1';
     this.ink = new InkPass(this.world.scene, this.world.camera, size.x, size.y); this.ink.u.uThick.value = Math.max(1, this.pixelRatio * 0.9); this.composer.addPass(this.ink);
+    this.rays = new ShaderPass(RaysShader); this.rays.enabled = false; this.composer.addPass(this.rays);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.55, 0.55, 0.82);
     this.composer.addPass(this.bloom);
     this.tiltH = new ShaderPass(TiltShiftShader); this.tiltV = new ShaderPass(TiltShiftShader);
@@ -187,6 +202,7 @@ export class Engine {
     this.gtao.enabled = fx.ao !== false && (this.aoForced || (!this.testMode && this.quality === 'high')); if (fx.ao && typeof fx.ao === 'number') this.gtao.blendIntensity = fx.ao; else this.gtao.blendIntensity = 0.85;
     gu.uGamma.value.set(...(g.gamma || [1, 1, 1])); gu.uRolloff.value = g.rolloff ?? 0.5; gu.uToe.value = g.toe ?? 0.02; gu.uCA.value = 0;
     const ik = fx.ink ?? {}; this.ink.enabled = fx.ink !== false && (!this.testMode || this.inkForced); this.ink.u.uStrength.value = ik.strength ?? 0.92; this.ink.u.uInk.value.set(ik.color ?? 0x0e0710); this.ink.u.uDepthK.value = ik.depth ?? 0.045; this.ink.u.uNormalK.value = ik.normal ?? 0.42; this.ink.u.uFade.value.set(...(ik.fade || [55, 140]));
+    const ry = fx.rays; this.rays.enabled = !!(ry && ry.pos); if (ry) { const u = this.rays.uniforms; this.raysPos = ry.pos; u.uStrength.value = ry.strength ?? 0.35; u.uTint.value.set(ry.tint ?? 0xffd6a0); u.uThresh.value = ry.thresh ?? 0.85; u.uDecay.value = ry.decay ?? 0.955; u.uDensity.value = ry.density ?? 0.85; }
     gu.uSat.value = g.sat ?? 1.08; gu.uContrast.value = g.contrast ?? 1.06; gu.uVignette.value = g.vignette ?? 0.42; gu.uGrain.value = Math.min(0.012, (g.grain ?? 0.04) * 0.3); gu.uWarmth.value = g.warmth ?? 0;
     if (g.lift) gu.uLift.value.set(...g.lift); else gu.uLift.value.set(0.015, 0.0, 0.035);
     if (g.gain) gu.uGain.value.set(...g.gain); else gu.uGain.value.set(1.04, 1.0, 0.95);
@@ -248,6 +264,7 @@ export class Engine {
     cam.position.add(this.shakeOffset);
     const rz = cam.rotation.z; cam.rotation.z += Math.sin(t * 0.9 + 4) * 0.02 * s;
     this.grade.uniforms.uTime.value = this.time;
+    if (this.rays.enabled && this.raysPos) { const p = this._sunP || (this._sunP = new THREE.Vector3()); p.copy(this.raysPos).project(cam); const u = this.rays.uniforms; u.uSun.value.set(p.x * 0.5 + 0.5, p.y * 0.5 + 0.5); u.uAspect.value = this.aspect; u.uFade.value = p.z > 1 ? 0 : 1 - Math.min(1, Math.max(0, Math.max(Math.abs(p.x), Math.abs(p.y)) - 1.1) / 0.8); }
     this.renderer.setRenderTarget(null);
     this.renderer.clear();
     this.composer.render(rdt);

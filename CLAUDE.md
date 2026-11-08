@@ -7,6 +7,7 @@
 - Look: anime/cartoon BLACK INK OUTLINES on all 3D (engine InkPass, src/core/ink.js); clean cel-like banded textures.
 - (superseded) Map living layer: removed per user; NO TREES or grass on the map.
 - Humans may reuse the user's Limbo Phobia human generator (repo PukkingDragon123/fictional-octo-train).
+- ENVIRONMENT (LATEST): REALISTIC and absolutely beautiful (PBR, golden light, gorgeous sky with sun rays, wind, little animals, polished road); env meshes noInk (outlines only on characters). Cinematic travel: Sir Isaac walks the road in, enemies revealed cinematically; events are full 3D cinematic scenes with physical text-choice pop-ups.
 - Presentation: MEDIEVAL STORYTELLING (illuminated-manuscript storybook / puppet theatre): sun and moon WITH FACES (personified, gilded), lapis manuscript sky with curly medieval clouds, layered painted backdrops (castles, towns, stepped mountains), chapter cards with drop caps. Gore welcome: physical blood droplets, splatter decals, severed hydra heads; Sir Isaac splinters (wood), never bleeds.
 - Rendering: HIGH RESOLUTION and CRISP: no tilt-shift blur, no chromatic aberration, minimal grain; supersampled. Card backdrops = detailed nature or space scenes, no cartoon effects.
 - Map = realistic physical map on a table with chess-inspired pieces as nodes (pawn/knight/bishop/rook/king), no grass/plants.

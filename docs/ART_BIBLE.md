@@ -142,3 +142,22 @@ The source is `src/gfx/art/vfxart.js`, and `src/gfx/vfx.js` plays the flipbooks.
 - **Frame grammar.** Each flipbook runs in this order: anticipation pinpoint, then an impact frame (heavy and critical hits get an inverted ink frame first, then a white flash), then the big shape, then the follow-through (the ring breaks and shards fly), then the dissipation (sparks). Slashes use smear crescents that grow and then thin out.
 - **Sizes.** Strips are 32–64 px square frames with 6–10 frames each, at 14–24 fps, played on a per-render clamped clock so hit-stop and slow frames never skip the key frames.
 - **The sun.** The sun is an 80 px faceted disc with 16 breathing rays, a halo of dots and a rotating highlight sliver (6 shimmer frames). It sits as a far billboard along the sky dome's sun direction.
+
+## 10. Combat feedback: physical first, magic in 3D, pixel particles as seasoning
+
+This section follows the user's latest direction and overrides section 9 for the battle. The sprite flipbooks in `vfx.js` and `vfxart.js` remain available, but the battle no longer calls them, except for the 2D sun.
+
+- **Physical impact** (`src/gfx/fx3d.js`):
+  - Instanced 3D debris of what actually hit (apple pieces with skin and flesh, stone shards, wood splinters, water droplets) tumbles, bounces under gravity, settles and shrinks away.
+  - Dust is kicked up from the ground.
+  - The target is knocked back with a spring offset, a lean-back tilt and a stagger dip.
+  - Camera shake and hit-stop stay modest.
+- **Choreography:** enemies show anticipation (a lean back), then a fast lunge; the hit lands at the apex, then they follow through and recoil to their slot. Sir Isaac throws or casts through `prof.act`.
+- **Gore** (medieval storytelling, dark crimson to near-black, never pink):
+  - Flesh hits spray instanced blood droplets stretched along their velocity. They land as splatter decals that persist and darken over about 30 s.
+  - Heavy hits spurt an arc of blood and leave gash decals parented to the creature.
+  - Deaths spread a blood pool. Hydra heads drop and bounce while the stump sprays.
+  - Sir Isaac is wood: he splinters, puffs sawdust and sheds flakes of coat paint.
+  - Medusa sheds stone chips. The satyr sprays wine as well as blood.
+- **Magic** applies to energy, elemental and law moves and to casts only. It uses short additive shader meshes: an animated ground rune decal, swirling ribbon tubes, a fresnel orb, flickering branching 3D lightning, layered noise flames and a gravity swirl.
+- **2D pixel art** in combat is limited to small, crisp particles (sparks, embers, motes, dust, leaves) at about 1 art pixel to 2 screen pixels.

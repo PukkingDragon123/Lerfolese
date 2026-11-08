@@ -64,8 +64,48 @@ export function battleRig(root, height) {
       const hl = !!root.userData.hl; if (hl !== api._hl) { api._hl = hl; for (const m of api.mats) m.color.setScalar(hl ? 1.32 : 1); }
       if (hl) { const k = 1.22 + Math.sin(st.t * 7) * 0.1; for (const m of api.mats) m.color.setRGB(k, k * 0.97, k * 0.9); }
     },
+    /** gore: 0 = pristine .. 1 = cut to ribbons (battle passes 1 - hp / maxHp) */
+    setWounds(v) { api.wounds = Math.max(0, Math.min(1, v)); for (const m of api.mats) if (m.userData.uW) m.userData.uW.value = api.wounds; },
+    wounds: 0,
     /** per-instance material copies so a highlight brightens only this beast */
     own(mat) { const m = mat.clone(); api.mats.push(m); return m; },
   };
   return api;
+}
+
+// ---------------------------------------------------------------- wounds (gore that builds as HP drops)
+// A second texture on the same atlas: per texel the HP-loss threshold at which a wound shows there (R) and what it is
+// (G: 1 = open gash core, 0.6 = torn flesh rim, 0.3 = blood smear / drip). setWounds(1 - hp/maxHp) reveals them.
+export function paintWounds(surf, { sites, select = null, seed = 1 }) {
+  let s = seed * 9301 + 49297; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  const W = sites.map((w, i) => {
+    const n = new THREE.Vector3(...w.n).normalize(); const t = new THREE.Vector3(...(w.dir || [rnd() - 0.5, rnd() - 0.5, rnd() - 0.5])); t.addScaledVector(n, -t.dot(n)).normalize(); const b = new THREE.Vector3().crossVectors(n, t);
+    return { p: new THREE.Vector3(...w.p), n, t, b, len: w.len || 0.14, wid: w.wid || 0.02, thr: w.thr ?? (0.08 + (i / sites.length) * 0.85), drips: [0, 1, 2].map(() => [(rnd() - 0.5) * (w.len || 0.14) * 0.8, 0.05 + rnd() * 0.16]) };
+  });
+  const d = new THREE.Vector3();
+  return (c, o) => {
+    let thr = 1, kind = 0;
+    if (!select || select(c)) for (const w of W) {
+      d.set(c.x - w.p.x, c.y - w.p.y, c.z - w.p.z); const dep = d.dot(w.n); if (Math.abs(dep) > 0.09) continue;
+      const a = d.dot(w.t), x = d.dot(w.b); const u = (2 * a) / w.len; let k = 0;
+      if (Math.abs(u) < 1) { const half = w.wid * Math.sqrt(1 - u * u) * (1 + Math.sin(a * 160) * 0.18); const ax = Math.abs(x); k = ax < half * 0.5 ? 1 : ax < half ? 0.6 : ax < half * 2.4 ? 0.3 : 0; }
+      if (!k && c.ny < 0.85) for (const [da, dl] of w.drips) { const ry = w.p.y + w.t.y * da - c.y; const rx = a - da; if (ry > 0 && ry < dl && Math.abs(rx) < 0.007 + (1 - ry / dl) * 0.006 && Math.abs(x) < w.wid * 3 + ry) { k = 0.3; break; } }
+      if (k && (w.thr < thr || (w.thr === thr && k > kind))) { thr = w.thr; kind = k; }
+    }
+    o.col[0] = thr * 255; o.col[1] = kind * 255; o.col[2] = 0;
+  };
+}
+/** hook a toon material so wounds fade in where the wound map's threshold is below uWounds */
+export function woundTex(canvas) { const t = new THREE.CanvasTexture(canvas); t.flipY = false; t.colorSpace = THREE.NoColorSpace; return t; }
+export function woundMat(m, tex, blood = [0.13, 0.004, 0.006]) {
+  m.userData.uW = { value: 0 }; const uB = { value: new THREE.Color(...blood) };
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.woundMap = { value: tex }; sh.uniforms.uWounds = m.userData.uW; sh.uniforms.uBlood = uB;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <map_pars_fragment>', '#include <map_pars_fragment>\nuniform sampler2D woundMap; uniform float uWounds; uniform vec3 uBlood;')
+      .replace('#include <map_fragment>', `#include <map_fragment>
+      { vec4 wd = texture2D(woundMap, vMapUv); float vis = smoothstep(wd.r - 0.03, wd.r, uWounds) * step(wd.r, 0.99);
+        vec3 wc = wd.g > 0.8 ? uBlood * 0.18 : wd.g > 0.45 ? uBlood * 1.9 + vec3(0.03, 0.0, 0.0) : uBlood;
+        diffuseColor.rgb = mix(diffuseColor.rgb, wc, vis * (wd.g > 0.45 ? 1.0 : 0.88)); }`);
+  };
+  m.customProgramCacheKey = () => 'beast-wounds'; return m;
 }

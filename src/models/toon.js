@@ -49,6 +49,20 @@ export function toonMaterial(src, { sat = 1.3, tint = null, wind = 0, windH = 0.
   m.customProgramCacheKey = () => `toon|${sat}|${wind ? 'w' : ''}|p`;
   cache.set(key, m); return m;
 }
+// realistic (PBR) twin of a material with wind sway for leaves / grass cards; shares maps with the source
+const windCache = new Map();
+export function windMaterial(src, { amp = 1, h = 0.2 } = {}) {
+  const key = src.uuid + '|' + amp + '|' + h; if (windCache.has(key)) return windCache.get(key);
+  const m = src.clone(); m.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, { uTime: WIND.time, uWindDir: WIND.dir, uWindAmp: { value: amp }, uWindH: { value: h } }); sh.vertexShader = 'uniform float uTime; uniform vec2 uWindDir; uniform float uWindAmp; uniform float uWindH;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIND_VERT); };
+  m.customProgramCacheKey = () => 'pbrwind|' + src.type; windCache.set(key, m); return m;
+}
+/** realistic model: keep PBR materials, give foliage cards wind; environment never gets ink outlines */
+export function windify(obj, { amp = 1, h = 0.2 } = {}) {
+  let any = false;
+  obj.traverse((o) => { if (!o.isMesh) return; o.userData.noInk = true; const one = (m) => { if (!m || !(m.alphaTest > 0 || m.userData?.foliage) || m.userData?.glass || m.userData?.flame) return m; any = true; return windMaterial(m, { amp, h }); }; o.material = Array.isArray(o.material) ? o.material.map(one) : one(o.material); });
+  if (any) obj.traverse((o) => { if (o.isMesh) o.onBeforeRender = tickWind; });
+  return obj;
+}
 const isFoliage = (m) => !!(m && (m.alphaTest > 0 || m.userData?.foliage));
 /** convert every mesh of a loaded model to toon; foliage cards flutter. Glass and flames keep their materials. */
 export function toonify(obj, { sat = 1.3, tint = null, leafTint = null, wind = 1, windH = 0.2, cast = true, bands = null } = {}) {
@@ -94,13 +108,13 @@ const GRASS_VERT = `
   gw.xz += goff * gk * gh; gw.y -= dot(goff, goff) * gk * gh * 0.45;
   vec4 mvPosition = viewMatrix * gw; gl_Position = projectionMatrix * mvPosition;`;
 /** a field of instanced blades. spots: array of [x, y, z, height, hueJitter]. */
-export function grassBlades(spots, { colorJitter = 0.08, dry = 0.25, pointer = false } = {}) {
-  const geo = bladeGeometry(); const mat = new THREE.MeshToonMaterial({ vertexColors: true, side: THREE.DoubleSide, gradientMap: gradientMap([0.45, 0.72, 1.0]) });
+export function grassBlades(spots, { colorJitter = 0.08, dry = 0.25, pointer = false, pbr = false } = {}) {
+  const geo = bladeGeometry(); const mat = pbr ? new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.78, metalness: 0 }) : new THREE.MeshToonMaterial({ vertexColors: true, side: THREE.DoubleSide, gradientMap: gradientMap([0.45, 0.72, 1.0]) });
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, { uTime: WIND.time, uWindDir: WIND.dir, uWindAmp: WIND.amp, uPtr: WIND.ptr, uPtrR: WIND.ptrR, uPtrK: WIND.ptrK });
     sh.vertexShader = 'uniform float uTime; uniform vec2 uWindDir; uniform float uWindAmp; uniform vec3 uPtr; uniform float uPtrR; uniform float uPtrK;\n' + sh.vertexShader.replace('#include <project_vertex>', GRASS_VERT);
   };
-  mat.customProgramCacheKey = () => 'grassblades';
+  mat.customProgramCacheKey = () => (pbr ? 'grassblades-pbr' : 'grassblades');
   const mesh = new THREE.InstancedMesh(geo, mat, spots.length); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();
   const dryC = C('#e0c070'), greenC = C('#ffffff');
   spots.forEach(([x, y, z, h, j = Math.random()], i) => {

@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { Spring } from '../core/tween.js';
 import * as K from './charkit.js';
+import { buildHead } from './puppethead.js';
 
 const { hex } = K;
 const T = [0, 0, 0];
@@ -97,7 +98,7 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const capR = (t, e = 0.08) => Math.sqrt(Math.min(1, Math.min(t, 1 - t) / e));
 /** a turned/carved segment hanging down (-Y) from its joint, gap at both ends, rounded ends, optional chips */
 function seg(len, r0, r1, mat, { gap = 0.025, rings = 30, sides = 22, rz = 1, bulge = 0.08, chip = 0, x = 0, z = 0 } = {}) {
-  const l = new K.Loft(rings, sides).set((t, p) => p.set(x, -gap - t * (len - 2 * gap), z), (t) => { const r = (r0 + (r1 - r0) * t) * (1 + bulge * Math.sin(t * Math.PI)) * capR(t); return [r, r * rz]; },
+  const l = new K.Loft(rings, sides).set((t, p) => p.set(x, -gap - t * (len - 2 * gap), z), (t) => { const r = (r0 + (r1 - r0) * t) * (1 + bulge * Math.sin(t * Math.PI)) * capR(t, 0.025) * (Math.min(t, 1 - t) < 0.05 ? 0.92 : 1); return [r, r * rz]; },
     { ref: (t, n) => n.set(0, 0, 1), shape: chip ? (a, t) => 1 - (Math.sin(a * 3 + 1) > 0.94 && t > 0.3 && t < 0.5 ? chip : 0) : null });
   return K.mesh(l.geo, mat);
 }
@@ -123,9 +124,8 @@ function tableLeg(len, M) { // turned furniture leg as an arm: square post block
   const l = new K.Loft(60, 24).set((t, p) => p.set(0, -0.02 - t * len, 0), (t) => prof(t) * Math.sqrt(Math.min(1, t / 0.02)), { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => t * len < 0.11 ? Math.min(1.38, 1 / Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a)))) : 1 });
   K.mesh(l.geo, M.leg, g);
   const f = new K.Loft(10, 20).set((t, p) => p.set(0, -0.02 - len - t * 0.05, 0), (t) => 0.03 - t * 0.006, { ref: (t, n) => n.set(0, 0, 1) }); K.mesh(f.geo, M.brass, g); // ferrule
-  for (const wx of [-0.012, 0.012]) { const wheel = new K.Loft(28, 12).set((t, p) => p.set(wx, -len - 0.125 + Math.cos(t * TAU) * 0.04, Math.sin(t * TAU) * 0.04), () => 0.012, { ref: (t, n) => n.set(1, 0, 0) }); K.mesh(wheel.geo, M.brass, g); } // twin castor wheels
-  K.mesh(new K.Loft(8, 16).set((t, p) => p.set(-0.03 + t * 0.06, -len - 0.125, 0), () => 0.008).geo, M.brass, g); // axle
-  for (const s of [-1, 1]) K.mesh(new K.Loft(6, 8).set((t, p) => p.set(s * 0.018, -len - 0.065 - t * 0.05, 0), () => 0.006).geo, M.brass, g); // fork
+  
+  for (const s of [-1, 1]) K.mesh(new K.Loft(8, 10).set(K.curve([[s * 0.02, -len - 0.065, 0], [s * 0.034, -len - 0.1, 0], [s * 0.026, -len - 0.15, 0]]), () => 0.007).geo, M.brass, g); // castor fork holding the crystal
   return g;
 }
 function carvedHand(M) { // left hand: carved mitten palm, index and middle fingers, two snapped stumps, thumb
@@ -187,6 +187,82 @@ function spectralHand(mat, fadeMat) {
   return { hand, fingers, thumb: th, thumb2: t2 };
 }
 
+
+// ---------------------------------------------------------------- battle-mage kit: robe, mantle, pauldron, bracer, belt, vials, scroll case, quill, amulet, war-club, sigil
+function runeGlyph(gx, gy) {
+  const c = Math.floor(gx), x = gx - c; if (gy < 0.2 || gy > 0.8 || x < 0.18 || x > 0.82) return false; const y = (gy - 0.2) / 0.6; const h = Math.abs((Math.sin(c * 12.9898 + 4.1) * 43758.5453) % 1);
+  if (Math.abs(x - 0.5) < 0.07) return true;
+  if (h > 0.2 && x > 0.5 && y > 0.3 && y < 0.78 && Math.abs((x - 0.5) - (y - 0.3) * 0.6) < 0.065) return true;
+  if (h > 0.45 && x < 0.5 && y > 0.25 && y < 0.7 && Math.abs((0.5 - x) - (0.7 - y) * 0.6) < 0.065) return true;
+  if (h > 0.7 && Math.abs(y - 0.5) < 0.065 && Math.abs(x - 0.5) < 0.28) return true;
+  if (h < 0.2 && Math.abs(Math.hypot(x - 0.5, (y - 0.25) * 0.8) - 0.18) < 0.05 && y < 0.35) return true;
+  return false;
+}
+function gearMats() {
+  if (MAT.robe) return MAT; const gold = hex('#f0c454');
+  const runeBand = (o, gx, gy) => { K.tone(hex('#1a1640'), 0.45, o.col); if (runeGlyph(gx, gy)) K.tone(gold, 0.78, o.col); if (gy < 0.1 || gy > 0.9) K.tone(hex('#e2ae46'), 0.6, o.col); };
+  MAT.robe = K.uvMat('wiz-robe', 512, 512, (u, v, o) => { // deep indigo robe: 3-tone folds, embroidered rune bands on the front edges and above the hem, ragged hem
+    const f = Math.sin(u * TAU * 8 + Math.sin(v * 4 + u * 17) * 0.9); K.tone(hex('#30307a'), f > 0.5 ? 0.66 : f < -0.5 ? 0.3 : 0.48, o.col);
+    const e = Math.min(u, 1 - u); if (e < 0.04) runeBand(o, v * 40, e / 0.04); else if (v > 0.82 && v < 0.9) runeBand(o, u * 70, (v - 0.82) / 0.08);
+    if (K.vnoise(u * 20, v * 20, 9) > 0.86 && v > 0.4 && e > 0.05) o.a = 0;
+    const hem = 0.94 + Math.abs(((u * 29) % 1) - 0.5) * 0.07 + K.vnoise(u * 50, 2, 2) * 0.02; if (v > hem) o.a = 0; else if (v > hem - 0.025) K.tone(hex('#5a5aa0'), 0.5, o.col);
+  }, { side: THREE.DoubleSide, alphaTest: 0.5 });
+  MAT.robeTop = K.uvMat('wiz-robe-top', 512, 256, (u, v, o) => { const f = Math.sin(u * TAU * 6 + v * 3); K.tone(hex('#30307a'), f > 0.5 ? 0.66 : f < -0.5 ? 0.32 : 0.48, o.col); const e = Math.min(u, 1 - u); if (e < 0.045) runeBand(o, v * 18, e / 0.045); }, { side: THREE.DoubleSide });
+  MAT.cape = K.uvMat('wiz-cape', 256, 256, (u, v, o) => { const f = Math.sin(u * TAU * 5 + v * 2); K.tone(hex('#7a1e2e'), f > 0.45 ? 0.64 : f < -0.5 ? 0.3 : 0.48, o.col); if (v < 0.06) K.tone(gold, 0.6, o.col); const hem = 0.86 + Math.abs(((u * 13) % 1) - 0.5) * 0.18 + K.vnoise(u * 30, 1, 3) * 0.05; if (v > hem) o.a = 0; else if (v > hem - 0.03) K.tone(hex('#4a1020'), 0.45, o.col); if (K.vnoise(u * 12, v * 12, 4) > 0.86 && v > 0.3) o.a = 0; }, { side: THREE.DoubleSide, alphaTest: 0.5 });
+  MAT.leather = K.uvMat('wiz-leather', 128, 128, (u, v, o) => { K.tone(hex('#6a3e22'), K.band(0.5 + (K.vnoise(u * 20, v * 20, 2) - 0.5) * 0.25, 4), o.col); const e = Math.min(u, 1 - u, v, 1 - v); if (e < 0.06 && e > 0.035 && ((u + v) * 60) % 1 < 0.5) K.tone(hex('#e0c890'), 0.6, o.col); if (e < 0.02) K.tone(hex('#3a2010'), 0.4, o.col); if (Math.abs(Math.hypot(u - 0.5, v - 0.5) - 0.2) < 0.02) K.tone(hex('#3a2010'), 0.35, o.col); }, { side: THREE.DoubleSide });
+  MAT.glass = new THREE.MeshStandardMaterial({ color: 0xd8f0ff, roughness: 0.08, metalness: 0, transparent: true, opacity: 0.35, depthWrite: false });
+  MAT.crystal = new THREE.MeshStandardMaterial({ color: 0x8ff0ff, emissive: 0x3ac8ff, emissiveIntensity: 1.6, roughness: 0.15, flatShading: true });
+  MAT.paper = K.uvMat('wiz-quill', 32, 128, (u, v, o) => { K.tone(hex('#f2ead8'), K.band(0.6 - Math.abs(u - 0.5) * 0.4 + (Math.sin(v * 160 + u * 8) > 0.6 ? -0.12 : 0), 3), o.col); if (Math.abs(u - 0.5) < 0.04) K.tone(hex('#8a7a60'), 0.5, o.col); }, { side: THREE.DoubleSide });
+  return MAT;
+}
+function sigilTex() {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.translate(128, 128); g.strokeStyle = '#fff'; g.lineWidth = 3;
+  for (const r of [118, 96]) { g.beginPath(); g.arc(0, 0, r, 0, TAU); g.stroke(); }
+  g.beginPath(); for (let i = 0; i <= 7; i++) { const a = (i * 3 / 7) * TAU; g.lineTo(Math.cos(a) * 92, Math.sin(a) * 92); } g.stroke();
+  g.font = 'bold 18px serif'; g.fillStyle = '#fff'; for (let i = 0; i < 14; i++) { g.save(); g.rotate((i / 14) * TAU); g.fillText('ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈ'[i], -6, -100); g.restore(); }
+  const t = new THREE.CanvasTexture(c); return t;
+}
+function wizardGear(J, M) {
+  const G = gearMats(); const gold = M.brass; const torsoW = (y) => 0.15 + Math.sin(Math.min(1, (y / 0.52) * 1.15) * Math.PI * 0.62) * 0.07;
+  // long robe: an open-fronted coat-robe over the frock coat (upper on the torso, skirt panels on the hips that swing)
+  J.torso.add(sheet(10, 30, (u, v, p) => { const th = 0.95 + u * (TAU - 1.9); const y = 0.6 - v * 0.62; const w = torsoW(Math.max(0, y)) + 0.045; p.set(Math.sin(th) * w, y, Math.cos(th) * (0.17 + y * 0.02 + 0.018)); }, G.robeTop));
+  J.tails.add(sheet(14, 34, (u, v, p) => { const th = 0.7 + u * (TAU - 1.4); const y = -0.02 - v * 1.0; const r = (0.205 + v * 0.16) * (1 + 0.045 * v * Math.sin(th * 9)); p.set(Math.sin(th) * r, y, Math.cos(th) * r * 0.8 - 0.02); }, G.robe));
+  // wizard's high collar + short tattered mantle-cape
+  J.torso.add(sheet(4, 20, (u, v, p) => { const th = 1.15 + u * (TAU - 2.3); const r = 0.075 + v * 0.085; p.set(Math.sin(th) * r, 0.53 + v * 0.17, -0.02 + Math.cos(th) * r * 0.9); }, G.robeTop));
+  J.torso.add(sheet(10, 22, (u, v, p) => { const th = 1.7 + u * (TAU - 3.4); const y = 0.6 - v * 0.5; const r = torsoW(Math.max(0, y)) + 0.075 + v * 0.06; p.set(Math.sin(th) * r * 1.05, y, Math.cos(th) * (0.2 + v * 0.05)); }, G.cape));
+  // leather pauldron of three overlapping plates, riveted, on the left shoulder
+  for (let k = 0; k < 3; k++) J.shL.add(sheet(6, 12, (u, v, p) => { const a = (u - 0.5) * 2.2; const r = 0.085 + k * 0.012 + v * 0.01; p.set(0.01 + Math.sin(v * 1.2 + 0.25) * r * 0.9, 0.08 - k * 0.042 - v * 0.05 + Math.cos(a) * 0.01, Math.sin(a) * r); }, G.leather));
+  for (const z of [-0.06, 0, 0.06]) J.shL.add(nail(V(0.1, 0.07, z), V(1, 0.4, 0).normalize(), 0.012, gold));
+  // bracer on the left forearm, a belt with buckle, pouches, potion vials, scroll case and quill
+  J.elL.add(K.mesh(new K.Loft(10, 22).set((t, p) => p.set(0, -0.1 - t * 0.17, 0), (t) => 0.046 - t * 0.006 + (Math.abs(t - 0.2) < 0.05 || Math.abs(t - 0.8) < 0.05 ? 0.004 : 0), { ref: (t, n) => n.set(0, 0, 1) }).geo, G.leather));
+  J.pelvis.add(sheet(2, 36, (u, v, p) => { const th = u * TAU; p.set(Math.sin(th) * 0.183, 0.1 - v * 0.045, Math.cos(th) * 0.133); }, G.leather));
+  { const bs = new THREE.Shape(); bs.moveTo(-0.03, -0.026); bs.lineTo(0.03, -0.026); bs.lineTo(0.03, 0.026); bs.lineTo(-0.03, 0.026); bs.closePath(); const h = new THREE.Path(); h.moveTo(-0.02, -0.016); h.lineTo(-0.02, 0.016); h.lineTo(0.02, 0.016); h.lineTo(0.02, -0.016); h.closePath(); bs.holes.push(h);
+    const bg = new THREE.ExtrudeGeometry(bs, { depth: 0.008, bevelEnabled: true, bevelSize: 0.003, bevelThickness: 0.003, bevelSegments: 2 }); bg.translate(0, 0.077, 0.136); J.pelvis.add(K.mesh(bg, gold)); }
+  for (const [x, z] of [[0.16, 0.06], [-0.15, 0.07]]) { const pg = K.mesh(new K.Loft(10, 16).set((t, p) => p.set(x, 0.08 - t * 0.13, z), (t) => [0.04 * Math.sqrt(Math.min(1, (1 - t) / 0.15)), 0.028 * Math.sqrt(Math.min(1, (1 - t) / 0.15))], { ref: (t, n) => n.set(Math.sign(x), 0, 0.4), shape: (a) => Math.min(1.25, 1 / Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a)))) }).geo, G.leather); J.pelvis.add(pg); }
+  const liquids = [0xff4060, 0x40ff90, 0x60a0ff];
+  for (let i = 0; i < 3; i++) { const x = 0.05 + i * 0.035, z = 0.145; const prof = (t) => t < 0.55 ? 0.016 : t < 0.7 ? 0.016 - (t - 0.55) * 0.07 : t < 0.9 ? 0.0055 : 0.0075;
+    J.pelvis.add(K.mesh(new K.Loft(14, 14).set((t, p) => p.set(x, 0.06 - 0.09 + t * 0.09, z), (t) => prof(t) * Math.sqrt(Math.min(1, t / 0.05)), { ref: (t, n) => n.set(0, 0, 1) }).geo, G.glass));
+    J.pelvis.add(K.mesh(new K.Loft(10, 12).set((t, p) => p.set(x, -0.028 + t * 0.045, z), (t) => 0.013 * Math.sqrt(Math.min(1, t / 0.08)), { ref: (t, n) => n.set(0, 0, 1) }).geo, new THREE.MeshToonMaterial({ color: liquids[i], emissive: liquids[i], emissiveIntensity: 0.6 })));
+    J.pelvis.add(K.mesh(new K.Loft(4, 10).set((t, p) => p.set(x, 0.062 + t * 0.014, z), () => 0.006).geo, M.oak)); }
+  J.torso.add(K.mesh(new K.Loft(14, 16).set((t, p) => p.set(0.13 - t * 0.27, 0.5 - t * 0.42, -0.2 - Math.sin(t * Math.PI) * 0.02), (t) => 0.026 + (t < 0.08 || t > 0.92 ? 0.004 : 0), { ref: (t, n) => n.set(0, 0, -1) }).geo, G.leather));
+  for (const t of [0, 1]) J.torso.add(K.mesh(new K.Loft(4, 14).set((q, p) => p.set(0.13 - t * 0.27 + (t ? -1 : 1) * q * 0.018, 0.5 - t * 0.42 + (t ? -1 : 1) * q * 0.03, -0.2), () => 0.031).geo, gold));
+  J.pelvis.add(K.mesh(new K.Loft(12, 6).set(K.curve([[0.16, 0.06, 0.07], [0.19, 0.16, 0.09], [0.24, 0.27, 0.1]]), (t) => [0.003, 0.018 * Math.sin(Math.min(1, t * 1.1 + 0.05) * Math.PI)], { ref: (t, n) => n.set(0, 0, 1) }).geo, G.paper));
+  // amulet: chain and a brass star medallion holding a glowing crystal
+  J.torso.add(K.mesh(new K.Loft(24, 6).set(K.curve([[0.07, 0.56, 0.05], [0.07, 0.46, 0.15], [0, 0.34, 0.2], [-0.07, 0.46, 0.15], [-0.07, 0.56, 0.05]]), () => 0.003).geo, gold));
+  { const st = new THREE.Shape(); for (let i = 0; i <= 16; i++) { const a = (i / 16) * TAU, r = i % 2 ? 0.022 : 0.04; st[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); }
+    const mg = new THREE.ExtrudeGeometry(st, { depth: 0.008, bevelEnabled: true, bevelSize: 0.003, bevelThickness: 0.003, bevelSegments: 2 }); mg.translate(0, 0.31, 0.2); J.torso.add(K.mesh(mg, gold)); }
+  const cryst = (len, r) => K.mesh(new K.Loft(5, 6).set((t, p) => p.set(0, (t - 0.5) * len, 0), (t) => r * (t < 0.3 ? t / 0.3 : t > 0.75 ? (1 - t) / 0.25 : 1)).geo, G.crystal);
+  { const c = cryst(0.035, 0.012); c.position.set(0, 0.31, 0.215); c.rotation.x = Math.PI / 2; J.torso.add(c); }
+  // the table leg fitted as a war-club: brass bands, studs, a crystal set in the castor fork
+  for (const y of [-0.43, -0.55, -0.66]) J.shR.add(K.mesh(new K.Loft(6, 20).set((t, p) => p.set(0, y - t * 0.022, 0), () => 0.041).geo, gold));
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; J.shR.add(K.mesh(new K.Loft(6, 8).set((t, p) => p.set(Math.cos(a) * (0.04 + t * 0.03), -0.6, Math.sin(a) * (0.04 + t * 0.03)), (t) => 0.009 * (1 - t) + 0.001).geo, gold)); }
+  { const c = cryst(0.09, 0.024); c.position.set(0, -LEGLEN - 0.12, 0); J.shR.add(c); }
+  // the off-hand sigil (glows faintly, blazes when casting)
+  const sm = new THREE.MeshBasicMaterial({ map: sigilTex(), color: new THREE.Color(0x9fe8ff).multiplyScalar(2), transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const sig = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.2), sm); sig.position.set(0, -0.08, 0.1); sig.castShadow = false; J.wrL.add(sig);
+  return { glow(k) { sm.opacity = 0.12 + k * 0.85; sig.scale.setScalar(1 + k * 0.8); }, update(t) { sig.rotation.z = t * 0.8; G.crystal.emissiveIntensity = 1.3 + Math.sin(t * 3) * 0.3; } };
+}
+
 // ---------------------------------------------------------------- the puppet
 export function createProfessor() {
   const M = mats();
@@ -201,21 +277,13 @@ export function createProfessor() {
   for (const y of [0.1, 0.16]) torso.add(hoop(V(0, y, 0.0), V(0, 1, 0), 0.172, 0.004, M.brass)); // wire wrapped round the split
   for (const [y, z] of [[0.12, 0.1], [0.3, 0.1], [0.42, 0.09]]) torso.add(nail(V(0.06, y, z), V(-0.3, 0.1, 1).normalize(), 0.03, M.brass));
   const neck = J(torso, 0, 0.56, -0.01); K.mesh(new K.Loft(10, 16).set((t, p) => p.set(0, -0.02 + t * 0.13, 0), () => 0.042).geo, M.oak, neck);
-  const head = J(neck, 0, 0.12, 0.0); const headMesh = new THREE.Group(); head.add(headMesh);
-  const HL = 0.3; const headGeo = new K.Loft(34, 30).set((t, p) => p.set(0, 0.05 + t * HL, 0.015), (t) => { const r = (0.105 + Math.sin(Math.min(1, t * 1.3) * Math.PI * 0.55) * 0.025) * Math.sqrt(Math.min(1, (1 - t) / 0.3)) * (t < 0.04 ? 0.9 : 1); return [r * 0.97, r * 1.1]; }, { ref: (t, n) => n.set(0, 0, 1), shape: (a) => 1 - Math.pow(Math.max(0, Math.cos(a)), 6) * 0.08 }).geo;
-  const faceMesh = K.mesh(headGeo, faceMat('smug'), headMesh);
-  K.mesh(new K.Loft(12, 14).set(K.curve([[0, 0.2, 0.125], [0, 0.155, 0.17], [0, 0.125, 0.2]]), (t) => 0.026 * (1 - t * 0.45) * capR(t, 0.12), { ref: (t, n) => n.set(0, 0, 1) }).geo, M.faceWood, headMesh); // long carved nose
-  for (const s of [-1, 1]) K.mesh(new K.Loft(10, 12).set(K.curve([[s * 0.118, 0.17, 0.0], [s * 0.135, 0.15, -0.015], [s * 0.125, 0.12, -0.01]]), (t) => [0.008, 0.026 * capR(t, 0.2)], { ref: (t, n) => n.set(s, 0, 0) }).geo, M.faceWood, headMesh);
-  headMesh.add(woolHair(M, HL + 0.05, 0.0));
-  const jaw = J(head, 0, 0.07, -0.02); // hinge at the back; the chin swings down (marionette mouth)
-  K.mesh(new K.Loft(16, 22).set((t, p) => p.set(0, -0.005 - t * 0.075, 0.085 - t * 0.012), (t) => [0.07 * capR(t, 0.15) * (1 - t * 0.25), 0.045 * capR(t, 0.15)], { ref: (t, n) => n.set(0, 0, 1) }).geo, M.jaw, jaw);
+  const head = J(neck, 0, 0.1, 0.0); const HD = buildHead(); HD.group.scale.setScalar(1.12); head.add(HD.group); const jaw = HD.jawPivot;
   // lace cravat, waistcoat, tattered frock coat with sleeves and tails, standing collar
   K.mesh(new K.Loft(12, 16).set(K.curve([[0, 0.55, 0.11], [0, 0.47, 0.135], [0, 0.36, 0.14]]), (t) => [0.03 + t * 0.03, 0.012 + t * 0.006], { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => 1 + Math.sin(a * 5 + t * 14) * 0.22 }).geo, M.lace, torso);
   torso.add(sheet(8, 14, (u, v, p) => { const th = (u - 0.5) * 1.5; const y = 0.06 + v * 0.42; const w = 0.15 + Math.sin(Math.min(1, (y / 0.52) * 1.15) * Math.PI * 0.62) * 0.07 + 0.012; p.set(Math.sin(th) * w, y, Math.cos(th) * (0.115 + y * 0.04 + 0.012)); }, M.vest));
   torso.add(sheet(10, 26, (u, v, p) => { const th = 0.62 + u * (TAU - 1.24); const y = 0.54 - v * 0.56; const w = 0.17 + Math.sin(Math.min(1, (y / 0.52) * 1.15) * Math.PI * 0.62) * 0.07 + 0.02; p.set(Math.sin(th) * w, y, Math.cos(th) * (0.13 + 0.03 + y * 0.02)); }, M.coat));
   torso.add(sheet(3, 16, (u, v, p) => { const th = 1.0 + u * (TAU - 2.0); const r = 0.06 + v * 0.03; p.set(Math.sin(th) * r, 0.54 + v * 0.09, -0.01 + Math.cos(th) * r); }, M.coat));
   const tails = J(pelvis, 0, 0.1, -0.05);
-  tails.add(sheet(10, 16, (u, v, p) => { const th = 2.05 + u * (TAU - 4.1); const y = -v * 0.58; const r = 0.19 + v * 0.07; p.set(Math.sin(th) * r * (Math.abs(u - 0.5) < 0.02 && v > 0.3 ? 1.02 : 1), y, Math.cos(th) * (r * 0.75)); }, M.coat));
   // arms: [0] = right = the TABLE LEG (nailed + lashed at the shoulder), [1] = left = carved wooden arm
   const arms = [], legs = [], hands = [];
   { const sh = J(torso, -0.25, 0.46, 0); const leg = tableLeg(0.78, M); sh.add(leg);
@@ -250,7 +318,9 @@ export function createProfessor() {
   strings.frustumCulled = false; root.add(strings);
   const anchors = [[-0.5, 0, 0], [0.5, 0, 0], [0, 0, 0.3], [0, 0, -0.3], [-0.25, 0, 0], [0.25, 0, 0]].map((p) => V(...p));
   const headTop = J(head, 0, 0.36, 0.01); const back = J(torso, 0, 0.42, -0.13); const knees = legs.map((l) => J(l.kn, 0, -0.02, 0.05));
-  const attach = [hands[0], hands[1], headTop, back, knees[0], knees[1]];
+  const tipR = hands[0], tipL = hands[1]; hands[0] = tipL; hands[1] = tipR;
+  const attach = [tipR, tipL, headTop, back, knees[0], knees[1]];
+  const GEAR = wizardGear({ torso, pelvis, tails, shL: arms[1].sh, elL: arms[1].el, wrL: arms[1].wr, shR: arms[0].sh, neck }, M);
 
   // ---------------- animation state: the hand drives the strings, the strings drive the puppet
   const sp = (v = 0, w = 7, z = 0.3) => new Spring(v, w, z);
@@ -258,9 +328,9 @@ export function createProfessor() {
     t: 0, mode: 'idle', modeT: 9, talk: 0, look: new THREE.Vector2(), expr: 'smug', hold: 0, blink: 0, shown: '', nextJit: 1,
     hand: { x: sp(0, 6, 0.5), y: sp(0, 6, 0.5), z: sp(0, 6, 0.5), tilt: sp(0, 8, 0.45), roll: sp(0, 8, 0.45), curl: sp(0.55, 10, 0.5) },
     pull: { L: sp(0.08, 9, 0.35), R: sp(0.08, 9, 0.35), head: sp(0.5, 8, 0.4), kL: sp(0, 9, 0.35), kR: sp(0, 9, 0.35) }, slack: sp(0, 6, 0.6),
-    j: { shL: sp(0, 8, 0.22), shR: sp(0, 8, 0.22), shLz: sp(0.12, 8, 0.25), shRz: sp(-0.12, 8, 0.25), elL: sp(-0.2, 9, 0.25), wrL: sp(0, 10, 0.2), hipL: sp(0, 8, 0.25), hipR: sp(0, 8, 0.25), knL: sp(0.05, 9, 0.25), knR: sp(0.05, 9, 0.25), torso: sp(0, 6, 0.35), torsoZ: sp(0, 6, 0.3), headX: sp(0, 8, 0.3), headY: sp(0, 6, 0.4), headZ: sp(0, 7, 0.25), tails: sp(0, 5, 0.2), bodyX: sp(0, 4, 0.35), bodyY: sp(0, 6, 0.4), jaw: sp(0, 30, 0.5) },
+    j: { shL: sp(0, 8, 0.22), shR: sp(0, 8, 0.22), shLz: sp(0.12, 8, 0.25), shRz: sp(-0.12, 8, 0.25), elL: sp(-0.2, 9, 0.25), wrL: sp(0, 10, 0.2), hipL: sp(0, 8, 0.25), hipR: sp(0, 8, 0.25), knL: sp(0.05, 9, 0.25), knR: sp(0.05, 9, 0.25), torso: sp(0, 6, 0.35), torsoZ: sp(0, 6, 0.3), headX: sp(0, 8, 0.3), headY: sp(0, 6, 0.4), headZ: sp(0, 7, 0.25), tails: sp(0, 5, 0.2), bodyX: sp(0, 4, 0.35), bodyY: sp(0, 6, 0.4), bodyZ: sp(0, 7, 0.45), torsoY: sp(0, 8, 0.35), jaw: sp(0, 30, 0.5) },
   };
-  const EXPR = new Set(Object.keys(EX));
+  const EXPR = new Set(Object.keys(EX)); const IMPACT_T = 0.45;
   const tmp = V(0, 0, 0), tmp2 = V(0, 0, 0), a0 = V(0, 0, 0), b0 = V(0, 0, 0);
   const api = {
     root, head, jaw, ctrl, arms, legs, torso, body, ghost,
@@ -271,21 +341,26 @@ export function createProfessor() {
     lookAt(x, y) { st.look.set(x, y); },
     act(mode) {
       st.mode = mode; st.modeT = 0; const H = st.hand, P = st.pull;
-      if (mode === 'throw') { H.z.kick(-3); H.tilt.kick(-4); P.L.kick(6); }
-      if (mode === 'hurt') { st.slack.value = 1; st.slack.target = 0; H.y.kick(-3); st.expr = 'hurt'; st.hold = 1.1; }
-      if (mode === 'cast') { H.y.kick(3); st.expr = st.expr === 'smug' ? 'think' : st.expr; }
+      if (mode === 'throw') { H.y.kick(5); H.z.kick(-3); st.expr = 'annoyed'; st.hold = 1.0; return IMPACT_T; } // the hand yanks the club string
+      if (mode === 'attack') { st.mode = 'throw'; H.y.kick(5); return IMPACT_T; }
+      if (mode === 'hurt') { st.j.bodyZ.kick(-7); st.j.torso.kick(-6); st.j.headX.kick(-6); H.y.kick(-3); st.expr = 'hurt'; st.hold = 1.3; } // knockback, then the strings go slack
+      if (mode === 'cast') { H.y.kick(4); st.expr = st.expr === 'smug' ? 'think' : st.expr; }
       if (mode === 'cheer') { H.y.kick(5); st.expr = 'delight'; st.hold = 1.4; }
     },
+    impactTime: IMPACT_T,
     update(dt) {
       dt = Math.min(dt, 0.05); st.t += dt; st.modeT += dt; const t = st.t, m = st.modeT, H = st.hand, P = st.pull, Jn = st.j;
       // the hand: idle bob and sway; the mode decides how it jerks the strings
       H.x.target = Math.sin(t * 0.9) * 0.08; H.y.target = Math.sin(t * 1.6) * 0.05; H.z.target = 0; H.tilt.target = Math.sin(t * 1.3) * 0.07; H.roll.target = Math.sin(t * 0.7) * 0.06; H.curl.target = 0.55 + Math.sin(t * 2.1) * 0.05;
       P.L.target = 0.08 + Math.sin(t * 1.7) * 0.04; P.R.target = 0.08 + Math.sin(t * 1.7 + 1) * 0.04; P.head.target = 0.5; P.kL.target = Math.max(0, Math.sin(t * 1.4)) * 0.18; P.kR.target = Math.max(0, Math.sin(t * 1.4 + 2)) * 0.18;
       const md = st.mode;
-      if (md === 'throw' && m < 0.9) { const k = m < 0.25 ? 0 : 1; H.z.target = k ? 0.35 : -0.25; H.tilt.target = k ? 0.35 : -0.25; P.L.target = m < 0.25 ? 0.35 : m < 0.5 ? 1.0 : 0.3; H.curl.target = k ? 0.85 : 0.4; }
-      if (md === 'cast' && m < 1.2) { H.y.target = 0.3; H.tilt.target = -0.15; P.L.target = 0.85; P.R.target = 0.85; H.curl.target = 0.25; smat.uniforms.uGlow.value = 2.2; } else smat.uniforms.uGlow.value += (1 - smat.uniforms.uGlow.value) * Math.min(1, dt * 3);
+      // throw with the table-leg club: yank (0-.12) -> wind back, weight back, twist (.12-.42) -> hurl over the top (.42-.56) -> follow-through -> recover
+      const ph = md === 'throw' ? (m < 0.12 ? 1 : m < 0.42 ? 2 : m < 0.56 ? 3 : m < 0.95 ? 4 : 0) : 0; const fast = ph ? 24 : 8; for (const k of ['shR', 'shRz', 'torsoY', 'torso', 'bodyZ']) st.j[k].omega = fast;
+      if (ph) { H.z.target = ph === 2 ? -0.35 : ph >= 3 ? 0.45 : -0.1; H.tilt.target = ph === 2 ? -0.35 : ph === 3 ? 0.55 : 0.2; H.curl.target = ph >= 3 ? 0.9 : 0.5; P.R.target = ph === 4 ? 0.3 : 0.9; }
+      if (md === 'cast' && m < 1.3) { H.y.target = 0.35; H.tilt.target = -0.2; P.L.target = 1.0; P.R.target = 0.95; P.head.target = 1.0; H.curl.target = 0.25; smat.uniforms.uGlow.value = 2.4; GEAR.glow(Math.min(1, m * 3) * (1 - Math.max(0, (m - 1.0) / 0.3))); } else { smat.uniforms.uGlow.value += (1 - smat.uniforms.uGlow.value) * Math.min(1, dt * 3); GEAR.glow(0.15); }
       if (md === 'cheer' && m < 1.5) { const b = Math.abs(Math.sin(m * 9)); H.y.target = 0.25 + b * 0.15; P.L.target = 0.95 + b * 0.1; P.R.target = 0.95 + b * 0.1; P.kL.target = b * 0.6; P.kR.target = (1 - b) * 0.6; H.curl.target = 0.8; }
       if (md !== 'idle' && m > 1.6) st.mode = 'idle';
+      if (md === 'hurt') { st.slack.omega = m < 0.62 ? 10 : 16; st.slack.target = m < 0.6 ? 1 : 0; if (m > 0.6 && m - dt <= 0.6) { H.y.kick(9); st.j.bodyY.kick(5); } } // crumple, then jerked back up
       st.slack.update(dt); const sl = Math.max(0, st.slack.value); if (sl > 0.02) { H.curl.target = 0.15; P.L.target *= 1 - sl; P.R.target *= 1 - sl; P.kL.target *= 1 - sl; P.kR.target *= 1 - sl; P.head.target *= 1 - sl; }
       for (const k in H) H[k].update(dt); for (const k in P) P[k].update(dt);
       ctrl.position.set(H.x.value * 0.6, 3.55 + H.y.value, H.z.value * 0.5); cross.rotation.set(H.tilt.value, 0, H.roll.value);
@@ -297,23 +372,26 @@ export function createProfessor() {
       st.nextJit -= dt; if (st.nextJit < 0) { st.nextJit = 0.6 + Math.random() * 1.2; const ks = ['shL', 'shR', 'elL', 'hipL', 'hipR', 'knL', 'knR', 'headZ', 'tails', 'wrL']; Jn[ks[(Math.random() * ks.length) | 0]].kick((Math.random() - 0.5) * 2.4); }
       // the strings set the joint targets (pull 1 = arm hauled up and forward)
       Jn.shL.target = -P.L.value * 2.3 - (md === 'throw' && m > 0.25 && m < 0.6 ? 0.6 : 0); Jn.shLz.target = 0.12 + P.L.value * 0.25 + sl * 0.1; Jn.elL.target = -0.15 - P.L.value * 0.7;
-      Jn.shR.target = -P.R.value * 2.1; Jn.shRz.target = -0.12 - P.R.value * 0.25 - sl * 0.1; Jn.wrL.target = Math.sin(t * 2.3) * 0.12;
+      Jn.shR.target = ph === 1 ? -0.5 : ph === 2 ? 1.7 : ph === 3 ? -2.5 : ph === 4 ? -1.1 : -P.R.value * 2.1; Jn.shRz.target = ph === 2 ? -0.45 : -0.12 - P.R.value * 0.25 - sl * 0.1;
+      Jn.torsoY.target = ph === 2 ? -0.55 : ph === 3 ? 0.5 : ph === 4 ? 0.3 : Math.sin(t * 0.7) * 0.05; Jn.bodyZ.target = ph === 2 ? -0.09 : ph === 3 ? 0.14 : ph === 4 ? 0.08 : 0; Jn.wrL.target = Math.sin(t * 2.3) * 0.12;
       Jn.hipL.target = -P.kL.value * 0.9 - sl * 0.8; Jn.hipR.target = -P.kR.value * 0.9 - sl * 0.7; Jn.knL.target = 0.05 + P.kL.value * 1.3 + sl * 1.4; Jn.knR.target = 0.05 + P.kR.value * 1.3 + sl * 1.3;
-      Jn.torso.target = 0.08 + sl * 0.5 - (P.L.value + P.R.value) * 0.06; Jn.torsoZ.target = -H.roll.value * 0.7 + Math.sin(t * 1.1) * 0.03;
-      Jn.headX.target = (1 - P.head.value) * 0.5 - 0.1 + st.look.y * -0.3 + sl * 0.35; Jn.headY.target = st.look.x * 0.5 + Math.sin(t * 0.6) * 0.1; Jn.headZ.target = Math.sin(t * 0.8) * 0.06;
+      Jn.torso.target = ph === 2 ? -0.15 : ph === 3 ? 0.38 : ph === 4 ? 0.26 : 0.08 + sl * 0.5 - (P.L.value + P.R.value) * 0.06 - (md === 'cast' && m < 1.2 ? 0.12 : 0);
+ Jn.torsoZ.target = -H.roll.value * 0.7 + Math.sin(t * 1.1) * 0.03;
+      Jn.headX.target = (1 - P.head.value) * 0.5 - 0.1 + st.look.y * -0.3 + sl * 0.45 - (md === 'cast' && m < 1.2 ? 0.55 : 0); Jn.headY.target = st.look.x * 0.5 + Math.sin(t * 0.6) * 0.1; Jn.headZ.target = Math.sin(t * 0.8) * 0.06;
       Jn.tails.target = -Jn.hipL.value * 0.3 + Math.sin(t * 1.9) * 0.05; Jn.bodyX.target = H.x.value * 0.35; Jn.bodyY.target = 0.02 + Math.max(0, H.y.value) * 0.5 - sl * 0.3 + (P.L.value + P.R.value) * 0.03;
+      if (ph === 3 || ph === 4) { Jn.hipL.target = -0.55; Jn.knL.target = 0.55; } // step into the throw
       Jn.jaw.target = st.talk > 0 ? Math.abs(Math.sin(t * 17)) * 0.5 : sl * 0.25; if (st.talk > 0) st.talk -= dt;
       for (const k in Jn) Jn[k].update(dt);
       arms[1].sh.rotation.set(Jn.shL.value, 0, Jn.shLz.value); arms[1].el.rotation.set(Jn.elL.value, 0, 0); arms[1].wr.rotation.set(Jn.wrL.value, 0, 0);
       arms[0].sh.rotation.set(Jn.shR.value, 0, Jn.shRz.value); arms[1].twine.rotation.set(Math.sin(t * 2.7) * 0.3, 0, Math.sin(t * 2.1) * 0.2);
       legs[1].hip.rotation.set(Jn.hipL.value, 0, 0); legs[0].hip.rotation.set(Jn.hipR.value, 0, 0); legs[1].kn.rotation.set(Jn.knL.value, 0, 0); legs[0].kn.rotation.set(Jn.knR.value, 0, 0);
       legs[1].an.rotation.set(-Jn.knL.value * 0.3, 0, 0); legs[0].an.rotation.set(-Jn.knR.value * 0.3, 0, 0);
-      torso.rotation.set(Jn.torso.value, 0, Jn.torsoZ.value); pelvis.rotation.set(-sl * 0.2, 0, -Jn.torsoZ.value * 0.4); tails.rotation.x = Math.max(-0.1, Jn.tails.value) + 0.08;
+      torso.rotation.set(Jn.torso.value, Jn.torsoY.value, Jn.torsoZ.value); pelvis.rotation.set(-sl * 0.2, 0, -Jn.torsoZ.value * 0.4); tails.rotation.x = Math.max(-0.1, Jn.tails.value) + 0.08;
       head.rotation.set(Jn.headX.value, Jn.headY.value, Jn.headZ.value); jaw.rotation.x = Jn.jaw.value;
-      body.position.set(Jn.bodyX.value, Jn.bodyY.value, 0); body.rotation.set(0, 0, -H.roll.value * 0.4);
+      body.position.set(Jn.bodyX.value, Jn.bodyY.value, Jn.bodyZ.value); GEAR.update(t, Jn); body.rotation.set(0, 0, -H.roll.value * 0.4);
       // face: expression texture swap (+ blinks)
       if (st.hold > 0) st.hold -= dt; else if (st.expr === 'hurt' || st.expr === 'delight') st.expr = 'smug';
-      st.blink -= dt; if (st.blink < -3.4) st.blink = 0.13; const fx = st.blink > 0 ? 'blink' : st.expr; if (fx !== st.shown) { st.shown = fx; faceMesh.material = faceMat(fx); }
+      st.blink -= dt; if (st.blink < -3.4) st.blink = 0.13; const fx = st.blink > 0 ? 'blink' : st.expr; if (fx !== st.shown) { st.shown = fx; HD.setExpr(fx); }
       // taut glowing strings (sag when slack)
       root.updateMatrixWorld(true); const inv = root.matrixWorld.clone().invert(); let q = 0;
       for (let i = 0; i < 6; i++) {
