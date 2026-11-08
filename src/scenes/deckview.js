@@ -12,7 +12,7 @@ export class DeckView {
   // pick: { title, filter(card)=>bool, min=1, max=1, onDone(cards) }
   constructor(game, parent, cards, pick = null) {
     this.game = game; this.parent = parent; this.cards = cards; this.pick = pick; this.selected = [];
-    this.group = new THREE.Group(); this.group.position.z = 10; this.views = []; this.scroll = new Spring(0, 10, 0.8); this.isOpen = false;
+    this.group = new THREE.Group(); this.group.position.z = 10; this.group.scale.setScalar(28 / 40); this.views = []; this.scroll = new Spring(0, 10, 0.8); this.isOpen = false;
     const E = game.engine; this.W = E.uiW; this.H = E.uiH;
     const dim = new THREE.Mesh(new THREE.PlaneGeometry(200, 120), new THREE.MeshBasicMaterial({ color: 0x0b0716, transparent: true, opacity: 0.82, depthWrite: false })); dim.position.z = -1; this.group.add(dim); this.dim = dim;
     this.title = new Signboard([pick ? pick.title : `Your Deck (${cards.length} cards)`], { font: 'head', hang: 2, maxW: 24 }); this.title.group.scale.setScalar(Math.min(1.5, this.W * 1.4 / this.title.w)); this.title.group.position.set(0, this.H - 1.3, 1); this.group.add(this.title.group);
