@@ -20,6 +20,7 @@ import { DeckView } from './deckview.js';
 import { tweens, Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
 import { vpick } from '../core/util.js';
+import { eventIntro } from './cinematic.js';
 
 const F = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.7, ...o });
 const mk = (g, m, p, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; p.add(o); return o; };
@@ -42,6 +43,11 @@ function propFor(k) {
   }
   return g;
 }
+// where the camera dollies in the vignette: the prop's bulk, pulled towards any characters
+function focusOf(prop, npcs) {
+  const b = new THREE.Box3().setFromObject(prop); const c = b.isEmpty() ? new THREE.Vector3(-0.6, 1, 0) : b.getCenter(new THREE.Vector3());
+  c.y = Math.min(2.0, Math.max(0.9, c.y)); for (const n of npcs) c.lerp(n.root.position.clone().add(new THREE.Vector3(0, 1.1, 0)), 1 / (npcs.length + 1)); return c;
+}
 function signPost(text) { const g = new THREE.Group(); mk(S.limb(1.4, 0.05, 0.05, { sides: 4, seed: 1 }), F({ color: 0x5e3a1c }), g, 0, 1.4, 0); const b = carvedSign(text); b.position.set(0, 1.2, 0.06); g.add(b); return g; }
 
 export default class EventScene extends UIScreen {
@@ -52,16 +58,27 @@ export default class EventScene extends UIScreen {
     // world
     const sc = (this.scene = new THREE.Scene()); let st; try { st = await realStage(ev.theme, 30 + ev.id.length, this.engine.renderer); sc.environment = st.env; sc.environmentIntensity = 0.75; sc.background = st.background; } catch (e) { st = buildStage(ev.theme, 30 + ev.id.length); } sc.add(st.group); sc.fog = new THREE.Fog(0xe8c09a, 30, 95);
     const sun = new THREE.DirectionalLight(0xffd0a0, 3.2); sun.position.set(-8, 10, 7); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 10, bottom: -8 }); sc.add(sun, new THREE.HemisphereLight(0xa8c8ff, 0x6a4a30, 1.1));
-    this.camera = new THREE.PerspectiveCamera(32, this.engine.aspect, 0.1, 300); this.camera.position.set(-2.5, 3.0, 10.5); this.camera.lookAt(-1.2, 1.4, 0);
+    this.camera = new THREE.PerspectiveCamera(32, this.engine.aspect, 0.1, 300); this.camera.position.set(-2.5, 3.0, 10.5); this.camLook = new THREE.Vector3(-1.2, 1.4, 0); this.camera.lookAt(this.camLook); this.camBase = this.camera.position.clone(); this.stage = st;
     this.prof = createProfessor(); this.prof.root.position.set(-4.4, 0, 1.2); this.prof.root.rotation.y = 0.6; sc.add(this.prof.root);
     const prop = propFor(ev.prop); prop.position.set(-0.6, 0, 0); sc.add(prop);
     this.npcs = []; if (ev.npc) for (let i = 0; i < (ev.npc === 'kobalos' ? 3 : ev.npc === 'satyr' ? 2 : 1); i++) { const c = createCreature(ev.npc); c.root.position.set(0.4 + i * 1.3, 0, -0.4 - (i % 2) * 0.6); c.root.rotation.y = -0.5; c.root.scale.setScalar(c.root.scale.x * (ev.npc === 'kobalos' ? 0.7 : 1)); sc.add(c.root); this.npcs.push(c); }
+    this.propFocus = focusOf(prop, this.npcs);
     this.engine.setWorld(sc, this.camera); this.engine.setFx({ bloom: [0.5, 0.6, 0.8], tilt: { focus: 0.55, width: 0.2, amount: 2.2 }, grade: { warmth: 0.35, vignette: 0.45 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('event'); audio.setAmbSet(['wilderness']);
     // UI
     const W = this.W, H = this.H;
     this.panel = new Panel(ev.title, [ev.text], { w: 15, h: 8.2, titleColor: '#5a1a22' }); uiPos(this.panel.group, W - 8.75, H - 1.0 - this.panel.scroll.h / 2, 2); this.root.add(this.panel.group);
     this.choiceBtns = ev.choices.map((c, i) => { const ok = !c.if || c.if(run); const b = new Button3D(c.label, () => this.choose(c), { w: 14, h: 1.5, size: 64, sub: c.sub, color: c.slot ? 'purple' : 'wood', disabled: !ok }); return this.addButton(b, W - 8.4, H - 10.9 - i * 1.85, 2); });
+    // the vignette is staged as a cinematic (walk-in, dolly onto the curiosity); the story and the choices wait for it
+    this.panel.group.visible = false; for (const b of this.choiceBtns) b.group.visible = false;
+    try { this.cine = eventIntro(this, { title: ev.title, text: ev.text, onReveal: () => this.revealStory() }); this.cine.done.then(() => { this.cine = null; }); }
+    catch (e) { console.warn('event intro skipped', e); this.cine = null; this.revealStory(); }
+  }
+  // the parchment unrolls, then each choice pops up in turn as a physical plaque
+  revealStory() {
+    if (this.revealed) return; this.revealed = true;
+    this.panel.group.visible = true; this.panel.scroll.open.value = 0.02; this.panel.scroll.kick?.(0.6); audio.play('paper_rustle');
+    this.choiceBtns.forEach((b, i) => setTimeout(() => { if (!this.root.parent) return; b.group.visible = true; b.pop.value = 0.05; b.pop.vel = 0; b.rz.kick((i % 2 ? 1 : -1) * 9); audio.play('card_place', { vol: 0.5 }); }, 380 + i * 150));
     this.prof.setExpr('think'); this.say(vpick(['Fascinating. And probably lethal.', 'An experiment! Hold my strings.', 'Ah. The universe is being weird again.']));
   }
   say(text) { this.prof.talk(1.6); if (!this.bubble) { this.bubble = new Paper({ font: 'hand', maxW: 9, tail: true, pin: false, kind: 'scrap' }); this.root.add(this.bubble.group); } this.bubble.show([[[text, '#2a160c']]], 0, 0, 6); this.placeBubble(); audio.play('wood_knock', { vol: 0.35 }); }
@@ -116,8 +133,10 @@ export default class EventScene extends UIScreen {
   }
   onClick() { if (this.rhythmHit) { this.rhythmHit(); return true; } }
   leave() { if (this.leaving) return; this.leaving = true; this.game.afterNode(); }
+  dispose() { this.cine?.abort(); this.cine = null; super.dispose(); }
   update(dt, t) {
     this.prof.update(dt); for (const n of this.npcs) n.update(dt);
+    if (!this.cine && this.revealed) { this.camera.position.set(this.camBase.x + Math.sin(t * 0.2) * 0.18, this.camBase.y + Math.sin(t * 0.16) * 0.08, this.camBase.z); this.camera.lookAt(this.camLook); } // a slow breathing drift
     this.panel.update(dt, this.ptr(2)); this.updateUI(dt); this.deck?.update(dt, t); this.rhythmLabel?.update(dt, null);
     if (this.bubble) { this.placeBubble(); this.bubble.update(dt, null); }
   }

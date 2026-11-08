@@ -84,9 +84,9 @@ export function toonify(obj, { sat = 1.3, tint = null, leafTint = null, wind = 1
 export function toon(params = {}, { sat = 1.25, tint = null } = {}) { return toonMaterial(new THREE.MeshStandardMaterial(params), { sat, tint }); }
 
 // ---------------------------------------------------------------- instanced grass blades (wind + pointer push)
-function bladeGeometry() {
+function bladeGeometry(pal = ['#33521f', '#5f9030', '#c2d066']) {
   const segs = 4, w = 0.055; const pos = [], col = [], idx = [];
-  const base = C('#33521f'), mid = C('#5f9030'), tip = C('#c2d066');
+  const base = C(pal[0]), mid = C(pal[1]), tip = C(pal[2]);
   for (let i = 0; i <= segs; i++) {
     const t = i / segs; const ww = w * (1 - t) ** 0.9; const z = t * t * 0.18; const c = t < 0.5 ? base.clone().lerp(mid, t * 2) : mid.clone().lerp(tip, (t - 0.5) * 2);
     pos.push(-ww, t, z, ww, t, z); col.push(c.r, c.g, c.b, c.r, c.g, c.b);
@@ -109,10 +109,11 @@ const GRASS_VERT = `
   vec4 mvPosition = viewMatrix * gw; gl_Position = projectionMatrix * mvPosition;`;
 /** a field of instanced blades. spots: array of [x, y, z, height, hueJitter]. */
 export function grassBlades(spots, { colorJitter = 0.08, dry = 0.25, pointer = false, pbr = false } = {}) {
-  const geo = bladeGeometry(); const mat = pbr ? new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.78, metalness: 0 }) : new THREE.MeshToonMaterial({ vertexColors: true, side: THREE.DoubleSide, gradientMap: gradientMap([0.45, 0.72, 1.0]) });
+  const geo = bladeGeometry(pbr ? ['#5a7a30', '#86ae44', '#dcdc8c'] : undefined); const mat = pbr ? new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.78, metalness: 0 }) : new THREE.MeshToonMaterial({ vertexColors: true, side: THREE.DoubleSide, gradientMap: gradientMap([0.45, 0.72, 1.0]) });
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, { uTime: WIND.time, uWindDir: WIND.dir, uWindAmp: WIND.amp, uPtr: WIND.ptr, uPtrR: WIND.ptrR, uPtrK: WIND.ptrK });
     sh.vertexShader = 'uniform float uTime; uniform vec2 uWindDir; uniform float uWindAmp; uniform vec3 uPtr; uniform float uPtrR; uniform float uPtrK;\n' + sh.vertexShader.replace('#include <project_vertex>', GRASS_VERT);
+    if (pbr) sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += diffuseColor.rgb * vec3(0.26, 0.22, 0.12);');
   };
   mat.customProgramCacheKey = () => (pbr ? 'grassblades-pbr' : 'grassblades');
   const mesh = new THREE.InstancedMesh(geo, mat, spots.length); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();

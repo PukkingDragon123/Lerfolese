@@ -77,8 +77,14 @@ class Game {
       return;
     }
     const mod = { event: './scenes/event.js', shop: './scenes/shop.js', lab: './scenes/lab.js' }[node.type];
+    if (node.type === 'shop' || node.type === 'lab') await this.travel(node); // events stage their own walk-in
     const { default: Scene } = await import(mod);
     await this.swap(async () => { this.scene = new Scene(this); await this.scene.enter(node); });
+  }
+  // the road between nodes: a short, skippable walk in the golden stage before the shop / laboratory
+  async travel(node) {
+    try { const { TravelScene } = await import('./scenes/travel.js'); let walk; await this.swap(async () => { const tr = new TravelScene(this); this.scene = tr; walk = tr.play(node); await tr.ready; }, { mode: 1 }); await walk; }
+    catch (e) { console.warn('travel shot skipped', e); }
   }
   async afterNode() { this.saveRun(); if (this.run.player.hp <= 0) return this.gameOver({}); await this.toMap(); }
   async gameOver(res) {

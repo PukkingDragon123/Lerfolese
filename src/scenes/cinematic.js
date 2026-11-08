@@ -63,13 +63,13 @@ export class Letterbox {
 
 // ================================================================ NARRATION: a chronicle line inked on a parchment strip
 // tacked onto the lower beam; the first letter is rubricated, the hand is blackletter.
-function rubricLines(text, font, maxW) {
-  const ls = wrapText(String(text), font, Math.round(maxW * PXP) - 24);
+function rubricLines(text, font, maxW, maxLines = 2) {
+  let ls = wrapText(String(text), font, Math.round(maxW * PXP) - 24); if (ls.length > maxLines) { ls = ls.slice(0, maxLines); ls[maxLines - 1] = ls[maxLines - 1].replace(/[\s,;:.…]*$/, '') + '…'; }
   return ls.map((l, i) => (i === 0 ? [[l[0], RUBRIC], [l.slice(1), INKC]] : [[l, INKC]]));
 }
 export class Narration {
   constructor(parent) { this.parent = parent; this.items = []; }
-  say(text, { font = 'head', maxW = 17 } = {}) {
+  say(text, { font = 'hand', maxW = 18 } = {}) {
     this.clear();
     const s = new Strip(rubricLines(text, font, maxW), { font, maxW: maxW + 3, tacks: 2, tone: 5 }); noShadow(s.group); this.parent.add(s.group);
     const it = { s, k: 0, target: 1 }; this.items.push(it); s.kick(0.7); audio.play('page_turn', { vol: 0.45 }); return it;
@@ -80,7 +80,7 @@ export class Narration {
     for (const it of this.items) {
       it.k += (it.target - it.k) * (1 - Math.exp(-dt * (it.target ? 7 : 9)));
       const e = ease.out(clamp01(it.k)); const y = -H + band * 0.5 + 0.06;
-      place(it.s.group, it.target ? 0 : (1 - e) * 2.5, y - (1 - e) * (it.target ? 1.6 : -0.4), 15, 0.6 + 0.4 * e);
+      place(it.s.group, it.target ? 0 : (1 - e) * 2.5, y - (1 - e) * (it.target ? 1.6 : -0.4), 15, (0.6 + 0.4 * e) * 1.05);
       it.s.group.rotation.z = (1 - e) * (it.target ? -0.12 : 0.18); it.s.update(dt, null);
     }
     this.items = this.items.filter((it) => { if (it.target === 0 && it.k < 0.02) { this.parent.remove(it.s.group); it.s.tex?.dispose(); it.s.mat?.dispose(); return false; } return true; });
@@ -91,7 +91,7 @@ export class Narration {
 // ================================================================ NAME CARD: a pinned note, rubricated name over an inked epithet
 export class NameCard {
   constructor(parent, name, epithet) {
-    this.p = new Paper({ font: 'hand', title: 'head', maxW: 9.5, pin: true, kind: 'note', tone: 5 }); this.parent = parent; parent.add(this.p.group);
+    this.p = new Paper({ font: 'hand', title: 'title', maxW: 10, pin: true, kind: 'note', tone: 5 }); this.parent = parent; parent.add(this.p.group);
     this.lines = [[[name, RUBRIC]], [[epithet, INKC]]]; this.x = 0; this.y = 0; this.z = 10; this.shown = false;
   }
   show() { this.p.show(this.lines, 0, 0, this.z, { title: true }); noShadow(this.p.group); this.shown = true; audio.play('paper_rustle', { vol: 0.55 }); return this; }
@@ -150,6 +150,15 @@ export class CamRig {
 }
 // a horizontal frame at `o` facing `f`: L(x right, y up, z forward)
 export function frameAt(o, f) { const F = V(f.x, 0, f.z).normalize(), R = V(-F.z, 0, F.x); return (x, y, z) => o.clone().addScaledVector(R, x).add(V(0, y, 0)).addScaledVector(F, z); }
+// a point high in the sunset sky (above the painted sun) for the opening tilt-down
+function skyPoint(stage, near) { const s = stage?.sunPos ? stage.sunPos.clone() : near.clone().add(V(30, 18, -140)); return s.add(V(0, 14, 0)); }
+// crane: position eases p0 -> p1 while the view direction turns from l0 to l1 (direction interpolation, so a distant
+// first target does not hold the camera until the last instant)
+const _d0 = V(), _d1 = V();
+function crane(rig, p0, l0, p1, l1, u, fov0, fov1) {
+  const p = p0.clone().lerp(p1, u); _d0.copy(l0).sub(p0).normalize(); _d1.copy(l1).sub(p1).normalize();
+  const dir = _d0.lerp(_d1, ease.io(u)).normalize(); rig.snap(p, p.clone().addScaledVector(dir, 10), fov0 + (fov1 - fov0) * u);
+}
 
 // ================================================================ THE PUPPET'S GAIT
 // professor.js sets every joint absolutely each frame (springs -> rotation.set); we wrap those setters on the instance
@@ -226,7 +235,7 @@ export function battleIntro(S, { onReveal = () => {} } = {}) {
   const D = new Director(S.engine, S.input); const cam = S.camera, prof = S.prof, rig = new CamRig(cam); const baseFov = cam.fov;
   const home = prof.root.position.clone(), homeRy = prof.root.rotation.y, spiritOff = S.spirit ? S.spirit.position.clone().sub(home) : null;
   const walk = new Walker(prof, roadPath(S.stage, { from: 7.2, home }), { t0: 0.15, speed: 1.75, endRy: homeRy });
-  const start = walk.path.getPointAt(0), A = frameAt(start, walk.path.getTangentAt(0.02));
+  const start = walk.path.getPointAt(0), A = frameAt(start, walk.path.getTangentAt(0.02)); const sky = skyPoint(S.stage, start);
   const views = [...S.enemyViews.values()]; const mains = views.filter((v) => !v.e.def.isHead); const N = mains.length;
   const DN = N <= 1 ? 1.9 : N === 2 ? 1.45 : 1.08; const TA = 2.2, R0 = walk.t1 + 0.3; let S0 = R0 + N * DN, SD = 1.3;
   const BACK = V(0.9, 0, -3.0);
@@ -274,12 +283,12 @@ export function battleIntro(S, { onReveal = () => {} } = {}) {
     const scenePos = cam.position.clone(); // the battle camera's own pose this frame (the scene's update just set it)
     if (t < S0) {
       if (!D.skipped) { walk.apply(t, dt); if (spiritOff) S.spirit.position.copy(prof.root.position).add(spiritOff); for (const f of foes) poseFoe(f, t); }
-      if (t < TA) { // establishing crane: high over the road, sinking in behind the marionette
-        const u = ease.io(span(t, 0, TA)); rig.snap(A(-2.4, 8.2, -9.5).lerp(A(1.3, 2.3, -4.4), u), A(-6.5, 2.6, 22).lerp(A(-0.6, 1.4, 8), u), 42 - 6 * u);
+      if (t < TA) { // establishing crane: tilt down from the sunset sky onto the road, sinking in behind the marionette
+        const u = ease.io(span(t, 0, TA)); crane(rig, A(-1.8, 5.2, -8.5), sky, A(1.3, 2.3, -4.4), A(-0.6, 1.4, 8), u, 44, 36);
         prof.lookAt(Math.sin(t * 0.8) * 0.3, 0.15);
       } else if (t < R0) { // tracking, front three-quarter, as he walks the last stretch and turns to the field
-        const F = frameAt(walk.pos, walk.tan); pos.copy(F(3.5, 1.4, 2.5)); look.copy(walk.pos).add(V(0, 1.25, 0)).addScaledVector(walk.tan, 0.4);
-        if (!rig.tracking) { rig.tracking = true; rig.snap(pos, look, 34); } else rig.follow(pos, look, 34, dt, 5, 7);
+        const F = frameAt(walk.pos, walk.tan); pos.copy(F(4.0, 1.8, 5.2)); look.copy(walk.pos).add(V(0, 1.75, 0)).addScaledVector(walk.tan, 0.6);
+        if (!rig.tracking) { rig.tracking = true; rig.snap(pos, look, 36); } else rig.follow(pos, look, 36, dt, 5, 7);
         prof.lookAt(t > walk.t1 - 0.3 ? 0.7 : Math.sin(t * 1.1) * 0.25, 0.1);
       } else { // reveal: whip to each foe as it steps out
         const i = Math.min(N - 1, Math.floor((t - R0) / DN)); const f = foes[i]; if (f) {
@@ -312,7 +321,7 @@ export function eventIntro(E, { title, text, onReveal = () => {} } = {}) {
   const restPos = cam.position.clone(), restLook = E.camLook.clone();
   const home = prof.root.position.clone(), homeRy = prof.root.rotation.y;
   const walk = new Walker(prof, roadPath(E.stage, { from: 6.6, home }), { t0: 0.15, speed: 1.75, endRy: homeRy });
-  const start = walk.path.getPointAt(0), A = frameAt(start, walk.path.getTangentAt(0.02));
+  const start = walk.path.getPointAt(0), A = frameAt(start, walk.path.getTangentAt(0.02)); const sky = skyPoint(E.stage, start);
   const focus = (E.propFocus || V(-0.6, 1.1, 0)).clone();
   const TA = 2.0, R0 = walk.t1 + 0.25, RD = 2.4; let S0 = R0 + RD, SD = 1.1;
   const first = String(text || '').split(/(?<=[.!?])\s+/)[0] || '';
@@ -329,11 +338,10 @@ export function eventIntro(E, { title, text, onReveal = () => {} } = {}) {
   D.frame = (t, dt) => {
     if (t < S0) {
       if (!D.skipped) walk.apply(t, dt);
-      if (t < TA) { const u = ease.io(span(t, 0, TA)); rig.snap(A(-2.2, 7.6, -9).lerp(A(1.2, 2.2, -4.2), u), A(-5.5, 2.4, 22).lerp(A(-0.4, 1.3, 8), u), 42 - 6 * u); prof.lookAt(Math.sin(t * 0.8) * 0.3, 0.15); }
+      if (t < TA) { const u = ease.io(span(t, 0, TA)); crane(rig, A(-1.8, 5.0, -8.5), sky, A(1.2, 2.2, -4.2), A(-0.4, 1.3, 8), u, 44, 36); prof.lookAt(Math.sin(t * 0.8) * 0.3, 0.15); }
       else if (t < R0) {
-        const F = frameAt(walk.pos, walk.path.getTangentAt(clamp(walk.dist(t) / walk.len, 0.02, 0.98)));
-        pos.copy(F(3.4, 1.4, 2.4)); look.copy(walk.pos).add(V(0, 1.25, 0)).addScaledVector(walk.tan, 0.4);
-        if (!rig.tracking) { rig.tracking = true; rig.snap(pos, look, 34); } else rig.follow(pos, look, 34, dt, 5, 7);
+        const F = frameAt(walk.pos, walk.tan); pos.copy(F(4.0, 1.8, 5.2)); look.copy(walk.pos).add(V(0, 1.75, 0)).addScaledVector(walk.tan, 0.6);
+        if (!rig.tracking) { rig.tracking = true; rig.snap(pos, look, 36); } else rig.follow(pos, look, 36, dt, 5, 7);
         prof.lookAt(t > walk.t1 - 0.4 ? 0.6 : Math.sin(t * 1.1) * 0.25, 0.1);
       } else { // a slow dolly onto the curiosity, Sir Isaac at the edge of frame
         const u = ease.io(span(t, R0, S0)); pos.copy(focus).add(V(-2.6 + u * 0.9, 1.1 - u * 0.3, 6.4 - u * 1.4)); look.copy(focus).add(V(-0.5, 0.1, 0));
@@ -359,7 +367,7 @@ export function eventIntro(E, { title, text, onReveal = () => {} } = {}) {
 export function travelShot(T, { lines = [], dur = 4.6 } = {}) {
   const D = new Director(T.engine, T.input); const cam = T.camera, prof = T.prof, rig = new CamRig(cam);
   const walk = new Walker(prof, roadPath(T.stage, { from: 19, to: 10.5 }), { t0: 0.05, speed: 1.75, glide: true });
-  const start = walk.path.getPointAt(0), A = frameAt(start, walk.path.getTangentAt(0.02)); const TA = 1.9;
+  const start = walk.path.getPointAt(0), A = frameAt(start, walk.path.getTangentAt(0.02)); const TA = 1.9; const sky = skyPoint(T.stage, start);
   lines.forEach((l, i) => D.at(0.3 + i * 2.0, () => D.say(l)));
   D.at(dur - 0.5, () => { D.narr.clear(); D.bars?.hide(); });
   D.at(dur, () => { walk.gait.dispose(); D.end(); });
@@ -367,13 +375,13 @@ export function travelShot(T, { lines = [], dur = 4.6 } = {}) {
   const pos = V(), look = V();
   D.frame = (t, dt) => {
     walk.apply(t, dt);
-    if (t < TA) { const u = ease.io(span(t, 0, TA)); rig.snap(A(-1.5, 7.2, -8.5).lerp(A(1.6, 2.2, -4.0), u), A(-4.5, 2.4, 22).lerp(A(-0.3, 1.3, 8), u), 42 - 6 * u); }
+    if (t < TA) { const u = ease.io(span(t, 0, TA)); crane(rig, A(-1.5, 5.0, -8.5), sky, A(1.6, 2.2, -4.0), A(-0.3, 1.3, 8), u, 44, 36); }
     else {
-      const F = frameAt(walk.pos, walk.tan); pos.copy(F(3.6, 1.35, 1.6)); look.copy(walk.pos).add(V(0, 1.2, 0)).addScaledVector(walk.tan, 0.9);
-      if (!rig.tracking) { rig.tracking = true; rig.snap(pos, look, 33); } else rig.follow(pos, look, 33, dt, 5, 7);
+      const F = frameAt(walk.pos, walk.tan); pos.copy(F(4.6, 1.8, 3.4)); look.copy(walk.pos).add(V(0, 1.7, 0)).addScaledVector(walk.tan, 1.0);
+      if (!rig.tracking) { rig.tracking = true; rig.snap(pos, look, 36); } else rig.follow(pos, look, 36, dt, 5, 7);
     }
     prof.lookAt(Math.sin(t * 0.9) * 0.35, 0.12); rig.apply();
   };
   walk.apply(0, 0); D.frame(0, 0);
-  return { done: D.done, abort: () => { walk.gait.dispose(); D.dispose(); }, director: D };
+  return { done: D.done, abort: () => { walk.gait.dispose(); D.dispose(); }, director: D, walk };
 }

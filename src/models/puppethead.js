@@ -143,7 +143,7 @@ export function buildHead() {
   const hm = new THREE.Mesh(head, headMaterial('smug')); hm.castShadow = true; hm.receiveShadow = false; group.add(hm); // no self-shadow blotches on the carved face
   const jawPivot = new THREE.Group(); jawPivot.position.copy(HEAD.jawHinge); group.add(jawPivot);
   const jm = new THREE.Mesh(jaw, hm.material); jm.position.copy(HEAD.jawHinge).multiplyScalar(-1); jm.castShadow = true; jawPivot.add(jm);
-  const back = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.06), new THREE.MeshBasicMaterial({ color: 0x1a0c0e })); back.position.set(0, 0.055, 0.075); group.add(back); // the dark mouth inside
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.035), new THREE.MeshBasicMaterial({ color: 0x1a0c0e })); back.position.set(0, 0.062, 0.035); group.add(back); // the dark mouth inside
   const earMat = new THREE.MeshStandardMaterial({ color: new THREE.Color('rgb(222,176,136)'), roughness: 0.55 });
   group.add(earMesh(1, earMat), earMesh(-1, earMat)); group.add(hairLocks());
   let cur = 'smug';
