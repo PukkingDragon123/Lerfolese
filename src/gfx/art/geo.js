@@ -54,3 +54,18 @@ export function split(ax, ay, bx, by, nA, nB) { const A = norm3(...nA), B = norm
 
 // ---------------------------------------------------------------- flat, graphic materials (3-5 tones, uniform dark outline)
 export const gmat = (ramp, o = {}) => { const ol = o.ol || mix(ramp[0], '#0a0610', 0.45); return mat(ramp, { amb: 0.22, dif: 0.84, wrap: 0, bounce: 0.1, ...o, ol, olLit: o.olLit || ol }); };
+
+// faceted ring / dome normals: n angular sectors x radial bands (a cut-gem bezel or cabochon)
+// bands: array of radial boundaries [r0, r1, ...]; slopes: tilt per band (+ outward, - inward)
+export function facetDisc(cx, cy, n, bands, slopes, { rot = 0, sy = 1 } = {}) {
+  return (x, y) => {
+    const dx = x - cx, dy = (y - cy) / sy; const r = Math.hypot(dx, dy); let a = Math.atan2(dy, dx) - rot; const seg = (Math.PI * 2) / n; const k = Math.round(a / seg); const ac = k * seg + rot;
+    let j = 0; while (j < bands.length - 1 && r > bands[j + 1]) j++; const s = slopes[Math.min(j, slopes.length - 1)];
+    return norm3(Math.cos(ac) * s, Math.sin(ac) * s * sy, 1);
+  };
+}
+// faceted vertical prism (barrel, pipe, column): n flat faces around a vertical axis at cx with radius r
+export function prismV(cx, r, n = 6, k = 1) { return (x) => { const u = clamp((x - cx) / r, -0.999, 0.999); const a = Math.asin(u); const seg = Math.PI / n; const ac = Math.round(a / seg) * seg; return norm3(Math.sin(ac) * k, 0, Math.cos(ac)); }; }
+export function prismH(cy, r, n = 6, k = 1) { return (x, y) => { const u = clamp((y - cy) / r, -0.999, 0.999); const a = Math.asin(u); const seg = Math.PI / n; const ac = Math.round(a / seg) * seg; return norm3(0, Math.sin(ac) * k, Math.cos(ac)); }; }
+// polygon with gem facets + ridge highlights
+export function gem(P, pts, m, o = {}) { return P.add(M.poly(pts), { m, n: roof(pts, { k: o.k ?? 1.2, table: o.table ?? 1e9, top: o.top }), ridge: o.ridge ?? 1, contour: o.contour ?? 1, cast: o.cast ?? 1, ...o }); }

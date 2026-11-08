@@ -37,6 +37,13 @@ The look is **low-res, geometric, faceted pixel art** in the spirit of Superbrot
 - Noisy or ordered dithering, and procedural grain noise.
 - Orphan pixels, "AI slop" smooth roundness and airbrushed bands.
 
+**Detail, not bare shapes** (the user's follow-up): the target is a hand-pixelled gem-and-rock sheet. Objects are 32–48 px, rich in deliberate detail and never flat fills:
+
+- Ramps have 5–7 tones with jewel saturation: cool violet shadows and warm yellow highlights (`GR` in `src/gfx/art/ramps.js`).
+- Every facet edge on the lit side gets a 1 px ridge highlight (the painter's `ridge` option), and every object gets one hard specular glint.
+- Outlines are dark and tinted per material, never pure black.
+- Texture is hand-placed inside the material's own ramp: cracks with a lit lip (`P.crack`), wood grain streaks (`grainLines`), sparse speckle pits on stone, sacks and gears (`P.speckle`), wool curls, coat strokes, engraved symbols and veins (`P.shift` / `P.shiftLine`).
+
 **Toolkit:** `src/gfx/art/geo.js` provides polygon masks, regular n-gons, blades and wedges, and the `roof()` facet normals. `roof()` gives every edge of a polygon its own bevel plane, with an optional flat table on top, like a cut gem or a low-poly model. The painter turns those planes into flat ramp colours with sel-out outlines.
 
 ## References

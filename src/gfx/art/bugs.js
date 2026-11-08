@@ -1,8 +1,9 @@
 // Butterflies of Greece, dorsal view: forewing + hindwing anatomy, species patterns, veins, eyespots, clubbed antennae.
 // 4 frames per species: open, rising (foreshortened), closed (underside edge), rising. Painted small inside a 64px cell.
 import { Painter, M, N, mat, norm3, clamp } from './core.js';
+import { gmat, bar, ngon } from './geo.js';
 
-const R = (arr) => mat(arr, { amb: 0.34, dif: 0.7, wrap: 0.3, bounce: 0.1 });
+const R = (arr) => gmat(arr, { amb: 0.3, dif: 0.75 });
 const MT = {
   cream: R(['#4a4232', '#7a6e52', '#aa9c76', '#d6c89c', '#f2e6c0', '#fff8e2']),
   black: R(['#08070a', '#121014', '#1e1a20', '#2c262c', '#3e363c']),
@@ -39,9 +40,9 @@ export const BUTTERFLIES = {
 };
 
 export function paintButterfly(kind, frame) {
-  const K = BUTTERFLIES[kind]; const P = new Painter(64, 64); const cx = 32, cy = 31, tilt = -0.32;
+  const K = BUTTERFLIES[kind]; const P = new Painter(32, 32); const cx = 16, cy = 15.5, tilt = -0.32;
   const flap = [0.05, 0.98, 1.3, 0.98][frame]; const fs = Math.cos(flap); // foreshortening of the wing span
-  const SC = 1.18; const tr = (x, y, side) => { const X = x * SC * fs * side, Y = y * SC; return [cx + X * Math.cos(tilt) - Y * Math.sin(tilt), cy + X * Math.sin(tilt) + Y * Math.cos(tilt)]; };
+  const SC = 0.62; const tr = (x, y, side) => { const X = x * SC * fs * side, Y = y * SC; return [cx + X * Math.cos(tilt) - Y * Math.sin(tilt), cy + X * Math.sin(tilt) + Y * Math.cos(tilt)]; };
   const inv = (px, py, side) => { const dx = px - cx, dy = py - cy; const X = dx * Math.cos(-tilt) - dy * Math.sin(-tilt), Y = dx * Math.sin(-tilt) + dy * Math.cos(-tilt); return [X / (SC * fs * side || 1e-3), Y / SC]; };
   const closed = frame === 2;
   // wings: far (left) pair first, then near (right)
@@ -57,14 +58,11 @@ export function paintButterfly(kind, frame) {
       });
     }
   }
-  // body: abdomen, thorax, head, antennae
+  // body: a dark faceted bar (abdomen + thorax) and clubbed antennae
   const B = (x, y) => tr(x, y, 1);
-  const [ax, ay] = B(0, 1.5), [bx, by] = B(0, 8);
-  P.add(M.capsule(ax, ay, bx, by, 1.15, 0.7), { m: MT.body, n: N.cyl(ax, ay, bx, by, 1.4), contour: 1 });
-  const [tx, ty] = B(0, -0.3); P.add(M.ellipse(tx, ty, 1.7, 2.3, tilt), { m: MT.body, n: N.sphere(tx, ty, 1.8, 2.4), contour: 1 });
-  const [hx, hy] = B(0, -3); P.add(M.ellipse(hx, hy, 1.3, 1.2), { m: MT.body, n: N.sphere(hx, hy, 1.3, 1.3), contour: 0 });
+  const [ax, ay] = B(0, -2.6), [bx, by] = B(0, 7);
+  P.add(M.poly(bar(ax, ay, bx, by, 0.75)), { m: MT.body, n: () => norm3(-0.3, -0.3, 1), contour: 0 });
   const pc = P.render();
-  for (const side of [-1, 1]) { const [x0, y0] = B(side * 0.6, -3.6), [x1, y1] = B(side * 3.2, -9.4); pc.line(Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), '#1a1416'); pc.px(Math.round(x1), Math.round(y1), '#3a3036'); pc.px(Math.round(x1) + side, Math.round(y1), '#1a1416'); }
-  const [ex, ey] = B(0.6, -3.4); pc.px(Math.round(ex), Math.round(ey), '#6a5a50');
+  for (const side of [-1, 1]) { const [x0, y0] = B(side * 0.4, -2.8), [x1, y1] = B(side * 2.6, -7.5); pc.line(Math.round(x0), Math.round(y0), Math.round(x1), Math.round(y1), '#1a1416'); pc.px(Math.round(x1), Math.round(y1), '#5a4a50'); }
   return pc;
 }

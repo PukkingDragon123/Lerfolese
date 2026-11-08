@@ -15,7 +15,7 @@ canvas{image-rendering:pixelated;display:block;flex:none}
 // Artist contact sheet: every sprite and frame at 1x and zoomed, on neutral, dark and in-scene backgrounds.
 // Query: ?sec=ramps,drawn,items,critters,icons  &s=<zoom>  &only=name1,name2
 import { drawn, DRAWN_NAMES, DRAWN_FRAMES } from '../src/gfx/drawn.js';
-import { RAMP } from '../src/gfx/art/ramps.js';
+import { GR as RAMP } from '../src/gfx/art/ramps.js';
 window.addEventListener('error', (e) => { const p = document.createElement('pre'); p.textContent = String(e.message); document.body.appendChild(p); window.__done = true; });
 await document.fonts.ready;
 const Q = new URLSearchParams(location.search); const secs = (Q.get('sec') || 'ramps,drawn,items,critters,icons').split(','); const Z = Q.get('s') ? +Q.get('s') : 0; const only = Q.get('only') ? Q.get('only').split(',') : null;
@@ -35,7 +35,7 @@ function show(pc, label, parent, { scale = 3, bgs = ['neutral', 'dark', 'scene']
 function section(title) { const h = document.createElement('h2'); h.textContent = title; document.body.appendChild(h); const r = document.createElement('div'); r.className = 'row'; document.body.appendChild(r); return r; }
 const t0 = performance.now();
 if (secs.includes('ramps')) {
-  const r = section('Material ramps (dark -> light, hue shifted)');
+  const r = section('Material ramps in use (6-tone, dark -> light, hue shifted)');
   for (const k in RAMP) { const c = document.createElement('canvas'); const n = RAMP[k].length; c.width = n * 10; c.height = 12; const g = c.getContext('2d'); RAMP[k].forEach((h, i) => { g.fillStyle = h; g.fillRect(i * 10, 0, 10, 12); }); const cell = document.createElement('div'); cell.className = 'cell'; cell.appendChild(c); const s = document.createElement('span'); s.textContent = k; cell.appendChild(s); r.appendChild(cell); }
 }
 if (secs.includes('drawn') || secs.includes('items')) {
