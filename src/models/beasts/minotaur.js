@@ -120,7 +120,7 @@ export function sculpt(king) {
 
 // ---------------------------------------------------------------- palette + painter
 const PAL = {
-  base: { hide: hex('#6e3a2c'), chest: hex('#7a4232'), belly: hex('#7e4634'), fur: hex('#3e2418'), mane: hex('#321c14'), shoulder: hex('#3a2016'), throat: hex('#4e2c1c'), arm: hex('#743c2a'), hand: hex('#6a3626'), muzzle: hex('#a08470'), nose: hex('#2e2428'), jaw: hex('#8a6e5c'), head: hex('#4a2a1c'), brow: hex('#3c2216'), curls: hex('#6a3e26'), hoof: hex('#262022'), mouth: hex('#5a1a22') },
+  base: { hide: hex('#66392f'), chest: hex('#704031'), belly: hex('#744433'), fur: hex('#3e2418'), mane: hex('#321c14'), shoulder: hex('#3a2016'), throat: hex('#4e2c1c'), arm: hex('#6a3a2e'), hand: hex('#603428'), muzzle: hex('#a08470'), nose: hex('#2e2428'), jaw: hex('#8a6e5c'), head: hex('#4a2a1c'), brow: hex('#3c2216'), curls: hex('#6a3e26'), hoof: hex('#262022'), mouth: hex('#5a1a22') },
   king: { hide: hex('#5e3424'), chest: hex('#6e3c28'), belly: hex('#74422a'), fur: hex('#2a1a16'), mane: hex('#1e1412'), shoulder: hex('#241814'), throat: hex('#3a2418'), arm: hex('#5a3222'), hand: hex('#52301f'), muzzle: hex('#9c9488'), nose: hex('#262024'), jaw: hex('#86786c'), head: hex('#2a1a16'), brow: hex('#201410'), curls: hex('#4a2a1a'), hoof: hex('#1c1818'), mouth: hex('#4a1418') },
 };
 const FURRY = new Set(['fur', 'mane', 'shoulder', 'throat', 'head', 'brow', 'curls']);
@@ -324,14 +324,14 @@ function animate(api, B, model, flaps, seed, sc) {
     if (!impactDone && st.mode === 'attack' && st.modeT >= IMPACT) { impactDone = true; api.onImpact?.(); }
     // a very fast root move (the battle charge) reads as a gallop with the horns down
     const x = api.root.position.x; const v = lastX === null || dt <= 0 ? 0 : (x - lastX) / dt; lastX = x;
-    if (st.mode === 'attack' && st.modeT < 0.25 && Math.abs(v) > 9) st.mode = 'charge';
+    if (st.mode === 'attack' && st.modeT < 0.3 && Math.abs(v) > 12) st.mode = 'charge';
     const moving = Math.min(1, Math.abs(v) / 4);
     charge += ((st.mode === 'charge' && st.modeT < 0.9 ? 1 : 0) - charge) * Math.min(1, dt * 10); gait += dt * (5 + Math.abs(v) * 0.9) * Math.max(charge, moving);
     for (const k in P) delete P[k];
     // idle: deep breaths through the ribcage, weight shifts, a slow searching head, tail swish, ear flicks
     const br = Math.sin(t * 1.6), sw = Math.sin(t * 0.7);
     add(P, 'hips', 0, sw * 0.03, sw * 0.02); add(P, 'spine1', -0.04 + br * 0.012, -sw * 0.02, -sw * 0.02); add(P, 'spine2', br * 0.025, 0, 0); add(P, 'spine3', 0.05 + br * 0.02, -sw * 0.02, 0);
-    add(P, 'neck', 0.1 - br * 0.02, Math.sin(t * 0.43) * 0.08, 0); add(P, 'head', 0.18 + Math.sin(t * 1.6 + 1) * 0.03, Math.sin(t * 0.43 + 0.6) * 0.14, Math.sin(t * 0.31) * 0.05);
+    add(P, 'neck', 0.04 - br * 0.02, Math.sin(t * 0.43) * 0.08, 0); add(P, 'head', -0.08 + Math.sin(t * 1.6 + 1) * 0.03, Math.sin(t * 0.43 + 0.6) * 0.14, Math.sin(t * 0.31) * 0.05);
     add(P, 'jaw', -0.02 + Math.max(0, br) * 0.025 + (st.talk > 0 ? Math.abs(Math.sin(t * 15)) * 0.32 : 0));
     add(P, 'clav_L', 0, 0, br * 0.02); add(P, 'clav_R', 0, 0, -br * 0.02);
     add(P, 'uparm_L', -0.42, 0.25, -0.3); add(P, 'forearm_L', -1.05, 0.25, 0); add(P, 'hand_L', 0.15, 0, -0.1); // labrys held at the ready

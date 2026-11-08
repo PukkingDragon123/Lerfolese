@@ -74,7 +74,7 @@ function bodyPainter(S, P) {
     }
     // scale plates: 3D cells, lit crowns, dark seams; dorsal band darker; large clean camouflage blotches
     const sz = q.tag === 'root' ? 0.045 : 0.06; const C = K.cells3(c.x / sz, c.y / (sz * 0.8), c.z / sz); const seam = C[1] - C[0] < 0.07;
-    const blot = K.vnoise(c.x * 2.4, c.y * 2.4, c.z * 2.4) > 0.62; const dorsal = c.ny > 0.75;
+    const blot = K.vnoise(c.x * 4.2, c.y * 4.2, c.z * 4.2) > 0.69; const dorsal = c.ny > 0.75;
     const col = blot ? P.dark : dorsal ? P.top : c.ny > 0.25 ? P.top : P.side;
     K.tone(col, K.band(L + (seam ? -0.24 : (0.5 - C[0]) * 0.18), 4), o.col);
     if (dorsal && Math.abs(c.x) < 0.06 + Math.max(0, c.z) * 0.02) K.tone(P.dark, K.band(L - 0.05, 4), o.col);
