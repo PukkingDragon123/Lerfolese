@@ -8,6 +8,7 @@ import { SPECIALS } from '../game/combos.js';
 import { ENEMIES } from '../game/data/enemies.js';
 import { ITEMS } from '../game/data/items.js';
 import { itemIcon } from '../models/items3d.js';
+import { safeDrawn } from '../ui3d/standee.js';
 import { renderCardFace } from '../gfx/cardart.js';
 import { computeMove } from '../game/combos.js';
 import { tweens } from '../core/tween.js';
@@ -84,7 +85,7 @@ export class Journal {
         else wrapHand(g, 'Not yet encountered in any loop.', 110, 200, 440, { size: 38, color: '#8a6a44' }); });
     }
     // curios
-    P.push((g) => { paper(g); hand(g, 'Curios', 100, 90, { size: 56, font: 'HomemadeApple', color: '#3a2410' }); let n = 0; for (const id of Object.keys(ITEMS)) { if (ITEMS[id].starter) continue; const found = j.items?.[id]; const x = 90 + (n % 2) * 260, y = 140 + Math.floor(n / 2) * 105; if (found) { try { g.drawImage(itemIcon(id, 64), x, y, 80, 80); } catch (err) { /* */ } } hand(g, found ? ITEMS[id].name.slice(0, 20) : '???', x + 86, y + 50, { size: 26, color: found ? '#2a1a4a' : '#8a6a44' }); n++; } });
+    P.push((g) => { paper(g); hand(g, 'Curios', 100, 90, { size: 56, font: 'HomemadeApple', color: '#3a2410' }); let n = 0; for (const id of Object.keys(ITEMS)) { if (ITEMS[id].starter) continue; const found = j.items?.[id]; const x = 90 + (n % 2) * 260, y = 140 + Math.floor(n / 2) * 105; if (found) { try { const d = safeDrawn('item_' + id); g.imageSmoothingEnabled = false; g.drawImage(d ? d.commit() : itemIcon(id, 64), x, y, 80, 80); } catch (err) { /* */ } } hand(g, found ? ITEMS[id].name.slice(0, 20) : '???', x + 86, y + 50, { size: 26, color: found ? '#2a1a4a' : '#8a6a44' }); n++; } });
     if (P.length % 2) P.push((g) => { paper(g); wrapHand(g, 'More pages for the Trojan War, Mount Olympus, and whatever is above that. Bring ink.', 110, 200, 440, { size: 38, color: '#5a3622' }); });
     this.P = P;
   }

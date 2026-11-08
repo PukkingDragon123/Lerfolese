@@ -8,6 +8,10 @@ import { createProfessor } from '../models/professor.js';
 import * as P3 from '../models/props3d.js';
 import { ITEM_MODELS } from '../models/items3d.js';
 import { save } from '../core/save.js';
+import { PixelCanvas } from '../gfx/pixel.js';
+import { sprite } from '../gfx/sprites.js';
+import { standee, safeDrawn, pixelTex } from '../ui3d/standee.js';
+import { mulberry32 } from '../core/util.js';
 import { tweens, Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
 import { vrange, vpick, clamp } from '../core/util.js';
@@ -39,26 +43,35 @@ export class MenuScene extends UIScreen {
     sc.add(neb); this.neb = neb;
     sc.add(new THREE.AmbientLight(0x6b4c9a, 0.8)); const key = new THREE.PointLight(0xffe0b0, 120, 60, 1.5); key.position.set(0, 4, 8); sc.add(key);
     const rim = new THREE.DirectionalLight(0x8fe3ff, 2.2); rim.position.set(-8, 6, -6); sc.add(rim); const rim2 = new THREE.DirectionalLight(0xb48cff, 2); rim2.position.set(8, 3, -4); sc.add(rim2);
-    // The One Above All: a colossal hooded silhouette made of night, star-eyed
-    const god = (this.god = new THREE.Group()); god.position.set(0, -2, -18); sc.add(god);
-    const voidMat = F({ color: 0x0b0716, roughness: 0.9, emissive: 0x22183f, emissiveIntensity: 0.4 });
-    mk(S.turn([[0.001, -9], [7, -9], [8, -3], [7.5, 3], [6, 8], [4, 11], [0.001, 12]], { sides: 9, seed: 3, amt: 0.05 }), voidMat, god);
-    const hood = mk(S.turn([[0.001, 7], [4.4, 8], [5.2, 11], [4.6, 15], [2.6, 17.4], [0.001, 18]], { sides: 9, seed: 4, amt: 0.06 }), voidMat, god); hood.scale.z = 0.85;
-    mk(S.blob(3.2, 3.6, 1.5, { detail: 1, seed: 5 }), new THREE.MeshBasicMaterial({ color: 0x000000 }), god, 0, 12.2, 3.2);
-    this.godEyes = []; for (const s of [-1, 1]) { const e = mk(S.gem(0.45, 1, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xe8fbff).multiplyScalar(4) }), god, s * 1.3, 12.8, 4.6); this.godEyes.push(e); }
-    // star speckles on the god
-    const gs = galaxy(900, 9, 5, 0x6b4c9a, 0xe8fbff); gs.position.set(0, 4, 2.5); gs.scale.set(1, 1.6, 0.25); gs.rotation.x = Math.PI / 2; god.add(gs);
-    // vast hands cupping the miniature universe
+    // The One Above All: a colossal hooded figure drawn in stars (a constellation being), star-eyed
+    const god = (this.god = new THREE.Group()); god.position.set(0, -6.5, -18); god.scale.setScalar(0.82); sc.add(god);
+    const mask = new PixelCanvas(220, 280);
+    mask.poly([[110, 6], [150, 30], [168, 78], [176, 120], [214, 168], [220, 280], [0, 280], [6, 168], [44, 120], [52, 78], [70, 30]], '#ffffff'); // hood + robe
+    const face = (x, y) => ((x - 110) / 34) ** 2 + ((y - 92) / 44) ** 2 < 1; // the void where a face should be
+    const pos = [], col = []; const C = new THREE.Color(); const rndS = mulberry32(77);
+    for (let i = 0; i < 26000; i++) {
+      const u = rndS(), v = rndS(); const x = Math.floor(u * 220), y = Math.floor(v * 280); if (!mask.alpha(x, y) || face(x, y)) continue;
+      const edge = !mask.alpha(x - 3, y) || !mask.alpha(x + 3, y) || !mask.alpha(x, y - 3) || face(x, y - 4) || face(x, y + 4) || face(x - 4, y) || face(x + 4, y);
+      const X = (u - 0.5) * 30, Y = (1 - v) * 38 - 8; const round = Math.sqrt(Math.max(0, 1 - (X / 16) ** 2)) * 4; const fold = Math.sin(X * 0.8 + Y * 0.15) * 0.6;
+      pos.push(X, Y, round + fold + (rndS() - 0.5) * 1.5);
+      if (edge) C.set(rndS() < 0.5 ? 0x8fe3ff : 0xcdb6f0).multiplyScalar(1.6); else C.setHSL(0.72 + rndS() * 0.08, 0.6, 0.12 + rndS() * 0.2 + (rndS() < 0.02 ? 0.6 : 0));
+      col.push(C.r, C.g, C.b);
+    }
+    const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    god.add(new THREE.Points(gg, new THREE.PointsMaterial({ size: 0.16, vertexColors: true, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })));
+    this.godEyes = []; for (const s of [-1, 1]) { const e = new THREE.Sprite(new THREE.SpriteMaterial({ map: pixelTex(sprite('star4')), color: new THREE.Color(0xe8fbff).multiplyScalar(3), blending: THREE.AdditiveBlending, depthWrite: false })); e.position.set(s * 1.6, 19, 4.5); e.scale.setScalar(2.2); god.add(e); this.godEyes.push(e); }
+    // hands of starlight cupping the orb
     this.hands = [];
     for (const s of [-1, 1]) {
-      const h = new THREE.Group(); h.position.set(s * 6.5, 3, 8); god.add(h); this.hands.push(h);
-      mk(S.slab(3.2, 1.0, 3.6, { seed: 7 + s, taper: 0.2 }), voidMat, h).rotation.z = s * 0.4;
-      for (let f = 0; f < 4; f++) { const fg = mk(S.limb(2.4, 0.42, 0.26, { sides: 6, seed: 10 + f + s, bend: 0.1 }), voidMat, h, s * -1.0, 0.5, -1.2 + f * 0.8); fg.rotation.set(0, 0, s * 1.9); }
-      mk(S.limb(2.0, 0.5, 0.35, { sides: 6, seed: 20 + s }), voidMat, h, s * -0.5, 0.2, 1.8).rotation.set(1.2, 0, s * 1.4);
+      const h = new THREE.Group(); h.position.set(s * 8.5, 11.5, 20); god.add(h); this.hands.push(h);
+      const hp = [], hc = []; const hm = new PixelCanvas(80, 70); hm.poly([[0, 30], [30, 10], [60, 4], [78, 14], [70, 24], [50, 26], [62, 40], [44, 58], [10, 64]], '#fff');
+      for (let i = 0; i < 4000; i++) { const x = Math.floor(rndS() * 80), y = Math.floor(rndS() * 70); if (!hm.alpha(x, y)) continue; hp.push(-s * (x / 80) * 6, (1 - y / 70) * 5 - 2, (rndS() - 0.5) * 1.2); C.setHSL(0.7, 0.6, 0.15 + rndS() * 0.25); if (!hm.alpha(x + 3, y) || !hm.alpha(x, y - 3)) C.set(0x8fe3ff).multiplyScalar(1.4); hc.push(C.r, C.g, C.b); }
+      const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.Float32BufferAttribute(hp, 3)); hg.setAttribute('color', new THREE.Float32BufferAttribute(hc, 3));
+      h.add(new THREE.Points(hg, new THREE.PointsMaterial({ size: 0.14, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })));
     }
     // the miniature universe: a glass orb with a spiral galaxy and tiny planets on gravity strings
     const orb = (this.orb = new THREE.Group()); orb.position.set(0, 3.2, 0); sc.add(orb);
-    mk(new THREE.IcosahedronGeometry(3.6, 3), new THREE.MeshPhysicalMaterial({ color: 0xbfe0ff, roughness: 0.05, transparent: true, opacity: 0.16, clearcoat: 1, flatShading: false, depthWrite: false }), orb);
+    mk(new THREE.IcosahedronGeometry(3.6, 3), new THREE.MeshPhysicalMaterial({ color: 0x6a7aff, roughness: 0.05, transparent: true, opacity: 0.07, clearcoat: 1, depthWrite: false }), orb);
     this.innerGal = galaxy(2600, 3.2, 3); orb.add(this.innerGal);
     mk(S.gem(0.35, 1, 30), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xfff0c0).multiplyScalar(3) }), orb);
     this.planets = [];
@@ -67,9 +80,9 @@ export class MenuScene extends UIScreen {
     // floating galaxies
     this.gals = []; for (let i = 0; i < 4; i++) { const g = galaxy(1200, 3 + Math.random() * 3, 2 + (i % 3), vpick([0xb48cff, 0xf2a6a0, 0x8fe3ff]), vpick([0xffe08a, 0xe8fbff])); g.position.set(vrange(-30, 30), vrange(-6, 14), vrange(-60, -25)); g.rotation.set(vrange(-1, 1), 0, vrange(-0.6, 0.6)); sc.add(g); this.gals.push(g); }
     // Schrödinger's box
-    const box = (this.box = ITEM_MODELS.schrodinger()); box.position.set(-9, 2.5, 4); box.scale.setScalar(1.6); sc.add(box); this.boxS = new Spring(0, 14, 0.25);
+    const crateArt = safeDrawn('crate', 0); const box = (this.box = crateArt ? new THREE.Group() : ITEM_MODELS.schrodinger()); if (crateArt) { this.crateImg = standee(crateArt, { height: 3.2, anchor: 'center', lit: false }); box.add(this.crateImg); } box.position.set(-9, 2.5, 4); if (!crateArt) box.scale.setScalar(1.6); sc.add(box); this.boxS = new Spring(0, 14, 0.25);
     // Newton's apple (throwable)
-    this.apple = P3.apple(); this.apple.position.set(9, 4.5, 4); this.apple.scale.setScalar(1.1); sc.add(this.apple); this.appleVel = new THREE.Vector3(); this.appleFree = false; this.appleHome = this.apple.position.clone();
+    const appleArt = safeDrawn('newton_apple'); this.apple = appleArt ? standee(appleArt, { height: 2.2, anchor: 'center', lit: false }) : P3.apple(); this.apple.position.set(9, 4.5, 4); if (!appleArt) this.apple.scale.setScalar(1.1); sc.add(this.apple); this.appleVel = new THREE.Vector3(); this.appleFree = false; this.appleHome = this.apple.position.clone();
     // Sir Isaac dangling
     this.prof = createProfessor(); this.prof.root.position.set(-6.6, -3.2, 7); this.prof.root.rotation.y = 0.5; this.prof.root.scale.setScalar(1.4); sc.add(this.prof.root);
     this.parts = new (await import('../gfx/particles.js')).Particles(1200, { additive: true }); sc.add(this.parts.points);
@@ -109,7 +122,7 @@ export class MenuScene extends UIScreen {
   rayWorld(objs) { const r = new THREE.Raycaster(); r.setFromCamera(this.input.ndc, this.camera); return r.intersectObjects(objs, true); }
   onClick() {
     if (this.journal?.isOpen) return;
-    if (this.rayWorld([this.box]).length) { this.boxS.kick(18); const alive = Math.random() < 0.5; audio.play(alive ? 'pop' : 'magic_shimmer'); this.say(alive ? 'Alive! ...for now. Do not look again.' : 'Dead. Or both. Mostly paperwork.'); return true; }
+    if (this.rayWorld([this.box]).length) { this.boxS.kick(18); const alive = Math.random() < 0.5; const open = safeDrawn('crate', 1); if (open && this.crateImg) { this.crateImg.material.map = pixelTex(open); this.crateImg.material.needsUpdate = true; setTimeout(() => { this.crateImg.material.map = pixelTex(safeDrawn('crate', 0)); this.crateImg.material.needsUpdate = true; }, 2200); } audio.play(alive ? 'pop' : 'magic_shimmer'); this.say(alive ? 'Alive! ...for now. Do not look again.' : 'Dead. Or both. Mostly paperwork.'); return true; }
     if (this.rayWorld([this.prof.root]).length) { this.say(vpick(QUIPS)); this.prof.act('cheer'); return true; }
     if (this.rayWorld([this.orb]).length) { audio.play('chime_soft'); this.say('Careful. That is everything. Literally.'); return true; }
   }
@@ -122,10 +135,10 @@ export class MenuScene extends UIScreen {
     for (const p of this.planets) { const a = t * p.sp + p.ph; p.o.position.set(Math.cos(a) * p.r, Math.sin(a * 0.7) * 0.3, Math.sin(a) * p.r); }
     // strings from god's fingertips to planets
     const arr = this.godStrings.geometry.attributes.position.array; this.god.updateMatrixWorld(true);
-    this.planets.forEach((p, i) => { const h = this.hands[i % 2]; const tip = new THREE.Vector3(i % 2 ? 1.5 : -1.5, 2.5 + i * 0.3, 0).applyMatrix4(h.matrixWorld); const pp = p.o.getWorldPosition(new THREE.Vector3()); arr.set([tip.x, tip.y, tip.z, pp.x, pp.y, pp.z], i * 6); });
+    this.planets.forEach((p, i) => { const h = this.hands[i % 2]; const tip = new THREE.Vector3(i % 2 ? 5.5 : -5.5, 2.5 + i * 0.3, 0).applyMatrix4(h.matrixWorld); const pp = p.o.getWorldPosition(new THREE.Vector3()); arr.set([tip.x, tip.y, tip.z, pp.x, pp.y, pp.z], i * 6); });
     this.godStrings.geometry.attributes.position.needsUpdate = true;
-    this.hands.forEach((h, i) => { h.rotation.z = Math.sin(t * 0.5 + i) * 0.06; h.position.y = 3 + Math.sin(t * 0.7 + i * 2) * 0.3; });
-    this.god.rotation.y = Math.sin(t * 0.1) * 0.05; const blink = (t % 7) < 0.15 ? 0.1 : 1; this.godEyes.forEach((e) => e.scale.set(1, blink, 1));
+    this.hands.forEach((h, i) => { h.rotation.z = Math.sin(t * 0.5 + i) * 0.06; h.position.y = 11.5 + Math.sin(t * 0.7 + i * 2) * 0.3; });
+    this.god.rotation.y = Math.sin(t * 0.1) * 0.05; const blink = (t % 7) < 0.15 ? 0.15 : 1; this.godEyes.forEach((e) => e.scale.set(2.2, 2.2 * blink, 1));
     for (const g of this.gals) g.rotation.y += dt * 0.05;
     this.boxS.update(dt); this.box.rotation.set(Math.sin(t * 0.7) * 0.2 + this.boxS.value * 0.05, t * 0.3, this.boxS.value * 0.08); this.box.position.y = 2.5 + Math.sin(t * 1.1) * 0.3;
     if (this.appleFree) { const to = this.orb.position.clone().sub(this.apple.position); const d = Math.max(1.5, to.length()); this.appleVel.addScaledVector(to.normalize(), (30 / (d * d)) * dt); this.apple.position.addScaledVector(this.appleVel, dt); this.apple.rotation.y += dt * 3; if (this.apple.position.length() > 60) { this.appleFree = false; this.apple.position.copy(this.appleHome); } }
