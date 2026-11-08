@@ -100,8 +100,8 @@ export function impactFX(scene, { pos, root = null, dmg = 0, kind = 'magic', cor
   if (core === 'gravity' || kind === 'gravity') playVFX(scene, 'vortex', front, { scale: big ? 1.3 : 1 });
   const dec = ELEMENT_DECAL[core === 'gravity' ? 'gravity' : kind] || (big ? 'crack' : null); if (dec) decalVFX(scene, dec, pos, { scale: big ? 1.25 : 0.95, color: kind === 'apple' ? '#ff6a6a' : null });
   playVFX(scene, 'wisp', pos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.6, 0.6, 0.3)), { fps: 9 });
-  if (crit) popText(scene, 'CRIT!', pos.clone().add(new THREE.Vector3(0, 1.6, 0.8)), { size: 0.3, fill: ['#ffffff', '#fff2a8', '#ff6a3a', '#c41e3a'] });
-  if (big && dmg > 0) popText(scene, String(dmg), pos.clone().add(new THREE.Vector3(0.9, 0.9, 0.9)), { size: crit ? 0.28 : 0.22 });
+  if (crit) popText(scene, 'CRIT!', pos.clone().add(new THREE.Vector3(0, 0.95, 0.8)), { size: 0.12, rise: 0.6, fill: ['#ffffff', '#fff2a8', '#ff6a3a', '#c41e3a'] });
+  if (big && dmg > 0) popText(scene, String(dmg), pos.clone().add(new THREE.Vector3(0.55, 0.55, 0.8)), { size: crit ? 0.12 : 0.1, rise: 0.6 });
 }
 // rising buff / heal / block column around Sir Isaac, with a rune ring on the ground
 export function riseFX(scene, pos, kind = 'buff') {

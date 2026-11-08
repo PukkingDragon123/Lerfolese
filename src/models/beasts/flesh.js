@@ -43,7 +43,7 @@ export class Sculpt {
     const R = Math.hypot(h[0], h[1], h[2]) + rr + p.k + 0.02; p.box = [c[0] - R, c[1] - R, c[2] - R, c[0] + R, c[1] + R, c[2] + R];
     this.prims.push(p); return p;
   }
-  _common(bone, o) { return { k: o.k ?? 0.05, sub: !!o.sub, bone, t0: o.t0 ?? 0, t1: o.t1 ?? 1, tag: o.tag || null, skin: o.skin ?? 1, mirror: false }; }
+  _common(bone, o) { return { k: o.k ?? 0.05, imp: o.imp ?? 1, sub: !!o.sub, bone, t0: o.t0 ?? 0, t1: o.t1 ?? 1, tag: o.tag || null, skin: o.skin ?? 1, mirror: false }; }
   /** duplicate every prim added by fn mirrored in x (fn receives s = -1 / +1 and a side suffix) */
   sym(fn) { for (const s of [-1, 1]) fn(s, s < 0 ? '_L' : '_R'); }
 
@@ -103,7 +103,7 @@ export class Sculpt {
   cavity(c, delta = 0.04) { return Math.min(1, Math.max(0, this.eval(c.x + c.nx * delta, c.y + c.ny * delta, c.z + c.nz * delta) / delta)); }
 
   // ---------------------------------------------------------------- polygonise (Surface Nets) + relax + skin + unwrap
-  build({ cell = 0.025, bones, relax = 2, smoothW = 6, atlas = 1024, pad = 3, maxChart = 0.05 } = {}) {
+  build({ cell = 0.025, bones, relax = 2, smoothW = 6, atlas = 1024, pad = 3, maxChart = 0.05, target = 0 } = {}) {
     const P = this.prims; const B = [1e9, 1e9, 1e9, -1e9, -1e9, -1e9];
     for (const p of P) if (!p.sub) for (let i = 0; i < 3; i++) { B[i] = Math.min(B[i], p.box[i]); B[i + 3] = Math.max(B[i + 3], p.box[i + 3]); }
     const o = [B[0] - cell * 2, B[1] - cell * 2, B[2] - cell * 2]; const nx = Math.ceil((B[3] - o[0]) / cell) + 3, ny = Math.ceil((B[4] - o[1]) / cell) + 3, nz = Math.ceil((B[5] - o[2]) / cell) + 3;
@@ -117,6 +117,16 @@ export class Sculpt {
         for (let x = x0; x <= x1; x++, i++) { const d = Sculpt.dist(p, o[0] + x * cell, wy, wz); F[i] = p.sub ? -smin(-F[i], d, p.k) : smin(F[i], d, p.k); }
       }
     }
+    // trilinear field for the cheap passes (projection, relaxation, decimation)
+    const tri = (x, y, z) => {
+      let gx = (x - o[0]) / cell, gy = (y - o[1]) / cell, gz = (z - o[2]) / cell; gx = Math.min(nx - 1.001, Math.max(0, gx)); gy = Math.min(ny - 1.001, Math.max(0, gy)); gz = Math.min(nz - 1.001, Math.max(0, gz));
+      const ix = gx | 0, iy = gy | 0, iz = gz | 0, fx = gx - ix, fy = gy - iy, fz = gz - iz; const i = ix + nx * iy + sxy * iz;
+      const a = F[i] + (F[i + 1] - F[i]) * fx, b = F[i + nx] + (F[i + nx + 1] - F[i + nx]) * fx, c = F[i + sxy] + (F[i + sxy + 1] - F[i + sxy]) * fx, d = F[i + sxy + nx] + (F[i + sxy + nx + 1] - F[i + sxy + nx]) * fx;
+      const e = a + (b - a) * fy, f = c + (d - c) * fy; return e + (f - e) * fz;
+    };
+    const g = [0, 0, 0]; const e = cell * 0.5;
+    const tgrad = (x, y, z) => { g[0] = tri(x + e, y, z) - tri(x - e, y, z); g[1] = tri(x, y + e, z) - tri(x, y - e, z); g[2] = tri(x, y, z + e) - tri(x, y, z - e); const l = Math.hypot(g[0], g[1], g[2]) || 1; g[0] /= l; g[1] /= l; g[2] /= l; return g; };
+    const onto = (Pv, v, evalF, gradF) => { for (let it = 0; it < 2; it++) { const x = Pv[v * 3], y = Pv[v * 3 + 1], z = Pv[v * 3 + 2]; const f = evalF(x, y, z); const n = gradF(x, y, z); const s = Math.max(-cell, Math.min(cell, f)); Pv[v * 3] -= n[0] * s; Pv[v * 3 + 1] -= n[1] * s; Pv[v * 3 + 2] -= n[2] * s; } };
     // Surface Nets: one vertex per sign-changing cell at the mean of its edge crossings, one quad per crossing edge
     const VI = new Int32Array(nx * ny * nz).fill(-1); const pos = []; const EDGES = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
     const CO = [0, 1, nx, nx + 1, sxy, sxy + 1, sxy + nx, sxy + nx + 1]; const cv = new Float32Array(8);
@@ -127,7 +137,7 @@ export class Sculpt {
       for (const [a, b] of EDGES) { if ((cv[a] < 0) === (cv[b] < 0)) continue; const t = cv[a] / (cv[a] - cv[b]); ax += (a & 1) + ((b & 1) - (a & 1)) * t; ay += ((a >> 1) & 1) + (((b >> 1) & 1) - ((a >> 1) & 1)) * t; az += ((a >> 2) & 1) + (((b >> 2) & 1) - ((a >> 2) & 1)) * t; n++; }
       VI[i] = pos.length / 3; pos.push(o[0] + (x + ax / n) * cell, o[1] + (y + ay / n) * cell, o[2] + (z + az / n) * cell);
     }
-    const idx = []; const AX = [1, nx, sxy];
+    let idx = []; const AX = [1, nx, sxy];
     for (let z = 1; z < nz - 1; z++) for (let y = 1; y < ny - 1; y++) for (let x = 1; x < nx - 1; x++) {
       const i = x + nx * y + sxy * z; const inside = F[i] < 0;
       for (let a = 0; a < 3; a++) {
@@ -137,21 +147,26 @@ export class Sculpt {
         if (d02 < d13) idx.push(q[0], q[1], q[2], q[0], q[2], q[3]); else idx.push(q[0], q[1], q[3], q[1], q[2], q[3]);
       }
     }
-    const nv = pos.length / 3; const P3 = new Float32Array(pos); const N3 = new Float32Array(nv * 3);
-    const adj = adjacency(nv, idx); const g = [0, 0, 0];
-    const project = () => { for (let v = 0; v < nv; v++) for (let it = 0; it < 2; it++) { const x = P3[v * 3], y = P3[v * 3 + 1], z = P3[v * 3 + 2]; const f = this.eval(x, y, z); this.grad(x, y, z, cell * 0.3, g); const s = Math.max(-cell, Math.min(cell, f)); P3[v * 3] -= g[0] * s; P3[v * 3 + 1] -= g[1] * s; P3[v * 3 + 2] -= g[2] * s; } };
-    project();
+    let P3 = new Float32Array(pos); let nv = P3.length / 3; let adj = adjacency(nv, idx);
+    for (let v = 0; v < nv; v++) onto(P3, v, tri, tgrad);
     for (let r = 0; r < relax; r++) { // tangential relaxation evens the triangles, then back onto the surface
       const Q = P3.slice();
       for (let v = 0; v < nv; v++) {
-        const s = adj.off[v], e = adj.off[v + 1]; if (e === s) continue; let mx = 0, my = 0, mz = 0; for (let j = s; j < e; j++) { const u = adj.nb[j]; mx += Q[u * 3]; my += Q[u * 3 + 1]; mz += Q[u * 3 + 2]; }
-        const k = 1 / (e - s); mx = mx * k - Q[v * 3]; my = my * k - Q[v * 3 + 1]; mz = mz * k - Q[v * 3 + 2];
-        this.grad(Q[v * 3], Q[v * 3 + 1], Q[v * 3 + 2], cell * 0.3, g); const dn = mx * g[0] + my * g[1] + mz * g[2];
-        P3[v * 3] += (mx - g[0] * dn) * 0.6; P3[v * 3 + 1] += (my - g[1] * dn) * 0.6; P3[v * 3 + 2] += (mz - g[2] * dn) * 0.6;
+        const s = adj.off[v], e2 = adj.off[v + 1]; if (e2 === s) continue; let mx = 0, my = 0, mz = 0; for (let j = s; j < e2; j++) { const u = adj.nb[j]; mx += Q[u * 3]; my += Q[u * 3 + 1]; mz += Q[u * 3 + 2]; }
+        const k = 1 / (e2 - s); mx = mx * k - Q[v * 3]; my = my * k - Q[v * 3 + 1]; mz = mz * k - Q[v * 3 + 2];
+        const n = tgrad(Q[v * 3], Q[v * 3 + 1], Q[v * 3 + 2]); const dn = mx * n[0] + my * n[1] + mz * n[2];
+        P3[v * 3] += (mx - n[0] * dn) * 0.6; P3[v * 3 + 1] += (my - n[1] * dn) * 0.6; P3[v * 3 + 2] += (mz - n[2] * dn) * 0.6;
       }
-      project();
+      for (let v = 0; v < nv; v++) onto(P3, v, tri, tgrad);
     }
-    for (let v = 0; v < nv; v++) { this.grad(P3[v * 3], P3[v * 3 + 1], P3[v * 3 + 2], cell * 0.35, g); N3[v * 3] = g[0]; N3[v * 3 + 1] = g[1]; N3[v * 3 + 2] = g[2]; }
+    this.stats = { rawTris: idx.length / 3 };
+    if (target && idx.length / 3 > target) {
+      const imp = new Float32Array(nv); const qq = {}; for (let v = 0; v < nv; v++) { this.query(P3[v * 3], P3[v * 3 + 1], P3[v * 3 + 2], qq); imp[v] = qq.prim?.imp ?? 1; }
+      ({ P3, idx } = decimate(P3, idx, target, imp, (p) => { const t = new Float32Array(p); onto(t, 0, tri, tgrad); return t; }));
+      nv = P3.length / 3; adj = adjacency(nv, idx);
+    }
+    const ga = [0, 0, 0]; const N3 = new Float32Array(nv * 3);
+    for (let v = 0; v < nv; v++) { onto(P3, v, (x, y, z) => this.eval(x, y, z), (x, y, z) => this.grad(x, y, z, cell * 0.3, ga)); this.grad(P3[v * 3], P3[v * 3 + 1], P3[v * 3 + 2], cell * 0.35, ga); N3[v * 3] = ga[0]; N3[v * 3 + 1] = ga[1]; N3[v * 3 + 2] = ga[2]; }
     const W = this.skinWeights(P3, nv, adj, bones, smoothW);
     return unwrap(P3, N3, W, idx, { atlas, pad, maxChart });
   }
@@ -181,6 +196,47 @@ export class Sculpt {
     return { SI, SW };
   }
 }
+/** quadric edge-collapse decimation; collapsed vertices land on the surface (proj), importance scales the cost */
+function decimate(P, idxIn, target, imp, proj) {
+  const nv = P.length / 3; let nf = idxIn.length / 3; const idx = Int32Array.from(idxIn); const Q = new Float64Array(nv * 10);
+  for (let f = 0; f < nf; f++) {
+    const a = idx[f * 3], b = idx[f * 3 + 1], c = idx[f * 3 + 2]; const n = triN(P, a, b, c); const ar = n[3]; if (ar < 1e-12) continue; const d = -(n[0] * P[a * 3] + n[1] * P[a * 3 + 1] + n[2] * P[a * 3 + 2]);
+    const q = [n[0] * n[0], n[0] * n[1], n[0] * n[2], n[0] * d, n[1] * n[1], n[1] * n[2], n[1] * d, n[2] * n[2], n[2] * d, d * d];
+    for (const v of [a, b, c]) for (let j = 0; j < 10; j++) Q[v * 10 + j] += q[j] * ar;
+  }
+  const vf = Array.from({ length: nv }, () => []); for (let f = 0; f < nf; f++) for (let j = 0; j < 3; j++) vf[idx[f * 3 + j]].push(f);
+  const alive = new Uint8Array(nf).fill(1), dead = new Uint8Array(nv), ver = new Int32Array(nv); const heap = [];
+  const qerr = (a, b, p) => { const x = p[0], y = p[1], z = p[2]; let e = 0; for (const v of [a, b]) { const q = Q.subarray(v * 10, v * 10 + 10); e += q[0] * x * x + 2 * q[1] * x * y + 2 * q[2] * x * z + 2 * q[3] * x + q[4] * y * y + 2 * q[5] * y * z + 2 * q[6] * y + q[7] * z * z + 2 * q[8] * z + q[9]; } return Math.max(0, e); };
+  const push = (a, b) => {
+    const p = proj([(P[a * 3] + P[b * 3]) / 2, (P[a * 3 + 1] + P[b * 3 + 1]) / 2, (P[a * 3 + 2] + P[b * 3 + 2]) / 2]); const l2 = dist2(P, a, b);
+    const c = (qerr(a, b, p) + l2 * l2 * 0.05) * Math.max(imp[a], imp[b]); heapPush(heap, { c, a, b, va: ver[a], vb: ver[b], p });
+  };
+  const seen = new Set(); for (let f = 0; f < nf; f++) for (let j = 0; j < 3; j++) { const a = idx[f * 3 + j], b = idx[f * 3 + ((j + 1) % 3)]; const k = Math.min(a, b) * nv + Math.max(a, b); if (!seen.has(k)) { seen.add(k); push(a, b); } }
+  const nbrs = (v) => { const s = new Set(); for (const f of vf[v]) for (let j = 0; j < 3; j++) s.add(idx[f * 3 + j]); s.delete(v); return s; };
+  while (nf > target && heap.length) {
+    const e = heapPop(heap); const { a, b, p } = e; if (dead[a] || dead[b] || ver[a] !== e.va || ver[b] !== e.vb) continue;
+    const shared = vf[a].filter((f) => vf[b].includes(f)); const na = nbrs(a), nb = nbrs(b); let common = 0; for (const v of na) if (nb.has(v)) common++;
+    if (common !== shared.length || shared.length !== 2) continue;
+    let ok = true; // reject collapses that fold or sliver a face
+    for (const v of [a, b]) for (const f of vf[v]) {
+      if (shared.includes(f)) continue; const n0 = triN(P, idx[f * 3], idx[f * 3 + 1], idx[f * 3 + 2]); const tmp = [idx[f * 3], idx[f * 3 + 1], idx[f * 3 + 2]].map((x) => (x === v ? -1 : x));
+      const pts = tmp.map((x) => (x < 0 ? p : [P[x * 3], P[x * 3 + 1], P[x * 3 + 2]])); const n1 = triNp(pts[0], pts[1], pts[2]);
+      if (n1[3] < 1e-10 || n0[0] * n1[0] + n0[1] * n1[1] + n0[2] * n1[2] < 0.3) { ok = false; break; }
+    }
+    if (!ok) continue;
+    for (const f of shared) { alive[f] = 0; nf--; for (let j = 0; j < 3; j++) { const v = idx[f * 3 + j]; vf[v] = vf[v].filter((x) => x !== f); } }
+    for (const f of vf[b]) { for (let j = 0; j < 3; j++) if (idx[f * 3 + j] === b) idx[f * 3 + j] = a; vf[a].push(f); }
+    vf[b] = []; dead[b] = 1; P[a * 3] = p[0]; P[a * 3 + 1] = p[1]; P[a * 3 + 2] = p[2]; for (let j = 0; j < 10; j++) Q[a * 10 + j] += Q[b * 10 + j]; imp[a] = Math.max(imp[a], imp[b]); ver[a]++;
+    for (const v of nbrs(a)) push(a, v);
+  }
+  const map = new Int32Array(nv).fill(-1); const P2 = []; const out = [];
+  for (let f = 0; f < idx.length / 3; f++) { if (!alive[f]) continue; for (let j = 0; j < 3; j++) { const v = idx[f * 3 + j]; if (map[v] < 0) { map[v] = P2.length / 3; P2.push(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]); } out.push(map[v]); } }
+  return { P3: new Float32Array(P2), idx: out };
+}
+function triNp(a, b, c) { const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2]; const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1e-20; return [nx / l, ny / l, nz / l, l / 2]; }
+const triN = (P, a, b, c) => triNp([P[a * 3], P[a * 3 + 1], P[a * 3 + 2]], [P[b * 3], P[b * 3 + 1], P[b * 3 + 2]], [P[c * 3], P[c * 3 + 1], P[c * 3 + 2]]);
+function heapPush(h, e) { h.push(e); let i = h.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (h[p].c <= h[i].c) break; [h[p], h[i]] = [h[i], h[p]]; i = p; } }
+function heapPop(h) { const top = h[0], last = h.pop(); if (h.length) { h[0] = last; let i = 0; for (;;) { const l = i * 2 + 1, r = l + 1; let m = i; if (l < h.length && h[l].c < h[m].c) m = l; if (r < h.length && h[r].c < h[m].c) m = r; if (m === i) break; [h[m], h[i]] = [h[i], h[m]]; i = m; } } return top; }
 const dist2 = (p, a, b) => (p[a * 3] - p[b * 3]) ** 2 + (p[a * 3 + 1] - p[b * 3 + 1]) ** 2 + (p[a * 3 + 2] - p[b * 3 + 2]) ** 2;
 function adjacency(nv, idx) {
   const sets = Array.from({ length: nv }, () => new Set());

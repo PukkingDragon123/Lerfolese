@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { Spring } from '../core/tween.js';
 import * as K from './charkit.js';
 import { LimboBody, LimboAnim } from './limbo/rig.js';
+import { isBeast, createBeast } from './beasts/index.js';
 
 const { hex } = K;
 const T3 = [0, 0, 0];
@@ -375,6 +376,7 @@ function hydraHead(seed = 1) {
 
 const BUILDERS = { satyr, medusa, kobalos, minotaur: (s) => minotaur(s, false), minotaur_king: (s) => minotaur(s, true), hydra: (s) => hydra(s, false), hydra_elder: (s) => hydra(s, true), hydra_head: hydraHead };
 export function createCreature(id, seed = 1) {
+  if (isBeast(id)) return createBeast(id, seed); // custom-rigged minotaur / hydra (src/models/beasts)
   const api = (BUILDERS[id] || satyr)(seed);
   api.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   api.update(0.016); return api;

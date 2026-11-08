@@ -9,14 +9,16 @@ const INK = '#0b0710';
 const PAL = {
   hit: ['#ffffff', '#fff6c8', '#ffd84a', '#ff8a1e'], crit: ['#ffffff', '#fff2a8', '#ff6a3a', '#c41e3a'],
   steel: ['#ffffff', '#d8f4ff', '#7cc8ff', '#2c5aa8'], apple: ['#fff2d8', '#ffb09a', '#e2321e', '#8a0e22'],
-  stone: ['#f2ead4', '#c8bca4', '#8c7e86', '#4a3e56'], water: ['#ffffff', '#bff2ff', '#4ab4ec', '#1a5ab0'],
+  stone: ['#f6ecd8', '#cdbfa6', '#8c7c88', '#4a3a58'], water: ['#ffffff', '#bff2ff', '#4ab4ec', '#1a5ab0'],
   zap: ['#ffffff', '#fffad0', '#8ee8ff', '#2a5ad0'], fire: ['#ffffff', '#ffe04a', '#ff8a1e', '#d42a18'],
   arcane: ['#ffffff', '#e0d0ff', '#9a74f4', '#4a2aa0'], heal: ['#ffffff', '#e4ffc0', '#7ad84a', '#1e8a3a'],
-  smoke: ['#ffffff', '#e2e0e6', '#a8a6b6', '#6a6880'], death: ['#f4eaff', '#b8a8d0', '#6a5a8a', '#2e2448'],
+  smoke: ['#fffaf0', '#ece0d6', '#b4a6b4', '#5c4e72'], death: ['#f4eaff', '#b8a8d0', '#6a5a8a', '#2e2448'],
   gold: ['#ffffff', '#fff6b0', '#ffd23a', '#e0861a'],
 };
 // ---------------------------------------------------------------- primitives (hard fills; the outline is added per frame)
-function fill(pc, mask, c) { const b = mask.bb || [0, 0, pc.w, pc.h]; for (let y = Math.max(0, b[1]); y < Math.min(pc.h, b[3]); y++) for (let x = Math.max(0, b[0]); x < Math.min(pc.w, b[2]); x++) if (mask(x + 0.5, y + 0.5)) pc.px(x, y, c); }
+function fill(pc, mask, c) { const K = pc.K || 1; const b = mask.bb || [0, 0, pc.w / K, pc.h / K]; for (let y = Math.max(0, Math.floor(b[1] * K)); y < Math.min(pc.h, Math.ceil(b[3] * K)); y++) for (let x = Math.max(0, Math.floor(b[0] * K)); x < Math.min(pc.w, Math.ceil(b[2] * K)); x++) if (mask((x + 0.5) / K, (y + 0.5) / K)) (pc.fpx ? pc.fpx(x, y, c) : pc.px(x, y, c)); }
+// a K-times supersampled canvas: geometry is rasterised at the fine resolution, logical px() paints a KxK block
+function fineCanvas(S, K) { const pc = new PixelCanvas(S * K, S * K); pc.K = K; pc.fpx = PixelCanvas.prototype.px.bind(pc); pc.px = (x, y, c) => { x = Math.round(x) * K; y = Math.round(y) * K; for (let j = 0; j < K; j++) for (let i = 0; i < K; i++) pc.fpx(x + i, y + j, c); }; return pc; }
 const poly = (pc, pts, c) => fill(pc, M.poly(pts), c);
 const spikes = (cx, cy, r0, r1, n, rot, jag = 0, seed = 1) => star(cx, cy, r0, r1, n, rot).map(([x, y], i) => { if (i % 2) return [x, y]; const k = 1 + (hash2(i, seed) - 0.5) * jag; return [cx + (x - cx) * k, cy + (y - cy) * k]; });
 // thick ring broken into segments (each a quad following the circle)
@@ -27,9 +29,20 @@ function shards(pc, cx, cy, r, len, n, w, c, rot = 0, seed = 1) { for (let i = 0
 function crescent(pc, cx, cy, r, thick, a0, a1, c, ox = 0, oy = 0) { const m = M.fn((x, y) => { const d1 = Math.hypot(x - cx, y - cy), d2 = Math.hypot(x - cx - ox, y - cy - oy); let a = Math.atan2(y - cy, x - cx); if (a < a0 - 0.01) a += Math.PI * 2; if (a < a0 || a > a1) return false; const tt = (a - a0) / (a1 - a0); const th = thick * Math.sin(tt * Math.PI); return d1 <= r && d2 >= r - th; }, cx - r - 2, cy - r - 2, cx + r + 2, cy + r + 2); fill(pc, m, c); }
 const oct = (pc, cx, cy, r, c, n = 8, rot = Math.PI / 8) => { if (r > 0.4) poly(pc, ngon(cx, cy, r, n, rot), c); };
 // faceted puff: dark rim octagon, mid body, lit top-left facet, white glint
-function puff(pc, cx, cy, r, P) { if (r < 0.8) return; oct(pc, cx, cy, r, P[3]); oct(pc, cx - r * 0.12, cy - r * 0.12, r * 0.84, P[2]); poly(pc, [[cx - r * 0.75, cy - r * 0.1], [cx - r * 0.3, cy - r * 0.72], [cx + r * 0.25, cy - r * 0.62], [cx - r * 0.1, cy - r * 0.15]], P[1]); if (r > 2.5) pc.px(Math.round(cx - r * 0.4), Math.round(cy - r * 0.45), P[0]); }
-function sparkle(pc, x, y, s, P) { x = Math.round(x); y = Math.round(y); for (let i = -s; i <= s; i++) { pc.px(x + i, y, Math.abs(i) <= s / 2 ? P[0] : P[2]); pc.px(x, y + i, Math.abs(i) <= s / 2 ? P[0] : P[2]); } }
-function bolt(pc, pts, w, P) { for (let i = 0; i + 1 < pts.length; i++) poly(pc, bar(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], w), P[2]); for (let i = 0; i + 1 < pts.length; i++) poly(pc, bar(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], Math.max(0.5, w * 0.45)), P[0]); }
+function puff(pc, cx, cy, r, P, seed = 1) { // stylized smoke: an irregular lobed clump with a curled tail and an inner swirl
+  if (r < 0.9) return; const n = 6; const lobes = []; for (let i = 0; i < n; i++) { const a = seed * 1.7 + (i / n) * Math.PI * 2; lobes.push([a, r * (0.72 + hash2(i, seed) * 0.4)]); }
+  const outline = []; for (let k = 0; k < 36; k++) { const a = seed * 1.7 + (k / 36) * Math.PI * 2; let rr = 0; for (const [la, lr] of lobes) { const d = Math.cos(a - la); if (d > 0) rr = Math.max(rr, lr * (0.55 + 0.45 * Math.pow(d, 3))); } outline.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.86]); }
+  const tail = []; const ta = seed * 2.3; for (let k = 0; k <= 10; k++) { const t = k / 10; const a = ta + t * 3.6; const rr = r * (1.05 - t * 0.55); tail.push([cx + Math.cos(a) * rr + Math.cos(ta) * r * 0.35 * t, cy + Math.sin(a) * rr * 0.86 - t * r * 0.3]); }
+  const tailPoly = []; for (let k = 0; k <= 10; k++) { const w = r * 0.32 * (1 - k / 10); const [x, y] = tail[k], [x2, y2] = tail[Math.min(10, k + 1)]; const L = Math.hypot(x2 - x, y2 - y) || 1; tailPoly.push([x - ((y2 - y) / L) * w, y + ((x2 - x) / L) * w]); } for (let k = 10; k >= 0; k--) { const w = r * 0.32 * (1 - k / 10); const [x, y] = tail[k], [x2, y2] = tail[Math.min(10, k + 1)]; const L = Math.hypot(x2 - x, y2 - y) || 1; tailPoly.push([x + ((y2 - y) / L) * w, y - ((x2 - x) / L) * w]); }
+  poly(pc, outline, P[3]); poly(pc, tailPoly, P[3]);
+  poly(pc, outline.map(([x, y]) => [cx - r * 0.1 + (x - cx) * 0.84, cy - r * 0.1 + (y - cy) * 0.84]), P[2]);
+  poly(pc, outline.filter((_, k) => k > 18 && k < 33).map(([x, y]) => [cx - r * 0.18 + (x - cx) * 0.66, cy - r * 0.2 + (y - cy) * 0.66]).concat([[cx - r * 0.1, cy - r * 0.05]]), P[1]);
+  const sw = []; for (let k = 0; k <= 8; k++) { const t = k / 8; const a = seed + t * 4.2; const rr = r * 0.5 * (1 - t * 0.7); sw.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.86]); } for (let k = 0; k + 1 < sw.length; k++) poly(pc, bar(...sw[k], ...sw[k + 1], Math.max(0.25, r * 0.05)), P[3]);
+  if (r > 2.5) pc.fpx ? pc.fpx(Math.round((cx - r * 0.45) * pc.K), Math.round((cy - r * 0.45) * pc.K), P[0]) : pc.px(Math.round(cx - r * 0.45), Math.round(cy - r * 0.45), P[0]);
+}
+const chip = (pc, x, y, r, rot, P) => { const pts = [[x + Math.cos(rot) * r, y + Math.sin(rot) * r], [x + Math.cos(rot + 2.2) * r * 0.7, y + Math.sin(rot + 2.2) * r * 0.7], [x + Math.cos(rot + 3.6) * r, y + Math.sin(rot + 3.6) * r], [x + Math.cos(rot + 5) * r * 0.55, y + Math.sin(rot + 5) * r * 0.55]]; poly(pc, pts, P[2]); poly(pc, [pts[0], pts[1], [x, y]], P[1]); };
+function sparkle(pc, x, y, s, P) { const K = pc.K || 1; const put = pc.fpx || ((a, b, c) => pc.px(a, b, c)); const X = Math.round(x * K), Y = Math.round(y * K), L = Math.max(1, Math.round(s * K * 0.9)); for (let i = -L; i <= L; i++) { const c = Math.abs(i) <= L / 3 ? P[0] : P[2]; put(X + i, Y, c); put(X, Y + i, c); } if (K > 1) { put(X + 1, Y + 1, P[1]); put(X - 1, Y - 1, P[1]); put(X + 1, Y - 1, P[1]); put(X - 1, Y + 1, P[1]); } }
+function bolt(pc, pts, w, P) { for (let i = 0; i + 1 < pts.length; i++) poly(pc, bar(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], w * 1.3), P[3]); for (let i = 0; i + 1 < pts.length; i++) poly(pc, bar(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], w * 0.8), P[2]); for (let i = 0; i + 1 < pts.length; i++) poly(pc, bar(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], Math.max(0.3, w * 0.3)), P[0]); }
 const jagged = (x0, y0, x1, y1, n, amp, seed) => { const pts = []; for (let i = 0; i <= n; i++) { const t = i / n; const nx = -(y1 - y0), ny = x1 - x0, L = Math.hypot(nx, ny) || 1; const o = i === 0 || i === n ? 0 : (hash2(i, seed) - 0.5) * 2 * amp; pts.push([x0 + (x1 - x0) * t + (nx / L) * o, y0 + (y1 - y0) * t + (ny / L) * o]); } return pts; };
 
 // ---------------------------------------------------------------- effects: (pc, f, n, S) paint frame f of n on an S x S (or W x H) canvas
@@ -59,8 +72,8 @@ const FX = {
   } },
   stone_puff: { size: 48, frames: 8, fps: 18, world: 2.2, paint(pc, f, n, S) {
     const P = PAL.stone; const c = S / 2; const t = f / 7;
-    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + 0.3; const d = 4 + t * 12; const r = (f < 2 ? 4 + f * 3 : 9 - t * 6) * (0.8 + hash2(i, 1) * 0.4); puff(pc, c + Math.cos(a) * d, c + Math.sin(a) * d * 0.6 - t * 6, r, P); }
-    for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 + (i - 3) * 0.45; const d = 6 + t * 20; const x = c + Math.cos(a) * d, y = c + Math.sin(a) * d + t * t * 22; const r = 2.4 - t * 0.8; if (f > 0) poly(pc, ngon(x, y, r, 5, i + f * 0.6), i % 2 ? PAL.stone[2] : PAL.stone[1]); }
+    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + 0.3; const d = 4 + t * 12; const r = (f < 2 ? 4 + f * 3 : 9 - t * 6) * (0.8 + hash2(i, 1) * 0.4); puff(pc, c + Math.cos(a) * d, c + Math.sin(a) * d * 0.6 - t * 6, r, P, i + 1); }
+    for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 + (i - 3) * 0.45; const d = 6 + t * 20; const x = c + Math.cos(a) * d, y = c + Math.sin(a) * d + t * t * 22; const r = 2.6 - t * 0.9; if (f > 0) chip(pc, x, y, r, i * 1.3 + f * 0.7, PAL.stone); }
   } },
   water_splash: { size: 48, frames: 8, fps: 18, world: 2.2, paint(pc, f, n, S) {
     const P = PAL.water; const c = S / 2, base = 34; const t = f / 7;
@@ -73,8 +86,8 @@ const FX = {
   zap: { size: 48, frames: 6, fps: 20, world: 2.6, paint(pc, f, n, S) {
     const P = f === 3 ? ['#8ee8ff', '#3c8ae8', '#2a5ad0', '#1d2c7a'] : PAL.zap; const seed = [1, 2, 2, 2, 3, 3][f];
     if (f === 5) { for (let i = 0; i < 5; i++) sparkle(pc, 8 + i * 8, 14 + ((i * 7) % 20), 1, PAL.zap); return; }
-    const main = jagged(4, 6, 44, 42, 7, f === 0 ? 3 : 6, seed); bolt(pc, main, f === 0 ? 1 : f === 4 ? 1.2 : 2.2, P);
-    if (f >= 1 && f <= 3) { bolt(pc, jagged(main[3][0], main[3][1], 40, 10, 4, 3, seed + 5), 1.2, P); bolt(pc, jagged(main[5][0], main[5][1], 10, 44, 4, 3, seed + 7), 1.2, P); }
+    const main = jagged(4, 6, 44, 42, 12, f === 0 ? 3 : 5, seed); bolt(pc, main, f === 0 ? 1 : f === 4 ? 1.2 : 2.2, P);
+    if (f >= 1 && f <= 3) { bolt(pc, jagged(main[4][0], main[4][1], 40, 10, 7, 3, seed + 5), 0.9, P); bolt(pc, jagged(main[8][0], main[8][1], 10, 44, 7, 3, seed + 7), 0.9, P); bolt(pc, jagged(main[6][0], main[6][1], 30, 46, 5, 2, seed + 9), 0.6, P); }
     if (f === 1 || f === 2) { poly(pc, spikes(44, 42, 7, 3, 6, 0, 0.4, 2), P[1]); oct(pc, 44, 42, 2.5, P[0]); }
   } },
   fire_burst: { size: 48, frames: 8, fps: 18, world: 2.2, paint(pc, f, n, S) {
@@ -108,14 +121,14 @@ const FX = {
   } },
   smoke_poof: { size: 48, frames: 8, fps: 16, world: 2.2, paint(pc, f, n, S) {
     const P = PAL.smoke; const c = S / 2; const t = f / 7; const sc = f < 2 ? 0.6 + f * 0.4 : 1.4 - t * 0.9;
-    for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; const d = 5 + t * 9; puff(pc, c + Math.cos(a) * d, c + Math.sin(a) * d * 0.7 - t * 6, (5 + hash2(i, 3) * 3) * sc, P); }
+    for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; const d = 5 + t * 9; puff(pc, c + Math.cos(a) * d, c + Math.sin(a) * d * 0.7 - t * 6, (5 + hash2(i, 3) * 3) * sc, P, i + 2); }
     if (f < 3) puff(pc, c, c, 7 * sc, P);
   } },
   death_puff: { size: 64, frames: 10, fps: 16, world: 3.2, paint(pc, f, n, S) {
     const P = PAL.death; const c = S / 2; const t = f / 9;
     if (f === 0) { poly(pc, spikes(c, c, 16, 6, 8, 0, 0.3, 1), PAL.hit[0]); return; }
     const sc = f < 3 ? 0.7 + f * 0.25 : 1.3 - t * 0.9;
-    for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; const d = 7 + t * 14; puff(pc, c + Math.cos(a) * d, c + Math.sin(a) * d * 0.7 - t * 10, (6 + hash2(i, 7) * 4) * sc, P); }
+    for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2; const d = 7 + t * 14; puff(pc, c + Math.cos(a) * d, c + Math.sin(a) * d * 0.7 - t * 10, (6 + hash2(i, 7) * 4) * sc, P, i + 3); }
     if (f >= 2 && f <= 7) { const y = c - 6 - t * 14; oct(pc, c, y, 7, P[3]); oct(pc, c, y - 1, 6, P[1]); for (const s of [-1, 1]) oct(pc, c + s * 2.6, y, 1.6, '#140a1e', 6); poly(pc, [[c - 1, y + 2], [c + 1, y + 2], [c, y + 4]], '#140a1e'); }
     for (let i = 0; i < 4; i++) sparkle(pc, c - 18 + i * 12, c - 10 + ((i * 5) % 12) - t * 12, f % 2 ? 2 : 1, PAL.gold);
   } },
@@ -132,29 +145,38 @@ function dissolve(pc, k) { if (k <= 0) return; for (let y = 0; y < pc.h; y++) fo
 // decal timeline: grow in (2 frames), hold, then an ordered pixel dissolve
 const decalT = (f, n) => ({ grow: f < 2 ? 0.6 + f * 0.25 : 1, fade: f < n - 5 ? 0 : (f - (n - 5)) / 5 });
 Object.assign(FX, {
-  shockwave: { size: 64, frames: 8, fps: 22, world: 4.2, glow: 1.5, paint(pc, f, n, S) {
+  shockwave: { size: 64, frames: 8, fps: 22, world: 4.2, glow: 1.5, K: 3, paint(pc, f, n, S) {
     const c = S / 2; const t = (f + 1) / n; const r = 6 + t * 25; const P = PAL.hit;
     // heat-distortion feel: a wobbling double ring whose segments slip against each other
     ring(pc, c, c, r, Math.max(1.2, 6 * (1 - t)), 16, 0.12 + t * 0.3, P[3], f * 0.13, 0.62);
-    ring(pc, c, c, r - 1, Math.max(0.8, 3.4 * (1 - t)), 16, 0.2 + t * 0.3, P[0], f * 0.13 + 0.1, 0.62);
+    ring(pc, c, c, r - 1, Math.max(0.5, 3.4 * (1 - t)), 16, 0.2 + t * 0.3, P[0], f * 0.13 + 0.1, 0.62); ring(pc, c, c, r + 3.5, 0.45, 24, 0.5, P[1], -f * 0.2, 0.62); ring(pc, c, c, r * 0.8, 0.4, 20, 0.6, P[0], f * 0.3, 0.62);
     if (f < 4) ring(pc, c, c, r * 0.6, 1.6, 10, 0.45, P[1], -f * 0.2, 0.62);
     for (let i = 0; i < 8; i++) { const a = i * 0.785 + f * 0.11; const x = c + Math.cos(a) * (r + 3), y = c + Math.sin(a) * (r + 3) * 0.62; if ((i + f) % 2) poly(pc, bar(x - 1.5, y, x + 1.5, y, 0.5), P[1]); }
   } },
-  speedlines: { size: 96, frames: 4, fps: 18, world: 9, paint(pc, f, n, S) {
-    const c = S / 2; for (let i = 0; i < 26; i++) { const a = (i / 26) * Math.PI * 2 + (hash2(i, f) - 0.5) * 0.18; const r0 = 30 + hash2(f, i) * 9, r1 = 48 + hash2(i + 7, f) * 4; const w = 0.6 + hash2(i, f + 3) * 1.4; poly(pc, blade(c + Math.cos(a) * r1, c + Math.sin(a) * r1, c + Math.cos(a) * r0, c + Math.sin(a) * r0, w, 0), i % 3 ? '#ffffff' : '#fff2b0'); }
+  speedlines: { size: 96, frames: 4, fps: 24, world: 6.5, K: 3, paint(pc, f, n, S) {
+    const c = S / 2; const keep = [1, 0.75, 0.5, 0.25][f];
+    for (let i = 0; i < 72; i++) { if (hash2(i, 9) > keep) continue; const a = (i / 72) * Math.PI * 2 + (hash2(i, f) - 0.5) * 0.08; const r1 = 47 - hash2(i + 7, f) * 3, r0 = r1 - (8 + hash2(f, i) * 14) * (1 - f * 0.18); const w = (0.18 + hash2(i, f + 3) * 0.32) * (1 - f * 0.2); poly(pc, blade(c + Math.cos(a) * r1, c + Math.sin(a) * r1, c + Math.cos(a) * r0, c + Math.sin(a) * r0, w, 0), i % 4 ? '#ffffff' : '#fff2b0'); }
   } },
   sparks: { size: 64, frames: 9, fps: 20, world: 3.6, glow: 1.6, paint(pc, f, n, S) {
     const c = S / 2; const t = f / (n - 1); const P = PAL.hit;
-    for (let i = 0; i < 9; i++) { // streak sparks: a white head with a yellow-orange tail behind it
-      const a = (i / 9) * Math.PI * 2 + hash2(i, 2) * 0.5; const d = 6 + (1 - (1 - t) * (1 - t)) * 26; const L = Math.max(0, 9 * (1 - t)); if (L < 1) continue;
-      const hx = c + Math.cos(a) * d, hy = c + Math.sin(a) * d + t * t * 6; poly(pc, blade(hx, hy, hx - Math.cos(a) * L, hy - Math.sin(a) * L, 1.3, 0), P[3]); poly(pc, blade(hx, hy, hx - Math.cos(a) * L * 0.5, hy - Math.sin(a) * L * 0.5, 0.8, 0), P[0]);
+    for (let i = 0; i < 14; i++) { // streak sparks: a white head with a yellow-orange tail behind it
+      const a = (i / 14) * Math.PI * 2 + hash2(i, 2) * 0.5; const d = (6 + (1 - (1 - t) * (1 - t)) * 26) * (0.75 + hash2(2, i) * 0.4); const L = Math.max(0, 9 * (1 - t)); if (L < 1) continue;
+      const hx = c + Math.cos(a) * d, hy = c + Math.sin(a) * d + t * t * 6; poly(pc, blade(hx, hy, hx - Math.cos(a) * L, hy - Math.sin(a) * L, 0.9, 0), P[3]); poly(pc, blade(hx, hy, hx - Math.cos(a) * L * 0.6, hy - Math.sin(a) * L * 0.6, 0.45, 0), P[1]); poly(pc, ngon(hx, hy, 0.7, 4), P[0]);
     }
     for (let i = 0; i < 5; i++) { // debris chunks: ballistic arcs that bounce once on the ground line
-      const vx = (hash2(i, 5) - 0.5) * 34, vy = -18 - hash2(5, i) * 14; let y = c + vy * t + 46 * t * t; const g = S - 8; if (y > g) y = g - (y - g) * 0.35; const x = c + vx * t; poly(pc, ngon(x, y, 2.2, 5, i + f * 0.7), i % 2 ? PAL.stone[2] : PAL.stone[1]);
+      const vx = (hash2(i, 5) - 0.5) * 34, vy = -18 - hash2(5, i) * 14; let y = c + vy * t + 46 * t * t; const g = S - 8; if (y > g) y = g - (y - g) * 0.35; const x = c + vx * t; chip(pc, x, y, 2.3, i * 1.7 + f * 0.9, PAL.stone);
     }
   } },
-  wisp: { size: 48, frames: 12, fps: 10, world: 2.6, paint(pc, f, n, S) {
-    const P = PAL.smoke; const t = f / (n - 1); for (let i = 0; i < 5; i++) { const k = i / 4; const y = 38 - k * 26 - t * 8; const x = 24 + Math.sin(k * 5 + t * 4) * (4 + k * 5); const r = (6.4 - k * 2.6) * (1 - t * 0.6) + (f < 2 ? -1.5 : 0); puff(pc, x, y, r, P); }
+  wisp: { size: 48, frames: 12, fps: 10, world: 2.6, paint(pc, f, n, S) { // one curling ribbon of smoke: rises, sways, curls into a hook, then breaks up
+    const P = PAL.smoke; const t = f / (n - 1); const grow = Math.min(1, (f + 1) / 4); const segs = 16; const path = [];
+    for (let i = 0; i <= segs; i++) { const k = (i / segs) * grow; let x = 24 + Math.sin(k * 5.5 + t * 3) * (2 + k * 6), y = 44 - k * 34 - t * 6; if (k > 0.75) { const a = (k - 0.75) * 9 + t * 2; x += Math.cos(a) * 4 - 4; y += Math.sin(a) * 3; } path.push([x, y]); }
+    const width = (i) => { const k = i / segs; return (1.6 + Math.sin(k * Math.PI) * 3.6) * (1 - t * 0.5); };
+    for (const [layer, col, wk, dx] of [[0, P[3], 1, 0], [1, P[2], 0.62, -0.35], [2, P[1], 0.28, -0.7]]) for (let i = 0; i < segs; i++) {
+      if (t > 0.45 && ((i * 7 + f) % 5 === 0 || (t > 0.75 && i % 2))) continue; // the ribbon frays into separate curls as it fades
+      const [x0, y0] = path[i], [x1, y1] = path[i + 1]; const w0 = width(i) * wk, w1 = width(i + 1) * wk; if (w0 < 0.2) continue;
+      const L = Math.hypot(x1 - x0, y1 - y0) || 1, px = -(y1 - y0) / L, py = (x1 - x0) / L;
+      poly(pc, [[x0 + px * w0 + dx, y0 + py * w0], [x1 + px * w1 + dx, y1 + py * w1], [x1 - px * w1 * (layer ? 0.4 : 1) + dx, y1 - py * w1 * (layer ? 0.4 : 1)], [x0 - px * w0 * (layer ? 0.4 : 1) + dx, y0 - py * w0 * (layer ? 0.4 : 1)]], col);
+    }
   } },
   vortex: { size: 64, frames: 10, fps: 16, world: 3.6, glow: 1.6, paint(pc, f, n, S) {
     const P = PAL.arcane; const c = S / 2; const rot = f * 0.5; const grow = f < 2 ? 0.55 + f * 0.25 : f > 7 ? 1 - (f - 7) * 0.28 : 1;
@@ -228,8 +250,8 @@ const sheets = new Map();
 // horizontal strip of frames for one effect, outlined in near-black
 export function vfxSheet(name) {
   if (sheets.has(name)) return sheets.get(name);
-  const D = FX[name]; const S = D.size; const out = new PixelCanvas(S * D.frames, S);
-  for (let f = 0; f < D.frames; f++) { const pc = new PixelCanvas(S, S); D.paint(pc, f, D.frames, S); if ((!(name === 'hit_heavy' || name === 'hit_crit') || f !== 1) && !D.decal && name !== 'speedlines') pc.outline(INK); if (name === 'speedlines') pc.outline('#1a1220'); out.blit(pc, f * S, 0); }
+  const D = FX[name]; const S = D.size; const K = D.K || 2; const out = new PixelCanvas(S * K * D.frames, S * K);
+  for (let f = 0; f < D.frames; f++) { const pc = fineCanvas(S, K); D.paint(pc, f, D.frames, S); if ((!(name === 'hit_heavy' || name === 'hit_crit') || f !== 1) && !D.decal && name !== 'speedlines') pc.outline(INK); out.blit(pc, f * S * K, 0); }
   sheets.set(name, out); return out;
 }
 

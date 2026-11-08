@@ -9,7 +9,7 @@
 - Humans may reuse the user's Limbo Phobia human generator (repo PukkingDragon123/fictional-octo-train).
 - Rendering: HIGH RESOLUTION and CRISP: no tilt-shift blur, no chromatic aberration, minimal grain; supersampled. Card backdrops = detailed nature or space scenes, no cartoon effects.
 - Map = realistic physical map on a table with chess-inspired pieces as nodes (pawn/knight/bishop/rook/king), no grass/plants.
-- Sir Isaac = BROKEN jointed wooden marionette (cracks, nails, twine, one arm is a TABLE LEG), moved by a magical translucent INVISIBLE HAND holding the control cross with glowing strings. VFX must be punchy anime-style (impact frames, shockwaves, speed lines, trails).
+- Sir Isaac = BROKEN jointed wooden marionette (cracks, nails, twine, one arm is a TABLE LEG), moved by a magical translucent INVISIBLE HAND holding the control cross with glowing strings. COMBAT FEEL (LATEST): physical, minimal VFX: real attack animations (anticipation, lunge, strike, follow-through, knockback), 3D debris and dust, magic only as tasteful 3D shader effects, plus a few small super-polished fine pixel particles. NO big low-res sprite effects, CRIT sprites, speed lines or sprite smoke balls.
 - Card art for Laws/Powers, Rotation, Force: magical effects (sigils, vortices, arcs), NO hands.
 - Draw CUSTOM art yourself: detailed high-resolution pixel art (shading ramps, selective outlines, highlights, animation frames), like `src/gfx/critters.js` birds and the card illustrations, and/or detailed high-poly models with real structure (trees with branches and leaves).
 - Style: HD-2D. Detailed 3D world plus detailed 2D pixel-art life and objects.
