@@ -24,7 +24,7 @@ const LOOKS = {
   marsh: { turb: 6, ray: 1.3, mie: 0.005, g: 0.75, haze: '#a8b4a4', fog: [40, 170], cloud: '#eef0e4', shade: '#7c8a98', grass: 0.03 },
   guardian: { turb: 6, ray: 2.0, mie: 0.004, g: 0.78, haze: '#b8786a', fog: [46, 190], cloud: '#ffd4b8', shade: '#6a4a6a', grass: 0.35 },
 };
-export const SUN_SKY = new V3(Math.sin(0.16), 0.088, -Math.cos(0.16)).normalize(); // visible sun, upper right of the battle view
+export const SUN_SKY = new V3(Math.sin(0.3), 0.088, -Math.cos(0.3)).normalize(); // visible sun, upper right of the battle view
 const SUN_KEY = new V3(-0.55, 0.62, 0.42).normalize(); // key light kept from the front-left so faces read
 const CAM = new V3(-0.1, 3, 11.4);
 const vcount = new Map();
@@ -66,7 +66,7 @@ function sunFaceTexture() {
 }
 let SUNTEX = null;
 function sunBillboard(pos, size) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: (SUNTEX ||= sunFaceTexture()), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false, color: new THREE.Color(1.25, 1.15, 0.95) }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), new THREE.MeshBasicMaterial({ map: (SUNTEX ||= sunFaceTexture()), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false, color: new THREE.Color(0.95, 0.88, 0.72) }));
   m.position.copy(pos); m.renderOrder = -6; m.userData.noInk = true; m.userData.noAO = true; m.frustumCulled = false; m.name = 'sunFace';
   m.onBeforeRender = (r, s, cam) => m.quaternion.copy(cam.quaternion); return m;
 }
@@ -120,7 +120,7 @@ function hdriDome(tex, rot, exposure = 0.62) {
     fragmentShader: `uniform sampler2D tEq; uniform float uRot, uExp; varying vec3 vW;
       void main(){ vec3 d = normalize(vW - cameraPosition); float c = cos(-uRot), s = sin(-uRot); d = vec3(d.x * c + d.z * s, d.y, -d.x * s + d.z * c);
         vec2 uv = vec2(atan(d.z, d.x) * 0.15915494 + 0.5, asin(clamp(d.y, -1.0, 1.0)) * 0.31830989 + 0.5);
-        vec3 col = texture2D(tEq, uv).rgb * uExp; float l = dot(col, vec3(0.299, 0.587, 0.114)); col = max(mix(vec3(l), col, 1.18), 0.0);
+        vec3 col = texture2D(tEq, uv).rgb * uExp; col = col / (1.0 + max(0.0, dot(col, vec3(0.333)) - 1.2) * 0.8); col = min(col, vec3(2.6)); float l = dot(col, vec3(0.299, 0.587, 0.114)); col = max(mix(vec3(l), col, 1.18), 0.0);
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -141,16 +141,16 @@ function ridges(sunDir, haze, cols) {
   return g;
 }
 // ---------------------------------------------------------------- ground: splat of three PBR sets + vertex AO, meadow-green tone
-function splatGround(geo, grassM, dirtM, gravelM, { tint = '#c8d8a0', dirt = 0.62, gravel = 0.66 } = {}) {
+function splatGround(geo, grassM, dirtM, gravelM, { tint = '#c8d8a0', dirt = 0.62, gravel = 0.66, green = 0.55 } = {}) {
   const m = grassM; m.vertexColors = true; m.roughness = 1;
   m.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { tDirt: { value: dirtM.map }, tGravel: { value: gravelM.map }, uTint: { value: new THREE.Color(tint) }, uDirt: { value: dirt }, uGravel: { value: gravel } });
+    Object.assign(sh.uniforms, { tDirt: { value: dirtM.map }, tGravel: { value: gravelM.map }, uTint: { value: new THREE.Color(tint) }, uDirt: { value: dirt }, uGravel: { value: gravel }, uGreen: { value: green } });
     sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = 'uniform sampler2D tDirt, tGravel; uniform vec3 uTint; uniform float uDirt, uGravel; varying vec3 vWP;\nfloat sh2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\nfloat sn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(sh2(i), sh2(i + vec2(1, 0)), f.x), mix(sh2(i + vec2(0, 1)), sh2(i + vec2(1, 1)), f.x), f.y); }\nfloat sf(vec2 p){ return sn(p) * 0.55 + sn(p * 2.1 + 3.1) * 0.3 + sn(p * 4.3 + 7.7) * 0.15; }\n'
+    sh.fragmentShader = 'uniform sampler2D tDirt, tGravel; uniform vec3 uTint; uniform float uDirt, uGravel, uGreen; varying vec3 vWP;\nfloat sh2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\nfloat sn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(sh2(i), sh2(i + vec2(1, 0)), f.x), mix(sh2(i + vec2(0, 1)), sh2(i + vec2(1, 1)), f.x), f.y); }\nfloat sf(vec2 p){ return sn(p) * 0.55 + sn(p * 2.1 + 3.1) * 0.3 + sn(p * 4.3 + 7.7) * 0.15; }\n'
       + sh.fragmentShader.replace('#include <map_fragment>', `
         vec3 cg = texture2D(map, vMapUv).rgb * uTint; vec3 cd = texture2D(tDirt, vMapUv * 1.37).rgb; vec3 cv = texture2D(tGravel, vMapUv * 0.83).rgb;
         float wd = smoothstep(uDirt, uDirt + 0.12, sf(vWP.xz * 0.11 + 4.0)); float wv = smoothstep(uGravel, uGravel + 0.1, sf(vWP.xz * 0.07 + 19.0)) * (1.0 - wd * 0.6);
-        float patchy = sf(vWP.xz * 0.35); cg *= mix(vec3(0.86, 0.9, 0.78), vec3(1.08, 1.04, 0.92), patchy);
+        float patchy = sf(vWP.xz * 0.35); cg = mix(cg, vec3(dot(cg, vec3(0.333))) * vec3(0.92, 1.3, 0.55), uGreen); cg *= mix(vec3(0.86, 0.9, 0.78), vec3(1.1, 1.06, 0.9), patchy);
         diffuseColor.rgb *= mix(mix(cg, cd, wd), cv, wv);`);
   };
   m.customProgramCacheKey = () => 'splatGround'; return m;
@@ -225,8 +225,8 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   // the sunset HDRI as the sky, turned so its real sun sits upper-right of the battle view; hazy ridges; the sun's serene face
   const aHdr = Math.atan2(hSun.x, hSun.z), aWant = Math.atan2(SUN_SKY.x, SUN_SKY.z); const rot = aWant - aHdr;
   const sunDirW = new V3(Math.sin(aWant) * Math.cos(Math.asin(hSun.y)), hSun.y, Math.cos(aWant) * Math.cos(Math.asin(hSun.y))).normalize();
-  if (hdr) g.add(hdriDome(hdr.background, rot, theme === 'marsh' ? 0.55 : 0.62)); else g.add(T.animeSky(theme, sunDirW));
-  g.add(ridges(sunDirW, L.haze, theme === 'marsh' ? ['#5a6a70', '#6e7c80', '#8a9690'] : theme === 'guardian' ? ['#4a3448', '#5e4458', '#7a5a68'] : ['#6a6a86', '#86809a', '#a8949e']));
+  if (hdr) g.add(hdriDome(hdr.background, rot, theme === 'marsh' ? 0.75 : 0.85)); else g.add(T.animeSky(theme, sunDirW));
+  g.add(ridges(sunDirW, L.haze, theme === 'marsh' ? ['#5a6a70', '#6e7c80', '#8a9690'] : theme === 'guardian' ? ['#4a3448', '#5e4458', '#7a5a68'] : ['#8a88a6', '#a69eb6', '#c8b2b4']));
   const sunPos = CAM.clone().addScaledVector(sunDirW, 150); g.add(sunBillboard(sunPos, 11));
   // golden backlight from the sun: warm rims on leaves, trunks and the fighters
   const back = new THREE.DirectionalLight(0xffc27a, 1.7); back.position.copy(sunDirW).multiplyScalar(30).setY(9); g.add(back);
@@ -235,7 +235,7 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   const hAt = (x, z) => { const far = Math.max(0, -z - 8) * 0.06; const y = (n.fbm(x * 0.08 + 9, z * 0.08, 4) - 0.5) * (Math.abs(z) > 3.5 || Math.abs(x) > 9 ? (Math.abs(z) < 14 ? 0.5 : 1.0) : 0.12) + far * far * 1.3; const b = basin(x, z); return y * (1 - b) - 0.35 * b; };
   const geo = new THREE.PlaneGeometry(90, 70, 110, 90); geo.rotateX(-Math.PI / 2); const p = geo.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, hAt(p.getX(i), p.getZ(i)));
   geo.computeVertexNormals(); geo.setAttribute('uv2', geo.attributes.uv);
-  const ground = new THREE.Mesh(geo, splatGround(geo, groundMat, dirtMat, gravelMat, { tint: theme === 'marsh' ? '#a8b890' : theme === 'gully' || theme === 'labyrinth' ? '#e0d4b0' : '#b8d488', dirt: theme === 'gully' ? 0.5 : 0.63, gravel: 0.68 })); ground.receiveShadow = true; ground.userData.noInk = true; g.add(ground);
+  const ground = new THREE.Mesh(geo, splatGround(geo, groundMat, dirtMat, gravelMat, { tint: theme === 'marsh' ? '#a8b890' : theme === 'gully' || theme === 'labyrinth' ? '#e0d4b0' : '#b8d488', dirt: theme === 'gully' ? 0.5 : 0.63, gravel: 0.68, green: theme === 'gully' || theme === 'labyrinth' ? 0.15 : theme === 'marsh' ? 0.35 : 0.6 })); ground.receiveShadow = true; ground.userData.noInk = true; g.add(ground);
   const aoSpots = [];
   if (arenaClear) { const am = arenaMat.clone(); am.alphaMap = softMask(); am.transparent = true; am.depthWrite = false; const ag = new THREE.PlaneGeometry(22, 9, 44, 18); ag.rotateX(-Math.PI / 2); const ap = ag.attributes.position; for (let i = 0; i < ap.count; i++) ap.setY(i, hAt(ap.getX(i) + 0.3, ap.getZ(i) + 0.8) + 0.03); ag.computeVertexNormals(); const arena = new THREE.Mesh(ag, am); arena.position.set(0.3, 0, 0.8); arena.receiveShadow = true; arena.renderOrder = 1; arena.userData.noInk = true; g.add(arena); }
   const place = async (name, x, z, { s = 1, ry = rnd() * 6.28, far = false, tree = false, y = 0 } = {}) => {
@@ -266,9 +266,9 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   const roadD = (x, z) => { let d = 1e9; for (const q of rp) { const dd = (q.x - x) ** 2 + (q.z - z) ** 2; if (dd < d) d = dd; } return Math.sqrt(d); };
   const gr = mulberry32(seed * 3 + 1); const nP = makeNoise(seed + 77); const clumps = []; const spots = [];
   const okAt = (x, z) => { const ax = (x - 0.3) / 9.2, az = (z - 0.8) / 3.0; if (arenaClear && ax * ax + az * az < 1.05) return false; if (theme === 'marsh' && z < -2.6 && z > -12.5) return false; if (z > -2 && roadD(x, z) < 1.75) return false; return true; };
-  for (let i = 0; i < 2600 && clumps.length < 520; i++) { const z = -16 + Math.pow(gr(), 0.8) * 46, x = (gr() - 0.5) * (14 + Math.abs(5 - z) * 1.2) - (z > 4 ? (z - 4) * 0.9 : 0); if (!okAt(x, z)) continue; const dense = nP.fbm(x * 0.15, z * 0.15, 3); if (gr() > dense * 1.5) continue; clumps.push({ x, y: hAt(x, z) - 0.03, z, s: 1.5 + gr() * 1.3, ry: gr() * 6.28, k: gr(), v: Math.floor(gr() * 17) }); }
+  for (let i = 0; i < 3200 && clumps.length < 600; i++) { const z = -24 + Math.pow(gr(), 0.75) * 54, x = (gr() - 0.5) * (14 + Math.abs(5 - z) * 1.2) - (z > 4 ? (z - 4) * 0.9 : 0); if (!okAt(x, z)) continue; const dense = nP.fbm(x * 0.15, z * 0.15, 3); if (gr() > dense * 1.5) continue; clumps.push({ x, y: hAt(x, z) - 0.03, z, s: 1.5 + gr() * 1.3, ry: gr() * 6.28, k: gr(), v: Math.floor(gr() * 17) }); }
   jobs.push(grassClumps(g, clumps).catch(() => {}));
-  for (let i = 0; i < 16000; i++) { const z = -18 + Math.pow(gr(), 0.75) * 48, x = (gr() - 0.5) * (14 + Math.abs(5 - z) * 1.25) - (z > 4 ? (z - 4) * 0.9 : 0); if (!okAt(x, z)) continue; const patch = nP.fbm(x * 0.2 + 9, z * 0.2, 3); spots.push([x, hAt(x, z) - 0.02, z, (0.1 + gr() * 0.16) * (0.7 + patch * 0.9) + Math.max(0, -z - 4) * 0.012, gr()]); }
+  for (let i = 0; i < 19000; i++) { const z = -28 + Math.pow(gr(), 0.7) * 58, x = (gr() - 0.5) * (14 + Math.abs(5 - z) * 1.25) - (z > 4 ? (z - 4) * 0.9 : 0); if (!okAt(x, z)) continue; const patch = nP.fbm(x * 0.2 + 9, z * 0.2, 3); spots.push([x, hAt(x, z) - 0.02, z, (0.1 + gr() * 0.16) * (0.7 + patch * 0.9) + Math.max(0, -z - 4) * 0.012, gr()]); }
   g.add(T.grassBlades(spots, { pbr: true, dry: L.grass, colorJitter: 0.12 }));
   g.add(windMotes(theme, hAt));
   await Promise.all(jobs);

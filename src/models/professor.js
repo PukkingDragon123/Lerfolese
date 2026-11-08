@@ -97,7 +97,7 @@ function k3(ax) { return 0.4 * Math.sin(ax * 300); }
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const capR = (t, e = 0.08) => Math.sqrt(Math.min(1, Math.min(t, 1 - t) / e));
 /** a turned/carved segment hanging down (-Y) from its joint, gap at both ends, rounded ends, optional chips */
-function seg(len, r0, r1, mat, { gap = 0.025, rings = 30, sides = 22, rz = 1, bulge = 0.08, chip = 0, x = 0, z = 0 } = {}) {
+function seg(len, r0, r1, mat, { gap = 0.025, rings = 16, sides = 14, rz = 1, bulge = 0.08, chip = 0, x = 0, z = 0 } = {}) {
   const l = new K.Loft(rings, sides).set((t, p) => p.set(x, -gap - t * (len - 2 * gap), z), (t) => { const r = (r0 + (r1 - r0) * t) * (1 + bulge * Math.sin(t * Math.PI)) * capR(t, 0.025) * (Math.min(t, 1 - t) < 0.05 ? 0.92 : 1); return [r, r * rz]; },
     { ref: (t, n) => n.set(0, 0, 1), shape: chip ? (a, t) => 1 - (Math.sin(a * 3 + 1) > 0.94 && t > 0.3 && t < 0.5 ? chip : 0) : null });
   return K.mesh(l.geo, mat);
@@ -121,7 +121,7 @@ function tableLeg(len, M) { // turned furniture leg as an arm: square post block
   const g = new THREE.Group();
   const prof = (t) => { const y = t * len; if (y < 0.11) return 0.05; if (y < 0.128) return 0.046 + Math.sin((y - 0.11) / 0.018 * Math.PI) * 0.018; if (y < 0.15) return 0.034 + Math.abs(y - 0.139) * 0.6; if (y < 0.172) return 0.042 + Math.sin((y - 0.15) / 0.022 * Math.PI) * 0.014;
     if (y < 0.36) return 0.038 + Math.sin((y - 0.17) / 0.19 * Math.PI) * 0.02; if (y < 0.38) return 0.032; if (y < 0.4) return 0.04 + Math.sin((y - 0.38) / 0.02 * Math.PI) * 0.01; return 0.036 - (y - 0.4) / (len - 0.4) * 0.012 + (Math.abs(y - (len - 0.08)) < 0.008 ? 0.006 : 0); };
-  const l = new K.Loft(60, 24).set((t, p) => p.set(0, -0.02 - t * len, 0), (t) => prof(t) * Math.sqrt(Math.min(1, t / 0.02)), { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => t * len < 0.11 ? Math.min(1.38, 1 / Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a)))) : 1 });
+  const l = new K.Loft(46, 16).set((t, p) => p.set(0, -0.02 - t * len, 0), (t) => prof(t) * Math.sqrt(Math.min(1, t / 0.02)), { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => t * len < 0.11 ? Math.min(1.38, 1 / Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a)))) : 1 });
   K.mesh(l.geo, M.leg, g);
   const f = new K.Loft(10, 20).set((t, p) => p.set(0, -0.02 - len - t * 0.05, 0), (t) => 0.03 - t * 0.006, { ref: (t, n) => n.set(0, 0, 1) }); K.mesh(f.geo, M.brass, g); // ferrule
   
@@ -137,7 +137,7 @@ function carvedHand(M) { // left hand: carved mitten palm, index and middle fing
   return g;
 }
 function shoe(M) { const g = new THREE.Group();
-  K.mesh(new K.Loft(18, 16).set((t, p) => p.set(0, -0.06 + Math.sin(t * Math.PI) * 0.006, -0.05 + t * 0.2), (t) => [0.05 * capR(t, 0.15) * (1 + t * 0.15), 0.038 * capR(t, 0.15) * (1 - t * 0.35)], { ref: (t, n) => n.set(0, 1, 0), shape: (a) => 1 - Math.max(0, -Math.cos(a)) * 0.35 }).geo, M.shoe, g);
+  K.mesh(new K.Loft(12, 12).set((t, p) => p.set(0, -0.06 + Math.sin(t * Math.PI) * 0.006, -0.05 + t * 0.2), (t) => [0.05 * capR(t, 0.15) * (1 + t * 0.15), 0.038 * capR(t, 0.15) * (1 - t * 0.35)], { ref: (t, n) => n.set(0, 1, 0), shape: (a) => 1 - Math.max(0, -Math.cos(a)) * 0.35 }).geo, M.shoe, g);
   const bs = new THREE.Shape(); bs.moveTo(-0.022, -0.015); bs.lineTo(0.022, -0.015); bs.lineTo(0.022, 0.015); bs.lineTo(-0.022, 0.015); bs.closePath(); const h = new THREE.Path(); h.moveTo(-0.014, -0.008); h.lineTo(-0.014, 0.008); h.lineTo(0.014, 0.008); h.lineTo(0.014, -0.008); h.closePath(); bs.holes.push(h);
   const bg = new THREE.ExtrudeGeometry(bs, { depth: 0.006, bevelEnabled: true, bevelSize: 0.002, bevelThickness: 0.002, bevelSegments: 2 }); bg.rotateX(-1.15); bg.translate(0, -0.03, 0.075); K.mesh(bg, M.brass, g); return g; }
 function woolHair(M, top, cz) { // wild white wool tufts glued round the back, sides and crown (high bald forehead)
@@ -174,12 +174,12 @@ let RUNES = null;
 function spectralHand(mat, fadeMat) {
   const hand = new THREE.Group(); const fingers = [];
   const knuckle = (L, r0, r1) => (t, ) => { const e = Math.min(t, 1 - t); return (r0 + (r1 - r0) * t) * (1 + (e < 0.12 ? 0.18 * (1 - e / 0.12) : 0)) * capR(t, 0.06); };
-  K.mesh(new K.Loft(22, 24).set(K.curve([[0, 0.36, -0.5], [0, 0.27, -0.33], [0, 0.17, -0.15]]), (t) => [0.16 + t * 0.06, (0.052 + t * 0.012) * capR(t, 0.08)], { ref: (t, n) => n.set(0, 1, 0.4) }).geo, mat, hand); // palm
-  K.mesh(new K.Loft(18, 20).set(K.curve([[0, 0.36, -0.5], [0, 0.52, -0.82], [0, 0.72, -1.15]]), (t) => [0.15 + t * 0.05, 0.11 + t * 0.04], { ref: (t, n) => n.set(0, 1, 0) }).geo, fadeMat, hand); // wrist into mist
+  K.mesh(new K.Loft(14, 16).set(K.curve([[0, 0.36, -0.5], [0, 0.27, -0.33], [0, 0.17, -0.15]]), (t) => [0.16 + t * 0.06, (0.052 + t * 0.012) * capR(t, 0.08)], { ref: (t, n) => n.set(0, 1, 0.4) }).geo, mat, hand); // palm
+  K.mesh(new K.Loft(10, 14).set(K.curve([[0, 0.36, -0.5], [0, 0.52, -0.82], [0, 0.72, -1.15]]), (t) => [0.15 + t * 0.05, 0.11 + t * 0.04], { ref: (t, n) => n.set(0, 1, 0) }).geo, fadeMat, hand); // wrist into mist
   const F = [[-0.17, [0.1, 0.075, 0.06], 0.036], [-0.06, [0.125, 0.085, 0.065], 0.04], [0.05, [0.13, 0.09, 0.068], 0.041], [0.155, [0.115, 0.08, 0.062], 0.037]];
   for (const [x, L, r] of F) {
     let par = new THREE.Group(); par.position.set(x, 0.17, -0.15); hand.add(par); const segs = [];
-    for (let k = 0; k < 3; k++) { const j = k ? new THREE.Group() : par; if (k) { j.position.set(0, 0, L[k - 1]); par.add(j); } K.mesh(new K.Loft(12, 16).set((t, p) => p.set(0, 0, t * L[k]), knuckle(L[k], r * (1 - k * 0.12), r * (0.92 - k * 0.12)), { ref: (t, n) => n.set(0, 1, 0) }).geo, mat, j); segs.push(j); par = j; }
+    for (let k = 0; k < 3; k++) { const j = k ? new THREE.Group() : par; if (k) { j.position.set(0, 0, L[k - 1]); par.add(j); } K.mesh(new K.Loft(8, 10).set((t, p) => p.set(0, 0, t * L[k]), knuckle(L[k], r * (1 - k * 0.12), r * (0.92 - k * 0.12)), { ref: (t, n) => n.set(0, 1, 0) }).geo, mat, j); segs.push(j); par = j; }
     fingers.push(segs);
   }
   const th = new THREE.Group(); th.position.set(-0.22, 0.22, -0.34); th.rotation.set(0.9, 0.5, 0.4); hand.add(th); const t2 = new THREE.Group(); t2.position.set(0, 0, 0.12); th.add(t2);
@@ -241,8 +241,8 @@ function wizardGear(J, M) {
   for (const [x, z] of [[0.16, 0.06], [-0.15, 0.07]]) { const pg = K.mesh(new K.Loft(10, 16).set((t, p) => p.set(x, 0.08 - t * 0.13, z), (t) => [0.04 * Math.sqrt(Math.min(1, (1 - t) / 0.15)), 0.028 * Math.sqrt(Math.min(1, (1 - t) / 0.15))], { ref: (t, n) => n.set(Math.sign(x), 0, 0.4), shape: (a) => Math.min(1.25, 1 / Math.max(Math.abs(Math.cos(a)), Math.abs(Math.sin(a)))) }).geo, G.leather); J.pelvis.add(pg); }
   const liquids = [0xff4060, 0x40ff90, 0x60a0ff];
   for (let i = 0; i < 3; i++) { const x = 0.05 + i * 0.035, z = 0.145; const prof = (t) => t < 0.55 ? 0.016 : t < 0.7 ? 0.016 - (t - 0.55) * 0.07 : t < 0.9 ? 0.0055 : 0.0075;
-    J.pelvis.add(K.mesh(new K.Loft(14, 14).set((t, p) => p.set(x, 0.06 - 0.09 + t * 0.09, z), (t) => prof(t) * Math.sqrt(Math.min(1, t / 0.05)), { ref: (t, n) => n.set(0, 0, 1) }).geo, G.glass));
-    J.pelvis.add(K.mesh(new K.Loft(10, 12).set((t, p) => p.set(x, -0.028 + t * 0.045, z), (t) => 0.013 * Math.sqrt(Math.min(1, t / 0.08)), { ref: (t, n) => n.set(0, 0, 1) }).geo, new THREE.MeshToonMaterial({ color: liquids[i], emissive: liquids[i], emissiveIntensity: 0.6 })));
+    J.pelvis.add(K.mesh(new K.Loft(10, 10).set((t, p) => p.set(x, 0.06 - 0.09 + t * 0.09, z), (t) => prof(t) * Math.sqrt(Math.min(1, t / 0.05)), { ref: (t, n) => n.set(0, 0, 1) }).geo, G.glass));
+    J.pelvis.add(K.mesh(new K.Loft(6, 8).set((t, p) => p.set(x, -0.028 + t * 0.045, z), (t) => 0.013 * Math.sqrt(Math.min(1, t / 0.08)), { ref: (t, n) => n.set(0, 0, 1) }).geo, new THREE.MeshToonMaterial({ color: liquids[i], emissive: liquids[i], emissiveIntensity: 0.6 })));
     J.pelvis.add(K.mesh(new K.Loft(4, 10).set((t, p) => p.set(x, 0.062 + t * 0.014, z), () => 0.006).geo, M.oak)); }
   J.torso.add(K.mesh(new K.Loft(14, 16).set((t, p) => p.set(0.13 - t * 0.27, 0.5 - t * 0.42, -0.2 - Math.sin(t * Math.PI) * 0.02), (t) => 0.026 + (t < 0.08 || t > 0.92 ? 0.004 : 0), { ref: (t, n) => n.set(0, 0, -1) }).geo, G.leather));
   for (const t of [0, 1]) J.torso.add(K.mesh(new K.Loft(4, 14).set((q, p) => p.set(0.13 - t * 0.27 + (t ? -1 : 1) * q * 0.018, 0.5 - t * 0.42 + (t ? -1 : 1) * q * 0.03, -0.2), () => 0.031).geo, gold));
@@ -271,13 +271,13 @@ export function createProfessor() {
   const J = (parent, x, y, z) => { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; };
   // skeleton of loose joints (rest pose: arms hanging, facing +Z; feet at y = 0)
   const pelvis = J(body, 0, 1.0, 0);
-  K.mesh(new K.Loft(20, 24).set((t, p) => p.set(0, -0.08 + t * 0.17, 0), (t) => [0.17 * capR(t, 0.25), 0.12 * capR(t, 0.25)], { ref: (t, n) => n.set(0, 0, 1) }).geo, M.oakB, pelvis);
+  K.mesh(new K.Loft(12, 16).set((t, p) => p.set(0, -0.08 + t * 0.17, 0), (t) => [0.17 * capR(t, 0.25), 0.12 * capR(t, 0.25)], { ref: (t, n) => n.set(0, 0, 1) }).geo, M.oakB, pelvis);
   const torso = J(pelvis, 0, 0.12, 0);
-  K.mesh(new K.Loft(32, 28).set((t, p) => p.set(0, 0.02 + t * 0.5, 0), (t) => { const w = 0.15 + Math.sin(Math.min(1, t * 1.15) * Math.PI * 0.62) * 0.07; return [w * capR(t, 0.12), (0.11 + t * 0.02) * capR(t, 0.12)]; }, { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => 1 + Math.max(0, Math.cos(a)) * 0.06 * Math.sin(t * Math.PI) }).geo, M.torso, torso);
+  K.mesh(new K.Loft(20, 18).set((t, p) => p.set(0, 0.02 + t * 0.5, 0), (t) => { const w = 0.15 + Math.sin(Math.min(1, t * 1.15) * Math.PI * 0.62) * 0.07; return [w * capR(t, 0.12), (0.11 + t * 0.02) * capR(t, 0.12)]; }, { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => 1 + Math.max(0, Math.cos(a)) * 0.06 * Math.sin(t * Math.PI) }).geo, M.torso, torso);
   for (const y of [0.1, 0.16]) torso.add(hoop(V(0, y, 0.0), V(0, 1, 0), 0.172, 0.004, M.brass)); // wire wrapped round the split
   for (const [y, z] of [[0.12, 0.1], [0.3, 0.1], [0.42, 0.09]]) torso.add(nail(V(0.06, y, z), V(-0.3, 0.1, 1).normalize(), 0.03, M.brass));
   const neck = J(torso, 0, 0.56, -0.01); K.mesh(new K.Loft(10, 16).set((t, p) => p.set(0, -0.02 + t * 0.13, 0), () => 0.042).geo, M.oak, neck);
-  const head = J(neck, 0, 0.1, 0.0); const HD = buildHead(); HD.group.scale.setScalar(1.12); head.add(HD.group); const jaw = HD.jawPivot;
+  const head = J(neck, 0, 0.1, 0.0); const HD = buildHead(); HD.group.scale.setScalar(1.5); head.add(HD.group); const jaw = HD.jawPivot;
   // lace cravat, waistcoat, tattered frock coat with sleeves and tails, standing collar
   K.mesh(new K.Loft(12, 16).set(K.curve([[0, 0.55, 0.11], [0, 0.47, 0.135], [0, 0.36, 0.14]]), (t) => [0.03 + t * 0.03, 0.012 + t * 0.006], { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => 1 + Math.sin(a * 5 + t * 14) * 0.22 }).geo, M.lace, torso);
   torso.add(sheet(8, 14, (u, v, p) => { const th = (u - 0.5) * 1.5; const y = 0.06 + v * 0.42; const w = 0.15 + Math.sin(Math.min(1, (y / 0.52) * 1.15) * Math.PI * 0.62) * 0.07 + 0.012; p.set(Math.sin(th) * w, y, Math.cos(th) * (0.115 + y * 0.04 + 0.012)); }, M.vest));
@@ -307,7 +307,7 @@ export function createProfessor() {
   const ctrl = new THREE.Group(); ctrl.position.set(0, 3.55, 0); root.add(ctrl);
   const cross = new THREE.Group(); ctrl.add(cross);
   const woodMat = K.uvMat('cross-wood', 64, 256, (u, v, o) => woodPx(o, u, v, hex('#b8783c'), C.oakD, { cracks: 1, seed: 3 }));
-  const bar = (len, r) => K.mesh(new K.Loft(30, 16).set((t, p) => p.set((t - 0.5) * len, 0, 0), (t) => { const e = Math.min(t, 1 - t) * len; return r * (e < 0.035 ? 0.4 + e / 0.035 * 1.1 : e < 0.06 ? 1.5 - (e - 0.035) * 22 : e < 0.075 ? 0.85 : 1 + Math.sin(e * 40) * 0.04); }, { ref: (t, n) => n.set(0, 1, 0) }).geo, woodMat);
+  const bar = (len, r) => K.mesh(new K.Loft(20, 10).set((t, p) => p.set((t - 0.5) * len, 0, 0), (t) => { const e = Math.min(t, 1 - t) * len; return r * (e < 0.035 ? 0.4 + e / 0.035 * 1.1 : e < 0.06 ? 1.5 - (e - 0.035) * 22 : e < 0.075 ? 0.85 : 1 + Math.sin(e * 40) * 0.04); }, { ref: (t, n) => n.set(0, 1, 0) }).geo, woodMat);
   cross.add(bar(1.04, 0.032)); { const b = bar(0.66, 0.03); b.rotation.y = Math.PI / 2; cross.add(b); }
   const smat = spectralMat(), fmat = spectralMat(true); const S = spectralHand(smat, fmat); const ghost = S.hand; ghost.scale.setScalar(1.55); ghost.position.set(0, -0.04, -0.02); ctrl.add(ghost); ghost.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
   const NM = 46; const mp = new Float32Array(NM * 3); const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.BufferAttribute(mp, 3));

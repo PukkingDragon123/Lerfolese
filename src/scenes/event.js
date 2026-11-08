@@ -45,8 +45,9 @@ function propFor(k) {
 }
 // where the camera dollies in the vignette: the prop's bulk, pulled towards any characters
 function focusOf(prop, npcs) {
-  const b = new THREE.Box3().setFromObject(prop); const c = b.isEmpty() ? new THREE.Vector3(-0.6, 1, 0) : b.getCenter(new THREE.Vector3());
-  c.y = Math.min(2.0, Math.max(0.9, c.y)); for (const n of npcs) c.lerp(n.root.position.clone().add(new THREE.Vector3(0, 1.1, 0)), 1 / (npcs.length + 1)); return c;
+  const b = new THREE.Box3().setFromObject(prop); const c = b.isEmpty() ? new THREE.Vector3(-0.6, 1, 0) : b.getCenter(new THREE.Vector3()); const sz = b.isEmpty() ? new THREE.Vector3(3, 3, 3) : b.getSize(new THREE.Vector3());
+  c.y = Math.min(2.0, Math.max(0.9, c.y)); for (const n of npcs) c.lerp(n.root.position.clone().add(new THREE.Vector3(0, 1.1, 0)), 1 / (npcs.length + 1));
+  return { focus: c, size: Math.min(6, Math.max(1.5, sz.x, sz.y)) };
 }
 function signPost(text) { const g = new THREE.Group(); mk(S.limb(1.4, 0.05, 0.05, { sides: 4, seed: 1 }), F({ color: 0x5e3a1c }), g, 0, 1.4, 0); const b = carvedSign(text); b.position.set(0, 1.2, 0.06); g.add(b); return g; }
 
@@ -56,13 +57,13 @@ export default class EventScene extends UIScreen {
     const pool = EVENTS.filter((e) => !seen.has(e.id)); const ev = (this.ev = run.rng.pick(pool.length ? pool : EVENTS)); run.seenEvents.push(ev.id);
     const j = this.game.journal; (j.events[ev.id] ||= 0); j.events[ev.id]++; this.game.saveJournal();
     // world
-    const sc = (this.scene = new THREE.Scene()); let st; try { st = await realStage(ev.theme, 30 + ev.id.length, this.engine.renderer); sc.environment = st.env; sc.environmentIntensity = 0.75; sc.background = st.background; } catch (e) { st = buildStage(ev.theme, 30 + ev.id.length); } sc.add(st.group); sc.fog = new THREE.Fog(0xe8c09a, 30, 95);
+    const sc = (this.scene = new THREE.Scene()); let st; try { st = await realStage(ev.theme, 30 + ev.id.length, this.engine.renderer); sc.environment = st.env; sc.environmentIntensity = 0.75; sc.background = st.background; } catch (e) { console.warn('event stage fallback', e); st = buildStage(ev.theme, 30 + ev.id.length); } sc.add(st.group); sc.fog = new THREE.Fog(0xe8c09a, 30, 95);
     const sun = new THREE.DirectionalLight(0xffd0a0, 3.2); sun.position.set(-8, 10, 7); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 10, bottom: -8 }); sc.add(sun, new THREE.HemisphereLight(0xa8c8ff, 0x6a4a30, 1.1));
     this.camera = new THREE.PerspectiveCamera(32, this.engine.aspect, 0.1, 300); this.camera.position.set(-2.5, 3.0, 10.5); this.camLook = new THREE.Vector3(-1.2, 1.4, 0); this.camera.lookAt(this.camLook); this.camBase = this.camera.position.clone(); this.stage = st;
     this.prof = createProfessor(); this.prof.root.position.set(-4.4, 0, 1.2); this.prof.root.rotation.y = 0.6; sc.add(this.prof.root);
     const prop = propFor(ev.prop); prop.position.set(-0.6, 0, 0); sc.add(prop);
     this.npcs = []; if (ev.npc) for (let i = 0; i < (ev.npc === 'kobalos' ? 3 : ev.npc === 'satyr' ? 2 : 1); i++) { const c = createCreature(ev.npc); c.root.position.set(0.4 + i * 1.3, 0, -0.4 - (i % 2) * 0.6); c.root.rotation.y = -0.5; c.root.scale.setScalar(c.root.scale.x * (ev.npc === 'kobalos' ? 0.7 : 1)); sc.add(c.root); this.npcs.push(c); }
-    this.propFocus = focusOf(prop, this.npcs);
+    this.measureProp = () => focusOf(prop, this.npcs); // measured when the camera turns to it (the models stream in)
     this.engine.setWorld(sc, this.camera); this.engine.setFx({ bloom: [0.5, 0.6, 0.8], tilt: { focus: 0.55, width: 0.2, amount: 2.2 }, grade: { warmth: 0.35, vignette: 0.45 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('event'); audio.setAmbSet(['wilderness']);
     // UI
@@ -111,7 +112,7 @@ export default class EventScene extends UIScreen {
     this.resolve(c);
   }
   resolve(c, card, score) {
-    this.chosen = true; audio.play('stamp');
+    this.chosen = true; audio.play('stamp'); this.reactT = performance.now(); // the camera leans in on Sir Isaac's reaction
     const text = c.run(this.ctx(), card, score);
     for (const b of this.choiceBtns) b.setDisabled(true);
     this.panel.set(this.ev.title, [text], '#1e5a5a'); uiPos(this.panel.group, this.W - 8.75, this.H - 1.0 - this.panel.scroll.h / 2, 2);
@@ -136,7 +137,12 @@ export default class EventScene extends UIScreen {
   dispose() { this.cine?.abort(); this.cine = null; super.dispose(); }
   update(dt, t) {
     this.prof.update(dt); for (const n of this.npcs) n.update(dt);
-    if (!this.cine && this.revealed) { this.camera.position.set(this.camBase.x + Math.sin(t * 0.2) * 0.18, this.camBase.y + Math.sin(t * 0.16) * 0.08, this.camBase.z); this.camera.lookAt(this.camLook); } // a slow breathing drift
+    if (!this.cine && this.revealed) { // a slow breathing drift; after a choice, a short push-in on Sir Isaac and back
+      const x = this.reactT ? (performance.now() - this.reactT) / 2600 : 1; const sm = (v) => { v = Math.max(0, Math.min(1, v)); return v * v * (3 - 2 * v); }; const k = x < 1 ? sm(x / 0.25) * (1 - sm((x - 0.6) / 0.4)) : 0;
+      const head = this.prof.headWorld(new THREE.Vector3());
+      this.camera.position.set(this.camBase.x + Math.sin(t * 0.2) * 0.18, this.camBase.y + Math.sin(t * 0.16) * 0.08, this.camBase.z).lerp(head.clone().add(new THREE.Vector3(1.6, 0.1, 5.5)), 0.4 * k);
+      this.camera.lookAt(this.camLook.clone().lerp(head, 0.45 * k));
+    }
     this.panel.update(dt, this.ptr(2)); this.updateUI(dt); this.deck?.update(dt, t); this.rhythmLabel?.update(dt, null);
     if (this.bubble) { this.placeBubble(); this.bubble.update(dt, null); }
   }

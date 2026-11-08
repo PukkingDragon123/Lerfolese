@@ -27,7 +27,7 @@ export function withAssets(names, fn) {
   if (names.every((n) => LIB[n])) { fn(); return; }
   Promise.all(names.map(need)).then(fn).catch((e) => console.error('[charkit]', e));
 }
-export const preloadCharacters = () => Promise.all(['bull_head'].map(need));
+export const preloadCharacters = () => Promise.all(['bull_head', 'bust_head'].map(need));
 
 // ---------------------------------------------------------------- maths, noise, colour
 export const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);

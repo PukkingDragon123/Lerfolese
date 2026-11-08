@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import * as K from '../charkit.js';
 import { Spring } from '../../core/tween.js';
 import { Sculpt } from './flesh.js';
-import { makeBones, skinned, onBone, skinAttrs, sample, add, apply, battleRig, paintWounds, woundMat, woundTex } from './rig.js';
+import { makeBones, skinned, onBone, skinAttrs, sample, add, apply, battleRig, paintWounds, woundMat, woundTex, rigidSkinned } from './rig.js';
 
 const { hex } = K;
 const PAL = {
@@ -117,19 +117,21 @@ export function createHydra(seed = 1, elder = false) {
   // dorsal spines (bigger over the shoulders), elbow spurs, claws
   const sm = api.own(spineMat(P, elder ? 'hyd-spine-e' : 'hyd-spine')), cm = api.own(clawMat(P, elder ? 'hyd-claw-e' : 'hyd-claw'));
   const ridge = [[0, 1.6, 0.42, 'spine3', 0.36], [0, 1.6, 0.18, 'spine2', 0.4], [0, 1.54, -0.08, 'spine2', 0.38], [0, 1.46, -0.34, 'spine1', 0.34], [0, 1.38, -0.6, 'pelvis', 0.3], [0, 1.32, -0.86, 'pelvis', 0.27], [0, 1.24, -1.1, 'tail1', 0.24], [0, 1.08, -1.4, 'tail1', 0.21], [0, 1.0, -1.65, 'tail2', 0.18], [0, 0.84, -1.9, 'tail2', 0.15], [0.08, 0.74, -2.1, 'tail3', 0.13], [0.15, 0.6, -2.32, 'tail3', 0.11], [0.24, 0.5, -2.5, 'tail4', 0.09], [0.36, 0.4, -2.7, 'tail4', 0.08], [0.48, 0.3, -2.9, 'tail5', 0.07], [0.6, 0.22, -3.08, 'tail6', 0.06], [0.7, 0.16, -3.26, 'tail6', 0.05]];
-  for (const [x, y, z, b, h] of ridge) { const k = (elder ? 1.35 : 1) * h; const m = K.mesh(curved([x, y - k * 0.35, z], [0, 0.85, -0.5], k, k * 0.22, [0, 0, -k * 0.25]), sm); onBone(B, b, m); }
+  const spikes = [], claws = [];
+  for (const [x, y, z, b, h] of ridge) { const k = (elder ? 1.35 : 1) * h; spikes.push([curved([x, y - k * 0.35, z], [0, 0.85, -0.5], k, k * 0.22, [0, 0, -k * 0.25]), b]); }
   for (const s of [-1, 1]) {
     const L = s > 0 ? '_L' : '_R';
-    for (let i = 0; i < 4; i++) { const a = (i - 1.5) * 0.32, b = (i - 1.5) * 0.3; onBone(B, 'fhand' + L, K.mesh(curved([0.84 * s + Math.sin(a) * 0.16, 0.055, 0.84 + Math.cos(a) * 0.15], [Math.sin(a), -0.35, Math.cos(a)], 0.12, 0.026, [0, -0.04, 0]), cm)); onBone(B, 'hfoot' + L, K.mesh(curved([0.8 * s + Math.sin(b) * 0.16, 0.055, -0.64 + Math.cos(b) * 0.18], [Math.sin(b), -0.35, Math.cos(b)], 0.13, 0.026, [0, -0.04, 0]), cm)); }
-    onBone(B, 'fore' + L, K.mesh(curved([0.86 * s, 0.66, 0.4], [0.3 * s, 0.3, -1], 0.16, 0.04), sm));
-    if (elder) onBone(B, 'spine3', K.mesh(curved([0.55 * s, 1.36, 0.45], [0.6 * s, 0.6, -0.5], 0.3, 0.06, [0, 0.05, -0.1]), sm));
+    for (let i = 0; i < 4; i++) { const a = (i - 1.5) * 0.32, b = (i - 1.5) * 0.3; claws.push([curved([0.84 * s + Math.sin(a) * 0.16, 0.055, 0.84 + Math.cos(a) * 0.15], [Math.sin(a), -0.35, Math.cos(a)], 0.12, 0.026, [0, -0.04, 0]), 'fhand' + L], [curved([0.8 * s + Math.sin(b) * 0.16, 0.055, -0.64 + Math.cos(b) * 0.18], [Math.sin(b), -0.35, Math.cos(b)], 0.13, 0.026, [0, -0.04, 0]), 'hfoot' + L]); }
+    spikes.push([curved([0.86 * s, 0.66, 0.4], [0.3 * s, 0.3, -1], 0.16, 0.04), 'fore' + L]);
+    if (elder) spikes.push([curved([0.55 * s, 1.36, 0.45], [0.6 * s, 0.6, -0.5], 0.3, 0.06, [0, 0.05, -0.1]), 'spine3']);
   }
+  rigidSkinned(B, spikes, sm, model); rigidSkinned(B, claws, cm, model);
   // neck anchors ride the shoulder bone; +Z points out along the root
   const anchors = ANCH.map((a) => { const o = new THREE.Object3D(); o.position.set(...a); o.lookAt(new THREE.Vector3(...a).sub(SHC).normalize().add(new THREE.Vector3(0, 0.6, 0.4)).normalize().add(new THREE.Vector3(...a))); onBone(B, 'spine3', o); return o; });
   let maxS = 0; const _q = new THREE.Quaternion();
   api.anchor = (i, out = new THREE.Vector3()) => {
     const o = anchors[((i % anchors.length) + anchors.length) % anchors.length]; o.updateWorldMatrix(true, false); out.setFromMatrixPosition(o.matrixWorld);
-    out.dir = (out.dir || new THREE.Vector3()).set(0, 0, 1).applyQuaternion(o.getWorldQuaternion(_q)); maxS = Math.max(maxS, root.scale.x); out.s = maxS > 0 ? root.scale.x / maxS : 1; out.elder = elder; out.dead = st.dead > 0; return out;
+    out.dir = (out.dir || new THREE.Vector3()).set(0, 0, 1).applyQuaternion(o.getWorldQuaternion(_q)); out.up = (out.up || new THREE.Vector3()).set(0, 0.5, -1).normalize().applyQuaternion(root.getWorldQuaternion(_q)); maxS = Math.max(maxS, root.scale.x); out.s = maxS > 0 ? root.scale.x / maxS : 1; out.elder = elder; out.dead = st.dead > 0; return out;
   };
   for (const m of [...root.children]) m.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh && api.mats.indexOf(o.material) < 0 && o.material.map) o.material = api.own(o.material); });
   api.head = B.map.spine3; api.bones = B.map; api.impactTime = 0.48; api.attackTime = 0.9;
@@ -196,7 +198,7 @@ function headPainter(S, P) {
   };
 }
 const HL = 2.1, NB = 8; // neck rest length (world units) and bone count
-const neckR = (v) => (0.22 - v * 0.1) * (1 + Math.sin(v * Math.PI * 3) * 0.04);
+const neckR = (v) => (0.25 - v * 0.1) * (1 + Math.sin(v * Math.PI * 3) * 0.04);
 let HCACHE = null;
 function headAsset() {
   if (HCACHE) return HCACHE;
@@ -237,24 +239,26 @@ const HEAD_CLIPS = { // head-group offsets: [px, py, pz, rx, ry, rz]; bite antic
 export function createHydraHead(seed = 1) {
   const A = headAsset(); const root = new THREE.Group(); root.name = 'hydra_head';
   const api = battleRig(root, 0.8); const st = api.st;
-  const hb = makeBones(HEAD); const head = new THREE.Group(); root.add(head);
+  const hb = makeBones(HEAD); const head = new THREE.Group(); head.scale.setScalar(1.35); root.add(head);
   const hmat = woundMat(api.own(A.mat), A.wound, [0.1, 0.003, 0.008]); const hm = skinned(A.geo, hmat, hb, head);
   const P = PAL.base; const fang = api.own(K.uvMat('hyd-fang', 16, 32, (u, v, o) => { K.tone(hex('#f2e6c8'), K.band(0.62 + Math.cos(u * 6.28) * 0.2 - v * 0.15, 3), o.col); o.ro = 0.3; }));
+  const teeth = [], crest = [];
   for (let i = 0; i < 7; i++) for (const s of [-1, 1]) { // fangs: long front pair, rows tapering back; lower row on the jaw
     const z = 0.36 - i * 0.05, x = s * (0.05 + i * 0.006); const L = i === 1 ? 0.075 : 0.045 - i * 0.003;
-    hb.map.head.add(K.mesh(curved([x, -0.022, z], [0, -1, 0.15], L, 0.011 - i * 0.0008, [0, 0, -0.01], 6, 6), fang));
-    onBone(hb, 'jaw', K.mesh(curved([x * 0.9, -0.045, z - 0.02], [0, 1, 0.1], L * 0.75, 0.009, [0, 0, 0.005], 6, 6), fang));
+    teeth.push([curved([x, -0.022, z], [0, -1, 0.15], L, 0.011 - i * 0.0008, [0, 0, -0.01], 6, 6), 'head'], [curved([x * 0.9, -0.045, z - 0.02], [0, 1, 0.1], L * 0.75, 0.009, [0, 0, 0.005], 6, 6), 'jaw']);
   }
-  const tongue = new K.Loft(14, 8).set(K.curve([[0, -0.06, -0.02], [0, -0.055, 0.14], [0, -0.05, 0.28]]), (t) => [0.028 * (1 - t * 0.5), 0.008]); onBone(hb, 'jaw', K.mesh(tongue.geo, api.own(K.uvMat('hyd-tongue', 16, 32, (u, v, o) => K.tone(hex('#b8384a'), K.band(0.5 + Math.cos(u * 6.28) * 0.2, 3), o.col)))));
+  const tongue = new K.Loft(14, 8).set(K.curve([[0, -0.06, -0.02], [0, -0.055, 0.14], [0, -0.05, 0.28]]), (t) => [0.028 * (1 - t * 0.5), 0.008]);
+  rigidSkinned(hb, [[tongue.geo, 'jaw']], api.own(K.uvMat('hyd-tongue', 16, 32, (u, v, o) => K.tone(hex('#b8384a'), K.band(0.5 + Math.cos(u * 6.28) * 0.2, 3), o.col))), head);
   const sm = api.own(spineMat(P, 'hyd-spine')); // horn crest fanning back off the skull, cheek spurs
-  for (let i = 0; i < 5; i++) { const a = (i - 2) * 0.32; hb.map.head.add(K.mesh(curved([Math.sin(a) * 0.08, 0.1 + Math.cos(a) * 0.03, -0.1], [Math.sin(a) * 0.5, 0.55, -1], 0.2 - Math.abs(i - 2) * 0.03, 0.026, [0, 0.05, 0]), sm)); }
-  for (const s of [-1, 1]) { hb.map.head.add(K.mesh(curved([0.13 * s, -0.01, -0.08], [0.7 * s, -0.1, -1], 0.12, 0.018), sm)); hb.map.head.add(K.mesh(curved([0.1 * s, 0.13, 0.04], [0.5 * s, 0.7, -0.6], 0.09, 0.016), sm)); }
+  for (let i = 0; i < 5; i++) { const a = (i - 2) * 0.32; crest.push([curved([Math.sin(a) * 0.08, 0.1 + Math.cos(a) * 0.03, -0.1], [Math.sin(a) * 0.5, 0.55, -1], 0.2 - Math.abs(i - 2) * 0.03, 0.026, [0, 0.05, 0]), 'head']); }
+  for (const s of [-1, 1]) crest.push([curved([0.13 * s, -0.01, -0.08], [0.7 * s, -0.1, -1], 0.12, 0.018), 'head'], [curved([0.1 * s, 0.13, 0.04], [0.5 * s, 0.7, -0.6], 0.09, 0.016), 'head']);
+  rigidSkinned(hb, teeth, fang, head); rigidSkinned(hb, crest, sm, head);
   // neck: skinned tube on a bone chain whose world matrices are solved each frame (lives in api.neckGroup)
   const neckGroup = new THREE.Group(); neckGroup.name = 'hydra_neck';
   const nb = makeBones([...Array(NB).keys()].map((i) => ['n' + i, i ? 'n' + (i - 1) : null, [0, 0, (i * HL) / NB]]));
   const nmat = woundMat(api.own(A.neckMat), A.neckWound, [0.1, 0.003, 0.008]); const neck = skinned(A.neckGeo, nmat, nb, neckGroup);
   for (const b of nb.bones) b.matrixAutoUpdate = false;
-  for (let i = 1; i < NB; i++) { const m = K.mesh(curved([0, neckR(i / NB) * 0.92, (i * HL) / NB - (i * HL) / NB], [0, 0.8, -0.6], 0.09, 0.02), sm); nb.map['n' + i].add(m); }
+  rigidSkinned(nb, [...Array(NB - 1).keys()].map((j) => { const i = j + 1; return [curved([0, neckR(i / NB) * 0.92, (i * HL) / NB], [0, 0.8, -0.6], 0.09, 0.02), 'n' + i]; }), sm, neckGroup);
   const capM = api.own(capMat()); capM.side = THREE.DoubleSide; const cap = K.mesh(capGeo(), capM); cap.position.set(0, 0, HL / NB); cap.visible = false; nb.map['n' + (NB - 1)].add(cap);
   api.neckGroup = neckGroup; api.anchorPos = null; api.head = head; api.jaw = hb.map.jaw; api.impactTime = 0.34; api.attackTime = 0.8;
   for (const m of [...head.children, ...neckGroup.children]) m.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh && api.mats.indexOf(o.material) < 0 && o.material.map) o.material = api.own(o.material); });
@@ -262,7 +266,7 @@ export function createHydraHead(seed = 1) {
   // ---- neck solver state
   const pts = Array.from({ length: NB + 1 }, () => new THREE.Vector3()); const spr = Array.from({ length: NB + 1 }, () => ({ p: new THREE.Vector3(), v: new THREE.Vector3(), init: false }));
   const W = Array.from({ length: NB }, () => new THREE.Matrix4()); const inv = new THREE.Matrix4(), tmp = new THREE.Matrix4();
-  const A0 = new THREE.Vector3(), dA = new THREE.Vector3(), H = new THREE.Vector3(), dH = new THREE.Vector3(), hUp = new THREE.Vector3(), up = new THREE.Vector3(), X = new THREE.Vector3(), Y = new THREE.Vector3(), Z = new THREE.Vector3(), c1 = new THREE.Vector3(), c2 = new THREE.Vector3(), q = new THREE.Vector3();
+  const upA = new THREE.Vector3(0, 0.45, -0.9), A0 = new THREE.Vector3(), dA = new THREE.Vector3(), H = new THREE.Vector3(), dH = new THREE.Vector3(), hUp = new THREE.Vector3(), up = new THREE.Vector3(), X = new THREE.Vector3(), Y = new THREE.Vector3(), Z = new THREE.Vector3(), c1 = new THREE.Vector3(), c2 = new THREE.Vector3(), q = new THREE.Vector3();
   const bez = (s, out) => { const u = 1 - s; return out.copy(A0).multiplyScalar(u * u * u).addScaledVector(c1, 3 * u * u * s).addScaledVector(c2, 3 * u * s * s).addScaledVector(H, s * s * s); };
   const samp = Array.from({ length: 33 }, () => new THREE.Vector3()); const cum = new Float32Array(33);
   const arc = (h1, h2) => { c1.copy(A0).addScaledVector(dA, h1); c2.copy(H).addScaledVector(dH, h2); let L = 0; for (let i = 0; i <= 32; i++) { bez(i / 32, samp[i]); if (i) L += samp[i].distanceTo(samp[i - 1]); cum[i] = L; } return L; };
@@ -295,14 +299,14 @@ export function createHydraHead(seed = 1) {
     if (!neckGroup.parent) root.add(neckGroup);
     root.updateWorldMatrix(true, true);
     const aOK = api.anchorPos && api.anchorPos.lengthSq() > 1e-8;
-    if (aOK) { A0.copy(api.anchorPos); dA.copy(api.anchorPos.dir || Y.set(0, 1, 0)); sAnchor = api.anchorPos.s ?? 1; lastA.copy(A0); haveA = true; if (api.anchorPos.elder && !elderTint) { elderTint = true; for (const m of api.mats) { m.userData.tint = new THREE.Color(0.66, 0.76, 0.62); m.color.copy(m.userData.tint); } } }
+    if (aOK) { A0.copy(api.anchorPos); dA.copy(api.anchorPos.dir || Y.set(0, 1, 0)); if (api.anchorPos.up) upA.copy(api.anchorPos.up); sAnchor = api.anchorPos.s ?? 1; lastA.copy(A0); haveA = true; if (api.anchorPos.elder && !elderTint) { elderTint = true; for (const m of api.mats) { m.userData.tint = new THREE.Color(0.66, 0.76, 0.62); m.color.copy(m.userData.tint); } } }
     else if (haveA) { A0.copy(lastA); lostT += dt; }
     else { A0.set(0, -1.7, -1.5).applyMatrix4(root.matrixWorld); dA.set(0, 0.7, 0.7).transformDirection(root.matrixWorld); }
     maxRS = Math.max(maxRS, root.scale.x); const rs = maxRS > 0 ? root.scale.x / maxRS : 1;
     let len = HL;
     if (!severed) {
       H.set(0, -0.01, -0.12).applyMatrix4(head.matrixWorld); dH.set(0, 0, -1).transformDirection(head.matrixWorld); hUp.set(0, 1, 0).transformDirection(head.matrixWorld);
-      const D = A0.distanceTo(H); let lo = 0.05, hi = 3.5; if (arc(lo * D, lo * D) < HL) for (let it = 0; it < 12; it++) { const m = (lo + hi) / 2; if (arc(m * D, m * D) < HL) lo = m; else hi = m; } arc(lo * D, lo * D); len = cum[32];
+      const D = A0.distanceTo(H); const want = Math.max(0.9, D * 1.14); let lo = 0.05, hi = 3.5; if (arc(lo * D, lo * D) < want) for (let it = 0; it < 12; it++) { const m = (lo + hi) / 2; if (arc(m * D, m * D) < want) lo = m; else hi = m; } arc(lo * D, lo * D); len = cum[32];
     } else { // stump: retracts and droops, the cut face capped
       cut = Math.min(1, cut + dt * 2.5); len = HL * (1 - cut * 0.72); const droop = 0.25 + cut * 0.35 + Math.sin(t * 2) * 0.03;
       H.copy(A0).addScaledVector(dA, len * 0.85); H.y -= droop * len; dH.copy(dA).multiplyScalar(-1); dH.y += 0.6; dH.normalize(); hUp.set(0, 1, 0);
@@ -317,7 +321,7 @@ export function createHydraHead(seed = 1) {
       pts[i].copy(S.p);
     }
     // frames: chord-aligned Z, parallel-transported dorsal Y blended toward the head's up near the skull
-    up.set(0, 1, 0); const thick = (severed ? 1 : rs) * Math.max(0.001, sAnchor) * Math.max(0, 1 - lostT / 0.7);
+    up.copy(upA); const thick = (severed ? 1 : rs) * Math.max(0.001, sAnchor) * Math.max(0, 1 - lostT / 0.7);
     for (let i = 0; i < NB; i++) {
       Z.subVectors(pts[i + 1], pts[i]); const segL = Math.max(1e-4, Z.length()); Z.divideScalar(segL);
       up.addScaledVector(Z, -up.dot(Z)); const w = (i / (NB - 1)) ** 2; Y.copy(hUp).addScaledVector(Z, -hUp.dot(Z)); up.lerp(Y, w * 0.6); if (up.lengthSq() < 1e-6) up.set(1, 0, 0).addScaledVector(Z, -Z.x); up.normalize();

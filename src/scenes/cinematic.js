@@ -107,6 +107,7 @@ export class NameCard {
 }
 
 // ================================================================ DIRECTOR: real-time timeline, cues, skip, the cinematic layer
+const _f = V(), _s = V();
 export class Director {
   constructor(engine, input, { bars = true } = {}) {
     this.engine = engine; this.input = input; this.t = 0; this.speed = 1; this.last = performance.now(); this.cues = []; this.skipped = false; this.ended = false; this.disposed = false;
@@ -122,20 +123,25 @@ export class Director {
   say(text, o) { return this.narr.say(text, o); }
   card(name, epithet) { const c = new NameCard(this.group, name, epithet); this.cards.push(c); return c; }
   skip() { if (this.skipped || this.ended) return; this.skipped = true; this.cues = []; this.narr.clear(); for (const c of this.cards) c.hide(); audio.play('page_turn', { vol: 0.7 }); this.onSkip?.(); }
-  end() { if (this.ended) return; this.ended = true; this.cues = []; this.bars?.hide(); this.narr.clear(); for (const c of this.cards) c.hide(); this.input.remove(this.handler); if (window.__cine === this) window.__cine = null; this._res(); }
+  end() { if (this.ended) return; this.ended = true; this.restoreShafts(); this.cues = []; this.bars?.hide(); this.narr.clear(); for (const c of this.cards) c.hide(); this.input.remove(this.handler); if (window.__cine === this) window.__cine = null; this._res(); }
   // advance the timeline by real time; hold while the page-turn wipe still covers the picture
   step(dt) { this.t += dt; while (!this.ended && this.cues.length && this.cues[0].t <= this.t) this.cues.shift().fn(this.t); if (!this.ended) this.frame?.(this.t, dt); }
+  sunShafts() {
+    const E = this.engine, cam = E.world?.camera; if (!E.rays || !E.raysPos || !cam) return; if (this.raysWas == null) this.raysWas = E.rays.enabled; if (!this.raysWas) return;
+    const f = cam.getWorldDirection(_f), s = _s.copy(E.raysPos).sub(cam.position).normalize(); E.rays.enabled = f.dot(s) > 0.8;
+  }
+  restoreShafts() { if (this.raysWas != null && this.engine.rays) this.engine.rays.enabled = this.raysWas; this.raysWas = null; }
   seek(t) { while (!this.ended && this.t < t) this.step(Math.min(1 / 30, t - this.t)); }
   update() {
     if (this.disposed) return;
     const now = performance.now(); const rdt = Math.min(0.25, Math.max(0, (now - this.last) / 1000)); this.last = now;
     const covered = this.engine.wipeActive && this.engine.wipeMat?.uniforms?.uT?.value > 0.55;
-    if (!this.ended) this.step(covered ? 0 : rdt * this.speed);
+    if (!this.ended) { this.step(covered ? 0 : rdt * this.speed); this.sunShafts(); }
     this.bars?.update(rdt, this.H); this.narr.update(rdt, this.W, this.H, this.band); for (const c of this.cards) c.update(rdt, this.W, this.H, this.band);
     if (this.ended && (!this.bars || this.bars.gone) && this.narr.empty && this.cards.every((c) => c.gone)) this.dispose();
   }
   dispose() {
-    if (this.disposed) return; this.disposed = true; if (!this.ended) { this.ended = true; this.input.remove(this.handler); this._res(); }
+    if (this.disposed) return; this.disposed = true; if (!this.ended) { this.ended = true; this.restoreShafts(); this.input.remove(this.handler); this._res(); }
     this.engine.remove(this); this.engine.ui.scene.remove(this.group); this.bars?.dispose(); this.narr.dispose(); for (const c of this.cards) c.dispose(); this.cards = [];
     if (window.__cine === this) window.__cine = null;
   }
@@ -247,6 +253,7 @@ export function battleIntro(S, { onReveal = () => {} } = {}) {
   const tmp = V(), d = V();
   const poseFoe = (f, t) => {
     const on = t >= f.t0; for (const o of f.objs) o.visible = on; if (!on) return;
+    if (!f.shown) { f.shown = true; if (f.how !== 'rise') S.burst?.(tmp.copy(f.home).add(BACK).add(V(0, 0.6, 0)), 'smoke', 16); } // it steps out of a puff of dust
     const u = span(t, f.t0, f.t0 + 0.8), e = ease.out(u), h = f.v.h; d.set(0, 0, 0);
     if (f.how === 'rise') d.set(0, -h * 1.05 * (1 - e), 0);
     else {
@@ -287,7 +294,7 @@ export function battleIntro(S, { onReveal = () => {} } = {}) {
         const u = ease.io(span(t, 0, TA)); crane(rig, A(-1.8, 5.2, -8.5), sky, A(1.3, 2.3, -4.4), A(-0.6, 1.4, 8), u, 44, 36);
         prof.lookAt(Math.sin(t * 0.8) * 0.3, 0.15);
       } else if (t < R0) { // tracking, front three-quarter, as he walks the last stretch and turns to the field
-        const F = frameAt(walk.pos, walk.tan); pos.copy(F(4.0, 1.8, 5.2)); look.copy(walk.pos).add(V(0, 1.75, 0)).addScaledVector(walk.tan, 0.6);
+        const F = frameAt(walk.pos, walk.tan); pos.copy(F(6.0, 1.75, 1.4)); look.copy(walk.pos).add(V(0, 1.8, 0)).addScaledVector(walk.tan, 0.7);
         if (!rig.tracking) { rig.tracking = true; rig.snap(pos, look, 36); } else rig.follow(pos, look, 36, dt, 5, 7);
         prof.lookAt(t > walk.t1 - 0.3 ? 0.7 : Math.sin(t * 1.1) * 0.25, 0.1);
       } else { // reveal: whip to each foe as it steps out
@@ -322,11 +329,13 @@ export function eventIntro(E, { title, text, onReveal = () => {} } = {}) {
   const home = prof.root.position.clone(), homeRy = prof.root.rotation.y;
   const walk = new Walker(prof, roadPath(E.stage, { from: 6.6, home }), { t0: 0.15, speed: 1.75, endRy: homeRy });
   const start = walk.path.getPointAt(0), A = frameAt(start, walk.path.getTangentAt(0.02)); const sky = skyPoint(E.stage, start);
-  const focus = (E.propFocus || V(-0.6, 1.1, 0)).clone();
+  const focus = V(-0.6, 1.1, 0), toCam = V(); let r = 3, d0 = 6.6;
+  const measure = () => { const m = E.measureProp?.(); if (m) { focus.copy(m.focus); r = m.size; } d0 = clamp(3.2 + r * 1.15, 5, 11); toCam.set(restPos.x - focus.x, 0, restPos.z - focus.z).normalize(); };
+  measure();
   const TA = 2.0, R0 = walk.t1 + 0.25, RD = 2.4; let S0 = R0 + RD, SD = 1.1;
   const first = String(text || '').split(/(?<=[.!?])\s+/)[0] || '';
   D.at(0.4, () => D.say('And the road wound on, until Sir Isaac happened upon a curious sight…'));
-  D.at(R0 - 0.1, () => { D.narr.clear(); audio.play('whoosh_soft', { vol: 0.5 }); });
+  D.at(R0 - 0.1, () => { measure(); D.narr.clear(); audio.play('whoosh_soft', { vol: 0.5 }); });
   let card = null;
   D.at(R0 + 0.25, () => { card = D.card(title, 'a Curiosity of the Wilds').show(); if (first) D.say(first); for (const n of E.npcs || []) n.talk?.(1.4); });
   D.at(S0 - 0.1, () => { card?.hide(); D.narr.clear(); });
@@ -340,11 +349,11 @@ export function eventIntro(E, { title, text, onReveal = () => {} } = {}) {
       if (!D.skipped) walk.apply(t, dt);
       if (t < TA) { const u = ease.io(span(t, 0, TA)); crane(rig, A(-1.8, 5.0, -8.5), sky, A(1.2, 2.2, -4.2), A(-0.4, 1.3, 8), u, 44, 36); prof.lookAt(Math.sin(t * 0.8) * 0.3, 0.15); }
       else if (t < R0) {
-        const F = frameAt(walk.pos, walk.tan); pos.copy(F(4.0, 1.8, 5.2)); look.copy(walk.pos).add(V(0, 1.75, 0)).addScaledVector(walk.tan, 0.6);
+        const F = frameAt(walk.pos, walk.tan); pos.copy(F(6.0, 1.75, 1.4)); look.copy(walk.pos).add(V(0, 1.8, 0)).addScaledVector(walk.tan, 0.7);
         if (!rig.tracking) { rig.tracking = true; rig.snap(pos, look, 36); } else rig.follow(pos, look, 36, dt, 5, 7);
         prof.lookAt(t > walk.t1 - 0.4 ? 0.6 : Math.sin(t * 1.1) * 0.25, 0.1);
       } else { // a slow dolly onto the curiosity, Sir Isaac at the edge of frame
-        const u = ease.io(span(t, R0, S0)); pos.copy(focus).add(V(-2.6 + u * 0.9, 1.1 - u * 0.3, 6.4 - u * 1.4)); look.copy(focus).add(V(-0.5, 0.1, 0));
+        const u = ease.io(span(t, R0, S0)); const dd = d0 * (1 - 0.2 * u); pos.copy(focus).addScaledVector(toCam, dd).add(V(-1.0 - 0.4 * u, 0.4 + r * 0.12, 0)); look.copy(focus).add(V(-0.7, 0.1, 0));
         rig.follow(pos, look, 30, dt, 2.4, 6); prof.lookAt(0.7, 0.1);
         cardAt.copy(focus).add(V(0, 1.6, 0)); const p = E.engine.worldToUI(cardAt); card?.at(p.x - 5, p.y + 1.2);
       }
@@ -377,7 +386,7 @@ export function travelShot(T, { lines = [], dur = 4.6 } = {}) {
     walk.apply(t, dt);
     if (t < TA) { const u = ease.io(span(t, 0, TA)); crane(rig, A(-1.5, 5.0, -8.5), sky, A(1.6, 2.2, -4.0), A(-0.3, 1.3, 8), u, 44, 36); }
     else {
-      const F = frameAt(walk.pos, walk.tan); pos.copy(F(4.6, 1.8, 3.4)); look.copy(walk.pos).add(V(0, 1.7, 0)).addScaledVector(walk.tan, 1.0);
+      const F = frameAt(walk.pos, walk.tan); pos.copy(F(6.0, 1.75, 1.2)); look.copy(walk.pos).add(V(0, 1.75, 0)).addScaledVector(walk.tan, 1.0);
       if (!rig.tracking) { rig.tracking = true; rig.snap(pos, look, 36); } else rig.follow(pos, look, 36, dt, 5, 7);
     }
     prof.lookAt(Math.sin(t * 0.9) * 0.35, 0.12); rig.apply();

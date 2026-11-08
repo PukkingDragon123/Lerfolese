@@ -111,3 +111,20 @@ export function woundMat(m, tex, blood = [0.13, 0.004, 0.006]) {
   };
   m.customProgramCacheKey = () => 'beast-wounds'; return m;
 }
+
+/** merge rest-space pieces that each ride one bone into a single skinned mesh (one draw call per material) */
+export function rigidSkinned(B, parts, mat, parent) {
+  let nv = 0, ni = 0; for (const [g] of parts) { nv += g.attributes.position.count; ni += g.index ? g.index.count : g.attributes.position.count; }
+  const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), si = new Uint16Array(nv * 4), sw = new Float32Array(nv * 4), idx = new Uint32Array(ni); const ix = new Map(B.names.map((x, i) => [x, i]));
+  let v = 0, k = 0;
+  for (const [g, bone] of parts) {
+    if (!g.attributes.normal) g.computeVertexNormals(); const n = g.attributes.position.count; const b = ix.get(bone);
+    pos.set(g.attributes.position.array, v * 3); nor.set(g.attributes.normal.array, v * 3); if (g.attributes.uv) uv.set(g.attributes.uv.array, v * 2);
+    for (let i = 0; i < n; i++) { si[(v + i) * 4] = b; sw[(v + i) * 4] = 1; }
+    if (g.index) for (let i = 0; i < g.index.count; i++) idx[k++] = g.index.getX(i) + v; else for (let i = 0; i < n; i++) idx[k++] = i + v;
+    v += n;
+  }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4)); geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeBoundingSphere();
+  return skinned(geo, mat, B, parent);
+}

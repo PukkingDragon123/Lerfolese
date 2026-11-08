@@ -10,8 +10,9 @@
 ## Models
 | File | Source | Author | Licence |
 | --- | --- | --- | --- |
+| `bust_head.glb` | Poly Haven "Marble Bust 01" (https://polyhaven.com/a/marble_bust_01): head cut from the scanned bust, turned frontal, decimated to about 8.7k tris, texture removed; repainted at runtime as Sir Isaac's polychrome oak head with a marionette jaw | Rico Cilliers | CC0 1.0 |
 | `bull_head.glb` | Poly Haven "Bull Head" (https://polyhaven.com/a/bull_head), plinth cut off, decimated to about 2.2k tris, texture removed and repainted at runtime | Tina | CC0 1.0 |
 
-Sir Isaac Plumb (the broken wooden marionette, his table-leg arm and the spectral hand), the satyr's goat legs and tail,
+Sir Isaac Plumb (the broken wooden marionette body, his wizard kit, his table-leg arm and the spectral hand), the satyr's goat legs and tail,
 medusa's serpent tail and snake hair, the kobalos' ears and sack, and every texture are generated in code
 (`src/models/professor.js`, `creatures.js`, `charkit.js`).
