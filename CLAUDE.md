@@ -3,7 +3,7 @@
 ## Art direction (non-negotiable, from the user)
 - NEVER use simple/lazy shapes as visible art: no plain circles/spheres, cubes/boxes, cylinders, cones or blobs stuck together.
 - LATEST (overrides older notes): 3D assets AND environment = STYLIZED COOL LOW-POLY, "blocky but cool, not Minecraft, not realistic": faceted flat-shaded forms with real structure (trees with branches + faceted leaf clusters), hue-shifted vertex colours, magical medieval dusk mood. No photoreal PBR/HDRI look.
-- UI = Backrooms (R.O.O.M.) HUD style made magical/medieval: DOM overlay, glowing VT323 + Jacquard blackletter, gold/amber glow, arcane cyan/violet accents, thin gilt panels with diamond studs (src/ui/hud.js). Lighting = warm practicals + GTAO + camcorder grade.
+- UI (LATEST, user is furious about this): EVERY UI element must be a DETAILED PHYSICAL object (real 3D thickness/bevels, stylized low-poly forms, detailed low-res pixel-art textures: wood grain, brass engraving, parchment fibres, wax, leather stitching; lit, shadowed, springy). NEVER glowing text, NEVER floating DOM/HUD overlays, NEVER plain blocks/flat rectangles. Text = ink on parchment, engraved/stamped brass, carved/burnt wood, chalk on slate. Lighting = warm practicals + GTAO + camcorder grade.
 - Card art for Laws/Powers, Rotation, Force: magical effects (sigils, vortices, arcs), NO hands.
 - Draw CUSTOM art yourself: detailed high-resolution pixel art (shading ramps, selective outlines, highlights, animation frames), like `src/gfx/critters.js` birds and the card illustrations, and/or detailed high-poly models with real structure (trees with branches and leaves).
 - Style: HD-2D. Detailed 3D world plus detailed 2D pixel-art life and objects.
