@@ -50,15 +50,15 @@ export class UIScreen {
     this.handler = this.input.push({
       move() {
         const hb = S.pickButton(); for (const b of S.buttons) { const h = b === hb && !b.disabled; if (h && !b.hover) audio.play('ui_hover', { vol: 0.45 }); b.hover = h; }
-        const hc = S.pickCard(); for (const c of S.cards) { const h = c === hc; if (h !== c.hover) { c.hover = h; c.target = { ...c.target, s: c.home.s * (h ? 1.15 : 1), z: h ? 4 : 2 }; if (h) { audio.play('ui_hover', { vol: 0.4 }); if (c.tipLines) S.tip.show(c.tipLines, Math.min(S.W - 4, c.home.x + 5.5), c.home.y + 2, 8); } else S.tip.hide(); } }
+        const hc = S.rayCard(); for (const c of S.cards) { const h = c === hc; if (h !== c.hover) { c.hover = h; c.target = { ...c.target, s: c.home.s * (h ? 1.15 : 1), z: h ? 4 : 2 }; if (h) { audio.play('ui_hover', { vol: 0.4 }); if (c.tipLines) S.tip.show(c.tipLines, Math.min(S.W - 4, c.home.x + 5.5), c.home.y + 2, 8); } else S.tip.hide(); } }
         S.onMove?.();
       },
-      click(e) { const hb = S.pickButton(); if (hb) { hb.press(); return true; } const hc = S.pickCard(); if (hc?.onClick) { audio.play('card_pick'); hc.onClick(hc); return true; } return S.onClick?.(e); },
+      click(e) { const hb = S.pickButton(); if (hb) { hb.press(); return true; } const hc = S.rayCard(); if (hc?.onClick) { audio.play('card_pick'); hc.onClick(hc); return true; } return S.onClick?.(e); },
       dragstart(e) { return S.onDragStart?.(e); }, drag(e) { S.onDrag?.(e); }, dragend(e) { S.onDragEnd?.(e); }, wheel(e) { S.onWheel?.(e); }, pinch(e) { S.onPinch?.(e); }, key(e) { S.onKey?.(e); }, shake(e) { S.onShake?.(e); },
     });
   }
   pickButton() { const objs = []; for (const b of S_vis(this.buttons)) objs.push(b.hit, ...(b.hitFace ? [b.hitFace] : [])); return this.ray(objs)[0]?.object.userData.button || null; }
-  pickCard() { const hits = this.ray(this.cards.map((c) => c.mesh)); return hits[0]?.object.userData.card3d || null; }
+  rayCard() { const hits = this.ray(this.cards.map((c) => c.mesh)); return hits[0]?.object.userData.card3d || null; }
   updateUI(dt) {
     this.t += dt; const p = this.ptr(1);
     for (const b of this.buttons) b.update(dt, p);

@@ -130,13 +130,13 @@ function resources() {
 function hairLocks(mat) {
   const g = new THREE.Group(); const hc = new THREE.Vector3(0, 1.7, -0.005).sub(HPIV).multiplyScalar(HEADS).add(HPIV); let s = 7;
   const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  for (let i = 0; i < 72; i++) {
-    const az = rnd() * Math.PI * 2, el = -0.45 + rnd() * 1.75; if (Math.cos(az) > 0.3 && el < 1.05) continue; if (Math.cos(az) > 0.75 && el < 1.3) continue;
+  for (let i = 0; i < 110; i++) {
+    const az = rnd() * Math.PI * 2, el = -0.5 + rnd() * 1.8; if (Math.cos(az) > 0.3 && el < 1.05) continue; if (Math.cos(az) > 0.75 && el < 1.3) continue;
     const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
     const p0 = hc.clone().add(new THREE.Vector3(dir.x * 0.098, dir.y * 0.112, dir.z * 0.104));
-    const len = 0.08 + rnd() * 0.09 + (el < 0.4 ? 0.07 : 0); const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize(); const ph = rnd() * 6; const fat = 0.7 + rnd() * 0.8;
-    const l = new K.Loft(8, 5).set((t, out) => { out.copy(p0).addScaledVector(dir, len * t * 0.62 + Math.sin(t * 7 + ph) * 0.012 * t).add(new THREE.Vector3(0, -len * t * t * (el < 0.9 ? 0.7 : 0.25), 0)).addScaledVector(side, Math.sin(t * 4.5 + ph) * 0.03 * t); },
-      (t) => [(0.007 * (1 - t * 0.6) + 0.0015) * fat, (0.017 * (1 - t * 0.8) + 0.002) * fat], { ref: (t, n) => n.copy(side) });
+    const len = 0.07 + rnd() * 0.08 + (el < 0.4 ? 0.06 : 0); const side = new THREE.Vector3(-dir.z, 0, dir.x).normalize(); const ph = rnd() * 6; const fat = 0.7 + rnd() * 0.8;
+    const l = new K.Loft(8, 5).set((t, out) => { out.copy(p0).addScaledVector(dir, len * t * 0.75 + Math.sin(t * 7 + ph) * 0.015 * t).add(new THREE.Vector3(0, -len * t * t * (el < 0.9 ? 0.55 : 0.15), 0)).addScaledVector(side, Math.sin(t * 4.5 + ph) * 0.03 * t); },
+      (t) => [(0.013 * (1 - t * 0.5) + 0.002) * fat, (0.028 * (1 - t * 0.7) + 0.003) * fat], { ref: (t, n) => n.copy(side) });
     K.mesh(l.geo, mat, g);
   }
   return g;

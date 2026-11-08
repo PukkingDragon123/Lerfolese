@@ -386,10 +386,10 @@ export function cells3(x, y, z) {
   _c3[0] = d1; _c3[1] = d2; return _c3;
 }
 /** hand-painted fur/hair clumps on a baked surface: lit tuft tops, dark creases between clumps, 4 flat tones */
-export function fur3(c, o, col, size = 0.028, stretch = 2.2, base = 0.5) {
-  const Y = c.y / (size * stretch); const C = cells3(c.x / size, Y, c.z / size);
-  let L = base + c.ny * 0.12 + c.nz * 0.05 + c.sh * 0.25 + (Y - C[3]) * 0.42 + (C[5] - 0.5) * 0.14;
-  if (C[1] - C[0] < 0.09) L -= 0.32;
+export function fur3(c, o, col, size = 0.03, stretch = 1.5, base = 0.5) {
+  const Y = c.y / (size * stretch); const C = cells3(c.x / size, Y, c.z / size); const dy = Y - C[3];
+  let L = base + c.ny * 0.12 + c.nz * 0.05 + c.sh * 0.2 + dy * 0.5 + (C[5] - 0.5) * 0.16;
+  if (C[1] - C[0] < 0.08 && dy < 0.05) L -= 0.28; // scalloped lower edge of each clump
   tone(col, band(L, 4), o.col); o.ro = 0.92;
 }
 /** the same in UV space (lofted fur pieces): u around, v along */

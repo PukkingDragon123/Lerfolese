@@ -32,7 +32,7 @@ export default class ShopScene extends UIScreen {
     this.up = this.addButton(new Button3D(`Upgrade a card · ${this.upCost}g`, () => this.serviceUpgrade(), { w: 8, h: 1.2, size: 46, color: 'teal' }), 4, -H + 3.2, 2);
     this.addButton(new Button3D('Leave', () => this.leave(), { w: 4, h: 1.2, size: 56 }), W - 3.2, -H + 1.5, 2);
   }
-  quip(t) { const W = this.W, H = this.H; this.bubble.show([[[t, '#2a160c']]], -W + 1.2, H - 6.6, 4); this.bubble.place(-W + 1.0 + this.bubble.w / 2, H - 4.3 - this.bubble.h / 2, 4); this.bubble.kick(0.8); audio.play('paper_rustle', { vol: 0.35 }); }
+  quip(t) { const W = this.W, H = this.H; this.bubble.show([[[t, '#2a160c']]], -W + 1.2, H - 6.6, 4); const k = 36 / 40; this.bubble.baseScale = k; this.bubble.group.position.set((-W + 0.8 + this.bubble.w / 2) * k, (H - 4.0) * k, 4); this.bubble.kick(0.8); audio.play('paper_rustle', { vol: 0.35 }); }
   buy(v, c, price) {
     if (v.sold) return; if (this.run.gold < price) { audio.play('ui_error'); this.quip('No money? A true philosopher. Still no.'); return; }
     this.run.gold -= price; this.run.deck.push(c); v.sold = true; audio.play('coins_handful'); audio.play('card_flip');

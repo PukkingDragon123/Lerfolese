@@ -74,7 +74,7 @@ function horn(pts, r0, mat, rings = 14) { const l = new K.Loft(rings, 8).set(K.c
 const hornMat = (key, base, tip, gold) => K.uvMat(key, 32, 128, (u, v, o) => { const ring = Math.sin(v * 70) * 0.5 + 0.5; K.tone(base, K.band(0.5 + Math.cos(u * Math.PI * 2) * 0.22 + (ring - 0.5) * 0.25, 4), o.col); if (v > 0.6) K.mixc(o.col, tip, K.sstep(0.6, 0.95, v)); if (gold && v > 0.82) { K.tone(hex('#f2c454'), 0.5 + Math.cos(u * 6.28) * 0.3, o.col); o.me = 0.55; o.ro = 0.3; } else o.ro = 0.5; });
 
 // ================================================================== Drunk Satyr
-const SAT = { skin: hex('#b8714a'), fur: hex('#6a4a34'), hair: hex('#3a2216'), hoof: hex('#2a2026'), nose: hex('#e2423a'), blush: hex('#ea6450'), lip: hex('#a84444'), ink: hex('#40182a'), sash: hex('#8a2a64'), gold: hex('#f0c050'), iris: hex('#9a6418') };
+const SAT = { skin: hex('#c07a4c'), fur: hex('#9a6a44'), hair: hex('#3a2216'), hoof: hex('#2a2026'), nose: hex('#e2423a'), blush: hex('#ea6450'), lip: hex('#a84444'), ink: hex('#40182a'), sash: hex('#8a2a64'), gold: hex('#f0c050'), iris: hex('#9a6418') };
 const DRUNK = { bin: 0.45, bout: -0.1, by: 0.3, basym: 0.4, curve: 0.75, open: 0.22, asym: 0.45, lid: 0.55, wr: 0.4, frown: 0, teeth: 1, w: 1.15 };
 function satyrPaint(c, o) {
   const ax = Math.abs(c.x), Y = c.y - FM.ey;
@@ -237,7 +237,7 @@ const GRIN = { ...K.EXPR.grin, open: 0.4, lid: 0.25, bin: -0.9, bout: 0.7 };
 function kobalosPaint(c, o) {
   const ax = Math.abs(c.x), Y = c.y - FM.ey; const wart = K.vnoise(c.x * 70, c.y * 70, c.z * 70) > 0.8;
   if (isHead(c) && ((Y > 0.05 && c.z < 0.055) || c.z < -0.04 || (Math.abs(c.x) > 0.07 && c.z < -0.01))) { K.tone(KOB.hood, K.band(0.5 + c.ny * 0.2 + c.nz * 0.05 + c.sh * 0.2, 4), o.col); o.ro = 0.9; if (c.z > 0.045 && Y > 0.05) K.mixc(o.col, KOB.ink, 0.5); return; }
-  if (c.b === 'neck_01' || (c.y > 1.47 && Math.abs(c.x) < 0.17 && !isArm(c))) { K.tone(KOB.hood, K.band(0.5 + c.ny * 0.25 + c.sh * 0.2 + (Math.sin(Math.atan2(c.x, c.z) * 9) > 0.5 ? 0.08 : 0), 4), o.col); o.ro = 0.9; if (c.y < 1.485) K.mixc(o.col, KOB.ink, 0.4); return; }
+  if (c.b !== 'Head' && c.y < 1.6 && (c.b === 'neck_01' || (c.y > 1.47 && Math.abs(c.x) < 0.17 && !isArm(c)))) { K.tone(KOB.hood, K.band(0.5 + c.ny * 0.25 + c.sh * 0.2 + (Math.sin(Math.atan2(c.x, c.z) * 9) > 0.5 ? 0.08 : 0), 4), o.col); o.ro = 0.9; if (c.y < 1.485) K.mixc(o.col, KOB.ink, 0.4); return; }
   if (isHead(c)) { skin(c, o, KOB.skin, 0.6); if (wart) K.mixc(o.col, KOB.wart, 0.6); if (ax < 0.078) K.paintFace(c, o, FM, GRIN, { skin: KOB.skin, ink: KOB.ink, age: 0.6, brow: hex('#2a2a18'), bushy: 1.5, browW: 1.6, nose: KOB.nose, lip: KOB.lip }); return; }
   const arm = isArm(c);
   const hem = 0.8 + Math.abs(((c.x * 30 + c.z * 20) % 1) - 0.5) * 0.06, sleeve = 0.33 + Math.abs(((c.y * 40 + c.z * 30) % 1) - 0.5) * 0.04;
@@ -276,7 +276,7 @@ function kobalos(seed) {
       M.x.sack = K.attachBind(sk, M.body, 'spine_03');
     },
     update(M, st) {
-      const t = st.t, a = M.anim; a.bend(M.bones.spine_03, 0.42, 0, 0); a.bend(M.bones.neck_01, -0.15, 0, 0); a.bend(M.bones.Head, -0.32 + (st.talk > 0 ? Math.sin(t * 20) * 0.1 : 0), Math.sin(t * 0.7) * 0.3, Math.sin(t * 6) * 0.05);
+      const t = st.t, a = M.anim; a.bend(M.bones.spine_02, 0.18, 0, 0); a.bend(M.bones.spine_03, 0.5, 0, 0); a.bend(M.bones.neck_01, -0.1, 0, 0); a.bend(M.bones.Head, -0.45 + (st.talk > 0 ? Math.sin(t * 20) * 0.1 : 0), Math.sin(t * 0.7) * 0.3, Math.sin(t * 6) * 0.05);
       a.bend(M.bones.thigh_l, 0.12, 0, 0.1); a.bend(M.bones.thigh_r, 0.12, 0, -0.1); a.bend(M.bones.calf_l, -0.25, 0, 0); a.bend(M.bones.calf_r, -0.25, 0, 0);
       M.model.position.y = Math.abs(Math.sin(t * 4.2)) * 0.03 + st.lift.value * 0.06 - 0.04; M.model.position.x = st.lunge.value * 0.12 - st.hit.value * 0.06;
     },
@@ -289,7 +289,7 @@ function minoPaint(king) {
   return (c, o) => {
     const ax = Math.abs(c.x); const arm = isArm(c); const metal = king ? MIN.gold : MIN.bronze;
     if (isHead(c)) return fur(c, o, MIN.fur);
-    if (!arm && c.y < 0.72) { if (c.y < 0.1 && /foot|ball/.test(c.b)) return hoof(c, o, MIN.hoof); return fur(c, o, king ? hex('#3a2014') : MIN.fur, 0.034, 2.4); }
+    if (!arm && c.y < 0.86) { if (c.y < 0.1 && /foot|ball/.test(c.b)) return hoof(c, o, MIN.hoof); return fur(c, o, king ? hex('#3a2014') : hex('#5a3420'), 0.045, 1.3); }
     if (!arm && c.y < 0.985) { // leather pteruges with metal studs
       const a = Math.atan2(c.x, c.z); const strip = (a / Math.PI) * 9; const f = strip - Math.floor(strip);
       K.tone(MIN.leather, K.band(0.52 + c.ny * 0.12 + c.nz * 0.06 - (f < 0.08 || f > 0.92 ? 0.3 : 0) + (f < 0.5 ? 0.06 : -0.04), 4), o.col); o.ro = 0.6;
@@ -362,7 +362,7 @@ function minotaur(seed, king = false) {
 }
 
 // ================================================================== Hydra body + heads (sculpted lofts)
-const HYD = { top: hex('#2e6a5a'), side: hex('#4f9a64'), belly: hex('#d8c27a'), dark: hex('#173c36'), spine: hex('#a8303e') };
+const HYD = { top: hex('#3f8c6c'), side: hex('#66b46a'), belly: hex('#d8c27a'), dark: hex('#173c36'), spine: hex('#a8303e') };
 const hydraMat = (key, vr, hasBelly = true) => K.uvMat(key, 128, 256, (u, v, o) => {
   const belly = hasBelly && Math.abs(u - 0.5) < 0.16; const vv = v * vr;
   if (belly) { const pl = (vv * 3) % 1; K.tone(HYD.belly, K.band(0.55 - pl * 0.3 + (pl > 0.86 ? -0.2 : 0), 4), o.col); o.ro = 0.45; return; }

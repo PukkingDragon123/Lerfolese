@@ -42,7 +42,7 @@ class Hud {
     let i = 0;
     for (const s of this.slips) {
       const p = s.paper; s.t += dt;
-      if (!s.fall) { s.life -= dt; const ty = this.H - 4.0 - i * 1.6; i++; const g = p.group.position; g.y += (ty + p.h / 2 - 0.22 - g.y) * Math.min(1, dt * 9); if (s.life <= 0) { s.fall = { vy: 2, vx: (Math.random() - 0.5) * 3, spin: (Math.random() - 0.5) * 4 }; p.pin && (p.pin.visible = false); audio.play('paper_rustle', { vol: 0.3 }); } }
+      if (!s.fall) { s.life -= dt; const ty = this.H - 4.6 - i * 1.5; i++; const kz = (40 - 9) / 40; p.baseScale = kz; const g = p.group.position; g.x = 0; g.y += ((ty + p.h / 2 - 0.22) * kz - g.y) * Math.min(1, dt * 9); if (s.life <= 0) { s.fall = { vy: 2, vx: (Math.random() - 0.5) * 3, spin: (Math.random() - 0.5) * 4 }; p.pin && (p.pin.visible = false); audio.play('paper_rustle', { vol: 0.3 }); } }
       else { s.fall.vy -= 18 * dt; p.group.position.x += s.fall.vx * dt; p.group.position.y += s.fall.vy * dt; p.group.rotation.z += s.fall.spin * dt; p.group.rotation.x += dt * 2; }
       p.update(dt, null);
     }

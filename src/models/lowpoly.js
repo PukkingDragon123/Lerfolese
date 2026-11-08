@@ -502,20 +502,20 @@ export const SKIES = {
   marsh: { zen: '#152a46', hi: '#2c4a6a', mid: '#6a7a8a', low: '#b89a86', hor: '#e4c08e', gnd: '#7a8478', sun: '#fff4d0', haze: ['#9a9a92', '#7a8496', '#5a6a8a'], mtn: ['#1c2a3c', '#2c4252', '#4a5e66', '#7e8478', '#c8b08a'] },
   guardian: { zen: '#140f34', hi: '#36225e', mid: '#8a3e6a', low: '#d65252', hor: '#f48a52', gnd: '#94504a', sun: '#ffd8a0', haze: ['#b4605e', '#8a4670', '#5e3670'], mtn: ['#1e1230', '#381e48', '#5c2c56', '#984456', '#dc7452'] },
 };
-export function skyDome(theme = 'meadow', sunDir = new V3(0.17, 0.07, -1)) {
+export function skyDome(theme = 'meadow', sunDir = new V3(0.17, 0.07, -1), { lift = 0 } = {}) {
   const S = SKIES[theme] || SKIES.meadow; const u = (h) => ({ value: C(h) });
   const m = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
-    uniforms: { uZen: u(S.zen), uHi: u(S.hi), uMid: u(S.mid), uLow: u(S.low), uHor: u(S.hor), uGnd: u(S.gnd), uSunC: u(S.sun), uSun: { value: sunDir.clone().normalize() } },
+    uniforms: { uZen: u(S.zen), uHi: u(S.hi), uMid: u(S.mid), uLow: u(S.low), uHor: u(S.hor), uGnd: u(S.gnd), uSunC: u(S.sun), uSun: { value: sunDir.clone().normalize() }, uLift: { value: lift } },
     vertexShader: `varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; gl_Position.z = gl_Position.w; }`,
-    fragmentShader: `uniform vec3 uZen, uHi, uMid, uLow, uHor, uGnd, uSunC, uSun; varying vec3 vW;
+    fragmentShader: `uniform vec3 uZen, uHi, uMid, uLow, uHor, uGnd, uSunC, uSun; uniform float uLift; varying vec3 vW;
       vec3 grad(float e){ if (e < 1.5) return mix(uHor, uLow, e / 1.5); if (e < 5.0) return mix(uLow, uMid, (e - 1.5) / 3.5); if (e < 10.0) return mix(uMid, uHi, (e - 5.0) / 5.0); return mix(uHi, uZen, clamp((e - 10.0) / 30.0, 0.0, 1.0)); }
       void main(){
-        vec3 d = normalize(vW - cameraPosition); float e = degrees(asin(clamp(d.y, -1.0, 1.0)));
+        vec3 d = normalize(vW - cameraPosition); float e = degrees(asin(clamp(d.y, -1.0, 1.0))) + uLift;
         float st = e < 12.0 ? 1.15 : 3.5; float eq = (floor(e / st) + 0.5) * st;
         vec3 col = e < 0.0 ? mix(uHor, uGnd, clamp(-e / 5.0, 0.0, 1.0)) : grad(eq);
         float ang = degrees(acos(clamp(dot(d, normalize(uSun)), -1.0, 1.0)));
-        float side = smoothstep(-1.0, 1.5, e);
+        float side = smoothstep(-1.0, 1.5, e - uLift * 0.0);
         if (ang < 1.6) col = uSunC * 4.2; else if (ang < 2.3) col = mix(col, uSunC * 1.9, 0.92);
         else col = mix(col, uSunC * 1.05, (ang < 4.2 ? 0.5 : ang < 7.5 ? 0.28 : ang < 13.0 ? 0.13 : ang < 22.0 ? 0.05 : 0.0) * side);
         float streak = step(abs(e - 2.6), 0.18) + step(abs(e - 4.1), 0.12); col = mix(col, uSunC, streak * 0.12 * smoothstep(40.0, 5.0, ang));

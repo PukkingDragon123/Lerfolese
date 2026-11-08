@@ -279,8 +279,8 @@ export class Pennant {
   }
   show(title, sub = '', kind = '', hold = 0.9) {
     const P = PEN[kind] || PEN['']; const t = titleCase(title); const f = measure(t, 'title') > 300 ? 'head' : 'title'; const F = FONT[f];
-    const sw = sub ? measure(sub, 'caps') : 0; const Wt = Math.max(measure(t, f), sw) + 40; const Ht = 10 + F.lineH + (sub ? 12 : 0) + 18; const tail = 12;
-    const S = new Surf(Wt, Ht); const mask = (x, y) => y < Ht - tail || Math.abs(x - Wt / 2) > (y - (Ht - tail)) * (Wt / 2 / tail) * 0.9 + 2 && y < Ht;
+    const sw = sub ? measure(sub.toUpperCase(), 'caps') : 0; const Wt = Math.max(measure(t, f), sw) + 40; const tail = 11; const Ht = 9 + F.lineH + (sub ? 11 : 0) + 5 + tail;
+    const S = new Surf(Wt, Ht); const mask = (x, y) => y < Ht - tail || Math.abs(x - Wt / 2 + 0.5) >= (y - (Ht - tail) + 1) * (Wt * 0.22 / tail);
     cloth(S, 0, 0, Wt, Ht, { ramp: P.ramp, base: 3, border: 3, seed: 3, mask }); S.bevel(mask, { lit: 1, dark: -1 });
     for (let x = 0; x < Wt; x++) for (let y = 0; y < 5; y++) S.setT(x, y, y < 2 ? 1 : y === 4 ? 4 : 2); // hem around the rod
     inscribeLines(S, [t], { x: 0, y: 8, w: Wt, h: F.lineH }, f, 'emb', { ramp: P.thread });

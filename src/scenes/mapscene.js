@@ -10,6 +10,7 @@ import * as S from '../models/sculpt.js';
 import { UIScreen, Button3D } from '../ui3d/widgets.js';
 import { textPlane, Pouch, UIF } from '../ui3d/kit.js';
 import { PROPS } from '../models/world.js';
+import { buildMapDiorama, pathStoneGeo } from '../models/mapworld.js';
 import { createProfessor } from '../models/professor.js';
 import { createCreature } from '../models/creatures.js';
 import { reachable } from '../game/run.js';
@@ -52,59 +53,17 @@ export class MapScene extends UIScreen {
 
   // ------------------------------------------------------------ diorama
   buildWorld() {
-    const sc = (this.scene = new THREE.Scene()); sc.background = new THREE.Color(0x120d1c); sc.fog = new THREE.Fog(0x120d1c, 40, 90);
-    const sun = new THREE.DirectionalLight(0xffd6a8, 3.0); sun.position.set(-12, 18, 8); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 22, bottom: -22, near: 1, far: 60 }); sun.target.position.set(0, 0, -14); sc.add(sun, sun.target);
-    sc.add(new THREE.HemisphereLight(0x9ab8ff, 0x4a3020, 1.0)); const rim = new THREE.DirectionalLight(0xb48cff, 1.2); rim.position.set(10, 6, -30); sc.add(rim);
+    const sc = (this.scene = new THREE.Scene());
     this.camera = new THREE.PerspectiveCamera(36, this.engine.aspect, 0.1, 300);
     const world = (this.world = new THREE.Group()); sc.add(world);
-    // starfield backdrop
-    const sg = new THREE.BufferGeometry(); const sp = []; for (let i = 0; i < 1500; i++) { const v = new THREE.Vector3().randomDirection().multiplyScalar(120); sp.push(v.x, Math.abs(v.y) * 0.8 - 10, v.z); } sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
-    sc.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xe8d8ff, size: 0.35, sizeAttenuation: true })));
-    // plinth
+    // diorama: low-poly dusk landscape on its display plinth (sky, light, terrain, river, paths, groves, ruins) - models/mapworld.js
     const LEN = 36, WID = 21, Z0 = 3; this.bounds = { LEN, WID, Z0 };
-    mk(S.slab(WID + 1.4, 1.8, LEN + 1.4, { seed: 3, jitter: 0.005 }), F({ map: TEX.wood('plinth', R.wood, { seed: 5, rings: 12 }), roughness: 0.5 }), world, 0, -1.2, Z0 - LEN / 2);
-    mk(S.slab(WID + 1.7, 0.25, LEN + 1.7, { seed: 4, jitter: 0.004 }), F({ color: 0xd9a64a, metalness: 0.85, roughness: 0.3 }), world, 0, -0.35, Z0 - LEN / 2);
+    const dio = buildMapDiorama({ scene: sc, world, renderer: this.engine.renderer, map: this.map, seed: this.run.seed, WID, LEN, Z0 });
+    this.heightAt = dio.heightAt; this.pathD = dio.pathD; this.riverX = dio.riverX; this.water = dio.water;
     const plate = textPlane([[['THE MYTHICAL WILDERNESS', '#3a2410']], [['Act I of the Greek Loop · scale 1:10,000', '#5a3622']]], { w: 10, h: 1.4, font: 'Pixelify', size: 60, weight: 700, basic: false, bg: (g, w, h) => { g.fillStyle = '#d9a64a'; g.fillRect(0, 0, w, h); g.strokeStyle = '#7a4a14'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8); } });
     plate.position.set(0, -1.2, Z0 + 0.92); world.add(plate);
-    // terrain
-    const n = makeNoise(this.run.seed % 997 + 3); const nodes = Object.values(this.map.nodes);
-    const geo = new THREE.PlaneGeometry(WID, LEN, 64, 110); geo.rotateX(-Math.PI / 2); geo.translate(0, 0, Z0 - LEN / 2);
-    const p = geo.attributes.position; const riverX = (z) => Math.sin(z * 0.18) * 4.5 + 1.5;
-    const pathD = (x, z) => { let d = 1e9; for (const a of nodes) for (const bid of a.next) { const b = this.map.nodes[bid]; const dx = b.x - a.x, dz = b.z - a.z; const t = clamp(((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz), 0, 1); d = Math.min(d, Math.hypot(x - a.x - dx * t, z - a.z - dz * t)); } return d; };
-    this.pathD = pathD; this.riverX = riverX;
-    const cols = []; const C = (h) => new THREE.Color(h);
-    const grass = [C(0x45652a), C(0x5a7a30), C(0x6a8a36)], dirt = C(0x8a6a44), rock = C(0x8f8a90), sand = C(0xc8a87a), marsh = C(0x35563a);
-    for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i), z = p.getZ(i);
-      const edge = Math.min(WID / 2 - Math.abs(x), Math.abs(z - Z0), Math.abs(z - (Z0 - LEN)));
-      let h = n.fbm(x * 0.12 + 5, z * 0.12, 4) * 2.2 - 0.6; h += Math.max(0, n.fbm(x * 0.07 + 30, z * 0.07, 3) - 0.55) * 7;
-      const pd = pathD(x, z); h = THREE.MathUtils.lerp(h * 0.25, h, clamp((pd - 0.5) / 2.2, 0, 1));
-      const rd = Math.abs(x - riverX(z)); if (rd < 1.4 && z > -26) h = Math.min(h, -0.35 + rd * 0.2);
-      if (edge < 0.6) h = Math.min(h, edge * 0.5);
-      h = Math.max(-0.4, h); p.setY(i, h);
-      const c = z < -27 ? marsh.clone() : h > 2.4 ? rock.clone() : rd < 1.8 && z > -26 ? sand.clone() : grass[i % 3].clone();
-      if (pd < 0.55) c.lerp(dirt, 0.85);
-      c.offsetHSL(0, 0, (n(x * 2, z * 2) - 0.5) * 0.06); cols.push(c.r, c.g, c.b);
-    }
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-    const terrain = mk(S.facet(geo), F({ vertexColors: true, roughness: 0.95 }), world); terrain.castShadow = false;
-    this.heightAt = (x, z) => { const r = new THREE.Raycaster(new THREE.Vector3(x, 20, z), new THREE.Vector3(0, -1, 0)); const h = r.intersectObject(terrain)[0]; return h ? h.point.y : 0; };
-    // river water
-    const wg = new THREE.PlaneGeometry(3.4, 30, 4, 60); wg.rotateX(-Math.PI / 2); const wp = wg.attributes.position; for (let i = 0; i < wp.count; i++) { const z = wp.getZ(i) - 13; wp.setX(i, wp.getX(i) + riverX(z)); wp.setZ(i, z); }
-    this.water = mk(wg, F({ color: 0x2f7ab0, roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.85 }), world, 0, -0.22, 0); this.water.castShadow = false;
-    // decor
-    const rnd = mulberry32(this.run.seed % 1000 + 7); const free = (x, z, r = 1.2) => pathD(x, z) > r && Math.abs(x - riverX(z)) > 1.8 && Math.abs(x) < WID / 2 - 0.8 && z < Z0 - 0.8 && z > Z0 - LEN + 0.8;
+    const rnd = mulberry32(this.run.seed % 1000 + 7);
     const place = (o, x, z, s = 1) => { o.position.set(x, this.heightAt(x, z), z); o.scale.multiplyScalar(s); o.rotation.y = rnd() * 6; world.add(o); return o; };
-    for (let i = 0; i < 70; i++) { const x = vrangeR(rnd, -WID / 2, WID / 2), z = vrangeR(rnd, Z0 - LEN, Z0); if (!free(x, z)) continue; place(rnd() < 0.6 ? PROPS.oliveTree(i, 0.32) : PROPS.cypress(i, 0.32), x, z).userData.perchable = true; }
-    for (let i = 0; i < 30; i++) { const x = vrangeR(rnd, -WID / 2, WID / 2), z = vrangeR(rnd, Z0 - LEN, Z0); if (!free(x, z, 0.8)) continue; place(PROPS.rock(i, 0.25 + rnd() * 0.3, rnd() < 0.5 ? 'moss' : 'stone'), x, z); }
-    for (let i = 0; i < 4; i++) { const x = vrangeR(rnd, -8, 8), z = -6 - i * 6; if (!free(x, z, 1.5)) continue; const ruin = new THREE.Group(); for (let k = 0; k < 4; k++) { const c = PROPS.column(k + i, 1.6 + rnd(), rnd() < 0.5); c.scale.setScalar(0.3); c.position.set((k % 2) * 0.8, 0, Math.floor(k / 2) * 0.8); ruin.add(c); } place(ruin, x, z); }
-    // labyrinth near elite nodes, marsh reeds near the guardian, huts near shops/labs
-    for (const nd of nodes) {
-      const off = new THREE.Vector3(nd.x > 0 ? -1.8 : 1.8, 0, 0.4);
-      if (nd.type === 'elite' && rnd() < 0.7) { const lab = new THREE.Group(); for (let k = 0; k < 5; k++) { const w = PROPS.mazeWall(1.2 + rnd(), 0.6, k); w.scale.setScalar(0.35); w.position.set((k % 3) * 0.5 - 0.5, 0, Math.floor(k / 3) * 0.5); w.rotation.y = (k % 2) * Math.PI / 2; lab.add(w); } if (free(nd.x + off.x, nd.z + off.z, 0.6)) place(lab, nd.x + off.x, nd.z + off.z); }
-      
-    }
-    const reeds = PROPS.reeds(60, 18, 3, 9); reeds.scale.setScalar(0.5); reeds.position.set(0, 0, -30); world.add(reeds);
     // living things: sheep, birds, a satyr party
     this.sheep = []; this.birds = [];
     this.critters = new Critters(90); this.critters.bounds = { x: [-9, 9], y: [2.5, 7], z: [-30, 2] }; sc.add(this.critters.mesh);
@@ -113,7 +72,7 @@ export class MapScene extends UIScreen {
     world.updateMatrixWorld(true); world.traverse((o) => { if (o.userData.perchable) this.critters.perchesFrom(o, 2); });
     this.critters.spawnBirds(16); if (this.critters.spawnGrazers) this.critters.spawnGrazers(10, { x: [-8, 8], z: [-24, 0] }); this.critters.spawnButterflies(8, new THREE.Vector3(0, 0.6, -12), 16);
     // nodes
-    this.nodeViews = new Map(); for (const nd of nodes) this.addNode(nd);
+    this.nodeViews = new Map(); for (const nd of Object.values(this.map.nodes)) this.addNode(nd);
     // paths: dotted stones
     this.pathGroup = new THREE.Group(); world.add(this.pathGroup); this.buildPaths();
     // player marionette
@@ -132,8 +91,8 @@ export class MapScene extends UIScreen {
   }
   buildPaths() {
     while (this.pathGroup.children.length) this.pathGroup.remove(this.pathGroup.children[0]);
-    const visited = new Set(this.run.path || []); const stone = F({ color: 0xc8b89a, roughness: 0.9 }); const glowM = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x8fe3ff).multiplyScalar(2) });
-    const geo = S.blob(0.12, 0.04, 0.1, { detail: 0, seed: 9 });
+    const visited = new Set(this.run.path || []); const stone = F({ color: 0xb8a088, roughness: 0.9, flatShading: true }); const glowM = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x8fe3ff).multiplyScalar(2) });
+    const geo = pathStoneGeo();
     for (const a of Object.values(this.map.nodes)) for (const bid of a.next) {
       const b = this.map.nodes[bid]; const len = Math.hypot(b.x - a.x, b.z - a.z); const n = Math.floor(len / 0.45);
       const lit = visited.has(a.id) && (visited.has(b.id) || this.run.pos === a.id && false);
@@ -149,7 +108,7 @@ export class MapScene extends UIScreen {
   buildHUD() {
     const W = this.W, H = this.H; const r = this.run;
     this.runHud = new BattleHUD({ mode: 'map', sub: `LOOP ${roman(r.loop)} &middot; FLOOR ${Math.max(0, r.floor + 1)}/${this.map.rows}` }); this.runHud.setVitals(r.player.hp, r.player.maxHp, 0, r.gold);
-    this.items = r.items.map((id, i) => { const t = new ItemToken(id, { size: 1.5 }); t.group.position.set(-W + 1.8 + i * 1.7, H - 5.4, 2); this.root.add(t.group); return t; });
+    this.items = r.items.map((id, i) => { const t = new ItemToken(id, { size: 1.5 }); t.group.position.set(-W + 1.6 + i * 1.7, H - 6.7, 2); this.root.add(t.group); return t; });
     this.addButton(new Button3D('Journal', () => this.openJournal(), { w: 3.6, h: 1.1, size: 50, color: 'purple' }), W - 3.2, H - 4.4, 2);
     this.addButton(new Button3D(`Deck (${r.deck.length})`, () => this.openDeck(), { w: 3.6, h: 1.1, size: 46 }), W - 3.2, H - 5.8, 2);
     this.addButton(new Button3D('Menu', () => this.game.toMenu(), { w: 3.6, h: 1.1, size: 50, color: 'red' }), W - 3.2, H - 7.2, 2);
@@ -198,7 +157,7 @@ export class MapScene extends UIScreen {
     for (const b of []) { const a = t * b.sp + b.ph; b.o.position.set(Math.cos(a) * b.r, b.h + Math.sin(t * 2 + b.ph) * 0.3, b.cz + Math.sin(a) * b.r * 0.6); b.o.rotation.y = -a; b.o.children.forEach((w, i) => (w.rotation.z = (i ? -1 : 1) * Math.sin(t * 10 + b.ph) * 0.6)); }
     for (const pp of this.party) { pp.a += dt * 0.6; pp.api.root.position.set(pp.cx + Math.cos(pp.a) * 0.7, this.heightAt(pp.cx, pp.cz) + Math.abs(Math.sin(t * 5 + pp.a)) * 0.1, pp.cz + Math.sin(pp.a) * 0.7); pp.api.root.rotation.y = -pp.a; pp.api.update(dt); }
     if (Math.random() < 0.3) this.parts.spawn({ pos: [vrange(-9, 9), vrange(0.3, 3), vrange(-30, 2)], vel: [0, 0.1, 0], life: 4, size: vrange(10, 18), color: '#ffe08a', sprite: 'firefly', wobble: 0.4 });
-    this.parts.update(dt, t); this.critters.update(dt, t); this.water.material.color.setHSL(0.57, 0.55, 0.42 + Math.sin(t * 2) * 0.02);
+    this.parts.update(dt, t); this.critters.update(dt, t);
     this.updateUI(dt); for (const it of this.items) it.update(dt, t); this.hint.update(dt, this.ptr(2)); this.storyPanel?.update(dt, null);
     this.journal?.update(dt, t); this.deckView?.update(dt, t);
   }
