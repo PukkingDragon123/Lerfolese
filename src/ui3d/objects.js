@@ -190,18 +190,19 @@ export class Scroll extends Body {
   }
   set(title, lines, titleColor = '#5a1a22') {
     const Wt = round(this.wU * PXP); const pad = 16; const maxT = Wt - pad * 2; const out = []; const fonts = [];
-    if (title) for (const l of wrapText(titleCase(title), 'title', maxT)) { out.push([[l, titleColor]]); fonts.push('title'); }
+    const tf = title && measure(titleCase(title), 'title') > maxT && measure(titleCase(title), 'head') <= maxT ? 'head' : 'title';
+    if (title) for (const l of wrapText(titleCase(title), tf, maxT)) { out.push([[l, titleColor]]); fonts.push(tf); }
     for (const l of lines) { const ss = segs(l); if (measure(lineText(l), 'hand') <= maxT) { out.push(ss.map(([t, c]) => [t, c || '#2a160c'])); fonts.push('hand'); } else for (const w of wrapText(lineText(l), 'hand', maxT)) { out.push([[w, ss[0][1] || '#2a160c']]); fonts.push('hand'); } }
-    let th = 0; out.forEach((_, i) => (th += FONT[fonts[i]].lineH + (fonts[i] === 'title' ? 2 : 1))); th += title ? 6 : 0;
+    let th = 0; out.forEach((_, i) => (th += FONT[fonts[i]].lineH + (fonts[i] === tf ? 2 : 1))); th += title ? 6 : 0;
     const Ht = Math.min(round(this.maxH * PXP), th + pad * 2); const S = new Surf(Wt, Ht);
     parchment(S, 0, 0, Wt, Ht, { seed: this.seed, torn: 0, tone: 4, age: 2 });
     for (let x = 0; x < Wt; x++) { S.shift(x, 0, -1); S.shift(x, 1, -1); S.shift(x, Ht - 1, -1); S.shift(x, Ht - 2, -1); }
     let y = pad - 2;
     out.forEach((ss, i) => {
-      const f = fonts[i]; const F = FONT[f]; const wsum = ss.reduce((s, [t]) => s + measure(t, f), 0); let x = f === 'title' ? round((Wt - wsum) / 2) : pad;
+      const f = fonts[i]; const F = FONT[f]; const wsum = ss.reduce((s, [t]) => s + measure(t, f), 0); let x = f === tf ? round((Wt - wsum) / 2) : pad;
       for (const [t, c] of ss) { inscribe(S, t, x, y + F.base, f, 'ink', { color: ink(c), seed: i + 3 }); x += measure(t, f); }
-      y += F.lineH + (f === 'title' ? 2 : 1);
-      if (f === 'title' && fonts[i + 1] !== 'title') { const cx = round(Wt / 2); for (let xx = -40; xx <= 40; xx++) if (Math.abs(xx) > 3) S.pix(cx + xx, y + 1, Math.abs(xx) > 34 ? '#7a5638' : '#5a1a14'); for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]]) S.pix(cx + dx, y + 1 + dy, '#8a1a1c'); y += 6; }
+      y += F.lineH + (f === tf ? 2 : 1);
+      if (title && f === tf && fonts[i + 1] !== tf) { const cx = round(Wt / 2); for (let xx = -40; xx <= 40; xx++) if (Math.abs(xx) > 3) S.pix(cx + xx, y + 1, Math.abs(xx) > 34 ? '#7a5638' : '#5a1a14'); for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]]) S.pix(cx + dx, y + 1 + dy, '#8a1a1c'); y += 6; }
     });
     for (let y = 2; y < Ht - 2; y++) { S.pix(0, y, '#1a0e12'); S.pix(Wt - 1, y, '#1a0e12'); }
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }

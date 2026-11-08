@@ -60,7 +60,7 @@ export default class EventScene extends UIScreen {
     this.engine.add(this); this.pushInput(); audio.playMusic('event'); audio.setAmbSet(['wilderness']);
     // UI
     const W = this.W, H = this.H;
-    this.panel = new Panel(ev.title, [ev.text], { w: 15, h: 8.2, titleColor: '#5a1a22' }); uiPos(this.panel.group, W - 8.4, H - 1.0 - this.panel.scroll.h / 2, 2); this.root.add(this.panel.group);
+    this.panel = new Panel(ev.title, [ev.text], { w: 15, h: 8.2, titleColor: '#5a1a22' }); uiPos(this.panel.group, W - 8.75, H - 1.0 - this.panel.scroll.h / 2, 2); this.root.add(this.panel.group);
     this.choiceBtns = ev.choices.map((c, i) => { const ok = !c.if || c.if(run); const b = new Button3D(c.label, () => this.choose(c), { w: 14, h: 1.5, size: 64, sub: c.sub, color: c.slot ? 'purple' : 'wood', disabled: !ok }); return this.addButton(b, W - 8.4, H - 10.9 - i * 1.85, 2); });
     this.prof.setExpr('think'); this.say(vpick(['Fascinating. And probably lethal.', 'An experiment! Hold my strings.', 'Ah. The universe is being weird again.']));
   }
@@ -97,7 +97,7 @@ export default class EventScene extends UIScreen {
     this.chosen = true; audio.play('stamp');
     const text = c.run(this.ctx(), card, score);
     for (const b of this.choiceBtns) b.setDisabled(true);
-    this.panel.set(this.ev.title, [text], '#1e5a5a'); uiPos(this.panel.group, this.W - 8.4, this.H - 1.0 - this.panel.scroll.h / 2, 2);
+    this.panel.set(this.ev.title, [text], '#1e5a5a'); uiPos(this.panel.group, this.W - 8.75, this.H - 1.0 - this.panel.scroll.h / 2, 2);
     this.prof.setExpr(/damage|bites|lose|terrible/i.test(text) ? 'annoyed' : 'delight'); this.prof.act(/damage/.test(text) ? 'hurt' : 'cheer');
     this.say(vpick(['Noted. Filed. Mildly traumatised.', 'Science marches on. Limping.', 'Write that down. No, I will.']));
     this.addButton(new Button3D('Continue', () => this.leave(), { w: 5, h: 1.3, size: 58, color: 'teal' }), this.W - 8.4, -this.H + 1.6, 2);

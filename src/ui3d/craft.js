@@ -204,7 +204,7 @@ export function waxSeal(S, cx, cy, r = 6, { seed = 1, ramp = RAMP.wax } = {}) {
 // woven cloth with a stitched gold border
 export function cloth(S, x0, y0, w, h, { ramp = RAMP.cloth, base = 3, border = 3, seed = 1, mask = null } = {}) {
   const inM = (x, y) => x >= x0 && y >= y0 && x < x0 + w && y < y0 + h && (!mask || mask(x, y));
-  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (inM(x, y)) S.set(x, y, ramp, base + (((x >> 1) + (y >> 1)) % 2 && hsh(x, y, seed) > 0.55 ? -1 : 0) + (fbm(x * 0.04, y * 0.1, seed) > 0.66 ? 1 : 0));
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (inM(x, y)) S.set(x, y, ramp, base + ((x + y) % 4 === 0 ? -1 : 0) + (fbm(x * 0.04, y * 0.1, seed) > 0.68 ? 1 : 0) - (fbm(x * 0.05 + 7, y * 0.12, seed) < 0.3 ? 1 : 0));
   if (border) { let k = 0; const run = (x, y) => { if (!inM(x, y)) return; S.set(x, y, RAMP.thread, k++ % 3 === 2 ? 2 : 4); }; const X0 = x0 + border, Y0 = y0 + border, X1 = x0 + w - 1 - border; S.line(X0, Y0, X1, Y0, run); S.line(X0, Y0, X0, y0 + h - 1, run); S.line(X1, Y0, X1, y0 + h - 1, run); }
   return inM;
 }

@@ -60,15 +60,7 @@ function paintParchment(map, seed) {
     inkLine(() => { g.moveTo(px - r, py); g.quadraticCurveTo(px - r * 0.2, py - r * 1.1, px + r, py); }, 1.7);
     for (let k = 0; k < 4; k++) inkLine(() => { const hx = px + r * (0.1 + k * 0.22); g.moveTo(hx, py - r * 0.35 + k * 2); g.lineTo(hx - 5, py - 1); }, 1, SEPIA, 0.7);
   }
-  // groves: watercolour canopy masses + inked lollipop trees (the living 3D trees stand among these)
-  const groves = [];
-  for (let z = SHEET.ZN - 1.2; z > -27.5; z -= 0.75) for (let x = -8.6; x < 8.6; x += 0.75) {
-    const f = n.fbm(x * 0.19 + 50, z * 0.19 + 20, 3); const xx = x + jit(0.4), zz = z + jit(0.4); if (f < 0.58 || !free(xx, zz, 0.6) || Math.abs(xx - riverX(zz)) < 1.2) continue;
-    const [px, py] = P(xx, zz); groves.push([xx, zz]); wash(() => blob(px, py, 15), '#6f9a4e', 0.35);
-    const r = 6 + rnd() * 4; const cyp = rnd() < 0.3;
-    if (cyp) { wash(() => { g.beginPath(); g.moveTo(px, py - r * 3); g.quadraticCurveTo(px + r, py - r, px, py + 2); g.quadraticCurveTo(px - r, py - r, px, py - r * 3); }, '#3f6a3c', 0.75, 1.4); inkLine(() => { g.moveTo(px, py - r * 3); g.quadraticCurveTo(px + r, py - r, px, py + 2); g.quadraticCurveTo(px - r, py - r, px, py - r * 3); }, 1.3); }
-    else { inkLine(() => { g.moveTo(px, py + 3); g.lineTo(px, py - r * 0.6); }, 2, SEPIA); wash(() => { g.beginPath(); g.arc(px, py - r * 1.3, r, 0, TAU); }, '#5f8a42', 0.7, 1.3); inkLine(() => { g.arc(px, py - r * 1.3, r, 0, TAU); }, 1.3); inkLine(() => { g.arc(px + r * 0.25, py - r * 1.1, r * 0.55, 0.2, 1.6); }, 1, SEPIA, 0.6); }
-  }
+  const groves = []; // (no trees on the map, by request)
   // the river Kephisos: wash, inked banks, wave ticks
   const riv = []; for (let z = SHEET.ZN + 0.5; z > -25.2; z -= 0.25) riv.push(P(riverX(z), z));
   g.save(); g.globalCompositeOperation = 'multiply'; g.strokeStyle = '#86b9d2'; g.lineCap = 'round'; g.lineJoin = 'round'; g.globalAlpha = 0.75; g.lineWidth = 0.95 * PPU; g.beginPath(); riv.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke(); g.globalAlpha = 0.55; g.strokeStyle = '#5f93b4'; g.lineWidth = 0.42 * PPU; g.stroke(); g.restore();
@@ -140,7 +132,7 @@ export class MapSheet {
     const art = (this.art = paintParchment(map, seed)); const tex = new THREE.CanvasTexture(art.canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; tex.magFilter = THREE.LinearFilter;
     const geo = new THREE.PlaneGeometry(SW, SL, 56, 110); geo.rotateX(-Math.PI / 2); geo.translate(0, 0, (SHEET.ZN + SHEET.ZF) / 2); const p = geo.attributes.position; for (let i = 0; i < p.count; i++) p.setY(i, sheetY(p.getX(i), p.getZ(i))); geo.computeVertexNormals();
     const sheet = (this.sheetMesh = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, gradientMap: T.gradientMap([0.62, 0.84, 1.0]) }))); sheet.castShadow = true; sheet.receiveShadow = true; this.world.add(sheet);
-    this.grass(); this.trees(); this.fx();
+    this.grass(); this.flowers(); this.fx();
     this.nodeViews = new Map(); this.pathMesh = null; this.trailQ = []; this.trailN = 0;
     this.iconTex = {}; for (const k of Object.keys(ICONS)) this.iconTex[k] = texOf(k === 'guardian' ? stamp(ICONS[k], 40) : stamp(ICONS[k]));
     this.ringTex = texOf(ring()); this.markTex = texOf(scribble()); this.dotTex = texOf(dot()); this.splashTex = [0, 1, 2, 3].map((f) => texOf(splash(f)));
@@ -157,14 +149,20 @@ export class MapSheet {
     }
     this.grassMesh = T.grassBlades(spots, { dry: 0.2 }); this.world.add(this.grassMesh);
   }
-  // detailed toon trees standing in the painted groves (they flutter; leaves drift off them)
-  trees() {
-    this.treeList = []; const rnd = mulberry32(5); const groves = this.art.groves.slice(); const picks = [];
-    for (let i = 0; i < 400 && picks.length < 15; i++) { const g = groves[Math.floor(rnd() * groves.length)]; if (!g) break; if (picks.some(([x, z]) => Math.hypot(x - g[0], z - g[1]) < 2.2) || !this.art.free(g[0], g[1], 0.75)) continue; picks.push(g); }
-    for (const [x, z] of picks) {
-      const name = ['olive_tree_wide_far', 'olive_tree_tall_far', 'umbrella_tree_far'][Math.floor(rnd() * 3)]; const s = name.startsWith('umbrella') ? 0.085 : 0.29 + rnd() * 0.05;
-      toonModel(name, rnd, { sat: 1.55, tint: '#fff0e0', leafTint: '#fffcd0', wind: 1.3, windH: 0.2 }).then((o) => { o.scale.multiplyScalar(s); o.position.set(x, sheetY(x, z) - 0.02, z); o.rotation.y = rnd() * TAU; this.world.add(o); o.userData.perchable = true; this.treeList.push(o); this.critters?.perchesFrom(o, 2); }).catch(() => {});
+  // toon wildflowers in the meadows (no trees on the map) + reed blades along the river banks and marsh pools
+  flowers() {
+    this.flowerList = []; const rnd = mulberry32(5); const n = makeNoise(29); const kinds = ['celandine_01', 'flower_gazania', 'shrub_sorrel_01'];
+    for (let i = 0, k = 0; i < 600 && k < 34; i++) {
+      const x = (rnd() - 0.5) * (SW - 2), z = SHEET.ZN - 2.4 - rnd() * (SL - 6); if (z < -26 || n.fbm(x * 0.22 + 4, z * 0.22, 3) < 0.5 || Math.abs(x - riverX(z)) < 0.9 || !this.art.free(x, z, 0.5)) continue; k++;
+      const name = kinds[k % kinds.length]; const s = name === 'shrub_sorrel_01' ? 0.7 : 0.55 + rnd() * 0.2;
+      toonModel(name, rnd, { sat: 1.6, leafTint: '#fffbd8', tint: '#fff4e8', wind: 1.4, windH: 3 }).then((o) => { o.scale.multiplyScalar(s); o.position.set(x, sheetY(x, z) - 0.01, z); o.rotation.y = rnd() * TAU; this.world.add(o); this.flowerList.push(o); }).catch(() => {});
     }
+    const reeds = []; for (let i = 0; i < 9000 && reeds.length < 2600; i++) {
+      const z = SHEET.ZN - 1 - rnd() * (SL - 3); const marsh = z < -21; const x = marsh ? (rnd() - 0.5) * (SW - 2) : riverX(z) + (rnd() < 0.5 ? -1 : 1) * (0.5 + rnd() * 0.32);
+      if (marsh && n.fbm(x * 0.3 + 9, z * 0.3, 3) < 0.56) continue; if (!marsh && z < -25) continue; if (!this.art.free(x, z, 0.3)) continue;
+      reeds.push([x, sheetY(x, z) - 0.01, z, 0.18 + rnd() * 0.2, 0]);
+    }
+    const r = T.grassBlades(reeds, { dry: 0 }); for (let i = 0; i < reeds.length; i++) r.setColorAt(i, new THREE.Color().setHSL(0.17 + Math.random() * 0.06, 0.45, 0.42 + Math.random() * 0.15)); r.instanceColor.needsUpdate = true; this.world.add(r);
   }
   fx() {
     this.leaves = new Particles(260); this.scene.add(this.leaves.points); this.glints = new Particles(400, { additive: true }); this.scene.add(this.glints.points);
@@ -211,7 +209,7 @@ export class MapSheet {
     if (this.trailQ.length) { this.trailT = (this.trailT || 0) + dt; while (this.trailQ.length && this.trailQ[0].at <= this.trailT) { const d = this.trailQ.shift(); this.inkSplash(d.x, d.z, 0.38); } }
     for (let i = this.inkFX.length - 1; i >= 0; i--) { const e = this.inkFX[i]; e.t += dt; const fr = Math.min(3, Math.floor(e.t * 14)); e.m.material.map = this.splashTex[e.keep ? Math.min(fr, 1) : fr]; if (!e.keep && e.t > 0.6) { e.m.material.opacity = Math.max(0, 1 - (e.t - 0.6) * 2); if (e.t > 1.1) { this.world.remove(e.m); e.m.geometry.dispose(); e.m.material.dispose(); this.inkFX.splice(i, 1); } } }
     // leaves drifting off the trees, warm dust motes in the light
-    if (this.treeList.length && Math.random() < dt * 3) { const tr = this.treeList[Math.floor(Math.random() * this.treeList.length)]; if (Math.abs(tr.position.z - f.z) < 10) { const wd = T.WIND.dir.value; this.leaves.spawn({ pos: [tr.position.x + (Math.random() - 0.5) * 0.8, tr.position.y + 1.1 + Math.random() * 0.4, tr.position.z + (Math.random() - 0.5) * 0.6], vel: [wd.x * 0.6, 0.15, wd.y * 0.6], grav: 0.35, drag: 0.6, wobble: 1.4, spin: 4, life: 4, size: 12, color: Math.random() < 0.5 ? '#9ab84a' : '#d8b048', sprite: 'leaf', floor: tr.position.y + 0.02, bounce: 0 }); } }
+    if (Math.random() < dt * 3.5) { const wd = T.WIND.dir.value; const x = -wd.x * 9 + (Math.random() - 0.5) * 10, z = f.z + (Math.random() - 0.5) * 12; const petal = Math.random() < 0.6; this.leaves.spawn({ pos: [x, 1.4 + Math.random() * 2.2, z], vel: [wd.x * 1.6, 0.05, wd.y * 1.6], grav: 0.12, drag: 0.15, wobble: 1.6, spin: 4, life: 7, size: petal ? 10 : 12, color: petal ? ['#ffd0e0', '#ffffff', '#ffe27a'][Math.floor(Math.random() * 3)] : ['#9ab84a', '#d8b048'][Math.floor(Math.random() * 2)], sprite: petal ? 'petal' : 'leaf', floor: 0.3, bounce: 0 }); }
     if (Math.random() < dt * 6) this.glints.spawn({ pos: [(Math.random() - 0.5) * 16, 0.6 + Math.random() * 2.5, f.z + (Math.random() - 0.5) * 14], vel: [0.12, 0.05, 0], wobble: 0.3, life: 5, size: 7 + Math.random() * 6, color: '#ffe6b0', alpha: 0.5, sprite: 'dot' });
     this.leaves.update(dt, t); this.glints.update(dt, t);
     this.critters.bounds = { x: [-8, 8], y: [1.8, 4.5], z: [f.z - 9, f.z + 4] }; this.critters.update(dt, t);
