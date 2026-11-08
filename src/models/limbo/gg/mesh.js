@@ -29,10 +29,16 @@ const _m = new THREE.Matrix4(), _e = new THREE.Euler(), _v = new THREE.Vector3()
 /** Faces of one segment (rest pose) with their outward normal and an in-plane basis (U right, V up). */
 function segFaces(s) {
     const chs = /^(head|hair|ear|nose)$/.test(s.mat) || s.bone === 'hair' || s.bone === 'head' ? Math.max(s.ch, 0.45) : s.ch; // rounder heads and hair (Apple of Discord)
-    const B = ring(s.y0, s.b, chs), T = ring(s.y1, s.t, chs);
+    // organic silhouettes: intermediate rings bulge each segment's profile (Apple of Discord)
+    const amp = /^(cranium|jaw)$/.test(s.part) ? 0.1 : /^(uarm|farm|thigh|shin|calf|neck|hairLong|hairSide|bun)$/.test(s.part) ? 0.05 : s.open === undefined && chs >= 0.05 ? 0.025 : 0;
+    const nMid = amp > 0 ? (amp >= 0.1 ? 3 : 2) : 0;
+    const rings = [ring(s.y0, s.b, chs)];
+    for (let m = 1; m <= nMid; m++) { const t = m / (nMid + 1), k = 1 + amp * Math.sin(Math.PI * t); const r = s.b.map((v, i) => v + (s.t[i] - v) * t); rings.push(ring(s.y0 + (s.y1 - s.y0) * t, [r[0], r[1], r[2] * k, r[3] * k], chs)); }
+    rings.push(ring(s.y1, s.t, chs));
+    const B = rings[0], T = rings[rings.length - 1];
     if (s.rot) {
         _m.makeRotationFromEuler(_e.set(s.rot.e[0], s.rot.e[1], s.rot.e[2], 'XYZ'));
-        for (const p of [...B, ...T]) {
+        for (const p of rings.flat()) {
             _v.set(p[0] - s.rot.p[0], p[1] - s.rot.p[1], p[2] - s.rot.p[2]).applyMatrix4(_m);
             p[0] = _v.x + s.rot.p[0];
             p[1] = _v.y + s.rot.p[1];
@@ -49,8 +55,9 @@ function segFaces(s) {
     const out = [];
     const n = B.length;
     const mk = (kind, pts, N, tris) => ({ seg: s, kind, pts, N, tris, U: [0, 0, 0], V: [0, 0, 0], o: pts[0], s0: 0, s1: 0, r0: 0, r1: 0, dens: 1, rect: { x: 0, y: 0, w: 0, h: 0 } });
-    for (let i = 0; i < n; i++) {
-        const a = B[i], b = B[(i + 1) % n], tb = T[(i + 1) % n], ta = T[i];
+    for (let rr = 0; rr < rings.length - 1; rr++) for (let i = 0; i < n; i++) {
+        const R0 = rings[rr], R1 = rings[rr + 1];
+        const a = R0[i], b = R0[(i + 1) % n], tb = R1[(i + 1) % n], ta = R1[i];
         let N = norm(cross(sub(b, a), sub(ta, a)));
         const mid = [(a[0] + b[0] + ta[0] + tb[0]) / 4, (a[1] + b[1] + ta[1] + tb[1]) / 4, (a[2] + b[2] + ta[2] + tb[2]) / 4];
         let pts = [a, b, tb, ta];
