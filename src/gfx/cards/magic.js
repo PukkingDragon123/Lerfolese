@@ -255,3 +255,10 @@ export function orbitSigil() {
   for (let i = 0; i < 6; i++) { const a = i * 1.05; s.px(Math.round(cx + Math.cos(a) * 11), Math.round(cy + Math.sin(a) * 11), AUR[5]); }
   return anchor(s, cx, cy, { float: true });
 }
+
+// law cards drawn as magic (no hands): force, rotation and their mutants
+export const MAGIC = {
+  force: () => forceBolt(), brute_force: () => forceBolt({ brute: true }),
+  rotation: () => vortex(), torque: () => vortex({ twist: true }),
+  momentum: () => snowballOrb(),
+};

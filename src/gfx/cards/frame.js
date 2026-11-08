@@ -49,6 +49,22 @@ function meander(s, x0, y0, w, E) {
   }
 }
 
+const EMBLEM = {
+  matter: ['...XX..', '..X....', '.XX.XX.', 'XXXXXXX', 'XXXXXXX', '.XXXXX.', '..X.X..'],
+  law: ['..XXX..', '..XXX..', '..XXX..', 'XXXXXXX', '.XXXXX.', '..XXX..', '...X...'],
+  energy: ['...XXX.', '..XXX..', '.XXX...', 'XXXXXX.', '...XX..', '..XX...', '.X.....'],
+  tool: ['..X.X..', '.XXXXX.', 'XXX.XXX', 'XX...XX', 'XXX.XXX', '.XXXXX.', '..X.X..'],
+  move: ['X..X...', '.X..X..', '..X..X.', '...X..X', '..X..X.', '.X..X..', 'X..X...'],
+  power: ['...X...', '..XXX..', 'XXXXXXX', '.XXXXX.', '..XXX..', '.XX.XX.', '.X...X.'],
+};
+// an unused medallion slot: the kind's emblem inlaid in brass on enamel
+export function emblem(s, mx, my, kind, B) {
+  const E = ENAMEL[kind] || ENAMEL.power; medallion(s, mx, my, E, B);
+  const g = EMBLEM[kind] || EMBLEM.power;
+  for (let j = 0; j < 7; j++) for (let i = 0; i < 7; i++) if (g[j][i] === 'X') { const x = mx - 3 + i, y = my - 3 + j; if (g[j + 1]?.[i] !== 'X') s.px(x, y + 1, E[1]); }
+  for (let j = 0; j < 7; j++) for (let i = 0; i < 7; i++) if (g[j][i] === 'X') s.px(mx - 3 + i, my - 3 + j, g[j - 1]?.[i] !== 'X' ? B[6] : B[4]);
+}
+
 export function medallion(s, mx, my, R, B) {
   s.fill(ell(mx + 0.5, my + 0.5, 10.3, 10.3), INKC);
   orb(s, ell(mx + 0.5, my + 0.5, 9.4, 9.4), mx + 0.5, my + 0.5, 9.4, 9.4, B, { lo: 2, hi: 5, thr: [-0.25, 0.25, 0.7] });

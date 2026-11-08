@@ -1,5 +1,5 @@
 // Card subjects (basics + mutants): each returns a Spr with an anchor (ax, ay) at the ground contact point.
-import { Spr, ell, poly, and, or, not, seg, box, orb, vol, glint, rng, dk, lt, rampOf, half, bevel, rod, layer, letters, ramp } from './kit.js';
+import { Spr, ell, poly, and, or, not, seg, box, orb, vol, glint, rng, dk, lt, rampOf, half, bevel, rod, layer, letters, ramp, tube } from './kit.js';
 import { K } from './pal.js';
 import { Glow, arc, mote, ARC, VIO } from './magic.js';
 
@@ -105,38 +105,31 @@ export function miniApple(R = K.red, L = K.leaf, S = K.stem) {
 }
 
 // ---------- stone family ----------
-const ROCK_N = [[-0.3, -0.85, 0.45], [0.3, -0.88, 0.4], [-0.15, -0.45, 0.88], [0.42, -0.42, 0.8], [-0.58, -0.12, 0.8], [0.08, 0.04, 1], [0.66, 0.08, 0.74], [-0.42, 0.5, 0.75], [0.28, 0.56, 0.78], [-0.92, -0.32, 0.25], [0.93, -0.22, 0.3], [-0.85, 0.42, 0.3], [0.86, 0.46, 0.25], [-0.7, -0.62, 0.35], [0.66, -0.66, 0.35]];
+// a boulder built from hand-placed facets (light from the top-left), with granite flecks, a chip, a crack and lichen
+const ROCK_V = { A: [3, 30], B: [2, 22], C: [6, 14], D: [12, 8], E: [20, 5], F: [29, 4], G: [37, 7], H: [42, 13], I: [45, 21], J: [44, 29], Kk: [40, 33], L: [8, 33], P: [15, 13], Q: [27, 10], Rr: [36, 15], S: [22, 21], T: [33, 23], U: [11, 22], V: [26, 30] };
+const ROCK_F = [['DEFQP', 5], ['BCDPU', 4], ['FGHRrQ', 4], ['PQRrTS', 3], ['UPSVLAB', 3], ['HIJTRr', 1], ['STJKkV', 2], ['LVKk', 1]];
 export function stone({ R = K.stone, seed = 3, vein = true, crack = true, tuft = true } = {}) {
-  const s = new Spr(50, 40); const cx = 25, cy = 22;
-  gem(s, cx, cy, 21, 16, 15, ROCK_N, R, { floor: 13, thr: [-0.32, 0.05, 0.4, 0.72] });
-  s.clean();
+  const s = new Spr(50, 40); const cx = 25, cy = 22; const ox = 2, oy = 3;
+  const keys = (str) => str.match(/[A-Z][a-z]?/g).map((k) => ROCK_V[k]).map(([x, y]) => [x + ox, y + oy]);
+  for (const [f, t] of ROCK_F) s.fill(poly(keys(f)), R[t]);
+  // lit ridges where light catches an edge
+  for (const [a, b] of [['P', 'Q'], ['P', 'S'], ['Q', 'Rr'], ['U', 'P']]) { const [x0, y0] = ROCK_V[a], [x1, y1] = ROCK_V[b]; s.line(x0 + ox, y0 + oy, x1 + ox, y1 + oy, (x, y) => (s.get(x, y) ? lt(s.get(x, y)) : null)); }
+  // shadowed creases
+  for (const [a, b] of [['Rr', 'T'], ['T', 'S'], ['S', 'V'], ['T', 'J']]) { const [x0, y0] = ROCK_V[a], [x1, y1] = ROCK_V[b]; s.line(x0 + ox, y0 + oy, x1 + ox, y1 + oy, (x, y) => (s.get(x, y) ? dk(s.get(x, y)) : null)); }
   const r = rng(seed);
-  if (vein) { // a quartz vein wrapping over the boulder: light on lit facets, mid in shadow
-    for (let x = cx - 20; x <= cx + 20; x++) {
-      const y0 = Math.round(cy - 2 + (x - cx) * 0.32 + Math.sin((x - cx) * 0.3) * 1.4);
-      if ((x + 40) % 13 > 10) continue; const t = tone(s.get(x, y0)); if (t >= 1 && rampOf(s.get(x, y0))[0] === R) s.px(x, y0, K.bone[Math.min(6, t + 1)]);
-    }
-  }
-  // dark pits with a lit lower lip, light mica flecks on lit planes
-  for (let i = 0, n = 0; i < 400 && n < 7; i++) {
-    const x = Math.floor(cx - 16 + r() * 32), y = Math.floor(cy - 10 + r() * 20); const t = tone(s.get(x, y));
-    if (t >= 3 && rampOf(s.get(x, y))[0] === R && tone(s.get(x + 1, y + 1)) >= 3 && tone(s.get(x - 1, y)) >= 3 && tone(s.get(x + 1, y)) >= 3) { s.px(x, y, R[t - 2]); s.px(x + 1, y, R[t - 1]); s.px(x, y + 1, R[Math.min(6, t + 1)]); n++; }
-  }
-  for (let i = 0, n = 0; i < 400 && n < 8; i++) {
-    const x = Math.floor(cx - 17 + r() * 34), y = Math.floor(cy - 12 + r() * 20); const t = tone(s.get(x, y));
-    if (t >= 4 && rampOf(s.get(x, y))[0] === R && tone(s.get(x, y - 1)) >= 4 && tone(s.get(x + 1, y)) >= 4) { s.px(x, y, R[6]); n++; }
-  }
-  if (crack) { // hairline crack with a catch-light on its lower lip
-    const pts = [[cx - 9, cy - 14], [cx - 8, cy - 12], [cx - 9, cy - 10], [cx - 7, cy - 8], [cx - 8, cy - 6]];
-    for (let i = 0; i + 1 < pts.length; i++) s.line(...pts[i], ...pts[i + 1], R[1]);
-    for (const [x, y] of pts) { const t = tone(s.get(x + 1, y)); if (t >= 2 && rampOf(s.get(x + 1, y))[0] === R) s.px(x + 1, y, R[Math.min(6, t + 1)]); }
-  }
+  // granite flecks: a few dark, a few light, never touching
+  const ok = (x, y) => { const c = s.get(x, y); return c && rampOf(c)?.[0] === R && [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([a, b]) => s.get(x + a, y + b) === c); };
+  for (let i = 0, n = 0; i < 500 && n < 10; i++) { const x = Math.floor(6 + r() * 40), y = Math.floor(9 + r() * 26); if (!ok(x, y)) continue; const t = tone(s.get(x, y)); if (t < 3) continue; s.px(x, y, R[t - 1]); if (s.get(x + 1, y + 1)) s.px(x + 1, y + 1, R[Math.min(6, t + 1)]); n++; }
+  if (crack) { const pts = [[29, 15], [28, 18], [30, 20], [29, 23], [31, 26]]; for (let i = 0; i + 1 < pts.length; i++) s.line(...pts[i], ...pts[i + 1], R[1]); for (const [x, y] of pts.slice(1)) if (s.get(x - 1, y)) s.px(x - 1, y, lt(s.get(x - 1, y))); }
+  // chipped corner on the top-right shoulder
+  s.grid(['..ab', '.ab.', 'ab..'], { a: R[6], b: R[5] }, 34, 9);
+  if (vein) for (const [x, y, k] of [[17, 12, 0], [36, 14, 1], [12, 25, 1]]) s.grid(k ? ['ab', 'bc'] : ['.a.', 'abc'], { a: K.lichen[5], b: K.lichen[4], c: K.lichen[3] }, x, y);
   s.outline();
   if (tuft) { // grass tufts at the foot
     const G = K.leaf; s.grid(['..a....', '.ab.a..', '.bb.ab.', 'bcbbcb.'], { a: G[5], b: G[4], c: G[3] }, cx - 21, cy + 10);
     s.grid(['...a.', '.a.ba', 'abcbb'], { a: G[5], b: G[4], c: G[3] }, cx + 15, cy + 11);
   }
-  return anchor(s, cx, cy + 14);
+  return anchor(s, cx, 36);
 }
 
 
@@ -204,7 +197,7 @@ export function earth(r = 13, { aura = null } = {}) {
   s.fill((x, y) => s.get(x, y) === K.ocean[0] && x + y < 2 * c - 2, aura || K.cyan[4]);
   return s;
 }
-const ARROW_DOWN = ['.aaa.', '.aba.', '.aba.', 'aabaa', 'abbba', '.aba.', '..a..'];
+const ARROW_DOWN = ['.aaaaa.', '.abbba.', '.abbba.', '.abbba.', 'aabbbaa', 'abbbbba', '.abbba.', '..aba..', '...a...'];
 export function arrow(s, x, y, up = false, a = '#3a1c2c', b = '#fff4d0') { const g = up ? [...ARROW_DOWN].reverse() : ARROW_DOWN; s.grid(g, { a, b }, x, y); }
 export function gravity({ anti = false } = {}) {
   const s = new Spr(60, 58); const e = earth(13, { aura: anti ? K.violet[5] : null });
@@ -214,7 +207,7 @@ export function gravity({ anti = false } = {}) {
   // motion streaks trailing the apple
   const trail = anti ? [[27, 20, 24], [30, 20, 27], [33, 20, 23]] : [[27, ay - 3, ay + 1], [33, ay - 6, ay + 1], [30, ay - 4, ay - 1]];
   for (const [x, y0, y1] of trail) for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) s.px(x, y, '#fff4d0');
-  arrow(s, 12, 14, anti); arrow(s, 43, 14, anti);
+  arrow(s, 9, 12, anti); arrow(s, 44, 12, anti);
   if (anti) for (const [x, y] of [[8, 4], [50, 6], [46, 0]]) { s.grid(['.ab', 'abc', 'bcc'], { a: K.stone[5], b: K.stone[4], c: K.stone[2] }, x, y); s.px(x + 1, y + 4, '#fff4d0'); s.px(x + 1, y + 5, '#fff4d0'); }
   s.float = false; return anchor(s, 30, 57);
 }
@@ -275,8 +268,6 @@ export function railBall({ steel = false, len = 64, ballX = 40 } = {}) {
     // reflection of the rail and sky, bright window glint
     for (let x = ballX - 7; x <= ballX + 6; x++) { const y = Math.round(25 + ((x - ballX) / 10) ** 2 * 3); if (t.get(x, y)) t.px(x, y, B[4]); }
     t.grid(['.WW', 'WWw', 'Ww.'], { W: B[6], w: B[5] }, ballX - 6, 13); t.px(ballX + 5, 26, B[4]);
-    // engraved equator line hints the roll
-    for (let a = -1.2; a < 1.2; a += 0.08) { const x = Math.round(ballX + Math.sin(a) * 10 * 0.5 + 2), y = Math.round(21 + Math.sin(a) * 10 * 0.8 - 2); if (t.get(x, y)) t.px(x, y, dk(t.get(x, y))); }
   });
   layer(s, (t) => { t.fill(box(0, 31, len, 3), (x, y) => K.steel[y === 31 ? 6 : y === 32 ? 4 : 2]); for (let x = 6; x < len; x += 16) t.px(x, 32, K.steel[1]); });
   return anchor(s, ballX, 36);
@@ -345,24 +336,15 @@ export function magnifier({ prism = false } = {}) {
 }
 
 // ---------- spring: a steel coil ----------
-export function coil({ C = K.steel, turns = 6, rx = 11, top = 6, pitch = 6, w = 34, rainbow = false, thick = 1.6 } = {}) {
-  const s = new Spr(w, top + turns * pitch + 10); const cx = w / 2; const ry = 3.2;
-  const col = (i) => (rainbow ? [K.paint_red, K.flame, K.gold, K.leaf, K.cyan, K.paint_blue, K.violet][i % 7] : C);
-  const path = (front) => {
-    for (let i = 0; i < turns; i++) for (let k = 0; k <= 160; k++) {
-      const a = (k / 160) * Math.PI * 2; const isFront = Math.sin(a) > 0; if (isFront !== front) continue;
-      const x = cx + Math.cos(a) * rx, y = top + i * pitch + (k / 160) * pitch + Math.sin(a) * ry; const R = col(i);
-      const lit = -Math.cos(a); // left side lit
-      const t = front ? (lit > 0.55 ? 5 : lit > 0 ? 4 : lit > -0.6 ? 3 : 2) : (lit > 0 ? 2 : 1);
-      s.fill(ell(x, y, thick, thick), R[t]);
-      if (front && lit > 0.35 && lit < 0.75) s.px(x - 0.5, y - 1.2, R[6]);
-    }
-  };
-  path(false); path(true);
-  // flattened end rings
-  for (const yy of [top - 1, top + turns * pitch + 1]) layer(s, (t) => { t.fill(and(ell(cx, yy, rx + 1.5, ry + 1.2), not(ell(cx, yy, rx - 1.5, ry - 1.2))), (x, y) => col(0)[y < yy ? 5 : x < cx ? 4 : 2]); });
-  s.outline();
-  return anchor(s, Math.round(cx), s.h - 4);
+export function coil({ C = K.steel, turns = 5, rx = 10, top = 6, pitch = 7, w = 30, thick = 1.5, ry = 3.2 } = {}) {
+  const s = new Spr(w, Math.ceil(top + turns * pitch + 10)); const cx = w / 2;
+  const ring = (i, front) => { const pts = []; for (let k = 0; k <= 40; k++) { const a = front ? (k / 40) * Math.PI : Math.PI + (k / 40) * Math.PI; const f = front ? k / 80 : 0.5 + k / 80; pts.push([cx - Math.cos(a) * rx, top + (i + f) * pitch + Math.sin(a) * ry]); } return pts; };
+  const back = new Spr(s.w, s.h); for (let i = 0; i < turns; i++) tube(back, ring(i, false), thick * 0.8, C, [2, 2, 1, 1]);
+  back.outline({ col: C[0] }); back.draw(s);
+  for (let i = 0; i < turns; i++) { const t = new Spr(s.w, s.h); tube(t, ring(i, true), thick, C, [6, 5, 4, 3, 3, 2]); t.outline({ col: C[0] }); t.draw(s); }
+  // flat ground ends
+  for (const yy of [top - 0.5, top + turns * pitch + 0.5]) layer(s, (t) => { tube(t, [[cx - rx, yy], [cx + rx, yy]], 1.4, C, [5, 4, 3, 2]); }, { col: C[0] });
+  return anchor(s, Math.round(cx), Math.ceil(top + turns * pitch + 2));
 }
 
 // ---------- mutants ----------
@@ -412,7 +394,8 @@ export function superposition() {
   // a probability orbit around both, with an electron mote
   const g = new Glow(s.w, s.h); const pts = arc(34, 32, 32, 9, -0.2, Math.PI * 1.05); g.path(pts, ARC, [0.5, 1.1], [5, 3]); g.draw(s);
   mote(s, 66, 28, ARC, true); mote(s, 4, 38, VIO);
-  bolt({ w: 40, h: 50, extras: false }).draw(s, 26, 2, (c, x, y) => (y > 4 && y < 30 && x > 9 && x < 24 ? c : null));
+  s.grid(['....aa', '...ab.', '..abb.', '.abbbb', 'aaaab.', '...ab.', '..ab..', '.ab...', '.a....'].map((r) => r), { a: K.elec[2], b: K.elec[5] }, 31, 10);
+  s.px(35, 13, '#ffffff'); s.px(33, 16, '#ffffff');
   return anchor(s, 24, 55);
 }
 export function pumice() {

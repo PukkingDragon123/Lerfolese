@@ -237,3 +237,19 @@ export function letters(s, str, x, y, c, { hi = null, lo = null } = {}) {
   }
   return cx;
 }
+
+// a tube along a polyline, shaded across its width (lit side toward the light): springs, wires, handles
+export function tube(s, pts, r, R, table = [5, 4, 4, 3, 3, 2, 1], light = [-0.62, -0.72]) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const [x, y] of pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  for (let y = Math.floor(y0 - r - 1); y <= Math.ceil(y1 + r + 1); y++) for (let x = Math.floor(x0 - r - 1); x <= Math.ceil(x1 + r + 1); x++) {
+    const px = x + 0.5, py = y + 0.5; let best = 1e9, off = 0;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[i + 1]; const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1; const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2));
+      const ex = px - (ax + dx * t), ey = py - (ay + dy * t); const d = Math.hypot(ex, ey);
+      if (d < best) { best = d; const L = Math.sqrt(L2); let nx = -dy / L, ny = dx / L; if (nx * light[0] + ny * light[1] < 0) { nx = -nx; ny = -ny; } off = ex * nx + ey * ny; }
+    }
+    if (best > r) continue;
+    const u = (r - off) / (2 * r); s.px(x, y, R[table[Math.max(0, Math.min(table.length - 1, Math.floor(u * table.length)))]]);
+  }
+  return s;
+}

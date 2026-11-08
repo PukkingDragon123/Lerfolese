@@ -1,187 +1,251 @@
-// Sir Isaac Plumb: a wooden marionette (hinged jaw, monocle, wild white hair, plum frock coat)
-// hung from a floating control cross held by his own glowing ghost. Everything is procedural.
+// Sir Isaac Plumb: an eccentric old natural philosopher whose body is a carved, varnished wooden marionette.
+// Base mesh: Quaternius Universal Base Characters (CC0), animated with the Universal Animation Library (CC0).
+// Everything else (coat, waistcoat, cravat, buckled shoes, wood grain, joint grooves and brass pins, the
+// painted old face and its expressions) is painted by hand-written painters onto the model's own UV atlas.
+// He hangs from a floating control cross held by his own faint glowing ghost; 6 glowing strings.
 import * as THREE from 'three';
-import { MAT } from './props3d.js';
-import { TEX } from '../gfx/textures.js';
-import { R } from '../gfx/palette.js';
 import { Spring } from '../core/tween.js';
-import { mulberry32 } from '../core/util.js';
-import * as S from './sculpt.js';
+import * as K from './charkit.js';
 
-const std = (o) => new THREE.MeshStandardMaterial(o);
-function mesh(geo, mat, parent, x = 0, y = 0, z = 0) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; if (parent) parent.add(m); return m; }
-function pivot(parent, x, y, z) { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; }
+const F = K.FACE.male; const SCALE = 2.2 / 1.81;
+const C = {
+  wood: K.hex('#b8763e'), woodD: K.hex('#6e3a22'), face: K.hex('#e6b588'), coat: K.hex('#6c2c7e'), trim: K.hex('#f0bd4e'),
+  vest: K.hex('#d9a12c'), cravat: K.hex('#f4efe6'), breeches: K.hex('#3c2550'), shoe: K.hex('#2c1e30'), brass: K.hex('#f2c454'),
+  hair: K.hex('#eeeaf6'), lip: K.hex('#b4555c'), blush: K.hex('#ec7a6a'), nose: K.hex('#e47c6c'), iris: K.hex('#3c9cb4'), ink: K.hex('#4a2438'),
+};
+const T = [0, 0, 0];
+const lit = (c, k = 0.4) => 0.5 + c.ny * 0.2 + c.nz * 0.08 + c.sh * k;
+
+function wood(c, o, along, p1, p2, joints = [], pinSide = null) {
+  const g = K.fbm(along * 3, p1 * 55, p2 * 55, 2); let L = lit(c, 0.35);
+  for (const j of joints) { const d = Math.abs(along - j); if (d < 0.0045) { K.tone(C.woodD, 0.22, o.col); o.ro = 0.6; return; } if (d < 0.009) L += 0.16; }
+  K.tone(C.wood, K.band(L + (g - 0.5) * 0.35, 4), o.col);
+  if (((g * 7) % 1) < 0.16) K.mixc(o.col, K.tone(C.woodD, 0.45, T), 0.45);
+  o.ro = 0.3;
+  if (pinSide && joints.length && pinSide(c)) for (const j of joints) if (Math.abs(along - j) < 0.014) { const d = Math.abs(along - j); K.tone(C.brass, d < 0.006 ? 0.85 : 0.5, o.col); o.me = 0.9; o.ro = 0.25; }
+}
+function coat(c, o, extraL = 0) { K.tone(C.coat, K.band(lit(c, 0.3) + extraL + (K.vnoise(c.x * 90, c.y * 90, c.z * 90) - 0.5) * 0.06, 4), o.col); o.ro = 0.85; }
+function trim(o, L = 0.6) { K.tone(C.trim, L, o.col); o.ro = 0.4; o.me = 0.5; }
+function button(o, d, r) { K.tone(C.brass, d < r * 0.45 ? 0.9 : d < r * 0.8 ? 0.6 : 0.3, o.col); o.me = 0.9; o.ro = 0.25; }
+
+function paintHead(c, o, E) {
+  const ax = Math.abs(c.x); const Y = c.y - F.ey;
+  const hairZone = (Y > 0.06 && (c.z < 0.065 || Y > 0.085)) || c.z < -0.035 || (ax > 0.074 && Y > -0.03 && c.z < 0.045 && c.z > -0.04);
+  if (hairZone && !(ax > 0.078 && Y < 0.02 && Y > -0.04 && c.z > -0.01)) { // white wild hair under the hair mesh
+    const s = K.fbm(Math.atan2(c.x, c.z) * 9, c.y * 30, 1, 2); K.tone(C.hair, K.band(0.45 + c.ny * 0.2 + (s - 0.5) * 0.7, 4), o.col); o.ro = 0.9; return;
+  }
+  const grain = K.fbm(c.x * 70, c.y * 6, c.z * 70, 2);
+  K.tone(C.face, K.band(lit(c, 0.6) + (grain - 0.5) * 0.12, 5), o.col); o.ro = 0.45;
+  if (((grain * 9) % 1) < 0.08) K.mixc(o.col, C.woodD, 0.12);
+  if (ax > 0.078) { if (c.nx * Math.sign(c.x) > 0.5 && Math.hypot(c.z - 0.0, Y + 0.012) < 0.016) K.mixc(o.col, K.tone(C.face, 0.25, T), 0.5); return; } // ears
+  K.paintFace(c, o, F, E, { skin: C.face, ink: C.ink, age: 1, puppet: true, brow: C.hair, bushy: 1.2, browW: 1.35, nose: C.nose, blush: C.blush, lip: C.lip });
+}
+function paintArm(c, o) {
+  const ax = Math.abs(c.x); const dy = c.y - 1.456, dz = c.z + 0.065;
+  if (ax < 0.555) { // coat sleeve, elbow folds, underside seam
+    const fold = ax > 0.42 && ax < 0.52 ? Math.sin(ax * 260 + K.vnoise(ax * 40, c.y * 40, 1) * 3) * 0.12 : 0;
+    coat(c, o, fold); if (c.ny < -0.9) K.mixc(o.col, C.ink, 0.5); if (ax < 0.235 && c.y > 1.47) K.mixc(o.col, K.tone(C.coat, 0.3, T), 0.5); return;
+  }
+  if (ax < 0.6) { // turned-back cuff, gold edges and a button
+    if (ax < 0.561 || ax > 0.594) return trim(o, 0.7);
+    K.tone(C.vest, K.band(lit(c, 0.3), 4), o.col); const bd = Math.hypot(ax - 0.577, dy - 0.03, dz - 0.03); if (c.ny > 0.5 && bd < 0.012) button(o, bd, 0.012); return;
+  }
+  if (ax < 0.628) { const sc = Math.sin(Math.atan2(dy, dz) * 9) * 0.004; K.tone(C.cravat, K.band(0.5 + c.ny * 0.25 + Math.sin(ax * 900) * 0.1, 3), o.col); if (ax > 0.622 + sc) K.mixc(o.col, C.ink, 0.35); o.ro = 0.9; return; }
+  const knuckles = /index|middle|ring|pinky/.test(c.b) ? [0.7, 0.785, 0.83, 0.862] : [0.7];
+  wood(c, o, ax, dy, dz, knuckles, (cc) => cc.ny > 0.75 && Math.abs(cc.z + 0.065) < 0.01);
+}
+function paintLeg(c, o) {
+  const lx = Math.abs(c.x) - 0.114, out = Math.sign(c.x) * c.nx > 0.6;
+  if (c.y > 0.6) {
+    if (c.nz < -0.15 || (out && c.z < 0.0)) { if (c.y < 0.625) return trim(o, 0.65); coat(c, o, Math.sin(c.x * 120) * 0.08); return; } // frock-coat tails
+    K.tone(C.breeches, K.band(lit(c, 0.3) + Math.sin(c.y * 70 + c.x * 30) * 0.05, 4), o.col); o.ro = 0.8; if (out && Math.abs(c.y - 0.82) < 0.002) K.mixc(o.col, C.ink, 0.5); return;
+  }
+  if (c.y > 0.572) { if (out && Math.abs(c.z + 0.03) < 0.018 && c.y < 0.597) { trim(o, c.y > 0.585 ? 0.8 : 0.45); o.me = 0.9; return; } K.tone(C.vest, K.band(lit(c, 0.2), 3), o.col); if (c.y > 0.596 || c.y < 0.576) K.mixc(o.col, C.trim, 0.8); return; }
+  if (c.y > 0.112) return wood(c, o, c.y, lx, c.z, [0.548, 0.118], () => out && Math.abs(c.z + 0.036) < 0.012);
+  // buckled shoes
+  K.tone(C.shoe, K.band(0.45 + c.ny * 0.3 + c.nz * 0.1, 4), o.col); o.ro = 0.25;
+  if (c.y < 0.018 && c.z < -0.04) K.tone(K.hex('#5a2c2a'), 0.45, o.col);
+  const bz = c.z - 0.035, bdx = lx; if (c.ny > 0.35 && Math.abs(bdx) < 0.026 && Math.abs(bz) < 0.018) { const edge = Math.abs(bdx) > 0.018 || Math.abs(bz) > 0.011; if (edge) { K.tone(C.brass, c.ny > 0.7 ? 0.85 : 0.6, o.col); o.me = 0.95; o.ro = 0.2; } }
+}
+function paintTorso(c, o) {
+  const ax = Math.abs(c.x), y = c.y; const front = c.z > -0.01 && c.nz > 0.2;
+  const vw = 0.068 + (1.42 - y) * 0.07;
+  if (front && y > 1.33 && ax < 0.03 + (y - 1.33) * 0.35) { // cravat / jabot
+    K.tone(C.cravat, K.band(0.55 + c.ny * 0.2 + Math.sin(ax * 320 + y * 60) * 0.12 + c.sh * 0.2, 4), o.col); o.ro = 0.9; if (Math.abs(ax - (0.03 + (y - 1.33) * 0.35)) < 0.003) K.mixc(o.col, C.ink, 0.35); return;
+  }
+  if (front && y > 0.935 + ax * 0.5 && y < 1.43 && ax < vw) { // mustard waistcoat + brass buttons
+    K.tone(C.vest, K.band(lit(c, 0.25) + Math.sin(y * 140) * 0.03, 4), o.col); o.ro = 0.7;
+    if (Math.abs(((c.x * 400 + y * 60) % 6) - 3) < 0.25) K.mixc(o.col, K.tone(C.vest, 0.3, T), 0.35); // brocade weave
+    const k = Math.round((y - 1.0) / 0.052); const bd = Math.hypot(c.x, y - 1.0 - k * 0.052); if (k >= 0 && k <= 6 && bd < 0.0085) button(o, bd, 0.0085);
+    if (ax > vw - 0.004) K.mixc(o.col, C.ink, 0.5);
+    if (Math.abs(y - 1.08) < 0.01 && ax > 0.03 && ax < 0.07) K.mixc(o.col, K.tone(C.vest, 0.3, T), 0.6);
+    return;
+  }
+  if (y < 0.985 && front && ax < 0.1) { K.tone(C.breeches, K.band(lit(c, 0.25), 4), o.col); o.ro = 0.8; return; }
+  const lap = front && y > 1.12 && ax < vw + 0.045;
+  coat(c, o, lap ? 0.12 : 0);
+  if (front && Math.abs(ax - vw) < 0.0045 && y < 1.45) trim(o, 0.7);
+  if (lap && Math.abs(ax - vw - 0.045) < 0.003) K.mixc(o.col, C.ink, 0.5);
+  if (front && y > 0.98 && y < 1.32) { const k = Math.round((y - 1.0) / 0.075); const bd = Math.hypot(ax - vw - 0.022, y - 1.0 - k * 0.075); if (bd < 0.011) button(o, bd, 0.011); }
+  if (front && y > 0.985 && y < 1.03 && ax > 0.12 && ax < 0.19) { coat(c, o, -0.15); if (y < 0.99 || ax < 0.124 || ax > 0.186) trim(o, 0.55); }
+  if (c.z < 0 && ax < 0.0035) K.mixc(o.col, C.ink, 0.6);
+  if (Math.abs(c.nz) < 0.12 && Math.abs(c.nx) > 0.9) K.mixc(o.col, C.ink, 0.4);
+  if (y > 1.43 && !front) coat(c, o, 0.1);
+}
+function painter(E) {
+  return (c, o) => {
+    const ax = Math.abs(c.x);
+    if (c.b === 'Head' || (c.y > 1.585 && ax < 0.13)) return paintHead(c, o, E);
+    if (c.b === 'neck_01' || (c.y > 1.5 && ax < 0.11)) { if (c.z > 0.0) { K.tone(C.cravat, K.band(0.5 + c.ny * 0.2 + Math.sin(c.y * 300) * 0.1, 4), o.col); o.ro = 0.9; } else coat(c, o, 0.1); return; }
+    if (ax > 0.19 && c.y > 1.3) return paintArm(c, o);
+    if (c.y < 0.975 && /thigh|calf|foot|ball/.test(c.b)) return paintLeg(c, o);
+    return paintTorso(c, o);
+  };
+}
+function hairPainter(c, o) {
+  const a = Math.atan2(c.x, c.z); const s = K.fbm(a * 10, c.y * 14, 2, 2), s2 = K.vnoise(a * 40, c.y * 6, 5);
+  K.tone(C.hair, K.band(0.42 + c.ny * 0.3 + (s - 0.5) * 0.8 + (s2 - 0.5) * 0.25, 4), o.col); o.ro = 0.9;
+}
+
+// ---------------------------------------------------------------- shared painted resources (built once)
+let RES = null;
+function resources() {
+  if (RES) return RES;
+  const body = K.baseBody('male'), eyes = K.baseEyes('male');
+  const S = K.surface('male-body', body, 1024); const shade = K.shadeOf('male');
+  const res = K.paintSurface(S, painter(K.EXPR.smug), { shade });
+  const faceS = { ...S }; const sel = []; for (let i = 0; i < S.n; i++) { const x = S.P[i * 3], y = S.P[i * 3 + 1], z = S.P[i * 3 + 2]; if (y > F.ey - 0.14 && y < F.ey + 0.11 && z > 0.01 && Math.abs(x) < 0.085) sel.push(i); }
+  const pick = (A, k) => { const out = new A.constructor(sel.length * k); sel.forEach((s, j) => { for (let q = 0; q < k; q++) out[j * k + q] = A[s * k + q]; }); return out; };
+  Object.assign(faceS, { n: sel.length, off: pick(S.off, 1), P: pick(S.P, 3), N: pick(S.N, 3), B: pick(S.B, 1) });
+  const mat = K.paintedMat(res);
+  const hairS = K.surface('hair-long', K.srcMesh('hair_long'), 256); const hairMat = K.paintedMat(K.paintSurface(hairS, hairPainter), { side: THREE.DoubleSide });
+  const eyeS = K.surface('male-eyes', eyes, 128); const eyeCache = new Map();
+  const eyeTex = (lid) => { const k = Math.round(lid * 10); if (!eyeCache.has(k)) eyeCache.set(k, K.canvasTex(K.paintSurface(eyeS, (c, o) => K.paintEye(c, o, F, { skin: C.face, ink: C.ink, iris: C.iris, irisR: 0.55 }, k / 10)).canvas)); return eyeCache.get(k); };
+  const eyeMat = new THREE.MeshStandardMaterial({ map: eyeTex(0.4), roughness: 0.3, flatShading: true });
+  const faceCache = new Map(); let cur = 'smug';
+  const setFace = (key, E) => {
+    if (key === cur) return; cur = key;
+    if (!faceCache.has(key)) { const [x0, y0, x1, y1] = K.paintSurface(faceS, painter(E), { shade, into: res }).rect; faceCache.set(key, { x0, y0, w: x1 - x0 + 1, h: y1 - y0 + 1, data: res.canvas.getContext('2d').getImageData(x0, y0, x1 - x0 + 1, y1 - y0 + 1) }); }
+    else { const f = faceCache.get(key); res.canvas.getContext('2d').putImageData(f.data, f.x0, f.y0); }
+    mat.map.needsUpdate = true;
+  };
+  return (RES = { mat, hairMat, eyeMat, eyeTex, setFace });
+}
+
+function turnedBar(len, r, mat) { // a lathe-turned dowel with knobs and grooves, along +X
+  const l = new K.Loft(28, 9).set((t, p) => p.set((t - 0.5) * len, 0, 0), (t) => { const e = Math.min(t, 1 - t) * len; return r * (e < 0.035 ? 0.4 + e / 0.035 * 1.1 : e < 0.06 ? 1.5 - (e - 0.035) * 22 : e < 0.075 ? 0.85 : 1 + Math.sin(e * 40) * 0.04); });
+  return K.mesh(l.geo, mat);
+}
 
 export function createProfessor() {
   const root = new THREE.Group(); root.name = 'professor';
-  const F = (o) => std({ flatShading: true, ...o });
-  const wood = F({ map: TEX.wood('marionette', R.oak, { seed: 4, rings: 7 }), roughness: 0.55 });
-  const woodFace = F({ map: TEX.wood('face', ['#6e4024', '#a8713a', '#c99254', '#dcae74', '#ecc490', '#f7dcb5'], { seed: 9, rings: 5, knots: 0 }), roughness: 0.5 });
-  const coat = F({ map: TEX.cloth('coat', ['#1a0f2a', '#2a1840', '#3e2459', '#553276', '#6b4c9a'], { trim: { ramp: R.gold, size: 3 } }), roughness: 0.8, side: THREE.DoubleSide });
-  const vest = F({ map: TEX.cloth('vest', R.mustard, { stripes: { size: 3, ramp: R.gold } }), roughness: 0.7 });
-  const lace = F({ color: 0xf6f0e2, roughness: 0.9, side: THREE.DoubleSide });
-  const brass = F({ color: 0xd9a64a, metalness: 0.85, roughness: 0.32 }); const dark = F({ color: 0x1a1220, roughness: 0.6 });
-  const stock = F({ map: TEX.cloth('stock', R.cream, { weave: true }), roughness: 0.9 });
-  const shoe = F({ color: 0x2a1a18, roughness: 0.35, metalness: 0.1 });
+  const body = new THREE.Group(); body.name = 'puppet'; root.add(body); // the hanging puppet (model goes in here)
+  const head = new THREE.Group(); head.position.set(0, 2.0, 0); root.add(head); // re-parented to the Head bone once loaded
+  const jaw = new THREE.Group(); head.add(jaw);
+  const torso = new THREE.Group(); torso.position.set(0, 1.55, 0); root.add(torso);
+  const hands = [new THREE.Group(), new THREE.Group()]; hands[0].position.set(-0.35, 1.15, 0.1); hands[1].position.set(0.35, 1.15, 0.1); root.add(...hands);
+  const knees = [new THREE.Group(), new THREE.Group()]; knees[0].position.set(-0.14, 0.66, 0); knees[1].position.set(0.14, 0.66, 0); root.add(...knees);
+  const arms = [], legs = [];
 
-  const body = pivot(root, 0, 1.0, 0); // pelvis
-  mesh(S.slab(0.46, 0.22, 0.3, { seed: 11, taper: 0.15 }), coat, body);
-  const torso = pivot(body, 0, 0.1, 0);
-  // waistcoat chest: barrel-shaped, slightly hunched
-  const chest = mesh(S.turn([[0.001, 0], [0.22, 0.02], [0.25, 0.2], [0.27, 0.42], [0.22, 0.6], [0.001, 0.62]], { sides: 7, seed: 12, amt: 0.03 }), vest, torso, 0, 0, 0.02); chest.scale.set(1, 1, 0.82);
-  // frock coat shell, open at the front
-  const coatG = new THREE.CylinderGeometry(0.3, 0.27, 0.62, 8, 2, true, 0.75, Math.PI * 2 - 1.5); S.warp(coatG, { amt: 0.025, seed: 13 }); mesh(S.facet(coatG), coat, torso, 0, 0.31, 0).scale.set(1, 1, 0.86);
-  for (let i = 0; i < 4; i++) mesh(S.gem(0.026, 0, 20 + i), brass, torso, 0.0, 0.48 - i * 0.12, 0.22);
-  for (const s of [-1, 1]) { const l = mesh(S.slab(0.11, 0.38, 0.035, { seed: 14 + s, taper: 0.4 }), coat, torso, s * 0.13, 0.42, 0.21); l.rotation.set(-0.15, 0, s * 0.35); }
-  const colG = new THREE.CylinderGeometry(0.2, 0.28, 0.17, 8, 1, true); S.warp(colG, { amt: 0.02, seed: 15 }); mesh(S.facet(colG), coat, torso, 0, 0.66, -0.02);
-  for (let i = 0; i < 4; i++) { const j = mesh(S.facet(new THREE.ConeGeometry(0.075 + i * 0.012, 0.085, 6, 1, true)), lace, torso, 0, 0.6 - i * 0.055, 0.22); j.rotation.x = -0.25; j.rotation.y = i * 0.4; }
-  const tails = [];
-  for (const s of [-1, 1]) { const t = pivot(body, s * 0.13, 0.02, -0.1); const m = mesh(S.slab(0.24, 0.62, 0.04, { seed: 16 + s, taper: -0.3 }), coat, t, 0, -0.3, 0); m.rotation.z = s * 0.06; tails.push(t); }
-  // neck + carved head: lathe skull with a proud nose, brow ridge, cheekbones and a hinged jaw
-  const neck = pivot(torso, 0, 0.66, 0); mesh(S.limb(0.16, 0.065, 0.055, { sides: 6, seed: 17 }), wood, neck, 0, 0.14, 0);
-  const head = pivot(neck, 0, 0.14, 0);
-  const skull = mesh(S.turn([[0.001, -0.01], [0.12, 0.0], [0.18, 0.07], [0.205, 0.17], [0.2, 0.28], [0.17, 0.36], [0.09, 0.415], [0.001, 0.425]], { sides: 9, seed: 18, amt: 0.05 }), woodFace, head, 0, 0.04, 0); skull.scale.set(0.95, 1, 1.08);
-  const brow = mesh(S.slab(0.3, 0.05, 0.08, { seed: 19, taper: 0.2 }), woodFace, head, 0, 0.31, 0.15); brow.rotation.x = 0.2;
-  const nose = mesh(S.horn([[0, 0.29, 0.17], [0, 0.22, 0.25], [0, 0.15, 0.3], [0, 0.13, 0.31]], 0.05, 0.022, { sides: 4, segs: 4, seed: 20 }), woodFace, head);
-  const cheekMat = F({ color: 0xd8826a, roughness: 0.6 });
-  for (const s of [-1, 1]) { mesh(S.blob(0.05, 0.035, 0.03, { detail: 0, seed: 21 + s }), cheekMat, head, s * 0.13, 0.15, 0.15); mesh(S.blob(0.045, 0.06, 0.05, { detail: 0, seed: 23 + s }), woodFace, head, s * 0.19, 0.22, 0.02); }
-  const eyes = []; const lids = []; const brows = [];
-  for (const s of [-1, 1]) {
-    const e = pivot(head, s * 0.085, 0.26, 0.165);
-    mesh(S.blob(0.046, 0.042, 0.04, { detail: 1, amt: 0.03, seed: 25 + s }), F({ color: 0xfbf4de, roughness: 0.25 }), e);
-    const iris = mesh(S.gem(0.024, 0, 27 + s), F({ color: 0x2d6e6a, roughness: 0.2 }), e, 0, 0, 0.032);
-    mesh(S.gem(0.012, 0, 29), dark, iris, 0, 0, 0.016); eyes.push(iris);
-    const lid = pivot(e, 0, 0, 0); const lg = new THREE.SphereGeometry(0.05, 7, 4, 0, Math.PI * 2, 0, Math.PI * 0.5); const lm = mesh(S.facet(lg), woodFace, lid); lm.rotation.x = -0.2; lids.push(lid);
-    const b = pivot(head, s * 0.09, 0.335, 0.185); mesh(S.slab(0.11, 0.028, 0.035, { seed: 30 + s, taper: 0.5 }), F({ color: 0xeeeef4, roughness: 0.9 }), b).rotation.z = s * 0.15; brows.push(b);
-  }
-  const monoG = new THREE.TorusGeometry(0.055, 0.009, 4, 10); const mono = mesh(S.facet(monoG), brass, head, 0.085, 0.26, 0.215);
-  mesh(new THREE.CircleGeometry(0.052, 10), MAT.glass(), mono);
-  const chain = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0.13, 0.23, 0.21), new THREE.Vector3(0.2, 0.05, 0.18), new THREE.Vector3(0.18, -0.25, 0.26)]), 8, 0.005, 3), brass); head.add(chain);
-  const jaw = pivot(head, 0, 0.1, 0.02);
-  mesh(S.slab(0.23, 0.1, 0.21, { seed: 32, taper: 0.35 }), woodFace, jaw, 0, -0.045, 0.06);
-  mesh(S.slab(0.13, 0.014, 0.02, { seed: 33 }), F({ color: 0x5a1a22 }), jaw, 0, 0.0, 0.16);
-  for (const s of [-1, 1]) mesh(S.gem(0.015, 0, 34), brass, jaw, s * 0.118, 0, 0);
-  // wild white hair: faceted curved tufts swept back and up
-  const hairMat = F({ color: 0xf2f2f8, roughness: 0.85 }); const hairShade = F({ color: 0xbcbcd6, roughness: 0.9 });
-  const rnd = mulberry32(17); const hair = pivot(head, 0, 0.3, -0.02); const tufts = [];
-  for (let i = 0; i < 40; i++) {
-    const a = rnd() * Math.PI * 2; const up = rnd(); if (Math.sin(a) > 0.5 && up < 0.65) continue;
-    const r = 0.16 + rnd() * 0.06; const bx = Math.cos(a) * r, bz = Math.sin(a) * r * 0.9 - 0.02, by = (up - 0.35) * 0.22;
-    const len = 0.16 + rnd() * 0.24; const dir = new THREE.Vector3(bx * 2.2, 0.35 + up * 0.5, bz * 2.2 - 0.12).normalize();
-    const mid = new THREE.Vector3(bx, by, bz).addScaledVector(dir, len * 0.5).add(new THREE.Vector3((rnd() - 0.5) * 0.08, 0.04, (rnd() - 0.5) * 0.08));
-    const tip = new THREE.Vector3(bx, by, bz).addScaledVector(dir, len).add(new THREE.Vector3((rnd() - 0.5) * 0.12, -0.03 + rnd() * 0.06, -0.06));
-    tufts.push(mesh(S.horn([[bx, by, bz], mid, tip], 0.045 + rnd() * 0.03, 0.004, { sides: 4, segs: 4, seed: 40 + i }), rnd() < 0.3 ? hairShade : hairMat, hair));
-  }
-  const gog = pivot(head, 0, 0.38, 0.1); gog.rotation.x = -0.5;
-  for (const s of [-1, 1]) { const ring = mesh(S.facet(new THREE.CylinderGeometry(0.045, 0.052, 0.05, 7)), brass, gog, s * 0.06, 0, 0); ring.rotation.x = Math.PI / 2; mesh(new THREE.CircleGeometry(0.038, 7), F({ color: 0x8fe3ff, emissive: 0x2a6a8a, emissiveIntensity: 0.6, roughness: 0.1 }), ring, 0, 0.026, 0).rotation.x = -Math.PI / 2; }
-  mesh(S.facet(new THREE.TorusGeometry(0.21, 0.012, 3, 10, Math.PI)), dark, gog, 0, 0, -0.08).rotation.x = Math.PI / 2;
-  // arms: faceted sleeves over carved forearms, brass-pinned joints, lace cuffs, jointed hands
-  const arms = [];
-  for (const s of [-1, 1]) {
-    const sh = pivot(torso, s * 0.3, 0.55, 0); mesh(S.blob(0.085, 0.075, 0.08, { detail: 0, seed: 50 + s }), coat, sh);
-    mesh(S.limb(0.36, 0.075, 0.062, { sides: 6, seed: 52 + s, bulge: 0.12 }), coat, sh, 0, -0.02, 0);
-    const el = pivot(sh, 0, -0.38, 0); mesh(S.gem(0.05, 0, 54 + s), wood, el); mesh(S.limb(0.31, 0.048, 0.036, { sides: 6, seed: 56 + s, bulge: 0.25, bulgeAt: 0.25 }), wood, el);
-    mesh(S.facet(new THREE.ConeGeometry(0.08, 0.085, 7, 1, true)), lace, el, 0, -0.28, 0).rotation.x = Math.PI;
-    const wr = pivot(el, 0, -0.33, 0); mesh(S.gem(0.035, 0, 58), brass, wr);
-    const hand = pivot(wr, 0, -0.07, 0); mesh(S.slab(0.09, 0.11, 0.05, { seed: 59 + s, taper: 0.15 }), wood, hand, 0, -0.03, 0);
-    for (let f = 0; f < 4; f++) mesh(S.slab(0.019, 0.072, 0.022, { seed: 61 + f }), wood, hand, -0.03 + f * 0.02, -0.11, 0.005).rotation.x = 0.15 + f * 0.05;
-    mesh(S.slab(0.021, 0.06, 0.021, { seed: 66 }), wood, hand, s * -0.05, -0.05, 0.02).rotation.z = s * 0.5;
-    sh.rotation.z = s * 0.12; arms.push({ sh, el, wr, hand, s });
-  }
-  const legs = [];
-  for (const s of [-1, 1]) {
-    const hip = pivot(body, s * 0.12, -0.08, 0); mesh(S.blob(0.075, 0.07, 0.075, { detail: 0, seed: 70 + s }), coat, hip);
-    mesh(S.limb(0.38, 0.09, 0.07, { sides: 6, seed: 72 + s, bulge: 0.2 }), coat, hip, 0, -0.01, 0);
-    const kn = pivot(hip, 0, -0.4, 0); mesh(S.gem(0.056, 0, 74 + s), wood, kn);
-    mesh(S.limb(0.38, 0.06, 0.042, { sides: 6, seed: 76 + s, bulge: 0.35, bulgeAt: 0.3 }), stock, kn);
-    const an = pivot(kn, 0, -0.4, 0); mesh(S.gem(0.04, 0, 78), wood, an);
-    mesh(S.slab(0.12, 0.075, 0.26, { seed: 79 + s, taper: 0.2 }), shoe, an, 0, -0.05, 0.05);
-    mesh(S.slab(0.065, 0.042, 0.014, { seed: 81 }), brass, an, 0, -0.03, 0.18);
-    legs.push({ hip, kn, an, s });
-  }
-  // ---------------- control cross, strings and the ghost ----------------
+  // ---------------- control cross (turned wood), ghost and strings
   const ctrl = new THREE.Group(); ctrl.position.set(0, 3.55, 0); root.add(ctrl);
   const cross = new THREE.Group(); ctrl.add(cross);
-  const dw = F({ map: TEX.wood('cross', R.wood, { seed: 21 }), roughness: 0.7 });
-  mesh(S.slab(1.0, 0.075, 0.075, { seed: 90, jitter: 0.12 }), dw, cross); mesh(S.slab(0.075, 0.075, 0.62, { seed: 91, jitter: 0.12 }), dw, cross);
-  for (const [x, z] of [[-0.5, 0], [0.5, 0], [0, 0.3], [0, -0.3]]) mesh(S.gem(0.04, 0, 92), brass, cross, x, 0, z);
-  const ghostMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x8a7cff).multiplyScalar(1.4), transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
-  const ghost = new THREE.Group(); ghost.position.set(0, 0.55, -0.15); ctrl.add(ghost);
-  const gHead = mesh(S.blob(0.24, 0.27, 0.25, { detail: 1, seed: 93 }), ghostMat, ghost, 0, 0.5, 0); gHead.castShadow = false;
-  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; const t = mesh(S.horn([[0, 0, 0], [Math.cos(a) * 0.15, 0.12, Math.sin(a) * 0.1], [Math.cos(a) * 0.3, 0.2 + Math.sin(i * 2) * 0.06, Math.sin(a) * 0.2]], 0.07, 0.004, { sides: 4, segs: 3, seed: 94 + i }), ghostMat, gHead, Math.cos(a) * 0.15, 0.12, Math.sin(a) * 0.12); t.castShadow = false; }
-  const gBody = mesh(S.facet(new THREE.CylinderGeometry(0.34, 0.1, 0.8, 7, 1, true)), ghostMat, ghost, 0, 0.0, 0); gBody.castShadow = false;
-  const gArms = [];
-  for (const s of [-1, 1]) { const a = pivot(ghost, s * 0.3, 0.25, 0); const m = mesh(S.limb(0.62, 0.065, 0.04, { sides: 5, seed: 110 + s }), ghostMat, a); m.castShadow = false; a.rotation.z = s * 0.6; gArms.push(a); }
-  for (const s of [-1, 1]) { const e = mesh(S.gem(0.035, 0, 112), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xe8fbff).multiplyScalar(3) }), gHead, s * 0.08, 0.02, 0.23); e.castShadow = false; }
+  const woodMat = K.uvMat('cross-wood', 64, 256, (u, v, o) => { const g = K.fbm(u * 6, v * 40, 3, 2); K.tone(C.wood, K.band(0.5 + Math.cos(u * Math.PI * 2) * 0.22 + (g - 0.5) * 0.4, 4), o.col); if (((g * 6) % 1) < 0.14) K.mixc(o.col, C.woodD, 0.4); o.ro = 0.35; });
+  { const a = turnedBar(1.04, 0.032, woodMat); cross.add(a); const b = turnedBar(0.66, 0.03, woodMat); b.rotation.y = Math.PI / 2; cross.add(b); }
+  const ghostMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x8a7cff).multiplyScalar(1.4), transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false });
+  const ghost = new THREE.Group(); ghost.position.set(0, 0.3, -0.32); ctrl.add(ghost);
   const strPos = new Float32Array(6 * 3 * 2); const strGeo = new THREE.BufferGeometry(); strGeo.setAttribute('position', new THREE.BufferAttribute(strPos, 3));
   const strings = new THREE.LineSegments(strGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(0xb4e8ff).multiplyScalar(2.6), transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
   strings.frustumCulled = false; root.add(strings);
   const anchors = [[-0.5, 0, 0], [0.5, 0, 0], [0, 0, 0.3], [0, 0, -0.3], [-0.25, 0, 0], [0.25, 0, 0]].map((p) => new THREE.Vector3(...p));
-  const attach = () => [arms[0].wr, arms[1].wr, head, torso, legs[0].kn, legs[1].kn];
+  const attach = [hands[0], hands[1], head, torso, knees[0], knees[1]];
 
-  // ---------------- expression + animation state ----------------
   const st = {
-    t: 0, mode: 'idle', modeT: 0, talk: 0, look: new THREE.Vector2(), expr: 'smug',
+    t: 0, mode: 'idle', modeT: 0, talk: 0, look: new THREE.Vector2(), expr: 'smug', hold: 0, blink: 0,
     bar: { x: new Spring(0, 7, 0.45), y: new Spring(0, 7, 0.45), tilt: new Spring(0, 9, 0.4), roll: new Spring(0, 9, 0.4) },
-    armL: new Spring(0, 10, 0.35), armR: new Spring(0, 10, 0.35), elL: new Spring(0.3, 12, 0.4), elR: new Spring(0.3, 12, 0.4),
-    slump: new Spring(0, 8, 0.5), squash: new Spring(1, 16, 0.3), jaw: new Spring(0, 30, 0.5), lean: new Spring(0, 8, 0.5), legK: new Spring(0, 10, 0.4),
+    slump: new Spring(0, 8, 0.5), lean: new Spring(0, 8, 0.5), jaw: new Spring(0, 30, 0.5),
   };
-  const EXPR = {
-    smug: { brow: [0.0, 0.25], lid: [0.35, 0.15] }, delight: { brow: [0.35, 0.35], lid: [-0.1, -0.1] }, annoyed: { brow: [-0.35, -0.3], lid: [0.45, 0.45] },
-    hurt: { brow: [0.4, -0.4], lid: [0.6, 0.2] }, shock: { brow: [0.5, 0.5], lid: [-0.3, -0.3] }, think: { brow: [0.2, -0.15], lid: [0.25, 0.25] },
-  };
-  const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
+  let M = null; // loaded model parts
+  const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3(), grip = new THREE.Vector3(), elbow = new THREE.Vector3();
+
+  K.withAssets(['base_male', 'anims', 'male_shade.png', 'hair_long'], () => {
+    const R = resources(); const P = K.makeBody('male'); const { model, bones } = P;
+    P.body.material = R.mat; P.eyes.material = R.eyeMat; model.scale.setScalar(SCALE); body.add(model);
+    K.headPiece('hair_long', R.hairMat, P.body, { push: 0.03, seed: 4, scale: 1.08 });
+    bones.Head.add(head); head.position.set(0, 0.11, 0.02); bones.Head.add(jaw); jaw.position.set(0, 0.03, 0.08);
+    bones.spine_03.add(torso); torso.position.set(0, 0, -0.12);
+    bones.hand_r.add(hands[0]); bones.hand_l.add(hands[1]); hands[0].position.set(0, 0.08, 0); hands[1].position.set(0, 0.08, 0);
+    bones.calf_r.add(knees[0]); bones.calf_l.add(knees[1]); knees[0].position.set(0, 0, 0); knees[1].position.set(0, 0, 0);
+    for (const [s, k] of [[-1, 'r'], [1, 'l']]) { arms.push({ sh: bones['upperarm_' + k], el: bones['lowerarm_' + k], wr: bones['hand_' + k], hand: bones['hand_' + k], s }); legs.push({ hip: bones['thigh_' + k], kn: bones['calf_' + k], an: bones['foot_' + k], s }); }
+    // the ghost: a translucent additive copy of the same base mesh, holding the cross
+    const G = K.makeBody('male'); G.body.material = ghostMat; G.eyes.material = new THREE.MeshBasicMaterial({ color: new THREE.Color(0xe8fbff).multiplyScalar(3) });
+    G.model.traverse((o) => { if (o.isMesh) o.castShadow = false; }); G.model.scale.setScalar(SCALE * 0.78); G.model.position.y = -1.45 * SCALE * 0.78 + 0.05; G.model.rotation.x = 0.25; ghost.add(G.model);
+    const bind = {}; for (const k of ['Head', 'upperarm_l', 'upperarm_r', 'lowerarm_l', 'lowerarm_r']) bind[k] = G.bones[k].quaternion.clone();
+    M = { R, P, bones, G, bind, anim: new K.Anim(model) };
+    M.anim.idle.time = Math.random() * 2;
+    api.update(0);
+  });
+
   const api = {
     root, head, jaw, ctrl, arms, legs, torso, body, ghost,
-    handWorld(i = 1, out = new THREE.Vector3()) { return arms[i].hand.getWorldPosition(out); },
-    headWorld(out = new THREE.Vector3()) { return head.getWorldPosition(out); },
-    setExpr(e) { st.expr = e; },
+    handWorld(i = 1, out = new THREE.Vector3()) { root.updateMatrixWorld(true); return hands[i].getWorldPosition(out); },
+    headWorld(out = new THREE.Vector3()) { root.updateMatrixWorld(true); return head.getWorldPosition(out); },
+    setExpr(e) { st.expr = K.EXPR[e] ? e : 'smug'; st.hold = 0; },
     talk(sec = 1.2) { st.talk = Math.max(st.talk, sec); },
     lookAt(x, y) { st.look.set(x, y); },
-    act(mode) { st.mode = mode; st.modeT = 0; if (mode === 'throw') { st.armR.kick(-14); st.bar.x.kick(4); st.lean.kick(3); st.squash.kick(-2); } if (mode === 'hurt') { st.slump.kick(6); st.bar.y.kick(-2); st.setExprHold = 0.8; st.expr = 'hurt'; } if (mode === 'cast') { st.armL.kick(-10); st.armR.kick(-10); st.bar.y.kick(3); } if (mode === 'cheer') { st.armL.kick(-16); st.armR.kick(-16); st.bar.y.kick(5); st.expr = 'delight'; } },
+    act(mode) {
+      st.mode = mode; st.modeT = 0; const A = M?.anim;
+      if (mode === 'throw') { A?.play('throw', { speed: 1.3 }); st.bar.x.kick(4); st.lean.kick(3); }
+      if (mode === 'hurt') { A?.play('hit', { speed: 1.1 }); st.slump.kick(6); st.bar.y.kick(-2); st.expr = 'hurt'; st.hold = 1.0; }
+      if (mode === 'cast') { A?.play('cast'); st.bar.y.kick(3); st.expr = st.expr === 'smug' ? 'think' : st.expr; }
+      if (mode === 'cheer') { A?.play('cheer', { speed: 0.9 }); st.bar.y.kick(5); st.expr = 'delight'; st.hold = 1.4; }
+    },
     update(dt) {
       st.t += dt; st.modeT += dt; const t = st.t;
-      // idle hang: control bar bobs, rolls; the puppet dangles after it
-      const bob = Math.sin(t * 1.6) * 0.06, sway = Math.sin(t * 0.9) * 0.08;
-      st.bar.x.target = sway; st.bar.y.target = bob; st.bar.tilt.target = Math.sin(t * 1.3) * 0.08; st.bar.roll.target = Math.sin(t * 0.7) * 0.06;
-      for (const k in st.bar) st.bar[k].update(dt);
+      // the control bar bobs and rolls; the puppet dangles after it
+      st.bar.x.target = Math.sin(t * 0.9) * 0.08; st.bar.y.target = Math.sin(t * 1.6) * 0.06; st.bar.tilt.target = Math.sin(t * 1.3) * 0.08; st.bar.roll.target = Math.sin(t * 0.7) * 0.06;
+      for (const k in st.bar) st.bar[k].update(dt); st.slump.update(dt); st.lean.update(dt);
       ctrl.position.set(st.bar.x.value * 0.6, 3.55 + st.bar.y.value, 0); cross.rotation.set(st.bar.tilt.value, 0, st.bar.roll.value);
-      ghost.position.y = 0.55 + Math.sin(t * 2.1) * 0.05; ghost.rotation.y = Math.sin(t * 0.5) * 0.15;
-      ghostMat.opacity = 0.18 + Math.sin(t * 3.3) * 0.04 + (st.mode === 'cast' ? 0.15 : 0);
-      gArms.forEach((a, i) => (a.rotation.z = (i ? 1 : -1) * (0.6 + Math.sin(t * 1.6 + i) * 0.08) - st.bar.roll.value));
-      // body follows bar with lag
-      st.slump.target = 0; st.slump.update(dt); st.squash.update(dt); st.lean.update(dt); st.legK.update(dt);
-      body.position.set(st.bar.x.value * 0.35, 1.0 + st.bar.y.value * 0.6 - st.slump.value * 0.05 + Math.sin(t * 3.2) * 0.012, 0);
-      body.rotation.z = -st.bar.roll.value * 0.8 + Math.sin(t * 1.1) * 0.03; body.rotation.x = st.lean.value * 0.06 + st.slump.value * 0.04;
-      torso.rotation.z = Math.sin(t * 1.1 + 0.5) * 0.04; torso.scale.y = st.squash.value;
-      // arms: dangle with springs; mode overrides
-      st.armL.target = -0.1 + Math.sin(t * 1.7) * 0.08; st.armR.target = -0.1 + Math.sin(t * 1.7 + 1) * 0.08; st.elL.target = 0.35; st.elR.target = 0.35;
-      if (st.mode === 'talk' || st.talk > 0) { st.armR.target = -0.9 + Math.sin(t * 5) * 0.25; st.elR.target = 1.2; }
-      for (const s of [st.armL, st.armR, st.elL, st.elR, st.jaw]) s.update(dt);
-      arms[0].sh.rotation.x = st.armL.value; arms[1].sh.rotation.x = st.armR.value; arms[0].el.rotation.x = -st.elL.value; arms[1].el.rotation.x = -st.elR.value;
-      arms[0].sh.rotation.z = -0.15 - st.slump.value * 0.05; arms[1].sh.rotation.z = 0.15 + st.slump.value * 0.05;
-      for (const l of legs) { l.hip.rotation.x = Math.sin(t * 1.4 + l.s) * 0.06 - st.legK.value * 0.2; l.kn.rotation.x = 0.06 + Math.max(0, Math.sin(t * 1.4 + l.s)) * 0.08 + st.legK.value * 0.4; l.an.rotation.x = -0.05; }
-      tails.forEach((tl, i) => { tl.rotation.x = 0.12 + Math.sin(t * 2 + i) * 0.06 + st.lean.value * 0.05; });
-      // head + face
-      head.rotation.y = st.look.x * 0.5 + Math.sin(t * 0.6) * 0.1; head.rotation.x = -st.look.y * 0.3 + Math.sin(t * 1.3) * 0.04 + st.slump.value * 0.08; head.rotation.z = Math.sin(t * 0.8) * 0.06;
-      if (st.talk > 0) { st.talk -= dt; st.jaw.target = Math.abs(Math.sin(t * 17)) * 0.35; } else st.jaw.target = 0;
-      jaw.rotation.x = st.jaw.value;
-      const ex = EXPR[st.expr] || EXPR.smug; const blink = (t % 3.7) < 0.12 ? 1 : 0;
-      brows.forEach((b, i) => { b.rotation.z = (i ? -1 : 1) * ex.brow[i] * 0.6; b.position.y = 0.33 + ex.brow[i] * 0.03; });
-      lids.forEach((l, i) => { l.rotation.x = -1.2 + Math.max(blink * 1.2, ex.lid[i] * 1.0); });
-      eyes.forEach((e) => { e.position.x = st.look.x * 0.012; e.position.y = st.look.y * 0.01; });
-      hair.rotation.z = Math.sin(t * 2.3) * 0.04; hair.rotation.x = Math.sin(t * 1.9) * 0.03 - st.lean.value * 0.03;
-      if (st.mode !== 'idle' && st.modeT > 1.2) { st.mode = 'idle'; if (st.expr === 'hurt' || st.expr === 'delight') st.expr = 'smug'; }
-      // strings follow joints
-      root.updateMatrixWorld(true);
-      const at = attach(); const inv = root.matrixWorld.clone().invert();
+      ghost.position.y = 0.3 + Math.sin(t * 2.1) * 0.05; ghost.rotation.y = Math.sin(t * 0.5) * 0.12;
+      ghostMat.opacity = 0.16 + Math.sin(t * 3.3) * 0.04 + (st.mode === 'cast' ? 0.14 : 0);
+      body.position.set(st.bar.x.value * 0.35, Math.max(0, st.bar.y.value * 0.5) + Math.abs(Math.sin(t * 1.6)) * 0.02, 0);
+      body.rotation.set(st.lean.value * 0.05 + st.slump.value * 0.03, 0, -st.bar.roll.value * 0.6 + Math.sin(t * 1.1) * 0.025);
+      if (st.hold > 0) st.hold -= dt; else if (st.expr === 'hurt' || st.expr === 'delight') st.expr = 'smug';
+      if (st.mode !== 'idle' && st.modeT > 1.6) st.mode = 'idle';
+      if (M) {
+        const { bones: B, anim, R, G } = M; if (!globalThis.__noanim) anim.update(dt);
+        // marionette looseness on top of the animation: floppy limbs, string-pulled wrists, head look and talk nods
+        const rm = (b, x, y, z) => K.nudge(b, x, y, z);
+        rm(B.spine_01, st.slump.value * 0.05, 0, Math.sin(t * 1.1 + 0.5) * 0.03);
+        rm(B.upperarm_l, Math.sin(t * 1.7) * 0.08, 0, Math.sin(t * 1.3) * 0.05); rm(B.upperarm_r, Math.sin(t * 1.7 + 1) * 0.08, 0, Math.sin(t * 1.3 + 2) * 0.05);
+        rm(B.hand_l, Math.sin(t * 2.3) * 0.15, 0, 0); rm(B.hand_r, Math.sin(t * 2.3 + 1) * 0.15, 0, 0);
+        rm(B.calf_l, Math.max(0, Math.sin(t * 1.4)) * 0.08, 0, 0); rm(B.calf_r, Math.max(0, Math.sin(t * 1.4 + 1)) * 0.08, 0, 0);
+        st.jaw.target = st.talk > 0 ? Math.abs(Math.sin(t * 17)) * 0.35 : 0; st.jaw.update(dt); jaw.rotation.x = st.jaw.value;
+        rm(B.Head, -st.look.y * 0.25 + Math.sin(t * 1.3) * 0.04 + st.jaw.value * 0.18, st.look.x * 0.45 + Math.sin(t * 0.6) * 0.08, Math.sin(t * 0.8) * 0.05);
+        // face: expression texture swap; talking alternates an open-mouth version
+        if (st.talk > 0) st.talk -= dt;
+        const open = st.talk > 0 && Math.sin(t * 17) > 0; const E = K.EXPR[st.expr];
+        R.setFace(st.expr + (open ? '+o' : ''), open ? { ...E, open: Math.max(E.open, 0.55), teeth: 1 } : E);
+        st.blink -= dt; if (st.blink < -3.6) st.blink = 0.12;
+        R.eyeMat.map = R.eyeTex(st.blink > 0 ? 1 : E.lid);
+        // ghost: hands on the cross ends (two-bone aim), head bowed towards the puppet
+        root.updateMatrixWorld(true); const gb = G.bones;
+        for (const [k, s] of [['l', 1], ['r', -1]]) {
+          grip.set(s * 0.46, 0.02, 0).applyMatrix4(cross.matrixWorld); gb['upperarm_' + k].getWorldPosition(tmp);
+          elbow.lerpVectors(tmp, grip, 0.5); tmp2.set(s * 0.18, -0.12, -0.05).applyQuaternion(root.getWorldQuaternion(new THREE.Quaternion())); elbow.add(tmp2);
+          gb['upperarm_' + k].quaternion.copy(M.bind['upperarm_' + k]); gb['lowerarm_' + k].quaternion.copy(M.bind['lowerarm_' + k]);
+          K.aimBone(gb['upperarm_' + k], gb['lowerarm_' + k], elbow); K.aimBone(gb['lowerarm_' + k], gb['hand_' + k], grip);
+        }
+        gb.Head.quaternion.copy(M.bind.Head); K.nudge(gb.Head, 0.35 + Math.sin(t * 0.9) * 0.05, 0, 0);
+      }
+      // strings follow the joints
+      root.updateMatrixWorld(true); const invM = root.matrixWorld.clone().invert();
       for (let i = 0; i < 6; i++) {
-        tmp.copy(anchors[i]).applyMatrix4(cross.matrixWorld).applyMatrix4(inv);
-        at[i].getWorldPosition(tmp2); tmp2.applyMatrix4(inv); if (i === 2) tmp2.y += 0.45;
+        tmp.copy(anchors[i]).applyMatrix4(cross.matrixWorld).applyMatrix4(invM);
+        attach[i].getWorldPosition(tmp2); tmp2.applyMatrix4(invM); if (i === 2) tmp2.y += 0.12;
         strPos.set([tmp.x, tmp.y, tmp.z, tmp2.x, tmp2.y, tmp2.z], i * 6);
       }
-      strGeo.attributes.position.needsUpdate = true;
-      strings.material.opacity = 0.7 + Math.sin(t * 7) * 0.12;
+      strGeo.attributes.position.needsUpdate = true; strings.material.opacity = 0.7 + Math.sin(t * 7) * 0.12;
     },
   };
   root.userData.api = api;

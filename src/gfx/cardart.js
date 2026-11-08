@@ -5,9 +5,10 @@ import { baseOf, describeAttack } from '../game/combos.js';
 import { roman, hashString } from '../core/util.js';
 import { Spr, toCanvas } from './cards/kit.js';
 import { K, TRIM, ENAMEL } from './cards/pal.js';
-import { CW, CH, AX, AY, AW, AH, MED, drawFrame, medallion, windowCorners, backPanel } from './cards/frame.js';
+import { CW, CH, AX, AY, AW, AH, MED, drawFrame, medallion, emblem, windowCorners, backPanel } from './cards/frame.js';
 import { backdrop, shadow } from './cards/backdrops.js';
 import { SUBJECTS } from './cards/subjects.js';
+import { MAGIC } from './cards/magic.js';
 import { POWER_SUBJECTS } from './cards/powers.js';
 import { moveArt, backArt } from './cards/overlays.js';
 
@@ -33,7 +34,8 @@ export function compose(kind, sub, seed) {
   return bg;
 }
 function subjectFor(id) {
-  const f = SUBJECTS[id] || SUBJECTS[BASICS[id]?.mutantOf] || SUBJECTS.apple;
+  const base = BASICS[id]?.mutantOf;
+  const f = MAGIC[id] || SUBJECTS[id] || MAGIC[base] || SUBJECTS[base] || SUBJECTS.apple;
   return f();
 }
 function illustration(key, make) {
@@ -78,7 +80,7 @@ export function renderCardFace(card, move) {
       }
     }
   }
-  medal.slice(0, 2).forEach((m, i) => medallion(s, MED[i][0], MED[i][1], STAT[m[0]] || K.paint_red, B));
+  for (let i = 0; i < 2; i++) { const m = medal[i]; if (m) medallion(s, MED[i][0], MED[i][1], STAT[m[0]] || K.paint_red, B); else emblem(s, MED[i][0], MED[i][1], kind, B); }
 
   const out = toCanvas(s, CS);
   const g = out.getContext('2d');
@@ -137,10 +139,11 @@ export function renderCardBack() {
   drawFrame(s, 'power', false, { plaque: false, textBox: false });
   backPanel(s);
   backArt(compose).draw(s, AX, AY);
+  emblem(s, MED[0][0], MED[0][1], 'power', TRIM.brass); emblem(s, MED[1][0], MED[1][1], 'power', TRIM.brass);
   windowCorners(s, TRIM.brass);
   const out = toCanvas(s, CS); const g = out.getContext('2d');
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = '700 30px "Pixelify"'; g.lineWidth = 8; g.lineJoin = 'round'; g.strokeStyle = '#2a1008'; g.strokeText('APPLE OF DISCORD', CW / 2 * CS, 11.75 * CS); g.fillStyle = '#fff6cf'; g.fillText('APPLE OF DISCORD', CW / 2 * CS, 11.75 * CS);
+  g.font = '700 26px "Pixelify"'; g.lineWidth = 8; g.lineJoin = 'round'; g.strokeStyle = '#2a1008'; g.strokeText('APPLE OF DISCORD', CW / 2 * CS, 11.75 * CS); g.fillStyle = '#fff6cf'; g.fillText('APPLE OF DISCORD', CW / 2 * CS, 11.75 * CS);
   g.font = '400 34px "VT323"'; g.fillStyle = '#d8c6ff'; ['Every action has an', 'equal and opposite', 'god.'].forEach((l, i) => g.fillText(l, CW / 2 * CS, (112 + i * 12.5) * CS));
   backCanvas = out; return out;
 }

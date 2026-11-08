@@ -236,7 +236,7 @@ export function paintFace(c, o, F, E, A) {
 }
 /** eyeball texture painter: iris/pupil/sclera plus the upper lid (expression and blink live in the eye texture) */
 export function paintEye(c, o, F, A, lid) {
-  const sx = c.x >= 0 ? 1 : -1; const dx = c.x - sx * F.ex, dy = c.y - F.ey, dz = c.z - (F.ez - F.er * 0.6);
+  const sx = c.x >= 0 ? 1 : -1; const dx = c.x - sx * F.ex, dy = c.y - F.ey, dz = c.z - (F.ez - 0.002);
   const l = Math.hypot(dx, dy, dz) || 1; const ux = dx / l, uy = dy / l, uz = dz / l;
   const a = Math.acos(clamp01(uz * 0.995 + ux * sx * 0.0998));
   const edge = 0.62 - lid * 1.45; // upper lid line in unit-sphere y
@@ -277,13 +277,17 @@ export function attachBind(obj, skinned, name) {
   const w = new THREE.Group(); sk.boneInverses[i].clone().multiply(skinned.bindMatrix).decompose(w.position, w.quaternion, w.scale);
   w.add(obj); bone.add(w); return w;
 }
-/** a rigid accessory mesh from a "rigged to head" asset (hair, beard) re-parented onto our Head bone */
-export function headPiece(asset, mat, skinned, { push = 0, seed = 1, scale = 1 } = {}) {
-  const src = srcMesh(asset); const geo = src.geometry.clone(); geo.applyMatrix4(src.bindMatrix);
+/** a rigid accessory mesh from a "rigged to head" asset (hair, beard) re-parented onto `skinned`'s Head bone */
+export function headPiece(asset, mat, skinned, { push = 0, seed = 1, scale = 1, offset = null } = {}) {
+  const src = srcMesh(asset); const sk = src.skeleton; const hi = sk.bones.findIndex((b) => b.name === 'Head');
+  const geo = src.geometry.clone(); geo.applyMatrix4(src.bindMatrix);
   if (push) { const p = geo.attributes.position, n = geo.attributes.normal; for (let i = 0; i < p.count; i++) { const k = (vnoise(p.getX(i) * 30 + seed, p.getY(i) * 30, p.getZ(i) * 30) - 0.35) * push; p.setXYZ(i, p.getX(i) + n.getX(i) * k, p.getY(i) + n.getY(i) * k + Math.max(0, k) * 0.4, p.getZ(i) + n.getZ(i) * k); } }
   for (const k of ['skinIndex', 'skinWeight']) geo.deleteAttribute(k);
   const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true;
-  const g = attachBind(m, skinned, 'Head'); if (scale !== 1) { const hp = headBind(skinned); m.position.copy(hp).multiplyScalar(1 - scale); m.scale.setScalar(scale); } return g;
+  const hp = new THREE.Vector3().setFromMatrixPosition(sk.boneInverses[hi].clone().invert()).add(new THREE.Vector3(0, 0.1, 0.02));
+  if (scale !== 1) { m.position.copy(hp).multiplyScalar(1 - scale); m.scale.setScalar(scale); } if (offset) m.position.add(offset);
+  const w = new THREE.Group(); sk.boneInverses[hi].clone().multiply(src.bindMatrix).decompose(w.position, w.quaternion, w.scale); w.add(m);
+  skinned.skeleton.bones.find((b) => b.name === 'Head').add(w); return w;
 }
 export function headBind(skinned) { const sk = skinned.skeleton; const i = sk.bones.findIndex((b) => b.name === 'Head'); return new THREE.Vector3().setFromMatrixPosition(sk.boneInverses[i].clone().invert()).add(new THREE.Vector3(0, 0.1, 0.02)); }
 
