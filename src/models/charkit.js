@@ -462,3 +462,18 @@ export function attachUnscaled(obj, skinned, name, boneScale) {
   const sk = skinned.skeleton; const i = sk.bones.findIndex((b) => b.name === name); const fix = new THREE.Group(); fix.scale.setScalar(1 / boneScale); sk.bones[i].add(fix);
   const w = new THREE.Group(); sk.boneInverses[i].clone().multiply(skinned.bindMatrix).decompose(w.position, w.quaternion, w.scale); w.add(obj); fix.add(w); return w;
 }
+
+/** a smooth lofted tube skinned to its own bone chain (tails, digitigrade legs, snakes). path/radius/opts as Loft.set,
+ *  in `parent`'s space at rest; nb segments -> nb + 1 bones (rest frames are pure translations along the path).
+ *  Returns { mesh, bones }. Bones hang under `parent`; the mesh lives in `parent` too (attached bind). */
+export function skinnedLoft(rings, sides, path, radius, opts, nb, parent, mat) {
+  const l = new Loft(rings, sides).set(path, radius, opts); const geo = l.geo;
+  const pts = []; for (let k = 0; k <= nb; k++) pts.push(path(k / nb, new THREE.Vector3()));
+  const bones = []; for (let k = 0; k <= nb; k++) { const b = new THREE.Bone(); if (k === 0) { b.position.copy(pts[0]); parent.add(b); } else { b.position.subVectors(pts[k], pts[k - 1]); bones[k - 1].add(b); } bones.push(b); }
+  const M = sides + 1, R = rings; const si = new Uint16Array(R * M * 4), sw = new Float32Array(R * M * 4);
+  for (let r = 0; r < R; r++) { const f = (r / (R - 1)) * nb; const i = Math.min(nb - 1, Math.floor(f)), w = f - i; for (let s = 0; s < M; s++) { const o = (r * M + s) * 4; si[o] = i; si[o + 1] = i + 1; sw[o] = 1 - w; sw[o + 1] = w; } }
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.BufferAttribute(sw, 4));
+  const m = new THREE.SkinnedMesh(geo, mat); m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; parent.add(m);
+  let top = parent; while (top.parent) top = top.parent; top.updateMatrixWorld(true);
+  m.bind(new THREE.Skeleton(bones)); return { mesh: m, bones };
+}
