@@ -1,8 +1,43 @@
 # Apple of Discord: 2D pixel-art bible
 
 These are the rules for every 2D sprite in the game: critters, drawn objects, icons and particles.
-The target is commercial HD-2D quality (Octopath Traveler, Sea of Stars, Eastward, Owlboy, Blasphemous).
 All art is painted in code (deterministic, no image files) with `src/gfx/art/` on top of `PixelCanvas`.
+
+## 0. Style direction (from the user; overrides anything below)
+
+> "Lower resolution pixel art and geometric shape stylized, not AI slop circles."
+
+The look is **low-res, geometric, faceted pixel art** in the spirit of Superbrothers: Sword & Sworcery, Hyper Light Drifter, Celeste and Downwell. Every pixel is deliberate, and the game upscales with nearest filtering.
+
+**Resolution budget (about half of the first pass):**
+
+| Asset | Size |
+|---|---|
+| Birds and critters | 32 px cells. Birds 18–28 px long. Sheep and goats about 26 px. Butterflies about 10 px. |
+| Intent icons | 16x16 |
+| Particles | 3–9 px, in 16 px atlas cells |
+| UI objects | 48–64 px. The gauge is 64x70, with the needle 8x32 pivoting at (4, 27). |
+| Curio icons | 32x32 |
+| Map standees | 32–48 px tall (the guardian gate 64) |
+| Field objects | 24–64 px |
+
+**Geometric construction:**
+
+- Build forms from bold, angular polygons: triangles, quads and faceted n-gons with straight edges. A curve becomes 3–6 straight segments.
+- Even round things (an apple, a coin, a bird's head, a moon, a wheel) are stylized polygons (hexagons and octagons) with planar shading.
+- Shade with flat colour planes. Each facet has a single colour picked by the facet's orientation to the key light (top-left), so light and shadow split along geometric facet edges, never along soft radial gradients.
+- Use 3–5 colours per material: a shadow plane, a mid plane, a lit plane, and an optional accent or highlight shape (a small, hard-edged sliver or a single pixel).
+- Silhouettes come first. Use deliberate graphic shapes (wedge tails, blade wings, diamond leaves, triangle flames) that read at 1x.
+- Patterns are polygons too (a bib, a wing bar, stripes), with crisp edges and no noise.
+
+**Banned:**
+
+- Ellipse or capsule blob construction, and circles as primitive forms.
+- Sphere-normal "pillow" or gradient shading, and soft radial falloffs.
+- Noisy or ordered dithering, and procedural grain noise.
+- Orphan pixels, "AI slop" smooth roundness and airbrushed bands.
+
+**Toolkit:** `src/gfx/art/geo.js` provides polygon masks, regular n-gons, blades and wedges, and the `roof()` facet normals. `roof()` gives every edge of a polygon its own bevel plane, with an optional flat table on top, like a cut gem or a low-poly model. The painter turns those planes into flat ramp colours with sel-out outlines.
 
 ## References
 
@@ -31,11 +66,12 @@ All art is painted in code (deterministic, no image files) with `src/gfx/art/` o
 - Keep few colours per material: 4–5 for a matte material, 6–7 for metal. Do not use long, fully saturated ramps.
 - Materials that touch must differ in value or in hue, so that the parts separate without a line.
 
-## 3. Shading
+## 3. Shading (planar)
 
+- Faceted planes only (see section 0). The rules below apply facet by facet.
 - **No pillow shading.** Never darken a form toward all of its edges equally. Shade from the light direction: the lit edge stays light up to the silhouette, the shadow side gets the terminator and then reflected light.
 - Use clean bands, not gradients. A band of colour ends crisply against the next one, and the band edge follows the form (a crescent on a sphere, a straight stripe on a cylinder).
-- Dither only when it does two jobs at once (texture plus gradient: stone grain, rain, smoke edges), and only as a sparse, ordered pattern. Never use noisy dither on smooth surfaces.
+- No dithering. Express texture with a few deliberate geometric marks (a crack as a 2-segment line, a wood seam, a wing bar).
 - **Clusters.** Group pixels into readable clumps. No orphan pixels: a pixel that matches none of its four neighbours is noise, unless it was placed on purpose (a glint, a catchlight, a rivet). An automatic cluster clean-up pass runs after procedural shading.
 - Avoid banding artefacts, where two band edges run parallel at equal width. Offset band edges, or let a texture break them up.
 
@@ -50,7 +86,7 @@ All art is painted in code (deterministic, no image files) with `src/gfx/art/` o
 ## 5. Silhouette and readability
 
 - Design the silhouette first. Each sprite must be identifiable as a solid black shape at 1x: a beak, a tail fork, horns, a hanging rope or a handle should break the outline.
-- Every sprite needs a clear main mass, secondary shapes and small accents. Avoid symmetric or primitive masses (a plain circle, box or cone). A barrel bulges, a boulder has planes, a basket flares.
+- Every sprite needs a clear main mass, secondary shapes and small accents. Build each mass as an angular polygon: a barrel is an octagonal prism, a boulder is a cut gem of planes, a basket is a flaring trapezoid.
 - Value hierarchy: the brightest values and the highest contrast go to the focal point (an eye, a glint, the flame core).
 - Icons are square (16–24 px), have a dark 1 px outline, one strong highlight and at most about 5 colours, so they read at small size.
 
