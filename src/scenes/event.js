@@ -1,7 +1,7 @@
 // Curiosity node: a little outdoor vignette, a parchment story, physical choice plaques, card offerings.
 import * as THREE from 'three';
 import { Paper, Strip, carvedSign } from '../ui3d/objects.js';
-import { uiPos } from '../ui3d/craft.js';
+import { uiPos, mesh, turned, plainMat } from '../ui3d/craft.js';
 import * as S from '../models/sculpt.js';
 import { UIScreen, Button3D, Panel } from '../ui3d/widgets.js';
 import { textPlane } from '../ui3d/kit.js';
@@ -106,8 +106,8 @@ export default class EventScene extends UIScreen {
   rhythm() {
     return new Promise((resolve) => {
       const g = new THREE.Group(); g.position.set(-2, 0, 8); this.root.add(g); let score = 0, beat = 0;
-      const target = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.6, 8), new THREE.MeshBasicMaterial({ color: 0xffe08a, toneMapped: false })); g.add(target);
-      const ring = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.6, 8), new THREE.MeshBasicMaterial({ color: 0x8fe3ff, toneMapped: false, transparent: true })); g.add(ring);
+      const hoop = (r, w, kind) => { const prof = []; for (let i = 0; i <= 16; i++) { const a = (i / 16) * Math.PI * 2; prof.push([r + Math.cos(a) * w, Math.sin(a) * w]); } const m = mesh(turned(prof, 64, { smooth: false }), plainMat(kind), g, { ink: 0.035 }); m.rotation.x = Math.PI / 2; return m; };
+      const target = hoop(1.5, 0.13, 'brass'); const ring = hoop(1.5, 0.08, 'oak'); void target;
       const label = new Strip(['Click on the beat!'], { maxW: 10 }); label.group.position.y = 2.6; g.add(label.group); this.rhythmLabel = label;
       const st = { k: 0 }; this.rhythmHit = () => { const d = Math.abs(1 - ring.scale.x); if (d < 0.18) { score++; audio.play('pan_flute', { minGap: 0 }); label.set([[['Swing!', '#3e6a22']]]); } else { audio.play('ui_error'); label.set([[['Off-beat!', '#8f2a2e']]]); } };
       const next = () => { if (beat++ >= 4) { this.rhythmHit = null; this.root.remove(g); resolve(score); return; } st.k = 0; tweens.to(st, { k: 1 }, 0.9, { ease: 'linear', onUpdate: () => { const s = 3 - st.k * 2.4; ring.scale.setScalar(s); } }).then(() => { audio.play('wood_knock', { vol: 0.6 }); next(); }); };

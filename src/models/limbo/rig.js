@@ -19,12 +19,37 @@ export function toonGradient() {
 export const toonMat = (o = {}) => new THREE.MeshToonMaterial({ gradientMap: toonGradient(), ...o });
 const hashApp = (a) => { const s = JSON.stringify(a); let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; };
 
+/** smooth shading for the lofted segments: average side-face normals over coincident vertices (caps stay flat),
+ *  and flip V (the Limbo page is addressed top-down; r170 uploads DataTexture rows bottom-up) */
+export function smoothSkin(geo) {
+  const p = geo.attributes.position, n = geo.attributes.normal, uv = geo.attributes.uv; const acc = new Map(); const key = (i) => `${Math.round(p.getX(i) * 2000)},${Math.round(p.getY(i) * 2000)},${Math.round(p.getZ(i) * 2000)}`;
+  const side = (i) => Math.abs(n.getY(i)) < 0.92;
+  for (let i = 0; i < p.count; i++) { if (!side(i)) continue; const k = key(i); const a = acc.get(k) || [0, 0, 0]; a[0] += n.getX(i); a[1] += n.getY(i); a[2] += n.getZ(i); acc.set(k, a); }
+  for (let i = 0; i < p.count; i++) { if (!side(i)) continue; const a = acc.get(key(i)); const l = Math.hypot(a[0], a[1], a[2]); if (l > 0.3) n.setXYZ(i, a[0] / l, a[1] / l, a[2] / l); }
+  for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
+  n.needsUpdate = true; uv.needsUpdate = true;
+}
+
+/** anime-clean the painted page: 3x3 median (kills pixel dither and speckle) then 5-band luminance posterize
+ *  keeping hue; the hand-drawn face block and lids are left as painted */
+export function cleanPage(d, S, k) {
+  const skip = (x, y) => (x < 113 * k && y < 97 * k) || (x >= 231 * k && x < 256 * k && y >= 63 * k && y < 79 * k);
+  const src = d.slice(); const r = [], g = [], b = [];
+  for (let y = 1; y < S - 1; y++) for (let x = 1; x < S - 1; x++) {
+    const p = (y * S + x) * 4; if (!src[p + 3] || skip(x, y)) continue; r.length = g.length = b.length = 0;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const q = ((y + j) * S + x + i) * 4; if (!src[q + 3]) continue; r.push(src[q]); g.push(src[q + 1]); b.push(src[q + 2]); }
+    r.sort((a, c) => a - c); g.sort((a, c) => a - c); b.sort((a, c) => a - c); const m = r.length >> 1;
+    let R = r[m], G = g[m], Bb = b[m]; const L = R * 0.3 + G * 0.59 + Bb * 0.11; const Lq = Math.max(8, Math.round(L / 255 * 5) / 5 * 255 * 0.92 + 14); const f = Lq / Math.max(8, L);
+    d[p] = Math.min(255, R * f); d[p + 1] = Math.min(255, G * f); d[p + 2] = Math.min(255, Bb * f);
+  }
+}
+
 export class LimboBody {
   /** app: Limbo Appearance; outfit: Limbo Outfit (LookParts); opts: { severed: ['shin_l', ...], overrides (SpecOverrides), hook(painters, P, spec), hd, paint, material } */
   constructor(app, outfit = {}, { severed = [], overrides = {}, hook = null, hd = true, paint = true, material = null } = {}) {
     this.app = { ...DEF, ...app }; const S = hd ? 512 : 256;
     const data = new Uint8Array(S * S * 4); const tex = new THREE.DataTexture(data, S, S, THREE.RGBAFormat, THREE.UnsignedByteType);
-    tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace;
+    tex.magFilter = tex.minFilter = THREE.LinearFilter; // smooth painted look (the page pads every face, so no bleeding) tex.generateMipmaps = false; tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace;
     this.tex = tex; this.gg = new GGSkin(hd ? 2 : 1, { tex, data });
     this.root = new THREE.Group(); this.bones = {};
     for (const b of BONES) { const g = new THREE.Group(); g.name = b; this.bones[b] = g; }
@@ -34,6 +59,7 @@ export class LimboBody {
     const spec = specOf(this.app, outfit, this.dims, hashApp(this.app), {}, overrides); if (hook) spec.hook = hook; this.spec = spec;
     const boneIndex = (b) => { const si = SEC_BONES.indexOf(b); return si >= 0 ? BONES.length + si : BONES.indexOf(b); };
     const geo = this.gg.build(spec, this.dims, new Set(severed), 0, boneIndex); this.P = this.gg.P;
+    smoothSkin(geo);
     const inv = BONES.map((b) => { const r = this.dims.rest[b]; return new THREE.Matrix4().makeTranslation(-r[0], -r[1], -r[2]); });
     const piv = this.gg.plan?.pivots ?? {}; const r = this.dims.rest, s = this.dims.s;
     const def = { pack: [0, 1.42 * s, -0.14 * s], hair: [0, r.head[1] + 0.03 * s, r.head[2] - 0.05 * s], coat: [0, r.spine[1] + 0.02 * s, 0], badge: [0, r.neck[1] - 0.02 * s, 0.07 * s], bust: [0, r.chest[1] + 0.08 * s, 0.06 * s] };
@@ -41,7 +67,7 @@ export class LimboBody {
     this.skeleton = new THREE.Skeleton([...BONES, ...SEC_BONES].map((b) => this.bones[b]), inv);
     this.mesh = new THREE.SkinnedMesh(geo, material || toonMat({ map: tex })); this.mesh.castShadow = true; this.mesh.receiveShadow = true; this.mesh.frustumCulled = false;
     this.root.add(this.mesh); this.mesh.bind(this.skeleton, new THREE.Matrix4());
-    if (paint) this.gg.paintAll(spec, this.app, {}, 'base');
+    if (paint) { this.gg.paintAll(spec, this.app, {}, 'base'); cleanPage(this.tex.image.data, S, hd ? 2 : 1); this.gg.base?.set?.(this.tex.image.data); this.tex.needsUpdate = true; }
     geo.computeBoundingBox(); this.box = geo.boundingBox.clone(); this.height = this.box.max.y;
   }
   /** rest-pose (body space) position of a bone */

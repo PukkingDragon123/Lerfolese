@@ -73,33 +73,9 @@ export function makePainters(sp, P, app, cond) {
     // ---------------------------------------------------------------- shared shading
     /** Baked occlusion + roundness for body surfaces. */
     function bodyK(c) {
-        let k = 0.9 + 0.12 * clamp01(c.y / H * 1.25);
-        if (c.kind === 'side')
-            k *= 1 - 0.07 * c.e * c.e;
-        else if (c.kind === 'bot')
-            k *= 0.7;
-        const ax = Math.abs(c.x), sx = Math.sign(c.x) || 1;
-        if (LIMB[c.part]) {
-            const inward = -sx * c.nx;
-            if (inward > 0.3)
-                k *= 1 - 0.13 * inward;
-            if (c.part === 'thigh' && inward > 0.2)
-                k *= 1 - 0.18 * sstep(P.crotchY - 0.08 * H, P.crotchY, c.y);
-            if (c.part === 'uarm' && inward > 0.2)
-                k *= 1 - 0.12 * sstep(P.bustY, P.shoulderY, c.y);
-        }
-        else if (TORSO[c.part]) {
-            if (Math.abs(c.nx) > 0.55)
-                k *= 1 - 0.1 - 0.12 * sstep(P.bustY - 0.04 * H, P.shoulderY, c.y);
-            if (c.part === 'hipsLo' && c.y < P.crotchY + 0.03 * H && ax < P.hipX * 0.8)
-                k *= 0.8;
-            if (c.part === 'traps' && c.kind === 'top')
-                k *= 1.04;
-            if (c.part === 'bust' && c.kind === 'bot')
-                k *= 0.92;
-        }
-        k *= 1 + 0.03 * Math.sin(c.x * 37 + c.z * 23 + Math.sin(c.y * 13) * 2) * Math.sin(c.y * 29 + c.x * 11);
-        return k;
+        // Apple of Discord: flat, clean base tones (no per-face or per-normal shading baked into the page); the
+        // smooth-normal cel material does the lighting, so the low-poly faces never show as facets.
+        return 0.97 + 0.05 * clamp01(c.y / H * 1.25);
     }
     const front = (c) => c.nz > 0.45, back = (c) => c.nz < -0.45;
     /** Folds: soft dark creases that wander a little. */
@@ -1124,9 +1100,7 @@ export function makePainters(sp, P, app, cond) {
         return y > P.hairY;
     }
     function headPx(c, o) {
-        let k = (c.part === 'scalp' ? 0.86 - 0.08 * Math.abs(c.nx) - 0.08 * Math.max(0, -c.nz) : 0.86) * (c.kind === 'bot' ? 0.62 : 1) * (1 + (h2(c.i, c.j, 21) - 0.5) * 0.035);
-        if (c.kind === 'side' && Math.abs(c.nx) > 0.4)
-            k *= 0.96 - 0.06 * clamp01((P.zf - c.z) / (2 * P.hd));
+        let k = 0.88; // flat base tone (smooth cel lighting does the rest)
         shadeInto(o, skinC, k, 0.25);
         if (c.kind === 'bot') {
             if (sp.face.stubble)

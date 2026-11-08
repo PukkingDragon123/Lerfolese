@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { Plaque, Scroll } from './objects.js';
 import { HudTip, hud } from './hud.js';
-import { uiRig } from './craft.js';
+import { uiRig, disposeTree } from './craft.js';
 import { Card3D } from './cards3d.js';
 import { audio } from '../core/audio.js';
 import { Particles } from '../gfx/particles.js';
@@ -66,7 +66,7 @@ export class UIScreen {
     this.tip.update(dt);
   }
   clearCards() { for (const c of this.cards) this.root.remove(c.group); this.cards = []; }
-  dispose() { this.input.remove(this.handler); this.engine.ui.scene.remove(this.root); this.engine.remove(this); this.tip.dispose(); hud.clear(); }
+  dispose() { this.input.remove(this.handler); this.engine.ui.scene.remove(this.root); this.engine.remove(this); this.tip.dispose(); hud.clear(); disposeTree(this.root); }
 }
 
 export { PROPS, vpick };

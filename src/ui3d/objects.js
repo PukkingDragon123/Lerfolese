@@ -1,7 +1,7 @@
 // Physical UI objects built from craft.js: carved / brass / lacquer plaques (buttons), parchment notes, scrolls,
 // speech scraps, hanging signboards (titles), cloth pennants (banners), paper slips (toasts).
 import * as THREE from 'three';
-import { PX, PXP, RAMP, Surf, SurfTex, pxTex, frontMat, sideMat, plainMat, slab, sheet, mesh, turned, ROLLER, TACK, Body, paperMat, LK,
+import { PX, PXP, RAMP, Surf, SurfTex, pxTex, frontMat, sideMat, plainMat, slab, sheet, mesh, turned, ROLLER, TACK, Body, paperMat, LK, toon, inkHull,
   wood, brass, screw, rivet, groove, parchment, leather, waxSeal, cloth, inscribe, inscribeLines, measure, wrapText, FONT } from './craft.js';
 import { hash2 } from '../gfx/art/core.js';
 import { Spring } from '../core/tween.js';
@@ -63,10 +63,10 @@ export class Plaque extends Body {
     const need = (subLines.length ? FONT[font].lineH - 2 : FONT[font].lineH) + subLines.length * 7 + 6; if (need > fh * PX) { fh = need / PX; h = fh + 2 * m; }
     this.w = w; this.h = h; this.fw = fw; this.fh = fh; this.subLines = subLines;
     const bw = round(w * PX), bh = round(h * PX);
-    this.back = mesh(slab(w, h, 0.2, { shape: 'rect', cut: 0.16, bevel: 0.05 }), [frontMat(backBoard(this.kind.back, bw, bh, this.seed)), sideMat(this.kind.back === 'night' ? 'lacquer' : 'walnut')], this.pivot);
+    this.back = mesh(slab(w, h, 0.22, { shape: 'rect', cut: 0.16, bevel: 0.07 }), [frontMat(backBoard(this.kind.back, bw, bh, this.seed)), sideMat(this.kind.back === 'night' ? 'lacquer' : 'walnut')], this.pivot, { ink: 0.045 });
     this.faceTex = new SurfTex(round(fw * PX), round(fh * PX)); this.paint();
     const metal = this.kind.face === 'verd' ? 0.35 : this.kind.face === 'lacquer' ? 0.1 : 0;
-    this.face = mesh(slab(fw, fh, 0.14, { shape: this.kind.shape, cut: 0.1, bevel: 0.04 }), [frontMat(this.faceTex.tex, { metal, rough: metal ? 0.5 : this.kind.face === 'lacquer' ? 0.4 : 0.75, env: metal ? 0.8 : 0.3 }), sideMat(this.kind.face === 'verd' ? 'brass' : this.kind.face === 'lacquer' ? 'lacquer' : this.kind.face === 'oak' ? 'oak' : 'walnut')], this.pivot);
+    this.face = mesh(slab(fw, fh, 0.14, { shape: this.kind.shape, cut: 0.1, bevel: 0.05 }), [frontMat(this.faceTex.tex, { metal }), sideMat(this.kind.face === 'verd' ? 'brass' : this.kind.face === 'lacquer' ? 'lacquer' : this.kind.face === 'oak' ? 'oak' : 'walnut')], this.pivot, { ink: 0.03 });
     this.face.position.z = 0.13; this.back.userData.button = this; this.face.userData.button = this; this.hit = this.back; this.hitFace = this.face;
     this.setDisabled(disabled);
   }
@@ -139,6 +139,7 @@ export class Paper extends Body {
     }
     if (this.seal) waxSeal(S, Wt - 12, bodyH - 9, 6, { seed: this.seed });
     if (this.pinOn) for (const [dx, dy, d] of [[0, 0, -2], [1, 0, -1], [0, 1, -1], [-1, 0, -1], [0, -1, -1]]) S.shift(round(Wt / 2) + dx, 5 + dy, d);
+    S.inkEdge();
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
     S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.sheetMat.map = this.tex; this.sheetMat.needsUpdate = true; } else this.tex.needsUpdate = true;
     const w = Wt / PXP, h = Ht / PXP; this.w = w; this.h = h; this.bodyH = bodyH / PXP;
@@ -182,9 +183,9 @@ export class Scroll extends Body {
     super(); this.wU = w; this.maxH = maxH; this.tiltK = 0.015; this.hoverLift = 0; this.seed = 7;
     this.paper = paperMat();
     this.sheet = mesh(new THREE.BufferGeometry(), this.paper, this.pivot); this.canvas = document.createElement('canvas'); this.tex = null;
-    const rg = ROLLER(w + 0.3, ROLL_R); const rm = plainMat('walnut'); this.top = mesh(rg, rm, this.pivot); this.bot = mesh(rg, rm, this.pivot); this.top.rotation.z = this.bot.rotation.z = Math.PI / 2;
-    const fin = turned([[0, -0.2], [0.17, -0.16], [0.22, -0.06], [0.12, 0.02], [0.16, 0.1], [0, 0.22]], 7); const bm = plainMat('brass');
-    this.fins = []; for (const r of [this.top, this.bot]) for (const s of [-1, 1]) { const f = mesh(fin, bm, r); f.position.y = s * (w / 2 + 0.36); f.rotation.z = s > 0 ? 0 : Math.PI; this.fins.push(f); }
+    const rg = ROLLER(w + 0.3, ROLL_R); const rm = plainMat('walnut'); this.top = mesh(rg, rm, this.pivot, { ink: 0.035 }); this.bot = mesh(rg, rm, this.pivot, { ink: 0.035 }); this.top.rotation.z = this.bot.rotation.z = Math.PI / 2;
+    const fin = turned([[0, -0.2], [0.17, -0.16], [0.22, -0.06], [0.12, 0.02], [0.16, 0.1], [0, 0.22]], 28); const bm = plainMat('brass');
+    this.fins = []; for (const r of [this.top, this.bot]) for (const s of [-1, 1]) { const f = mesh(fin, bm, r, { ink: 0.03 }); f.position.y = s * (w / 2 + 0.36); f.rotation.z = s > 0 ? 0 : Math.PI; this.fins.push(f); }
     this.open = new Spring(0, 9, 0.75); this.open.target = 1; this.s = this.open; this.h = 4;
   }
   set(title, lines, titleColor = '#5a1a22') {
@@ -202,6 +203,7 @@ export class Scroll extends Body {
       y += F.lineH + (f === 'title' ? 2 : 1);
       if (f === 'title' && fonts[i + 1] !== 'title') { const cx = round(Wt / 2); for (let xx = -40; xx <= 40; xx++) if (Math.abs(xx) > 3) S.pix(cx + xx, y + 1, Math.abs(xx) > 34 ? '#7a5638' : '#5a1a14'); for (const [dx, dy] of [[0, -1], [-1, 0], [1, 0], [0, 1], [0, 0]]) S.pix(cx + dx, y + 1 + dy, '#8a1a1c'); y += 6; }
     });
+    for (let y = 2; y < Ht - 2; y++) { S.pix(0, y, '#1a0e12'); S.pix(Wt - 1, y, '#1a0e12'); }
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
     S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.paper.map = this.tex; this.paper.needsUpdate = true; } else this.tex.needsUpdate = true;
     this.h = Ht / PXP; this.sheet.geometry = sheet(this.wU, this.h, { curl: 0.0, sag: 0.08, segX: 10, segY: 6 }); this.open.value = Math.min(this.open.value, 0.2); this.kick(0.4);
@@ -217,9 +219,9 @@ export class Scroll extends Body {
 export class Signboard extends Body {
   constructor(lines, { maxW = 22, style = 'gild', wood: woodR = 'walnut', sub = null, hang = 1.4, font = 'title' } = {}) {
     super(); this.tiltK = 0.012; this.hoverLift = 0; this.swing = new Spring(0, 3, 0.04); this.seed = 11; this.style = style; this.woodR = woodR; this.font = font; this.hang = hang;
-    this.board = mesh(new THREE.BufferGeometry(), [frontMat(null), sideMat(woodR)], this.pivot); this.canvas = document.createElement('canvas'); this.tex = null;
-    this.ropes = []; const rg = turned([[0.035, 0], [0.035, 1]], 5); for (let i = 0; i < 2; i++) { const r = mesh(rg, plainMat('rope'), this.pivot); this.ropes.push(r); }
-    const ring = turned([[0, -0.1], [0.12, -0.06], [0.12, 0.06], [0, 0.1]], 6); this.rings = this.ropes.map(() => mesh(ring, plainMat('iron'), this.pivot));
+    this.board = mesh(new THREE.BufferGeometry(), [frontMat(null), sideMat(woodR)], this.pivot, { ink: 0.05 }); this.canvas = document.createElement('canvas'); this.tex = null;
+    this.ropes = []; const rg = turned([[0.035, 0], [0.035, 1]], 12); for (let i = 0; i < 2; i++) { const r = mesh(rg, plainMat('rope'), this.pivot); this.ropes.push(r); }
+    const ring = turned([[0, -0.1], [0.12, -0.06], [0.12, 0.06], [0, 0.1]], 28); this.rings = this.ropes.map(() => mesh(ring, plainMat('iron'), this.pivot));
     this.maxW = maxW; this.set(lines, sub);
   }
   set(lines, sub = null) {
@@ -235,7 +237,7 @@ export class Signboard extends Body {
     if (sub) inscribeLines(S, [sub], { x: 4, y: Ht - 15, w: Wt - 8, h: 9 }, subF, 'paint', { ramp: RAMP.ivory });
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
     S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.board.material[0].map = this.tex; this.board.material[0].needsUpdate = true; } else this.tex.needsUpdate = true;
-    const w = Wt / PX, h = Ht / PX; this.w = w; this.h = h; this.board.geometry = slab(w, h, 0.3, { shape: 'rect', cut: 0.2, bevel: 0.07 });
+    const w = Wt / PX, h = Ht / PX; this.w = w; this.h = h; this.board.geometry = slab(w, h, 0.32, { shape: 'rect', cut: 0.22, bevel: 0.1 });
     const hang = this.hang; this.ropes.forEach((r, i) => { const x = (i ? 1 : -1) * (w / 2 - 0.5); r.position.set(x, h / 2 - 0.05, -0.05); r.scale.y = hang; this.rings[i].position.set(x, h / 2 - 0.08, 0.08); this.rings[i].rotation.x = Math.PI / 2; });
   }
   update(dt, p, t = performance.now() / 1000) { this.swing.update(dt); this.updateBody(dt, p); this.pivot.rotation.z += Math.sin(t * 0.9 + this.seed) * 0.008 + this.swing.value * 0.02; }
@@ -259,6 +261,7 @@ export class Strip extends Body {
     inscribeLines(S, out.map((l) => l.map(([t, c]) => [t, this.style === 'stamp' ? '#a8201c' : ink(c || this.color)])), { x: 4, y: 5, w: Wt - 8, h: out.length * F.lineH }, this.font, this.style, { seed: this.seed });
     if (this.style === 'stamp') { for (let x = 2; x < Wt - 2; x++) for (const y of [2, Ht - 3]) if (hash2(x, y, 4) > 0.2) S.pix(x, y, '#a8201c'); for (let y = 2; y < Ht - 2; y++) for (const x of [2, Wt - 3]) if (hash2(x, y, 5) > 0.2) S.pix(x, y, '#a8201c'); }
     if (this.tacks) for (const x of this.tacks === 2 ? [6, Wt - 7] : [round(Wt / 2)]) for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1]]) S.shift(x + dx, round(Ht / 2) + dy, -1);
+    if (this.style !== 'stamp') S.inkEdge();
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
     S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.mat.map = this.tex; this.mat.needsUpdate = true; } else this.tex.needsUpdate = true;
     this.w = Wt / PXP; this.h = Ht / PXP; this.sheet.geometry = sheet(this.w, this.h, { curl: 0.08, sag: 0.03, segX: 6, segY: 2 });
@@ -272,9 +275,9 @@ export { titleCase, lineText };
 const PEN = { '': { ramp: RAMP.cloth, thread: RAMP.thread }, arc: { ramp: RAMP.teal, thread: RAMP.thread }, dread: { ramp: RAMP.night, thread: RAMP.ivory } };
 export class Pennant {
   constructor() {
-    this.group = new THREE.Group(); this.group.visible = false; this.cloth = mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.9, toneMapped: false, envMapIntensity: 0.1, color: new THREE.Color().setScalar(LK) }), this.group);
-    this.canvas = document.createElement('canvas'); this.tex = null; this.rodM = plainMat('walnut'); this.rod = null; this.roll = mesh(turned([[0.001, -0.5], [1, -0.5], [1, 0.5], [0.001, 0.5]], 8), this.cloth.material, this.group); this.roll.rotation.z = Math.PI / 2;
-    this.cords = [0, 1].map(() => mesh(turned([[0.03, 0], [0.03, 6]], 4), plainMat('rope'), this.group));
+    this.group = new THREE.Group(); this.group.visible = false; this.cloth = mesh(new THREE.BufferGeometry(), toon({ alphaTest: 0.5, side: THREE.DoubleSide }), this.group);
+    this.canvas = document.createElement('canvas'); this.tex = null; this.rodM = plainMat('walnut'); this.rod = null; this.roll = mesh(turned([[0.001, -0.5], [0.85, -0.5], [1, -0.42], [1, 0.42], [0.85, 0.5], [0.001, 0.5]], 28), this.cloth.material, this.group); this.roll.rotation.z = Math.PI / 2;
+    this.cords = [0, 1].map(() => mesh(turned([[0.03, 0], [0.03, 6]], 12), plainMat('rope'), this.group));
     this.k = new Spring(0, 10, 0.9); this.drop = new Spring(0, 9, 0.55); this.t = 0;
   }
   show(title, sub = '', kind = '', hold = 0.9) {
@@ -283,13 +286,13 @@ export class Pennant {
     const S = new Surf(Wt, Ht); const mask = (x, y) => y < Ht - tail || Math.abs(x - Wt / 2 + 0.5) >= (y - (Ht - tail) + 1) * (Wt * 0.22 / tail);
     cloth(S, 0, 0, Wt, Ht, { ramp: P.ramp, base: 3, border: 3, seed: 3, mask }); S.bevel(mask, { lit: 1, dark: -1 });
     for (let x = 0; x < Wt; x++) for (let y = 0; y < 5; y++) S.setT(x, y, y < 2 ? 1 : y === 4 ? 4 : 2); // hem around the rod
-    inscribeLines(S, [t], { x: 0, y: 8, w: Wt, h: F.lineH }, f, 'emb', { ramp: P.thread });
+    inscribeLines(S, [t], { x: 0, y: 8, w: Wt, h: F.lineH }, f, 'emb', { ramp: P.thread }); S.inkEdge();
     if (sub) inscribeLines(S, [sub.toUpperCase()], { x: 0, y: 9 + F.lineH, w: Wt, h: 10 }, 'caps', 'emb', { ramp: P.thread });
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
     S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.cloth.material.map = this.tex; this.cloth.material.needsUpdate = true; } else this.tex.needsUpdate = true;
     const w = Wt / PX, h = Ht / PX; this.w = w; this.h = h;
     const g = new THREE.PlaneGeometry(w, h, 12, 8); g.translate(0, -h / 2, 0); this.cloth.geometry?.dispose(); this.cloth.geometry = g; this.base = Float32Array.from(g.attributes.position.array); this.uv0 = Float32Array.from(g.attributes.uv.array);
-    if (this.rod) this.group.remove(this.rod); this.rod = mesh(ROLLER(w + 0.3, 0.13), this.rodM, this.group); this.rod.rotation.z = Math.PI / 2; this.rod.position.z = 0.08;
+    if (this.rod) this.group.remove(this.rod); this.rod = mesh(ROLLER(w + 0.3, 0.13), this.rodM, this.group, { ink: 0.035 }); this.rod.rotation.z = Math.PI / 2; this.rod.position.z = 0.08;
     this.cords.forEach((c, i) => c.position.set((i ? 1 : -1) * (w / 2 - 0.3), 0, -0.02));
     this.group.visible = true; this.k.set(0); this.k.target = 1; this.drop.set(4); this.drop.target = 0; this.t = 0;
     return new Promise((res) => { clearTimeout(this._t); this._res?.(); this._res = res; this._t = setTimeout(() => { this.k.target = 0; this.drop.target = 5; setTimeout(() => { this.group.visible = false; const r = this._res; this._res = null; r?.(); }, 420); }, 380 + hold * 1000); });
@@ -309,8 +312,8 @@ import { sprite as _sprite } from '../gfx/sprites.js';
 export class Tag extends Body {
   constructor(text, { icon = null, ramp = RAMP.oak, style = 'burn' } = {}) {
     super(); this.icon = icon; this.rampT = ramp; this.styleT = style; this.tiltK = 0.05; this.hoverLift = 0.15;
-    this.tex = null; this.mesh = mesh(new THREE.BufferGeometry(), [frontMat(null), sideMat('leather')], this.pivot); this.mesh.position.y = -0.62;
-    const str = mesh(turned([[0.02, 0], [0.02, 0.1]], 4), plainMat('rope'), this.pivot); str.position.y = -0.1; void str;
+    this.tex = null; this.mesh = mesh(new THREE.BufferGeometry(), [frontMat(null), sideMat('leather')], this.pivot, { ink: 0.03 }); this.mesh.position.y = -0.62;
+    const str = mesh(turned([[0.02, 0], [0.02, 0.1]], 12), plainMat('rope'), this.pivot); str.position.y = -0.1; void str;
     this.set(text);
   }
   set(text) {

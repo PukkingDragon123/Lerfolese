@@ -13,17 +13,23 @@ const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 function ring(y, r, ch) {
+    // Apple of Discord: smooth, organic cross-sections. Chamfered corners become round arcs (16-point rings);
+    // flat pieces (ch ~ 0) keep their square corners.
     const [cx, cz, hx, hz] = r;
-    const c = ch * Math.min(hx, hz);
-    if (c < 1e-5)
+    if (ch < 0.05)
         return [[cx + hx, y, cz + hz], [cx - hx, y, cz + hz], [cx - hx, y, cz - hz], [cx + hx, y, cz - hz]];
-    return [[cx + hx, y, cz + hz - c], [cx + hx - c, y, cz + hz], [cx - hx + c, y, cz + hz], [cx - hx, y, cz + hz - c],
-        [cx - hx, y, cz - hz + c], [cx - hx + c, y, cz - hz], [cx + hx - c, y, cz - hz], [cx + hx, y, cz - hz + c]];
+    const rc = Math.min(hx, hz) * Math.min(0.97, 0.6 + ch * 1.4), nA = 4, out = [];
+    for (const [sx, sz, th0] of [[1, 1, 0], [-1, 1, Math.PI / 2], [-1, -1, Math.PI], [1, -1, Math.PI * 1.5]]) {
+        const ox = cx + sx * (hx - rc), oz = cz + sz * (hz - rc);
+        for (let k = 0; k <= nA; k++) { const th = th0 + (Math.PI / 2) * (k / nA); out.push([ox + Math.cos(th) * rc, y, oz + Math.sin(th) * rc]); }
+    }
+    return out;
 }
 const _m = new THREE.Matrix4(), _e = new THREE.Euler(), _v = new THREE.Vector3();
 /** Faces of one segment (rest pose) with their outward normal and an in-plane basis (U right, V up). */
 function segFaces(s) {
-    const B = ring(s.y0, s.b, s.ch), T = ring(s.y1, s.t, s.ch);
+    const chs = /^(head|hair|ear|nose)$/.test(s.mat) || s.bone === 'hair' || s.bone === 'head' ? Math.max(s.ch, 0.45) : s.ch; // rounder heads and hair (Apple of Discord)
+    const B = ring(s.y0, s.b, chs), T = ring(s.y1, s.t, chs);
     if (s.rot) {
         _m.makeRotationFromEuler(_e.set(s.rot.e[0], s.rot.e[1], s.rot.e[2], 'XYZ'));
         for (const p of [...B, ...T]) {

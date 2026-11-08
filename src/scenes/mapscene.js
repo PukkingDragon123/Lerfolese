@@ -10,7 +10,7 @@ import * as S from '../models/sculpt.js';
 import { UIScreen, Button3D } from '../ui3d/widgets.js';
 import { textPlane, Pouch, UIF } from '../ui3d/kit.js';
 import { PROPS } from '../models/world.js';
-import { buildMapDiorama, pathStoneGeo } from '../models/mapworld.js';
+import { MapSheet, sheetY } from './mapsheet.js';
 import { createProfessor } from '../models/professor.js';
 import { createCreature } from '../models/creatures.js';
 import { reachable } from '../game/run.js';
@@ -36,11 +36,11 @@ export class MapScene extends UIScreen {
   async enter(first) {
     const run = this.game.run; this.run = run; this.map = run.map;
     this.buildWorld(); this.engine.setWorld(this.scene, this.camera);
-    this.engine.setFx({ bloom: [0.55, 0.6, 0.8], tilt: { focus: 0.5, width: 0.12, feather: 0.28, amount: 3.2, top: 1.2, bottom: 1.0 }, grade: { sat: 1.12, warmth: 0.35, vignette: 0.5 } });
+    this.engine.setFx({ bloom: [0.55, 0.6, 0.8], tilt: { focus: 0.5, width: 0.34, feather: 0.3, amount: 1.1, top: 1.0, bottom: 0.5 }, grade: { sat: 1.12, warmth: 0.3, vignette: 0.45 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('map'); audio.setAmbSet(['wilderness', 'wind']);
     this.buildHUD();
     const cur = run.pos ? this.map.nodes[run.pos] : null;
-    this.focus = new THREE.Vector3(cur ? cur.x : 0, 0, cur ? cur.z - 3 : -2); this.yaw = new Spring(0.0, 6, 0.8); this.pitch = new Spring(0.78, 6, 0.8); this.dist = new Spring(17, 6, 0.8); this.fx = new Spring(this.focus.x, 4, 0.9); this.fz = new Spring(this.focus.z, 4, 0.9);
+    this.focus = new THREE.Vector3(cur ? cur.x : 0, 0, cur ? cur.z - 3 : -2); this.yaw = new Spring(0.0, 6, 0.8); this.pitch = new Spring(1.02, 6, 0.8); this.dist = new Spring(16.5, 6, 0.8); this.fx = new Spring(this.focus.x, 4, 0.9); this.fz = new Spring(this.focus.z, 4, 0.9);
     if (first) { this.dist.value = 40; this.pitch.value = 1.3; this.fz.value = -14; this.game.journal.seenIntro || this.story(); }
     this.refreshNodes();
   }
@@ -53,56 +53,20 @@ export class MapScene extends UIScreen {
 
   // ------------------------------------------------------------ diorama
   buildWorld() {
-    const sc = (this.scene = new THREE.Scene());
-    this.camera = new THREE.PerspectiveCamera(36, this.engine.aspect, 0.1, 300);
-    const world = (this.world = new THREE.Group()); sc.add(world);
-    // diorama: low-poly dusk landscape on its display plinth (sky, light, terrain, river, paths, groves, ruins) - models/mapworld.js
-    const LEN = 36, WID = 21, Z0 = 3; this.bounds = { LEN, WID, Z0 };
-    const dio = buildMapDiorama({ scene: sc, world, renderer: this.engine.renderer, map: this.map, seed: this.run.seed, WID, LEN, Z0 });
-    this.heightAt = dio.heightAt; this.pathD = dio.pathD; this.riverX = dio.riverX; this.water = dio.water;
-    const plate = textPlane([[['THE MYTHICAL WILDERNESS', '#3a2410']], [['Act I of the Greek Loop · scale 1:10,000', '#5a3622']]], { w: 10, h: 1.4, font: 'Pixelify', size: 60, weight: 700, basic: false, bg: (g, w, h) => { g.fillStyle = '#d9a64a'; g.fillRect(0, 0, w, h); g.strokeStyle = '#7a4a14'; g.lineWidth = 8; g.strokeRect(4, 4, w - 8, h - 8); } });
-    plate.position.set(0, -1.2, Z0 + 0.92); world.add(plate);
-    const rnd = mulberry32(this.run.seed % 1000 + 7);
-    const place = (o, x, z, s = 1) => { o.position.set(x, this.heightAt(x, z), z); o.scale.multiplyScalar(s); o.rotation.y = rnd() * 6; world.add(o); return o; };
-    // living things: sheep, birds, a satyr party
-    this.sheep = []; this.birds = [];
-    this.critters = new Critters(90); this.critters.bounds = { x: [-9, 9], y: [2.5, 7], z: [-30, 2] }; sc.add(this.critters.mesh);
-    this.party = []; { const x = -6.5, z = -9; if (true) { const fire = new THREE.Group(); const f = PROPS.amphora(3, 0.3); fire.add(f); place(fire, x, z); for (let k = 0; k < 3; k++) { const s = createCreature('satyr'); s.root.scale.setScalar(0.28); world.add(s.root); this.party.push({ api: s, a: (k / 3) * 6.28, cx: x, cz: z }); } } }
-    this.parts = new Particles(800, { additive: true }); sc.add(this.parts.points);
-    world.updateMatrixWorld(true); world.traverse((o) => { if (o.userData.perchable) this.critters.perchesFrom(o, 2); });
-    this.critters.spawnBirds(16); if (this.critters.spawnGrazers) this.critters.spawnGrazers(10, { x: [-8, 8], z: [-24, 0] }); this.critters.spawnButterflies(8, new THREE.Vector3(0, 0.6, -12), 16);
-    // nodes
-    this.nodeViews = new Map(); for (const nd of Object.values(this.map.nodes)) this.addNode(nd);
-    // paths: dotted stones
-    this.pathGroup = new THREE.Group(); world.add(this.pathGroup); this.buildPaths();
+    // the parchment map sheet with its living layer (models/../scenes/mapsheet.js): scene, camera, lights, nodes, routes, VFX
+    const sheet = (this.sheet = new MapSheet({ engine: this.engine, run: this.run, map: this.map }));
+    this.scene = sheet.scene; this.camera = sheet.camera; this.world = sheet.world; this.bounds = sheet.bounds; this.heightAt = sheetY;
+    this.critters = sheet.critters; this.party = []; this.sheep = []; this.birds = [];
+    this.nodeViews = sheet.nodeViews; for (const nd of Object.values(this.map.nodes)) this.addNode(nd);
+    this.buildPaths();
     // player marionette
-    this.pawn = createProfessor(); this.pawn.root.scale.setScalar(0.22); world.add(this.pawn.root);
-    const cur = this.run.pos ? this.map.nodes[this.run.pos] : null; const sp0 = cur || { x: 0, z: Z0 - 0.5 };
-    this.pawn.root.position.set(sp0.x, this.heightAt(sp0.x, sp0.z) + 0.1, sp0.z + (cur ? 0.6 : 0)); this.pawnHop = 0;
+    this.pawn = createProfessor(); this.pawn.root.scale.setScalar(0.3); this.world.add(this.pawn.root);
+    const cur = this.run.pos ? this.map.nodes[this.run.pos] : null; const sp0 = cur || { x: 0, z: 1.6 };
+    this.pawn.root.position.set(sp0.x, this.heightAt(sp0.x, sp0.z + (cur ? 0.55 : 0)) + 0.02, sp0.z + (cur ? 0.55 : 0)); this.pawnHop = 0;
   }
-  addNode(nd) {
-    const g = new THREE.Group(); const y = this.heightAt(nd.x, nd.z); g.position.set(nd.x, y, nd.z); this.world.add(g);
-    const key = { battle: 'mk_battle', elite: 'mk_elite', event: 'mk_event', shop: 'mk_shop', lab: 'mk_lab', guardian: 'mk_guardian' }[nd.type];
-    const h = nd.type === 'guardian' ? 3.4 : nd.type === 'shop' || nd.type === 'lab' ? 1.5 : 1.6;
-    const fig = { root: standee(key, { height: h }), update() {} }; g.add(fig.root);
-    const ringA = new Animated('well', [0, 1, 2, 3], { height: 1.2, anchor: 'center', flat: true, fps: 8 }); const ring = ringA.mesh; ring.position.y = 0.06; ring.visible = false; g.add(ring);
-    const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 2.4, 8), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 1.0; hit.userData.node = nd; g.add(hit);
-    this.nodeViews.set(nd.id, { g, fig, ring, ringA, hit, nd, s: new Spring(1, 14, 0.4) });
-  }
-  buildPaths() {
-    while (this.pathGroup.children.length) this.pathGroup.remove(this.pathGroup.children[0]);
-    const visited = new Set(this.run.path || []); const stone = F({ color: 0xb8a088, roughness: 0.9, flatShading: true }); const glowM = new THREE.MeshBasicMaterial({ color: new THREE.Color(0x8fe3ff).multiplyScalar(2) });
-    const geo = pathStoneGeo();
-    for (const a of Object.values(this.map.nodes)) for (const bid of a.next) {
-      const b = this.map.nodes[bid]; const len = Math.hypot(b.x - a.x, b.z - a.z); const n = Math.floor(len / 0.45);
-      const lit = visited.has(a.id) && (visited.has(b.id) || this.run.pos === a.id && false);
-      for (let i = 1; i < n; i++) { const t = i / n; const x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t; const m = new THREE.Mesh(geo, lit ? glowM : stone); m.position.set(x, this.heightAt(x, z) + 0.03, z); m.rotation.y = i; m.receiveShadow = true; this.pathGroup.add(m); }
-    }
-  }
-  refreshNodes() {
-    const reach = new Set(reachable(this.run)); this.reach = reach;
-    for (const [id, v] of this.nodeViews) { v.reachable = reach.has(id); v.visited = (this.run.path || []).includes(id); v.ring.visible = v.reachable; v.fig.root.material.color.setScalar(v.visited ? 0.55 : 1); }
-  }
+  addNode(nd) { return this.sheet.addNode(nd); }
+  buildPaths() { this.sheet.buildPaths(this.run); }
+  refreshNodes() { const reach = new Set(reachable(this.run)); this.reach = reach; this.sheet.refresh(reach, this.run); }
 
   // ------------------------------------------------------------ HUD
   buildHUD() {
@@ -119,15 +83,15 @@ export class MapScene extends UIScreen {
 
   // ------------------------------------------------------------ input
   onDragStart() { if (this.journal?.isOpen || this.deckView?.isOpen) return; this.dragging = true; audio.play('wood_creak', { vol: 0.4 }); return true; }
-  onDrag() { if (!this.dragging) return; this.yaw.target -= this.input.vx * 0.0002; this.pitch.target = clamp(this.pitch.target + this.input.vy * 0.00012, 0.45, 1.35); this.fz.target = clamp(this.fz.target, -32, 2); }
-  onDragEnd() { this.dragging = false; }
-  onWheel(e) { this.dist.target = clamp(this.dist.target + e.dy * 0.02, 7, 34); this.fz.target = clamp(this.fz.target - (e.dy < 0 ? 0 : 0), -32, 2); }
-  onPinch(e) { this.dist.target = clamp(this.dist.target / e.scale, 7, 34); }
+  onDrag() { if (!this.dragging) return; const y = this.input.y; this.fz.target = clamp(this.fz.target - (y - (this._dragY ?? y)) * 0.034, -24, -2.6); this._dragY = y; }
+  onDragEnd() { this.dragging = false; this._dragY = null; }
+  onWheel(e) { this.fz.target = clamp(this.fz.target + e.dy * 0.012, -24, -2.6); }
+  onPinch(e) { this.dist.target = clamp(this.dist.target / e.scale, 11, 22); }
   onKey(e) { if (e.code === 'KeyJ') this.openJournal(); if (e.code === 'ArrowUp') this.fz.target -= 3; if (e.code === 'ArrowDown') this.fz.target += 3; }
-  rayNodes() { const r = new THREE.Raycaster(); r.setFromCamera(this.input.ndc, this.camera); const h = r.intersectObjects([...this.nodeViews.values()].map((v) => v.hit)); return h[0]?.object.userData.node; }
+  rayNodes() { return this.sheet.pick(this.input.ndc); }
   onMove() {
     if (this.journal?.isOpen || this.deckView?.isOpen) return;
-    const nd = this.rayNodes(); if (nd !== this.hoverNode) { this.hoverNode = nd; if (nd) { const [t, d] = NODE_INFO[nd.type]; audio.play('ui_hover', { vol: 0.4 }); this.tip.show([[[t, nd.type === 'elite' || nd.type === 'guardian' ? '#8f2a2e' : '#3a2410']], [[d, '#2a160c']], [[this.reach.has(nd.id) ? 'Click to travel here.' : 'Not reachable yet.', this.reach.has(nd.id) ? '#2d6e6a' : '#8a6a44']]], 0, -this.H + 3.5, 8); } else this.tip.hide(); }
+    const nd = this.rayNodes(); if (nd !== this.hoverNode) { this.hoverNode = nd; this.sheet?.hover(nd); if (nd) { const [t, d] = NODE_INFO[nd.type]; audio.play('ui_hover', { vol: 0.4 }); this.tip.show([[[t, nd.type === 'elite' || nd.type === 'guardian' ? '#8f2a2e' : '#3a2410']], [[d, '#2a160c']], [[this.reach.has(nd.id) ? 'Click to travel here.' : 'Not reachable yet.', this.reach.has(nd.id) ? '#2d6e6a' : '#8a6a44']]], 0, -this.H + 3.5, 8); } else this.tip.hide(); }
     // pan the view towards the pointer edges
   }
   onClick() {
@@ -138,8 +102,8 @@ export class MapScene extends UIScreen {
   async travel(nd) {
     this.travelling = true; audio.play('pin'); this.tip.hide();
     (this.run.path ||= []).push(nd.id);
-    const from = this.pawn.root.position.clone(); const to = new THREE.Vector3(nd.x, this.heightAt(nd.x, nd.z) + 0.1, nd.z + 0.6);
-    this.fx.target = nd.x; this.fz.target = nd.z - 2; const hops = Math.max(3, Math.round(from.distanceTo(to) / 0.7)); const o = { k: 0 };
+    const from = this.pawn.root.position.clone(); const to = new THREE.Vector3(nd.x, this.heightAt(nd.x, nd.z + 0.55) + 0.02, nd.z + 0.55);
+    this.fx.target = nd.x; this.fz.target = nd.z - 2; const hops = Math.max(3, Math.round(from.distanceTo(to) / 0.7)); const o = { k: 0 }; this.sheet.trail({ x: from.x, z: from.z }, nd, hops * 0.18);
     for (let i = 0; i < hops; i++) audio.play('wood_knock', { delay: i * 0.18, vol: 0.4, minGap: 0 });
     await tweens.to(o, { k: 1 }, hops * 0.18, { ease: 'inOutSine', onUpdate: () => { this.pawn.root.position.lerpVectors(from, to, o.k); this.pawn.root.position.y += Math.abs(Math.sin(o.k * Math.PI * hops)) * 0.4; this.pawn.root.rotation.y = Math.atan2(to.x - from.x, to.z - from.z); } });
     const v = this.nodeViews.get(nd.id); v.s.kick(6); await tweens.wait(0.35);
@@ -148,16 +112,9 @@ export class MapScene extends UIScreen {
   }
 
   update(dt, t) {
-    // camera orbit around the focus
-    for (const s of [this.yaw, this.pitch, this.dist, this.fx, this.fz]) s.update(dt);
-    const f = new THREE.Vector3(this.fx.value, 0, this.fz.value); const d = this.dist.value; const p = this.pitch.value; const y = this.yaw.value;
-    this.camera.position.set(f.x + Math.sin(y) * Math.cos(p) * d, f.y + Math.sin(p) * d, f.z + Math.cos(y) * Math.cos(p) * d); this.camera.lookAt(f);
-    this.pawn.update(dt); for (const [, v] of this.nodeViews) { v.fig?.update?.(dt); v.s.update(dt); v.g.scale.setScalar(v.s.value); v.ringA.update(dt); if (v.reachable) v.ring.scale.setScalar(1 + Math.sin(t * 4) * 0.08); faceCamera(v.fig.root, this.camera); }
-    for (const sh of []) { sh.t -= dt; if (sh.t < 0) { sh.t = 2 + Math.random() * 4; sh.a += vrange(-1.5, 1.5); } const nx = sh.o.position.x + Math.sin(sh.a) * dt * 0.2, nz = sh.o.position.z + Math.cos(sh.a) * dt * 0.2; if (this.pathD(nx, nz) > 0.6 && Math.abs(nx) < 9) { sh.o.position.x = nx; sh.o.position.z = nz; sh.o.position.y = this.heightAt(nx, nz) + Math.abs(Math.sin(t * 8 + sh.a)) * 0.03; sh.o.rotation.y = sh.a; } else sh.a += 1; }
-    for (const b of []) { const a = t * b.sp + b.ph; b.o.position.set(Math.cos(a) * b.r, b.h + Math.sin(t * 2 + b.ph) * 0.3, b.cz + Math.sin(a) * b.r * 0.6); b.o.rotation.y = -a; b.o.children.forEach((w, i) => (w.rotation.z = (i ? -1 : 1) * Math.sin(t * 10 + b.ph) * 0.6)); }
-    for (const pp of this.party) { pp.a += dt * 0.6; pp.api.root.position.set(pp.cx + Math.cos(pp.a) * 0.7, this.heightAt(pp.cx, pp.cz) + Math.abs(Math.sin(t * 5 + pp.a)) * 0.1, pp.cz + Math.sin(pp.a) * 0.7); pp.api.root.rotation.y = -pp.a; pp.api.update(dt); }
-    if (Math.random() < 0.3) this.parts.spawn({ pos: [vrange(-9, 9), vrange(0.3, 3), vrange(-30, 2)], vel: [0, 0.1, 0], life: 4, size: vrange(10, 18), color: '#ffe08a', sprite: 'firefly', wobble: 0.4 });
-    this.parts.update(dt, t); this.critters.update(dt, t);
+    // parchment map: camera scroll, living layer, node animation, VFX (mapsheet.js)
+    for (const sp of [this.pitch, this.dist, this.fz]) sp.update(dt);
+    this.sheet.update(dt, t, { fz: this.fz.value, dist: this.dist.value, pitch: this.pitch.value, ndc: this.input.ndc }); this.pawn.update(dt);
     this.updateUI(dt); for (const it of this.items) it.update(dt, t); this.hint.update(dt, this.ptr(2)); this.storyPanel?.update(dt, null);
     this.journal?.update(dt, t); this.deckView?.update(dt, t);
   }

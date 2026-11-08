@@ -5,7 +5,7 @@
 - LATEST (overrides everything older): NEVER LOW-POLY. 3D = DETAILED smooth models with real structure (trees with real branches and many leaves, detailed props, smooth organic characters), rendered ANIME/CARTOON: cel/toon shading with 2–4 hard bands + black ink outlines. Not photoreal, not faceted, not voxel.
 - UI (LATEST, user is furious about this): EVERY UI element must be a DETAILED PHYSICAL object (real 3D thickness/bevels, smooth bevelled detailed forms (never low-poly), detailed pixel-art textures: wood grain, brass engraving, parchment fibres, wax, leather stitching; lit, shadowed, springy). NEVER glowing text, NEVER floating DOM/HUD overlays, NEVER plain blocks/flat rectangles. Text = ink on parchment, engraved/stamped brass, carved/burnt wood, chalk on slate. Lighting = warm practicals + GTAO + camcorder grade.
 - Look: anime/cartoon BLACK INK OUTLINES on all 3D (engine InkPass, src/core/ink.js); clean cel-like banded textures.
-- Map: Slay-the-Spire-style hand-drawn parchment map but cooler and alive (wind grass physics, trees with leaves, 2D pixel sun, pixel VFX).
+- Map: Slay-the-Spire-style hand-drawn parchment map but cooler and alive (wind grass physics, flowers, 2D pixel sun, pixel VFX). NO TREES on the map.
 - Humans may reuse the user's Limbo Phobia human generator (repo PukkingDragon123/fictional-octo-train).
 - Card art for Laws/Powers, Rotation, Force: magical effects (sigils, vortices, arcs), NO hands.
 - Draw CUSTOM art yourself: detailed high-resolution pixel art (shading ramps, selective outlines, highlights, animation frames), like `src/gfx/critters.js` birds and the card illustrations, and/or detailed high-poly models with real structure (trees with branches and leaves).

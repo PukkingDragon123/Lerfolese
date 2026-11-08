@@ -11,7 +11,7 @@ export const PX = 16;   // texels per world unit on wood / metal / leather objec
 export const PXP = 24;  // texels per world unit on paper (handwriting needs the finer grain)
 // the UI rig (ambient + key + rim + env) lifts a front-facing surface ~1.35x: materials take this albedo scale so the
 // authored ramps land on screen as painted
-export const LK = 0.74;
+export const LK = 0.8;
 
 // ---------------------------------------------------------------- ramps (dark -> light, hue-shifted)
 export const RAMP = {
@@ -56,6 +56,8 @@ export class Surf {
     }
     for (const [x, y, d] of ops) this.shift(x, y, d); return this;
   }
+  // drawn ink outline: every filled pixel that touches transparency becomes ink (sheets, flags, cloth)
+  inkEdge(color = '#1a0e12') { const ops = []; for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) { if (!this.has(x, y)) continue; if (!this.has(x - 1, y) || !this.has(x + 1, y) || !this.has(x, y - 1) || !this.has(x, y + 1)) ops.push([x, y]); } for (const [x, y] of ops) this.pix(x, y, color); return this; }
   line(x0, y0, x1, y1, fn) { x0 |= 0; y0 |= 0; x1 |= 0; y1 |= 0; const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1, dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1; let e = dx + dy; for (;;) { fn(x0, y0); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } } }
   // copy a PixelCanvas (sprite) onto the surface as fixed colours
   blit(pc, ox, oy, { scale = 1 } = {}) { const d = pc.data; for (let y = 0; y < pc.h * scale; y++) for (let x = 0; x < pc.w * scale; x++) { const v = d[((y / scale) | 0) * pc.w + ((x / scale) | 0)]; if ((v >>> 24) > 100) { const X = ox + x, Y = oy + y; if (this.in(X, Y)) this.fx[Y * this.w + X] = (v | 0xff000000) >>> 0; } } }
@@ -94,15 +96,19 @@ export function sideTex(kind) {
   const t = pxTex(S.toCanvas(), { repeat: true }); sideCache.set(kind, t); return t;
 }
 
-// ---------------------------------------------------------------- materials (lit; palette kept close to authored values)
-export function frontMat(map, { metal = 0, rough = 0.78, alphaTest = 0, side = THREE.FrontSide, env = 0.25, k = 1 } = {}) {
-  return new THREE.MeshStandardMaterial({ map, metalness: metal, roughness: rough, toneMapped: false, alphaTest, transparent: false, side, envMapIntensity: env, color: new THREE.Color().setScalar(LK * k) });
+// ---------------------------------------------------------------- materials: cel / toon with hard light bands
+// (3 bands for wood, paper, leather, cloth; metals get a 4th hot band so turned brass catches an anime highlight)
+function bands(vals) { const d = new Uint8Array(vals.length * 4); vals.forEach((v, i) => { const b = Math.round(Math.min(1, v) * 255); d.set([b, b, b, 255], i * 4); }); const t = new THREE.DataTexture(d, vals.length, 1); t.minFilter = t.magFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true; return t; }
+export const GRAD = { matte: bands([0.42, 0.42, 0.74, 1.0, 1.0, 1.0]), metal: bands([0.3, 0.3, 0.6, 0.6, 0.84, 0.84, 1.0, 1.0]) };
+export function toon({ map = null, color = LK, metal = false, alphaTest = 0, side = THREE.FrontSide, transparent = false, opacity = 1 } = {}) {
+  const m = new THREE.MeshToonMaterial({ map, gradientMap: metal ? GRAD.metal : GRAD.matte, color: new THREE.Color().setScalar(color * (metal ? 1.12 : 1)), toneMapped: false, alphaTest, side, transparent, opacity }); m.userData.own = true; return m;
 }
+export function frontMat(map, { metal = 0, alphaTest = 0, side = THREE.FrontSide, k = 1 } = {}) { return toon({ map, color: LK * k * (metal ? 1.05 : 1), metal: metal > 0.2, alphaTest, side }); }
 const sideMats = new Map();
 export function sideMat(kind) {
   if (sideMats.has(kind)) return sideMats.get(kind);
-  const metal = kind === 'brass' || kind === 'iron' ? 0.55 : 0; const m = new THREE.MeshStandardMaterial({ map: sideTex(kind), metalness: metal, roughness: metal ? 0.38 : 0.8, toneMapped: false, envMapIntensity: metal ? 0.9 : 0.3, color: new THREE.Color().setScalar(LK) });
-  m.map.repeat.set(PX / 16, PX / 16); sideMats.set(kind, m); return m;
+  const metal = kind === 'brass' || kind === 'iron'; const m = toon({ map: sideTex(kind), metal });
+  m.map.repeat.set(PX / 16, PX / 16); m.userData.own = false; sideMats.set(kind, m); return m;
 }
 
 // ---------------------------------------------------------------- material painters (all hand-placed, deterministic)
@@ -329,17 +335,45 @@ export function outline(shape, w, h, c) {
     default: return [[-W + c, -H], [W - c, -H], [W, -H + c], [W, H - c], [W - c, H], [-W + c, H], [-W, H - c], [-W, -H + c]];
   }
 }
-export function slab(w, h, d, { shape = 'rect', cut = 0.12, bevel = 0.05 } = {}) {
-  const key = `${shape}|${w.toFixed(3)}|${h.toFixed(3)}|${d.toFixed(3)}|${cut}|${bevel}`; let g = geoCache.get(key); if (g) return g;
-  const pts = outline(shape, w, h, cut); const sh = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y)));
+// round every corner of a polygon with a small fillet arc (smooth silhouettes, never faceted)
+export function fillet(pts, r, seg = 4) {
+  if (r <= 0) return pts; const out = []; const n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], a = pts[(i + n - 1) % n], b = pts[(i + 1) % n];
+    const v1x = a[0] - p[0], v1y = a[1] - p[1], v2x = b[0] - p[0], v2y = b[1] - p[1]; const l1 = Math.hypot(v1x, v1y), l2 = Math.hypot(v2x, v2y);
+    const rr = Math.min(r, l1 * 0.45, l2 * 0.45); if (rr < 1e-4) { out.push(p); continue; }
+    const s1 = [p[0] + v1x / l1 * rr, p[1] + v1y / l1 * rr], s2 = [p[0] + v2x / l2 * rr, p[1] + v2y / l2 * rr];
+    for (let k = 0; k <= seg; k++) { const t = k / seg, u = 1 - t; out.push([u * u * s1[0] + 2 * u * t * p[0] + t * t * s2[0], u * u * s1[1] + 2 * u * t * p[1] + t * t * s2[1]]); }
+  }
+  return out;
+}
+export function slab(w, h, d, { shape = 'rect', cut = 0.12, bevel = 0.05, round: rnd = null } = {}) {
+  const key = `${shape}|${w.toFixed(3)}|${h.toFixed(3)}|${d.toFixed(3)}|${cut}|${bevel}|${rnd}`; let g = geoCache.get(key); if (g) return g;
+  const base = shape === 'rect' ? outline('rect', w, h, 0) : outline(shape, w, h, cut);
+  const pts = fillet(base, rnd ?? (shape === 'rect' ? Math.max(cut, 0.06) : Math.max(0.04, Math.min(w, h) * 0.06)), shape === 'rect' ? 6 : 3);
+  const sh = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y)));
   const b = Math.min(bevel, d * 0.45);
-  const ex = new THREE.ExtrudeGeometry(sh, { depth: Math.max(0.001, d - 2 * b), bevelEnabled: b > 0, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: 1, curveSegments: 4, steps: 1 });
+  const ex = new THREE.ExtrudeGeometry(sh, { depth: Math.max(0.001, d - 2 * b), bevelEnabled: b > 0, bevelThickness: b, bevelSize: b, bevelOffset: -b, bevelSegments: 3, curveSegments: 4, steps: 1 });
   ex.translate(0, 0, -d / 2 + b);
   g = splitFront(ex, w, h); geoCache.set(key, g); return g;
 }
+// smooth vertex normals across coincident vertices whose faces meet under the crease angle
+export function creaseNormals(geo, crease = Math.PI / 3) {
+  const pos = geo.attributes.position; const n = pos.count; const fn = new Float32Array(n * 3); const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) { a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, i + 1); c.fromBufferAttribute(pos, i + 2); const nn = c.sub(b).cross(a.sub(b)); for (let k = 0; k < 3; k++) fn.set([nn.x, nn.y, nn.z], (i + k) * 3); }
+  const map = new Map(); const key = (i) => `${Math.round(pos.getX(i) * 1e4)},${Math.round(pos.getY(i) * 1e4)},${Math.round(pos.getZ(i) * 1e4)}`;
+  for (let i = 0; i < n; i++) { const k = key(i); let l = map.get(k); if (!l) map.set(k, (l = [])); l.push(i); }
+  const out = new Float32Array(n * 3); const cosC = Math.cos(crease);
+  for (const l of map.values()) for (const i of l) {
+    const ix = fn[i * 3], iy = fn[i * 3 + 1], iz = fn[i * 3 + 2]; const il = Math.hypot(ix, iy, iz) || 1; let sx = 0, sy = 0, sz = 0;
+    for (const j of l) { const jx = fn[j * 3], jy = fn[j * 3 + 1], jz = fn[j * 3 + 2]; const jl = Math.hypot(jx, jy, jz) || 1; if ((ix * jx + iy * jy + iz * jz) / (il * jl) >= cosC) { sx += jx; sy += jy; sz += jz; } }
+    const L = Math.hypot(sx, sy, sz) || 1; out.set([sx / L, sy / L, sz / L], i * 3);
+  }
+  geo.setAttribute('normal', new THREE.BufferAttribute(out, 3)); return geo;
+}
 // regroup a non-indexed geometry: group 0 = faces looking forward (planar XY UV over w x h), group 1 = sides (world-unit UV)
 export function splitFront(geo, w, h) {
-  geo = geo.index ? geo.toNonIndexed() : geo; geo.computeVertexNormals();
+  geo = geo.index ? geo.toNonIndexed() : geo; creaseNormals(geo, Math.PI / 3.2);
   const pos = geo.attributes.position, nrm = geo.attributes.normal, uv = geo.attributes.uv; const n = pos.count / 3; const front = [], side = [];
   const fn = new THREE.Vector3(), a = new THREE.Vector3(), b2 = new THREE.Vector3(), c = new THREE.Vector3();
   for (let i = 0; i < n; i++) { a.fromBufferAttribute(pos, i * 3); b2.fromBufferAttribute(pos, i * 3 + 1); c.fromBufferAttribute(pos, i * 3 + 2); fn.subVectors(c, b2).cross(a.clone().sub(b2)).normalize(); (fn.z > 0.25 ? front : side).push(i); }
@@ -351,28 +385,37 @@ export function splitFront(geo, w, h) {
 }
 // paper: a thin sheet with gentle curl (bends in z along x and y), double sided
 const sheetCache = new Map();
-export function sheet(w, h, { curl = 0.12, sag = 0.05, segX = 8, segY = 6 } = {}) {
+export function sheet(w, h, { curl = 0.12, sag = 0.05, segX = 16, segY = 10 } = {}) {
   const key = `${w.toFixed(3)}|${h.toFixed(3)}|${curl}|${sag}|${segX}|${segY}`; let g = sheetCache.get(key); if (g) return g;
   g = new THREE.PlaneGeometry(w, h, segX, segY); const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) { const u = p.getX(i) / w * 2, v = p.getY(i) / h * 2; p.setZ(i, curl * (u * u) * 0.5 + sag * (v * v) * 0.5 - curl * 0.25 + Math.sin(u * 3.1 + v * 2.3) * 0.012); }
   g.computeVertexNormals(); sheetCache.set(key, g); return g;
 }
-export function mesh(geo, mats, parent, { cast = true, recv = true } = {}) { const m = new THREE.Mesh(geo, mats); m.castShadow = cast; m.receiveShadow = recv; if (parent) parent.add(m); return m; }
+export function mesh(geo, mats, parent, { cast = true, recv = true, ink = 0 } = {}) { const m = new THREE.Mesh(geo, mats); m.castShadow = cast; m.receiveShadow = recv; if (parent) parent.add(m); if (ink) inkHull(m, ink); return m; }
 
-// turned wood / brass parts (rollers, finials, knobs): lathe from a profile of [r, y] pairs, faceted on purpose
+// turned wood / brass parts (rollers, finials, knobs, bezels, domes): lathe from a profile of [r, y] pairs, the profile
+// smoothed through a centripetal Catmull-Rom spline and swept with enough segments to read as a real turned object
 const latheCache = new Map();
-export function turned(profile, sides = 8) { const key = JSON.stringify(profile) + sides; let g = latheCache.get(key); if (g) return g; g = new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(Math.max(0.0001, r), y)), sides); g.computeVertexNormals(); latheCache.set(key, g); return g; }
+export function turned(profile, sides = 32, { smooth = true, sub = 4 } = {}) {
+  sides = Math.max(sides, 28);
+  const key = JSON.stringify(profile) + sides + smooth + sub; let g = latheCache.get(key); if (g) return g;
+  let pts = profile.map(([r, y]) => new THREE.Vector2(Math.max(0.0001, r), y));
+  if (smooth && pts.length > 2) { const cv = new THREE.SplineCurve(pts); pts = cv.getPoints(pts.length * sub).map((p) => new THREE.Vector2(Math.max(0.0001, p.x), p.y)); }
+  // face outward whatever order the profile was written in (closing the profile through the axis gives its winding)
+  { const poly = [new THREE.Vector2(0, pts[0].y), ...pts, new THREE.Vector2(0, pts[pts.length - 1].y)]; let A = 0; for (let i = 0; i < poly.length; i++) { const p = poly[i], q = poly[(i + 1) % poly.length]; A += p.x * q.y - q.x * p.y; } if (A < 0) pts.reverse(); }
+  g = new THREE.LatheGeometry(pts, sides); g.computeVertexNormals(); latheCache.set(key, g); return g;
+}
 const flatMats = new Map();
-export function plainMat(kind) { // ramp-coloured lit material for turned parts (wood or metal), with a tiny banded texture
+export function plainMat(kind) { // ramp-coloured cel material for turned parts (wood or metal), with a tiny banded texture
   if (flatMats.has(kind)) return flatMats.get(kind);
   const S = new Surf(8, 16); const R = { walnut: RAMP.walnut, oak: RAMP.oak, brass: RAMP.brass, iron: RAMP.iron, gold: RAMP.gold, rope: RAMP.rope, wax: RAMP.wax, leather: RAMP.leather, ivory: RAMP.ivory, glass: RAMP.verd }[kind] || RAMP.walnut;
   const metal = ['brass', 'iron', 'gold'].includes(kind);
-  S.rect(0, 0, 8, 16, R, (x, y) => (metal ? 3 + (y % 6 === 0 ? 1 : 0) - (y % 6 === 3 ? 1 : 0) : kind === 'rope' ? 3 + (((x + y) % 4 < 2) ? 1 : -1) : 2 + (((y + x * 3) % 5 === 0) ? 1 : 0) - (hash2(x, y, 3) > 0.8 ? 1 : 0)));
-  const m = new THREE.MeshStandardMaterial({ map: pxTex(S.toCanvas(), { repeat: true }), metalness: metal ? 0.55 : 0, roughness: metal ? 0.35 : 0.75, toneMapped: false, envMapIntensity: metal ? 1 : 0.3, flatShading: true, color: new THREE.Color().setScalar(LK) });
+  S.rect(0, 0, 8, 16, R, (x, y) => (metal ? 3 + (y % 8 === 0 ? 1 : 0) : kind === 'rope' ? 3 + (((x + y) % 4 < 2) ? 1 : -1) : 2 + (((y + x * 3) % 5 === 0) ? 1 : 0) - (hash2(x, y, 3) > 0.8 ? 1 : 0)));
+  const m = toon({ map: pxTex(S.toCanvas(), { repeat: true }), metal }); m.userData.own = false;
   flatMats.set(kind, m); return m;
 }
-export const ROLLER = (L, r = 0.14) => turned([[0, -L / 2 - 0.22], [r * 0.9, -L / 2 - 0.2], [r * 1.25, -L / 2 - 0.12], [r * 0.7, -L / 2 - 0.04], [r, -L / 2], [r, L / 2], [r * 0.7, L / 2 + 0.04], [r * 1.25, L / 2 + 0.12], [r * 0.9, L / 2 + 0.2], [0, L / 2 + 0.22]], 8);
-export const TACK = () => turned([[0, 0.09], [0.1, 0.075], [0.13, 0.03], [0.12, 0], [0.02, 0], [0.02, -0.12], [0, -0.13]], 7);
+export const ROLLER = (L, r = 0.14) => turned([[0, -L / 2 - 0.22], [r * 0.9, -L / 2 - 0.2], [r * 1.25, -L / 2 - 0.12], [r * 0.7, -L / 2 - 0.04], [r, -L / 2], [r, L / 2], [r * 0.7, L / 2 + 0.04], [r * 1.25, L / 2 + 0.12], [r * 0.9, L / 2 + 0.2], [0, L / 2 + 0.22]], 28, { smooth: false });
+export const TACK = () => turned([[0, 0.09], [0.1, 0.075], [0.13, 0.03], [0.12, 0], [0.02, 0], [0.02, -0.12], [0, -0.13]], 24);
 
 // ---------------------------------------------------------------- springy bodies
 // group (placed by the owner) > pivot (tilts toward the pointer, squashes when pressed, wobbles when kicked)
@@ -408,7 +451,32 @@ export function uiRig(engine) {
   sc.add(g); sc.userData.rig = { group: g, key, amb, rim, catcher }; return sc.userData.rig;
 }
 
-export function paperMat() { return new THREE.MeshStandardMaterial({ alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.95, toneMapped: false, envMapIntensity: 0.15, color: new THREE.Color().setScalar(LK * 0.97) }); }
+export function paperMat() { return toon({ alphaTest: 0.5, side: THREE.DoubleSide, color: LK * 0.98 }); }
+
+// ---------------------------------------------------------------- ink outlines for the UI scene (the world InkPass skips it)
+// inverted hull: a back-face shell pushed out along averaged normals, drawn in near-black plum ink
+export const INK = new THREE.MeshBasicMaterial({ color: 0x120a10, side: THREE.BackSide, toneMapped: false });
+const hullCache = new WeakMap(); const EMPTY_GEO = new THREE.BufferGeometry();
+export function hullGeo(geo, t) {
+  if (!geo.attributes.position) return EMPTY_GEO;
+  let per = hullCache.get(geo); if (!per) hullCache.set(geo, (per = new Map())); let h = per.get(t); if (h) return h;
+  const src = geo.index ? geo.toNonIndexed() : geo; const pos = src.attributes.position; const n = pos.count; const acc = new Map();
+  const key = (i) => `${Math.round(pos.getX(i) * 1e3)},${Math.round(pos.getY(i) * 1e3)},${Math.round(pos.getZ(i) * 1e3)}`; const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  for (let i = 0; i + 2 < n; i += 3) { a.fromBufferAttribute(pos, i); b.fromBufferAttribute(pos, i + 1); c.fromBufferAttribute(pos, i + 2); const nn = c.clone().sub(b).cross(a.clone().sub(b)); const L = nn.length(); if (L < 1e-9) continue; nn.divideScalar(L); for (let k = 0; k < 3; k++) { const kk = key(i + k); const v = acc.get(kk) || acc.set(kk, new THREE.Vector3()).get(kk); v.add(nn); } }
+  const out = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const v = acc.get(key(i)); const nn = v ? v.clone().normalize() : new THREE.Vector3(); out.set([pos.getX(i) + nn.x * t, pos.getY(i) + nn.y * t, pos.getZ(i) + nn.z * t], i * 3); }
+  h = new THREE.BufferGeometry(); h.setAttribute('position', new THREE.BufferAttribute(out, 3)); h.computeBoundingSphere(); per.set(t, h); return h;
+}
+export function inkHull(m, t = 0.04) {
+  const hull = new THREE.Mesh(hullGeo(m.geometry, t), INK); hull.castShadow = false; hull.receiveShadow = false; hull.frustumCulled = false; hull.raycast = () => {};
+  hull.onBeforeRender = () => { const g = hullGeo(m.geometry, t); if (hull.geometry !== g) hull.geometry = g; }; m.add(hull); m.userData.hull = hull; return m;
+}
+
 
 // place an object at depth z so it projects where (x, y) would on the z=0 UI plane (UI camera at z=40)
 export function uiPos(o, x, y, z = 1) { const k = (40 - z) / 40; o.position.set(x * k, y * k, z); return o; }
+
+// free the GPU copies of textures / materials this toolkit created under a root (shared ramps and cached geometry stay;
+// a cached texture that is used again later is simply re-uploaded)
+export function disposeTree(root) {
+  root.traverse((o) => { if (!o.isMesh) return; for (const m of Array.isArray(o.material) ? o.material : [o.material]) { if (!m?.userData?.own) continue; m.map?.dispose(); m.dispose(); } });
+}

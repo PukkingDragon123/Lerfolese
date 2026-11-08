@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
+import { toonGradient } from './limbo/rig.js';
 
 const DIR = new URL('../../assets/characters/', import.meta.url).href;
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
@@ -26,8 +27,7 @@ export function withAssets(names, fn) {
   if (names.every((n) => LIB[n])) { fn(); return; }
   Promise.all(names.map(need)).then(fn).catch((e) => console.error('[charkit]', e));
 }
-export const preloadCharacters = () => Promise.all(['base_male', 'base_female', 'anims', 'male_shade.png', 'female_shade.png', 'hair_long', 'hair_beard', 'bull_head'].map(need));
-for (const n of ['base_male', 'anims', 'male_shade.png', 'hair_long']) need(n).catch(() => {});
+export const preloadCharacters = () => Promise.all(['bull_head'].map(need));
 
 // ---------------------------------------------------------------- maths, noise, colour
 export const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -135,11 +135,11 @@ export function canvasTex(cv, srgb = true) {
 }
 /** stylised flat-shaded material from a painted result */
 export function paintedMat(res, extra = {}) {
-  const m = new THREE.MeshStandardMaterial({ map: canvasTex(res.canvas), roughnessMap: canvasTex(res.orm, false), metalnessMap: canvasTex(res.orm, false), roughness: 1, metalness: 1, flatShading: true, ...extra });
+  const m = new THREE.MeshToonMaterial({ map: canvasTex(res.canvas), gradientMap: toonGradient(), ...extra }); // smooth cel shading (ink outlines come from the engine)
   if (res.em.used) { m.emissiveMap = canvasTex(res.em); m.emissive = new THREE.Color(0xffffff); m.emissiveIntensity = 1.6; }
   return m;
 }
-export function refreshMat(m) { for (const k of ['map', 'roughnessMap', 'emissiveMap']) if (m[k]) m[k].needsUpdate = true; }
+export function refreshMat(m) { for (const k of ['map', 'emissiveMap']) if (m[k]) m[k].needsUpdate = true; }
 
 /** paint directly in UV space (loft props): fn(u, v, o) with o = {col, ro, me, em} */
 export function paintUV(w, h, fn) {
@@ -157,7 +157,7 @@ export function paintUV(w, h, fn) {
   return { canvas: cv, orm, em };
 }
 const UVMATS = new Map();
-export function uvMat(key, w, h, fn, extra) { if (!UVMATS.has(key)) { const m = paintedMat(paintUV(w, h, fn), extra); for (const k of ['map', 'roughnessMap', 'metalnessMap', 'emissiveMap']) if (m[k]) m[k].wrapS = m[k].wrapT = THREE.RepeatWrapping; UVMATS.set(key, m); } return UVMATS.get(key); }
+export function uvMat(key, w, h, fn, extra) { if (!UVMATS.has(key)) { const m = paintedMat(paintUV(w, h, fn), extra); for (const k of ['map', 'emissiveMap']) if (m[k]) m[k].wrapS = m[k].wrapT = THREE.RepeatWrapping; UVMATS.set(key, m); } return UVMATS.get(key); }
 
 // ---------------------------------------------------------------- faces (shared by every humanoid)
 // Bind-pose landmarks of the two Quaternius bases (metres, +Y up, facing +Z, character's left = +X).

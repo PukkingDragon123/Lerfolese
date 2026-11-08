@@ -133,3 +133,12 @@ The look is **low-res, geometric, faceted pixel art** in the spirit of Superbrot
 4. Clean-up pass: no orphan pixels, no doubles, no jaggies on curves.
 5. Selective outline, then highlights and glints last.
 6. Check at 1x and at 4x on a light background, a dark background and in the scene.
+
+## 9. VFX flipbooks and the sky sun
+
+The source is `src/gfx/art/vfxart.js`, and `src/gfx/vfx.js` plays the flipbooks.
+
+- **Anime and cartoon punch.** Use hard polygon shapes (spiky starbursts, broken rings, blade shards, crescent smears) in 3–4 flat tones, with **black or very dark outlines** (`#0b0710`).
+- **Frame grammar.** Each flipbook runs in this order: anticipation pinpoint, then an impact frame (heavy and critical hits get an inverted ink frame first, then a white flash), then the big shape, then the follow-through (the ring breaks and shards fly), then the dissipation (sparks). Slashes use smear crescents that grow and then thin out.
+- **Sizes.** Strips are 32–64 px square frames with 6–10 frames each, at 14–24 fps, played on a per-render clamped clock so hit-stop and slow frames never skip the key frames.
+- **The sun.** The sun is an 80 px faceted disc with 16 breathing rays, a halo of dots and a rotating highlight sliver (6 shimmer frames). It sits as a far billboard along the sky dome's sun direction.

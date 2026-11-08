@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { Spring } from '../core/tween.js';
 import { Paper } from './objects.js';
-import { Surf, SurfTex, RAMP, pxTex, frontMat, sideMat, slab, wood, brass, groove, rivet, inscribe, measure } from './craft.js';
+import { Surf, SurfTex, RAMP, pxTex, frontMat, sideMat, slab, wood, brass, groove, rivet, inscribe, measure, inkHull } from './craft.js';
 import { GR } from '../gfx/art/ramps.js';
 import { hash2 } from '../gfx/art/core.js';
 
@@ -57,10 +57,10 @@ const trayTex = (() => { let t = null; return () => { if (t) return t; const S =
 export class Pile {
   constructor(label, backTex) {
     const g = (this.group = new THREE.Group()); this.cards = []; this.label = label === 'USED' ? 'DISCARD' : label;
-    this.tray = mk(slab(2.75, 3.6, 0.3, { cut: 0.14, bevel: 0.06 }), [frontMat(trayTex()), sideMat('walnut')], g, 0, 0.05, -0.32);
+    this.tray = inkHull(mk(slab(2.75, 3.6, 0.3, { cut: 0.16, bevel: 0.08 }), [frontMat(trayTex()), sideMat('walnut')], g, 0, 0.05, -0.32), 0.045);
     const mat = [UIF({ color: 0xe8d4a2 }), UIF({ color: 0xe8d4a2 }), UIF({ color: 0xe8d4a2 }), UIF({ color: 0xe8d4a2 }), UIF({ map: backTex, roughness: 0.5, transparent: true, alphaTest: 0.5 }), UIF({ color: 0x3e2b6b })];
     for (let i = 0; i < 6; i++) { const c = mk(new THREE.BoxGeometry(2.0, 2.8, 0.04), mat, g, (Math.random() - 0.5) * 0.1, 0.12 + (Math.random() - 0.5) * 0.1, i * 0.05); c.rotation.z = (Math.random() - 0.5) * 0.12; this.cards.push(c); }
-    this.plate = new SurfTex(40, 11); this.plateMesh = mk(slab(40 / 16, 11 / 16, 0.07, { shape: 'notch', bevel: 0.02 }), [frontMat(this.plate.tex, { metal: 0.3, rough: 0.5, env: 0.8 }), sideMat('brass')], g, 0, -1.72, 0.25);
+    this.plate = new SurfTex(40, 11); this.plateMesh = mk(slab(40 / 16, 11 / 16, 0.07, { shape: 'notch', bevel: 0.02 }), [frontMat(this.plate.tex, { metal: 0.3 }), sideMat('brass')], g, 0, -1.72, 0.25); inkHull(this.plateMesh, 0.025);
     this.n = -1; this.bump = new Spring(0, 20, 0.3);
     this.hit = mk(new THREE.BoxGeometry(2.4, 3.2, 1), new THREE.MeshBasicMaterial({ visible: false }), g); this.hit.castShadow = false;
   }
@@ -68,7 +68,7 @@ export class Pile {
     if (n === this.n) return; this.bump.kick(6); this.n = n; this.cards.forEach((c, i) => (c.visible = i < Math.min(6, Math.ceil(n / 3) + (n > 0 ? 1 : 0))));
     this.plate.paint((S) => { brass(S, 0, 0, 40, 11, { seed: 3, patina: 0.3 }); S.bevel(null, { lit: 2, dark: -2 }); const t = String(n); const lw = measure(this.label, 'tiny'); inscribe(S, this.label, 6, 8, 'tiny', 'enamel', { fill: RAMP.night }); inscribe(S, t, Math.max(lw + 9, 35 - measure(t, 'tiny')), 8, 'tiny', 'enamel', { fill: RAMP.night }); });
   }
-  update(dt) { this.bump.update(dt); this.group.scale.setScalar(1 + this.bump.value * 0.02); }
+  update(dt) { this.bump.update(dt); this.group.scale.setScalar((this.k ?? 1) * (1 + this.bump.value * 0.02)); }
 }
 
 // gold pouch and damage numbers are physical objects now (stitched leather pouch, painted wooden chips)

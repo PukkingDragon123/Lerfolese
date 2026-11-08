@@ -2,7 +2,7 @@
 // embroidered cloth pennants (banners), pinned paper slips that drop in and fall away (toasts), torn speech scraps,
 // pinned parchment notes (tooltips) and the battle / map instrument cluster.
 import * as THREE from 'three';
-import { uiRig, uiPos } from './craft.js';
+import { uiRig, uiPos, disposeTree } from './craft.js';
 import { Paper, NoteTip, Pennant } from './objects.js';
 import { Manometer, WardShield, Pouch, Bell, Bin, LawTag, EnemyBoard, roman } from './hudparts.js';
 import { audio } from '../core/audio.js';
@@ -138,7 +138,7 @@ export class BattleHUD {
     if (this.mode !== 'map') { this.shield.update(dt, null); this.bell.update(dt, p); this.bin.update(dt, p); for (const l of this.laws) l.update(dt, p); }
   }
   dispose() {
-    this.engine.remove(this); this.engine.ui.scene.remove(this.root); if (this.handler) window.__game.input.remove(this.handler); this.lawTip?.dispose();
+    this.engine.remove(this); this.engine.ui.scene.remove(this.root); if (this.handler) window.__game.input.remove(this.handler); this.lawTip?.dispose(); disposeTree(this.root);
     for (const p of this.plates) p.dispose(); this.plates.clear();
   }
 }

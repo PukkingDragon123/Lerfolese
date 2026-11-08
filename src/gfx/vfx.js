@@ -22,10 +22,11 @@ export function playVFX(scene, name, worldPos, { scale = 1, flip = false, fps, r
   setFrame(0);
   const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, alphaTest: 0.5, depthTest: false, depthWrite: false, toneMapped: false, fog: false, rotation: rot });
   const spr = new THREE.Sprite(mat); spr.scale.setScalar(D.world * scale); spr.position.copy(worldPos); spr.renderOrder = 20; spr.frustumCulled = false;
-  const rate = fps || D.fps; const t0 = performance.now(); let done = false;
+  // advance on a per-render clock clamped like the game's tweens (slow machines see every key frame; hit-stop friendly)
+  const rate = fps || D.fps; let el = 0, last = performance.now(), done = false;
   const kill = () => { if (done) return; done = true; spr.visible = false; queueMicrotask(() => { spr.parent?.remove(spr); tex.dispose(); mat.dispose(); }); };
-  spr.onBeforeRender = () => { const f = Math.floor(((performance.now() - t0) / 1000) * rate); if (f >= N) kill(); else setFrame(f); };
-  setTimeout(kill, (N / rate) * 1000 + 1500); // safety if the scene stops rendering
+  spr.onBeforeRender = () => { const now = performance.now(); el += Math.min(0.05, (now - last) / 1000); last = now; const f = Math.floor(el * rate); if (f >= N) kill(); else setFrame(f); };
+  setTimeout(kill, 30000); // safety if the scene stops rendering
   scene.add(spr); return spr;
 }
 

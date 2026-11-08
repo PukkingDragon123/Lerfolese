@@ -11,7 +11,7 @@ import * as K from './charkit.js';
 
 const HEIGHT = 2.2;
 const APP = { skin: 0xdba468, hair: 0xf2eee6, hairStyle: 'curly', build: 'slim', bodyShape: 0, age: 1, face: 5, nose: 5, brows: 1, mouth: 1, ears: 2, eyeColor: 0x3a8aa8, facialHair: 'none', height: 1 };
-const OUTFIT = { torso: { tex: 'c_shirt_button', color: 0xd9a22c }, torsoOuter: { tex: 'c_coat', color: 0x6e2a80 }, legs: { tex: 'c_slacks', color: 0x4a2a5e }, legsKind: 'shorts', feet: { tex: 'c_shoes_dress', color: 0x2a1c2a } };
+const OUTFIT = { torso: { tex: 'c_shirt_button', color: 0xd9a22c }, torsoOuter: { tex: 'c_labcoat', color: 0x6e2a80 }, legs: { tex: 'c_slacks', color: 0x4a2a5e }, legsKind: 'shorts', feet: { tex: 'c_shoes_dress', color: 0x2a1c2a } };
 const EXPR_MAP = { smug: 'smile', delight: 'happy', annoyed: 'angry', hurt: 'pain', shock: 'surprised', think: 'think' };
 const WOOD = [[248, 196, 128], [214, 146, 82], [160, 92, 52], [96, 48, 44]]; // varnish light → violet-brown shadow
 const BRASS = [244, 198, 84], INK = [52, 26, 34], LACE = [250, 246, 238], STOCK = [238, 228, 206];
@@ -32,7 +32,7 @@ function woodHook(paint, P, spec) {
   const wrap = (fn) => (c, o) => {
     fn(c, o); const ax = Math.abs(c.x);
     // lace cravat / jabot cascading down the shirt front
-    const y0 = P.bustY - 0.015 * H; if (c.nz > 0.3 && c.y > y0 && c.y < P.neckBase + 0.03 * H && ax < 0.016 * H + (c.y - y0) * 0.5) { const f = Math.sin(ax * 900 + c.y * 300); set(o, f > 0.55 ? [214, 206, 214] : c.ny < -0.3 ? [222, 214, 222] : LACE); return; }
+    const y0 = P.bustY + 0.01 * H; if (c.nz > 0.3 && c.y > y0 && c.y < P.neckBase + 0.03 * H && ax < 0.008 * H + (c.y - y0) * 0.32) { const f = Math.sin(ax * 900 + c.y * 300); set(o, f > 0.55 ? [214, 206, 214] : c.ny < -0.3 ? [222, 214, 222] : LACE); return; }
     if (!isSkin(o)) return;
     if (c.y < P.kneeY - 0.012 * H && c.y > P.ankleY - 0.01 * H) { const k = lit(o); set(o, k > 0.95 ? STOCK : k > 0.75 ? [206, 192, 186] : [150, 132, 150]); if ((Math.atan2(c.x - Math.sign(c.x) * P.hipX, c.z) * 7 + 20) % 1 < 0.12) { o[0] *= 0.92; o[1] *= 0.92; o[2] *= 0.95; } return; }
     wood(c, o);

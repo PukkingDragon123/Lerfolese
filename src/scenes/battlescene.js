@@ -124,7 +124,7 @@ export class BattleScene {
   }
   layoutUI() {
     const W = (this.ui.W = this.engine.uiW), H = (this.ui.H = this.engine.uiH);
-    const k = this.hudB?.k ?? 1; this.drawPile.group.position.set(-W + 1.95 * k, -H + 2.7 * k, 0.5); this.discardPile.group.position.set(W - 7.6 * k, -H + 2.7 * k, 0.5); this.drawPile.group.scale.setScalar(k); this.discardPile.group.scale.setScalar(k);
+    const k = this.hudB?.k ?? 1; this.drawPile.group.position.set(-W + 1.95 * k, -H + 2.7 * k, 0.5); this.discardPile.group.position.set(W - 7.6 * k, -H + 2.7 * k, 0.5); this.drawPile.k = k; this.discardPile.k = k;
     this.hand?.layout();
   }
 
