@@ -1,4 +1,5 @@
 // Boot + game flow: menu -> map -> nodes (battle / event / shop / lab) -> rewards -> ... -> death/victory.
+import './core/binfetch.js';
 import { Engine } from './core/engine.js';
 import { hud } from './ui3d/hud.js';
 import { Input } from './core/input.js';
