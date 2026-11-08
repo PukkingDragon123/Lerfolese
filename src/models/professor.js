@@ -37,10 +37,10 @@ function mats() {
   MAT.oakB = K.uvMat('pup-oak-broken', 64, 256, (u, v, o) => { woodPx(o, u, v, C.oak, C.oakD, { cracks: 3, seed: 5 }); if (K.vnoise(u * 12, v * 20, 4) > 0.78) K.tone(C.raw, 0.6, o.col); });
   MAT.torso = K.uvMat('pup-torso', 128, 256, (u, v, o) => { woodPx(o, u, v, C.oak, C.oakD, { cracks: 1, seed: 7 }); const sp = Math.abs(du(u) - 0.18 - Math.sin(v * 30) * 0.008); if (sp < 0.007 && v < 0.85) { o.col[0] = 24; o.col[1] = 10; o.col[2] = 14; } else if (sp < 0.016 && v < 0.85) K.tone(C.raw, 0.55, o.col); });
   MAT.leg = K.uvMat('pup-tableleg', 64, 512, (u, v, o) => { // varnished brown turned leg: grain, inked moulding grooves, a few chips
-    woodPx(o, u, v, hex('#94582c'), hex('#4a2614'), { cracks: 1, seed: 11, grain: 18 }); const y = v * LEGLEN;
-    for (const g of [0.11, 0.128, 0.15, 0.172, 0.36, 0.38, 0.4, LEGLEN - 0.09, LEGLEN - 0.07]) if (Math.abs(y - g) < 0.0035) { o.col[0] = 40; o.col[1] = 20; o.col[2] = 14; }
+    woodPx(o, u, v, hex('#3a2a3e'), hex('#160e1c'), { cracks: 0, seed: 11, grain: 18 }); const y = v * LEGLEN;
+    for (const g of [0.11, 0.128, 0.15, 0.172, 0.36, 0.38, 0.4, LEGLEN - 0.09, LEGLEN - 0.07]) if (Math.abs(y - g) < 0.0035) { o.col[0] = 110; o.col[1] = 236; o.col[2] = 255; o.em = [50, 210, 255]; }
     if (y < 0.11 && (Math.abs(((u * 4) % 1) - 0.5) > 0.47)) K.mixc(o.col, hex('#3a1c10'), 0.6); // the square post's arrises
-    if (K.vnoise(u * 10, v * 60, 8) > 0.86) K.tone(C.raw, 0.6, o.col); });
+    if (y > 0.42 && y < LEGLEN - 0.1 && Math.abs(((u * 4) % 1) - 0.5) < 0.03) { o.col[0] = 110; o.col[1] = 236; o.col[2] = 255; o.em = [40, 190, 255]; } });
   MAT.brass = K.uvMat('pup-brass', 32, 64, (u, v, o) => { K.tone(C.brass, K.band(0.6 + Math.cos(u * TAU) * 0.25 - (K.vnoise(u * 20, v * 20, 3) > 0.75 ? 0.25 : 0), 4), o.col); });
   MAT.twine = K.uvMat('pup-twine', 32, 64, (u, v, o) => { const tw = ((u * 3 + v * 14) % 1); K.tone(C.twine, K.band(0.55 + (tw < 0.5 ? 0.1 : -0.1), 3), o.col); });
   MAT.coat = K.uvMat('pup-coat', 512, 256, (u, v, o) => { // plum wool: 3-tone cel folds, gold piping, brass buttons, pocket flaps, patch, worn ragged hem
@@ -130,7 +130,7 @@ function tableLeg(len, M) { // turned furniture leg as an arm: square post block
 }
 function carvedHand(M) { // left hand: carved mitten palm, index and middle fingers, two snapped stumps, thumb
   const g = new THREE.Group();
-  K.mesh(new K.Loft(14, 18).set((t, p) => p.set(0, -0.02 - t * 0.09, 0.005), (t) => [0.034 * capR(t, 0.2), 0.018 * capR(t, 0.2)], { ref: (t, n) => n.set(0, 0, 1) }).geo, M.oak, g);
+  K.mesh(new K.Loft(14, 18).set((t, p) => p.set(0, -0.02 - t * 0.09, 0.005), (t) => [0.036 * capR(t, 0.2), 0.02 * capR(t, 0.2)], { ref: (t, n) => n.set(0, 0, 1) }).geo, M.glove || (M.glove = K.uvMat('pup-glove', 64, 64, (u, v, o) => { K.tone(hex('#20202c'), K.band(0.5 + Math.cos(u * TAU) * 0.2, 3), o.col); if (Math.abs(v - 0.5) < 0.03) { o.col[0] = 110; o.col[1] = 236; o.col[2] = 255; o.em = [40, 190, 255]; } })), g); // fingerless glove
   const fing = (x, len, z = 0.01) => K.mesh(new K.Loft(12, 12).set(K.curve([[x, -0.1, z], [x, -0.1 - len * 0.6, z + 0.008], [x, -0.1 - len, z + 0.022]]), (t) => 0.009 * (1 - t * 0.25) * capR(t, 0.15), { ref: (t, n) => n.set(0, 0, 1) }).geo, M.oak, g);
   fing(0.022, 0.06); fing(0.007, 0.065); fing(-0.009, 0.014); fing(-0.024, 0.01); // two fingers snapped off
   K.mesh(new K.Loft(10, 12).set(K.curve([[0.03, -0.04, 0.012], [0.042, -0.07, 0.03], [0.04, -0.095, 0.04]]), (t) => 0.009 * capR(t, 0.15)).geo, M.oak, g);
@@ -200,14 +200,14 @@ function runeGlyph(gx, gy) {
 }
 function gearMats() {
   if (MAT.robe) return MAT; const gold = hex('#f0c454');
-  const runeBand = (o, gx, gy) => { K.tone(hex('#1a1640'), 0.45, o.col); if (runeGlyph(gx, gy)) K.tone(gold, 0.78, o.col); if (gy < 0.1 || gy > 0.9) K.tone(hex('#e2ae46'), 0.6, o.col); };
+  const runeBand = (o, gx, gy) => { K.tone(hex('#14182a'), 0.45, o.col); if (runeGlyph(gx, gy)) { o.col[0] = 120; o.col[1] = 240; o.col[2] = 255; o.em = [60, 220, 255]; } if (gy < 0.1 || gy > 0.9) { o.col[0] = 90; o.col[1] = 200; o.col[2] = 240; o.em = [30, 150, 220]; } };
   MAT.robe = K.uvMat('wiz-robe', 512, 512, (u, v, o) => { // deep indigo robe: 3-tone folds, embroidered rune bands on the front edges and above the hem, ragged hem
-    const f = Math.sin(u * TAU * 8 + Math.sin(v * 4 + u * 17) * 0.9); K.tone(hex('#30307a'), f > 0.5 ? 0.66 : f < -0.5 ? 0.3 : 0.48, o.col);
+    const f = Math.sin(u * TAU * 8 + Math.sin(v * 4 + u * 17) * 0.9); K.tone(hex('#262a44'), f > 0.5 ? 0.64 : f < -0.5 ? 0.32 : 0.48, o.col);
     const e = Math.min(u, 1 - u); if (e < 0.04) runeBand(o, v * 40, e / 0.04); else if (v > 0.82 && v < 0.9) runeBand(o, u * 70, (v - 0.82) / 0.08);
     if (K.vnoise(u * 20, v * 20, 9) > 0.86 && v > 0.4 && e > 0.05) o.a = 0;
     const hem = 0.94 + Math.abs(((u * 29) % 1) - 0.5) * 0.07 + K.vnoise(u * 50, 2, 2) * 0.02; if (v > hem) o.a = 0; else if (v > hem - 0.025) K.tone(hex('#5a5aa0'), 0.5, o.col);
   }, { side: THREE.DoubleSide, alphaTest: 0.5 });
-  MAT.robeTop = K.uvMat('wiz-robe-top', 512, 256, (u, v, o) => { const f = Math.sin(u * TAU * 6 + v * 3); K.tone(hex('#30307a'), f > 0.5 ? 0.66 : f < -0.5 ? 0.32 : 0.48, o.col); const e = Math.min(u, 1 - u); if (e < 0.045) runeBand(o, v * 18, e / 0.045); }, { side: THREE.DoubleSide });
+  MAT.robeTop = K.uvMat('wiz-robe-top', 512, 256, (u, v, o) => { const f = Math.sin(u * TAU * 6 + v * 3); K.tone(hex('#262a44'), f > 0.5 ? 0.64 : f < -0.5 ? 0.32 : 0.48, o.col); const e = Math.min(u, 1 - u); if (e < 0.045) runeBand(o, v * 18, e / 0.045); }, { side: THREE.DoubleSide });
   MAT.cape = K.uvMat('wiz-cape', 256, 256, (u, v, o) => { const f = Math.sin(u * TAU * 5 + v * 2); K.tone(hex('#7a1e2e'), f > 0.45 ? 0.64 : f < -0.5 ? 0.3 : 0.48, o.col); if (v < 0.06) K.tone(gold, 0.6, o.col); const hem = 0.86 + Math.abs(((u * 13) % 1) - 0.5) * 0.18 + K.vnoise(u * 30, 1, 3) * 0.05; if (v > hem) o.a = 0; else if (v > hem - 0.03) K.tone(hex('#4a1020'), 0.45, o.col); if (K.vnoise(u * 12, v * 12, 4) > 0.86 && v > 0.3) o.a = 0; }, { side: THREE.DoubleSide, alphaTest: 0.5 });
   MAT.leather = K.uvMat('wiz-leather', 128, 128, (u, v, o) => { K.tone(hex('#6a3e22'), K.band(0.5 + (K.vnoise(u * 20, v * 20, 2) - 0.5) * 0.25, 4), o.col); const e = Math.min(u, 1 - u, v, 1 - v); if (e < 0.06 && e > 0.035 && ((u + v) * 60) % 1 < 0.5) K.tone(hex('#e0c890'), 0.6, o.col); if (e < 0.02) K.tone(hex('#3a2010'), 0.4, o.col); if (Math.abs(Math.hypot(u - 0.5, v - 0.5) - 0.2) < 0.02) K.tone(hex('#3a2010'), 0.35, o.col); }, { side: THREE.DoubleSide });
   MAT.glass = new THREE.MeshToonMaterial({ color: 0xd8f0ff, transparent: true, opacity: 0.4, depthWrite: false });
@@ -226,10 +226,9 @@ function wizardGear(J, M) {
   const G = gearMats(); const gold = M.brass; const torsoW = (y) => 0.15 + Math.sin(Math.min(1, (y / 0.52) * 1.15) * Math.PI * 0.62) * 0.07;
   // long robe: an open-fronted coat-robe over the frock coat (upper on the torso, skirt panels on the hips that swing)
   J.torso.add(sheet(10, 30, (u, v, p) => { const th = 0.95 + u * (TAU - 1.9); const y = 0.6 - v * 0.62; const w = torsoW(Math.max(0, y)) + 0.045; p.set(Math.sin(th) * w, y, Math.cos(th) * (0.17 + y * 0.02 + 0.018)); }, G.robeTop));
-  J.tails.add(sheet(14, 34, (u, v, p) => { const th = 0.7 + u * (TAU - 1.4); const y = -0.02 - v * 1.0; const r = (0.205 + v * 0.16) * (1 + 0.045 * v * Math.sin(th * 9)); p.set(Math.sin(th) * r, y, Math.cos(th) * r * 0.8 - 0.02); }, G.robe));
+  J.tails.add(sheet(14, 34, (u, v, p) => { const th = 0.7 + u * (TAU - 1.4); const y = -0.02 - v * 1.0; const r = (0.195 + v * 0.07) * (1 + 0.03 * v * Math.sin(th * 9)); p.set(Math.sin(th) * r, y, Math.cos(th) * r * 0.8 - 0.02); }, G.robe));
   // wizard's high collar + short tattered mantle-cape
-  J.torso.add(sheet(4, 20, (u, v, p) => { const th = 1.15 + u * (TAU - 2.3); const r = 0.075 + v * 0.085; p.set(Math.sin(th) * r, 0.53 + v * 0.17, -0.02 + Math.cos(th) * r * 0.9); }, G.robeTop));
-  J.torso.add(sheet(10, 22, (u, v, p) => { const th = 1.7 + u * (TAU - 3.4); const y = 0.6 - v * 0.5; const r = torsoW(Math.max(0, y)) + 0.075 + v * 0.06; p.set(Math.sin(th) * r * 1.05, y, Math.cos(th) * (0.2 + v * 0.05)); }, G.cape));
+  J.torso.add(sheet(4, 20, (u, v, p) => { const th = 1.15 + u * (TAU - 2.3); const r = 0.072 + v * 0.06; p.set(Math.sin(th) * r, 0.53 + v * 0.24, -0.02 + Math.cos(th) * r * 0.9); }, G.robeTop));
   // leather pauldron of three overlapping plates, riveted, on the left shoulder
   for (let k = 0; k < 3; k++) J.shL.add(sheet(6, 12, (u, v, p) => { const a = (u - 0.5) * 2.2; const r = 0.085 + k * 0.012 + v * 0.01; p.set(0.01 + Math.sin(v * 1.2 + 0.25) * r * 0.9, 0.08 - k * 0.042 - v * 0.05 + Math.cos(a) * 0.01, Math.sin(a) * r); }, G.leather));
   for (const z of [-0.06, 0, 0.06]) J.shL.add(nail(V(0.1, 0.07, z), V(1, 0.4, 0).normalize(), 0.012, gold));
@@ -260,7 +259,7 @@ function wizardGear(J, M) {
   // the off-hand sigil (glows faintly, blazes when casting)
   const sm = new THREE.MeshBasicMaterial({ map: sigilTex(), color: new THREE.Color(0x9fe8ff).multiplyScalar(2), transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const sig = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.2), sm); sig.position.set(0, -0.08, 0.1); sig.castShadow = false; J.wrL.add(sig);
-  return { glow(k) { sm.opacity = 0.12 + k * 0.85; sig.scale.setScalar(1 + k * 0.8); }, update(t) { sig.rotation.z = t * 0.8; G.crystal.emissiveIntensity = 1.3 + Math.sin(t * 3) * 0.3; } };
+  return { glow(k) { sm.opacity = 0.12 + k * 0.85; sig.scale.setScalar(1 + k * 0.8); }, spin: 0, update(t) { this.spin *= 0.97; sig.rotation.z = t * (0.8 + this.spin); G.crystal.emissiveIntensity = 1.3 + Math.sin(t * 3) * 0.3; } };
 }
 
 // ---------------------------------------------------------------- the puppet
@@ -291,16 +290,16 @@ export function createProfessor() {
     sh.add(hoop(V(0.04, 0.01, 0), V(0, 0, 1), 0.05, 0.007, M.twine)); for (const [x, y] of [[0.02, -0.05], [-0.03, -0.08], [0.0, -0.11]]) sh.add(nail(V(x, y, 0.06), V(0, 0, -1), 0.04, M.brass));
     sh.add(sheet(3, 14, (u, v, p) => { const th = u * TAU; const r = 0.075 + v * 0.012; p.set(Math.sin(th) * r, 0.03 - v * 0.09, Math.cos(th) * r); }, M.coat)); // torn sleeve stub
     const tip = J(sh, 0, -0.9, 0); hands.push(tip); arms.push({ sh, el: sh, wr: tip, hand: tip, s: -1 }); }
-  { const sh = J(torso, 0.25, 0.46, 0); sh.add(seg(0.38, 0.05, 0.04, M.oak)); sh.add(pin(V(0, 0, 0), V(1, 0, 0), 0.13, 0.009, M.brass));
+  { const sh = J(torso, 0.25, 0.46, 0); sh.add(seg(0.38, 0.044, 0.035, M.oak)); sh.add(pin(V(0, 0, 0), V(1, 0, 0), 0.13, 0.009, M.brass));
     sh.add(sheet(6, 18, (u, v, p) => { const th = u * TAU; const r = 0.068 - v * 0.012; p.set(Math.sin(th) * r, 0.02 - v * 0.3, Math.cos(th) * r); }, M.coat));
-    const el = J(sh, 0, -0.4, 0); el.add(seg(0.33, 0.038, 0.03, M.oakB, { chip: 0.25 })); el.add(pin(V(0, 0, 0), V(1, 0, 0), 0.1, 0.008, M.brass));
+    const el = J(sh, 0, -0.4, 0); el.add(seg(0.33, 0.034, 0.027, M.oakB, { chip: 0.2 })); el.add(pin(V(0, 0, 0), V(1, 0, 0), 0.1, 0.008, M.brass));
     el.add(hoop(V(0, 0.012, 0.028), V(1, 0, 0), 0.012, 0.0035, M.brass)); sh.add(hoop(V(0, -0.388, 0.03), V(1, 0, 0), 0.012, 0.0035, M.brass));
     const wr = J(el, 0, -0.35, 0); wr.add(carvedHand(M)); wr.add(hoop(V(0, 0.01, 0), V(1, 0, 0), 0.016, 0.004, M.brass));
     const twine = new K.Loft(14, 8).set(K.curve([[0, 0.0, 0.02], [0.01, -0.06, 0.03], [0.02, -0.14, 0.02], [0.01, -0.2, 0.03]]), () => 0.004); const tw = K.mesh(twine.geo, M.twine, wr); // loose twine
     const hp = J(wr, 0, -0.07, 0.01); hands.push(hp); arms.push({ sh, el, wr, hand: hp, s: 1, twine: tw }); }
   for (const s of [-1, 1]) {
-    const hip = J(pelvis, s * 0.1, -0.08, 0); hip.add(seg(0.42, 0.06, 0.047, s > 0 ? M.oak : M.oakB, { chip: s < 0 ? 0.2 : 0 })); hip.add(hoop(V(0, 0.01, 0), V(1, 0, 0), 0.02, 0.005, M.twine));
-    const kn = J(hip, 0, -0.43, 0); kn.add(seg(0.4, 0.045, 0.035, M.oak)); kn.add(pin(V(0, 0, 0), V(1, 0, 0), 0.12, 0.009, M.brass));
+    const hip = J(pelvis, s * 0.1, -0.08, 0); hip.add(seg(0.44, 0.052, 0.04, s > 0 ? M.oak : M.oakB, { chip: s < 0 ? 0.2 : 0 })); hip.add(hoop(V(0, 0.01, 0), V(1, 0, 0), 0.02, 0.005, M.twine));
+    const kn = J(hip, 0, -0.43, 0); kn.add(seg(0.41, 0.039, 0.03, M.oak)); kn.add(pin(V(0, 0, 0), V(1, 0, 0), 0.12, 0.009, M.brass));
     const an = J(kn, 0, -0.41, 0); an.add(shoe(M)); legs.push({ hip, kn, an, s });
   }
   // ---------------- control cross held by the spectral hand; strings
@@ -357,7 +356,7 @@ export function createProfessor() {
       // throw with the table-leg club: yank (0-.12) -> wind back, weight back, twist (.12-.42) -> hurl over the top (.42-.56) -> follow-through -> recover
       const ph = md === 'throw' ? (m < 0.12 ? 1 : m < 0.42 ? 2 : m < 0.56 ? 3 : m < 0.95 ? 4 : 0) : 0; const fast = ph ? 24 : 8; for (const k of ['shR', 'shRz', 'torsoY', 'torso', 'bodyZ']) st.j[k].omega = fast;
       if (ph) { H.z.target = ph === 2 ? -0.35 : ph >= 3 ? 0.45 : -0.1; H.tilt.target = ph === 2 ? -0.35 : ph === 3 ? 0.55 : 0.2; H.curl.target = ph >= 3 ? 0.9 : 0.5; P.R.target = ph === 4 ? 0.3 : 0.9; }
-      if (md === 'cast' && m < 1.3) { H.y.target = 0.35; H.tilt.target = -0.2; P.L.target = 1.0; P.R.target = 0.95; P.head.target = 1.0; H.curl.target = 0.25; smat.uniforms.uGlow.value = 2.4; GEAR.glow(Math.min(1, m * 3) * (1 - Math.max(0, (m - 1.0) / 0.3))); } else { smat.uniforms.uGlow.value += (1 - smat.uniforms.uGlow.value) * Math.min(1, dt * 3); GEAR.glow(0.15); }
+      if (md === 'cast' && m < 1.3) { H.y.target = 0.35; H.tilt.target = -0.2; GEAR.spin = 6; P.L.target = 1.0; P.R.target = 0.95; P.head.target = 1.0; H.curl.target = 0.25; smat.uniforms.uGlow.value = 2.4; GEAR.glow(Math.min(1, m * 3) * (1 - Math.max(0, (m - 1.0) / 0.3))); } else { smat.uniforms.uGlow.value += (1 - smat.uniforms.uGlow.value) * Math.min(1, dt * 3); GEAR.glow(0.15); }
       if (md === 'cheer' && m < 1.5) { const b = Math.abs(Math.sin(m * 9)); H.y.target = 0.25 + b * 0.15; P.L.target = 0.95 + b * 0.1; P.R.target = 0.95 + b * 0.1; P.kL.target = b * 0.6; P.kR.target = (1 - b) * 0.6; H.curl.target = 0.8; }
       if (md !== 'idle' && m > 1.6) st.mode = 'idle';
       if (md === 'hurt') { st.slack.omega = m < 0.62 ? 10 : 16; st.slack.target = m < 0.6 ? 1 : 0; if (m > 0.6 && m - dt <= 0.6) { H.y.kick(9); st.j.bodyY.kick(5); } } // crumple, then jerked back up
@@ -371,20 +370,21 @@ export function createProfessor() {
       // dangling jitter: little random knocks to the loose joints
       st.nextJit -= dt; if (st.nextJit < 0) { st.nextJit = 0.6 + Math.random() * 1.2; const ks = ['shL', 'shR', 'elL', 'hipL', 'hipR', 'knL', 'knR', 'headZ', 'tails', 'wrL']; Jn[ks[(Math.random() * ks.length) | 0]].kick((Math.random() - 0.5) * 2.4); }
       // the strings set the joint targets (pull 1 = arm hauled up and forward)
-      Jn.shL.target = -P.L.value * 2.3 - (md === 'throw' && m > 0.25 && m < 0.6 ? 0.6 : 0); Jn.shLz.target = 0.12 + P.L.value * 0.25 + sl * 0.1; Jn.elL.target = -0.15 - P.L.value * 0.7;
-      Jn.shR.target = ph === 1 ? -0.5 : ph === 2 ? 1.7 : ph === 3 ? -2.5 : ph === 4 ? -1.1 : -P.R.value * 2.1; Jn.shRz.target = ph === 2 ? -0.45 : -0.12 - P.R.value * 0.25 - sl * 0.1;
-      Jn.torsoY.target = ph === 2 ? -0.55 : ph === 3 ? 0.5 : ph === 4 ? 0.3 : Math.sin(t * 0.7) * 0.05; Jn.bodyZ.target = ph === 2 ? -0.09 : ph === 3 ? 0.14 : ph === 4 ? 0.08 : 0; Jn.wrL.target = Math.sin(t * 2.3) * 0.12;
+      const pocket = (md === 'idle' || md === 'throw') && sl < 0.3; const fl = md === 'cast' && m < 1.2 ? m : -1;
+      Jn.shL.target = pocket ? 0.32 : fl >= 0 ? (fl < 0.35 ? -0.5 : -1.7) : -P.L.value * 2.3; Jn.shLz.target = pocket ? 0.24 : fl >= 0 ? (fl < 0.35 ? 1.25 : 0.3) : 0.12 + P.L.value * 0.25 + sl * 0.1; Jn.elL.target = pocket ? -1.25 : fl >= 0 ? -0.2 : -0.15 - P.L.value * 0.7;
+      Jn.shR.target = ph === 1 ? -0.5 : ph === 2 ? 1.7 : ph === 3 ? -2.5 : ph === 4 ? -1.1 : fl >= 0 ? -1.3 : md === 'idle' ? 0.12 : -P.R.value * 2.1; Jn.shRz.target = ph === 2 ? -0.45 : -0.12 - P.R.value * 0.25 - sl * 0.1;
+      Jn.torsoY.target = ph === 2 ? -0.55 : ph === 3 ? 0.5 : ph === 4 ? 0.3 : fl >= 0 ? (fl < 0.35 ? -0.45 : 0.3) : 0.12 + Math.sin(t * 0.7) * 0.05; Jn.bodyZ.target = ph === 2 ? -0.09 : ph === 3 ? 0.14 : ph === 4 ? 0.08 : 0; Jn.wrL.target = pocket ? 0.35 : fl >= 0 ? -0.5 : Math.sin(t * 2.3) * 0.12;
       Jn.hipL.target = -P.kL.value * 0.9 - sl * 0.8; Jn.hipR.target = -P.kR.value * 0.9 - sl * 0.7; Jn.knL.target = 0.05 + P.kL.value * 1.3 + sl * 1.4; Jn.knR.target = 0.05 + P.kR.value * 1.3 + sl * 1.3;
-      Jn.torso.target = ph === 2 ? -0.15 : ph === 3 ? 0.38 : ph === 4 ? 0.26 : 0.08 + sl * 0.5 - (P.L.value + P.R.value) * 0.06 - (md === 'cast' && m < 1.2 ? 0.12 : 0);
+      Jn.torso.target = ph === 2 ? -0.15 : ph === 3 ? 0.38 : ph === 4 ? 0.26 : -0.07 + sl * 0.6 - (P.L.value + P.R.value) * 0.06 - (md === 'cast' && m < 1.2 ? 0.12 : 0); // lean-back swagger
  Jn.torsoZ.target = -H.roll.value * 0.7 + Math.sin(t * 1.1) * 0.03;
-      Jn.headX.target = (1 - P.head.value) * 0.3 - 0.27 + st.look.y * -0.3 + sl * 0.45 - (md === 'cast' && m < 1.2 ? 0.55 : 0); Jn.headY.target = st.look.x * 0.5 + Math.sin(t * 0.6) * 0.1; Jn.headZ.target = Math.sin(t * 0.8) * 0.06;
+      Jn.headX.target = (1 - P.head.value) * 0.3 - 0.27 + st.look.y * -0.3 + sl * 0.45 - (md === 'cast' && m < 1.2 ? 0.55 : 0); Jn.headY.target = st.look.x * 0.5 + Math.sin(t * 0.6) * 0.1; Jn.headZ.target = 0.07 + Math.sin(t * 0.8) * 0.04;
       Jn.tails.target = -Jn.hipL.value * 0.3 + Math.sin(t * 1.9) * 0.05; Jn.bodyX.target = H.x.value * 0.35; Jn.bodyY.target = 0.02 + Math.max(0, H.y.value) * 0.5 - sl * 0.3 + (P.L.value + P.R.value) * 0.03;
       if (ph === 3 || ph === 4) { Jn.hipL.target = -0.55; Jn.knL.target = 0.55; } // step into the throw
       Jn.jaw.target = st.talk > 0 ? Math.abs(Math.sin(t * 17)) * 0.5 : sl * 0.25; if (st.talk > 0) st.talk -= dt;
       for (const k in Jn) Jn[k].update(dt);
       arms[1].sh.rotation.set(Jn.shL.value, 0, Jn.shLz.value); arms[1].el.rotation.set(Jn.elL.value, 0, 0); arms[1].wr.rotation.set(Jn.wrL.value, 0, 0);
-      arms[0].sh.rotation.set(Jn.shR.value, 0, Jn.shRz.value); arms[1].twine.rotation.set(Math.sin(t * 2.7) * 0.3, 0, Math.sin(t * 2.1) * 0.2);
-      legs[1].hip.rotation.set(Jn.hipL.value, 0, 0); legs[0].hip.rotation.set(Jn.hipR.value, 0, 0); legs[1].kn.rotation.set(Jn.knL.value, 0, 0); legs[0].kn.rotation.set(Jn.knR.value, 0, 0);
+      arms[0].sh.rotation.set(Jn.shR.value, 0, Jn.shRz.value); if (ph === 2) { arms[0].sh.rotation.x = 0.4 - ((m - 0.12) / 0.3) * Math.PI * 3; Jn.shR.value = Math.atan2(Math.sin(arms[0].sh.rotation.x), Math.cos(arms[0].sh.rotation.x)); Jn.shR.vel = -12; } // the club spins round the shoulder before the hurl arms[1].twine.rotation.set(Math.sin(t * 2.7) * 0.3, 0, Math.sin(t * 2.1) * 0.2);
+      legs[1].hip.rotation.set(Jn.hipL.value, 0, 0.07); legs[0].hip.rotation.set(Jn.hipR.value, 0, -0.07); // heroic stance legs[1].kn.rotation.set(Jn.knL.value, 0, 0); legs[0].kn.rotation.set(Jn.knR.value, 0, 0);
       legs[1].an.rotation.set(-Jn.knL.value * 0.3, 0, 0); legs[0].an.rotation.set(-Jn.knR.value * 0.3, 0, 0);
       torso.rotation.set(Jn.torso.value, Jn.torsoY.value, Jn.torsoZ.value); pelvis.rotation.set(-sl * 0.2, 0, -Jn.torsoZ.value * 0.4); tails.rotation.x = Math.max(-0.1, Jn.tails.value) + 0.08;
       head.rotation.set(Jn.headX.value, Jn.headY.value, Jn.headZ.value); jaw.rotation.x = Jn.jaw.value;

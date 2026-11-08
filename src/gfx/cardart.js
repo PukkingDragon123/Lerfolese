@@ -111,10 +111,10 @@ export function renderCardFace(card, move) {
     if (ss.length && lines.length < 4) lines.push('SELF: ' + ss.join(', '));
     if (move.field.valid && lines.length < 4) lines.push('FIELD: ' + move.field.name);
   } else lines = up && def.upText ? def.upText : def.text;
-  lines = lines.slice(0, 4);
-  const lh = 12.5 * CS; const y0 = (124.75 - ((lines.length - 1) * 12.5) / 2) * CS;
+  lines = lines.slice(0, 4); const four = lines.length > 3; // four lines (with the AIR / HELD rule) sit a little tighter
+  const lh = (four ? 11.5 : 12.5) * CS; const y0 = (124.75 - ((lines.length - 1) * lh / CS) / 2) * CS;
   lines.forEach((l, i) => {
-    const size = fit(l, 100 * CS, 36, 'VT323');
+    const size = fit(l, 100 * CS, four ? 33 : 36, 'VT323');
     const m = l.match(/^([A-Z]+:)(.*)$/);
     if (m) {
       g.font = `400 ${size}px "VT323"`; const w1 = g.measureText(m[1]).width, w2 = g.measureText(m[2]).width; const x0 = (CW / 2) * CS - (w1 + w2) / 2;

@@ -6,6 +6,7 @@ import { uid } from '../core/util.js';
 
 const NOOP = new Proxy({}, { get: () => async () => {} });
 export const HAND_MAX = 10;
+export const HELD_MAX = 3; // things manifested in mid-air at once
 
 export class Battle {
   constructor({ run, enemies, rng, fx, kind = 'normal' }) {
@@ -15,7 +16,7 @@ export class Battle {
     this.enemies = []; this.field = []; this.powers = {}; this.turn = 0; this.phase = 'start';
     this.redraws = 3 + (this.has('owl') ? 1 : 0);
     this.draw = this.rng.shuffle(run.deck.map((c) => ({ ...c, petrified: false })));
-    this.hand = []; this.discard = []; this.exhaust = []; this.lost = [];
+    this.hand = []; this.discard = []; this.exhaust = []; this.lost = []; this.held = [];
     this.flags = { wingsUsed: false, heatCount: 0, sparkCharge: 0, firstMoveDone: false, movesThisTurn: [], wineskinUsed: false, lensOn: new Set() };
     for (const id of enemies) this.spawnEnemy(id);
     this.log = [];
@@ -119,6 +120,8 @@ export class Battle {
     const power = s.cards.find((c) => c.type === 'power');
     if (power) return { ok: s.cards.length === 1, kind: 'power', text: s.cards.length === 1 ? 'Enact this Law' : 'Laws cannot be mixed' };
     const mv = this.moveOf(s); if (!mv) return { ok: false };
+    if (target.type === 'air') { const why = this.manifestBlock(s); return { ok: !why, move: mv, kind: 'manifest', text: why || `Manifest: ${mv.name}` }; }
+    if (target.type === 'held') { const o = this.held.find((x) => x.uid === target.uid); if (!o) return { ok: false }; const nm = this.heldMove(o, flatten(s.cards)); const t = this.heldTarget(o, target.aim); return { ok: true, move: nm, kind: 'manipulate', held: o, target: t, est: t && nm.attack.valid ? this.estimate(nm, t) : null, text: nm.name }; }
     if (target.type === 'enemy') { const e = this.enemies.find((x) => x.uid === target.uid && x.alive); if (!e || !mv.attack.valid) return { ok: false, move: mv, kind: 'attack', text: 'Nothing to throw' }; return { ok: true, move: mv, kind: 'attack', est: this.estimate(mv, e) }; }
     if (target.type === 'self') return { ok: mv.self.valid, move: mv, kind: 'self' };
     if (target.type === 'field') return { ok: mv.field.valid, move: mv, kind: 'field', text: mv.field.valid ? `Place: ${mv.field.name}` : 'Nothing to place' };
@@ -135,6 +138,8 @@ export class Battle {
 
   async play(slotId, target) {
     const pv = this.preview(slotId, target); if (!pv.ok) { await this.fx.invalid?.(pv.text); return false; }
+    if (pv.kind === 'manifest') return !!(await this.manifest(slotId, target.pos, target.aim));
+    if (pv.kind === 'manipulate') return this.manipulate(target.uid, slotId, target.aim);
     const s = this.findSlot(slotId); this.hand = this.hand.filter((x) => x !== s);
     if (pv.kind === 'bin') {
       this.redraws--; for (const c of s.cards) if (!c.temp) this.discard.push(c);
@@ -158,16 +163,66 @@ export class Battle {
     else if (pv.kind === 'self') await this.applySelf(mv);
     else if (pv.kind === 'field') await this.placeField(mv);
     else if (pv.kind === 'object') await this.objectReaction(this.field.find((x) => x.uid === target.uid), mv, false);
-    // per-card triggers
+    await this.afterMove(mv, pv.kind, target);
+    this.checkEnd();
+    return true;
+  }
+  // per-card triggers once a Move has resolved (shared by played cards and released objects)
+  async afterMove(mv, kind, target) {
     const comps = mv.comps; const cnt = (b) => comps.filter((c) => baseOf(c.id) === b).length;
     if (cnt('heat')) { this.flags.heatCount += cnt('heat'); if (this.has('wings') && this.flags.heatCount >= 2 && !this.flags.wingsMelted) { this.flags.wingsMelted = true; await this.fx.bark?.('player', 'My wings! Those were load-bearing!'); await this.hurtPlayer(6, { pure: true }); } }
     if (cnt('spark') && this.has('leyden')) { this.flags.sparkCharge += cnt('spark'); if (this.flags.sparkCharge >= 4) { this.flags.sparkCharge -= 4; await this.fx.leyden?.(); for (const e of this.alive()) await this.damageEnemy(e, 12 * (e.st.wet ? 2 : 1), { kind: 'zap', pierce: true }); } }
     if (cnt('gravity') && (this.powers.orbit !== undefined || this.field.some((f) => f.type === 'moon')) && this.alive().length) { const t = this.rng.pick(this.alive()); await this.fx.moonStrike?.(t); await this.damageEnemy(t, this.powers.orbit ? 12 : 8, { fall: true }); }
-    const total = mv.attack.total; this.flags.movesThisTurn.push({ mv, total, target, kind: pv.kind });
+    const total = mv.attack.total; this.flags.movesThisTurn.push({ mv, total, target, kind });
     this.flags.firstMoveDone = true;
-    if (mv.attack.recoil && pv.kind === 'attack') await this.hurtPlayer(mv.attack.recoil, { pure: true });
-    this.checkEnd();
-    return true;
+    if (mv.attack.recoil && kind === 'attack') await this.hurtPlayer(mv.attack.recoil, { pure: true });
+  }
+
+  // ------------------------------------------------------------------ manifest -> manipulate -> release
+  // Matter (or Energy) dropped in mid-air hangs there as a held object; Laws dropped on it join its stack and wind it
+  // up (+1 v per card); when the turn ends every held object is released in order and strikes as a Move.
+  manifestBlock(s) {
+    if (this.phase !== 'player') return 'Not now';
+    if (s.cards.some((c) => c.type === 'power')) return 'Laws of nature cannot be held in the air';
+    if (!flatten(s.cards).some((c) => ['matter', 'energy'].includes(BASICS[c.id]?.kind))) return 'Only Matter or Energy can be manifested';
+    if (this.held.length >= HELD_MAX) return `Already ${HELD_MAX} things hang in the air`;
+    return null;
+  }
+  // the Move a held object will strike with (extra cards / wind-up may be previewed)
+  heldMove(o, extra = []) {
+    const comps = [...o.comps, ...extra]; const wind = o.wind + extra.filter((c) => BASICS[c.id]?.kind !== 'matter').length;
+    const m = this.mods(); m.momentum = (m.momentum || 0) + wind; return computeMove(comps, m);
+  }
+  heldTarget(o, aim) { const al = this.alive(); return al.find((e) => e.uid === (aim || o.target)) || al.find((e) => !e.def.isHead) || al[0] || null; }
+  heldPreview(o) { const mv = this.heldMove(o); const t = this.heldTarget(o); return { mv, target: t, est: t && mv.attack.valid ? this.estimate(mv, t) : null }; }
+  async manifest(slotId, pos = null, aim = null) {
+    const s = this.findSlot(slotId); if (!s || this.manifestBlock(s)) return null;
+    this.hand = this.hand.filter((x) => x !== s);
+    const o = { uid: uid('h'), comps: flatten(s.cards), cards: s.cards.map((c) => c.id), wind: 0, pos: pos ? { ...pos } : null, target: aim || this.heldTarget({})?.uid || null };
+    this.held.push(o); for (const c of s.cards) if (!c.temp) this.discard.push(c);
+    await this.fx.manifested?.(o, s); return o;
+  }
+  async manipulate(objId, slotId, aim = null) {
+    const o = this.held.find((x) => x.uid === objId), s = this.findSlot(slotId); if (!o || !s || this.phase !== 'player' || s.cards.some((c) => c.type === 'power')) return false;
+    this.hand = this.hand.filter((x) => x !== s);
+    const add = flatten(s.cards); o.comps.push(...add); o.cards.push(...s.cards.map((c) => c.id)); o.wind += add.filter((c) => BASICS[c.id]?.kind !== 'matter').length;
+    if (aim || add.some((c) => baseOf(c.id) === 'force')) o.target = aim || o.target; // a push re-aims it
+    for (const c of s.cards) if (!c.temp) this.discard.push(c);
+    await this.fx.manipulated?.(o, s); return true;
+  }
+  aim(objId, enemyUid) { const o = this.held.find((x) => x.uid === objId); const e = this.enemies.find((x) => x.uid === enemyUid && x.alive); if (!o || !e) return false; o.target = e.uid; this.fx.aimed?.(o, e); return true; }
+  async release() {
+    const list = this.held; this.held = [];
+    for (let i = 0; i < list.length; i++) {
+      const o = list[i]; const t = this.heldTarget(o); const mv = this.heldMove(o);
+      if (this.over || !t) { this.fx.unheld?.(o); continue; }
+      if (!mv.attack.valid) { await this.fx.fizzle?.(o); continue; }
+      await this.fx.release?.(o, mv, t);
+      this.discover(mv); const P = this.player; delete P.st.momentum; delete P.st.charged;
+      await this.attack(mv, t);
+      await this.afterMove(mv, 'attack', { type: 'enemy', uid: t.uid });
+      this.checkEnd();
+    }
   }
 
   discover(mv) {
@@ -333,6 +388,7 @@ export class Battle {
   // ------------------------------------------------------------------ enemy turn
   async endTurn() {
     if (this.phase !== 'player') return;
+    if (this.held.length) { await this.release(); if (this.checkEnd()) return; } // the bell lets go of everything held in the air
     this.phase = 'enemy';
     const P = this.player;
     if (!P.retain) { for (const s of this.hand) for (const c of s.cards) if (!c.temp) this.discard.push(c); this.hand = []; }

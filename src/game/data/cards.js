@@ -85,6 +85,60 @@ export const BASICS = {
     up: { bounce: 4 }, text: ['Bounces 3 more (-25% each)', 'SELF: Block 3, Draw 1', 'FIELD: Catapult'], flavor: 'Goes down stairs. And enemies.' },
 };
 
+// ---- the fourth face line (what it does in the AIR / on a HELD object) and the full description for hover notes:
+// what it does alone, combined, manifested in mid-air, and dropped on a held object as a manipulator.
+const AIRL = 'AIR: hangs; add Laws';
+const LORE = {
+  apple: [AIRL, null, { alone: 'Thrown at a foe it is 1 kg at 2 m/s: 2 damage. Dropped on Sir Isaac it heals 4. Dropped on the ground it plants an apple sapling that grows and drops free Apples into your hand.',
+    combo: 'Stack Laws on it to throw it harder: Gravity drops it from above, Force adds speed, Mass adds weight. Named recipes (Falling Apple, Apple Shower, The Big Apple...) are written into the Journal.',
+    air: 'Drag it into the air above the field to MANIFEST it: the apple hangs on a glowing gravity string. Every Law you drop on it joins the throw and winds it up (+1 m/s). Ring the bell and it flies.',
+    held: 'Dropped on something already hanging, it adds its 1 kg to the throw.' }],
+  stone: [AIRL, null, { alone: 'Thrown it is 3 kg at 2 m/s: 6 damage, and it cracks Block (it counts double against it). On Sir Isaac: Block 6. On the ground: a Boulder that shields you and can be launched.',
+    combo: 'Heavy and hard. Gravity makes a Rockslide, Heat a Lava Rock, Inertia a Rolling Stone, Spring a Bouncing Boulder.',
+    air: 'Manifest a hovering stone; push it with Force or let Gravity hurl it down. Its weight makes every Law count for more.', held: 'Adds 3 kg and cracking power to a held object.' }],
+  water: [AIRL, null, { alone: 'A wave of 2 kg at 1 m/s that hits ALL foes and leaves them Wet 2: sparks deal double to the Wet, and fire turns to blinding steam. On Sir Isaac: heal 2 and cleanse Burn, Wet and Venom. On the ground: a Puddle.',
+    combo: 'Heat makes Steam (blinds everyone), Gravity makes Rain, Spark electrifies it, Rotation stirs a Whirlpool.',
+    air: 'Manifest a floating globe of water; released, it bursts over every foe and soaks them.', held: 'Soaks a held object: its target is left Wet on impact.' }],
+  spark: ['HELD: electrify, +5 zap', 'HELD: electrify, +8 zap', { alone: 'A bolt that zaps for 5, ignores Block, and chains to every Wet foe for double. On Sir Isaac: your next hit carries +4 zap. On the ground: a Tesla coil that zaps a random foe each turn.',
+    combo: 'Rides any thrown object as an electric charge. With Gravity: Stolen Thunder. With a Lens: the Death Ray.',
+    air: 'Can be manifested as a crackling ball of lightning; released, it strikes its target and arcs to the Wet.', held: 'Electrifies a held object: sparks crawl over it and it zaps +5 on impact (double on the Wet).' }],
+  gravity: ['HELD: lift it, then drop', null, { alone: 'Alone it pulls a foe off balance: Weak 2 (the unsteady fall Prone). On Sir Isaac: Block 4. On the ground: a Gravity Well that keeps foes from fleeing and from dodging.',
+    combo: '+4 m/s, and the Move falls from above, so it cannot be dodged. Universal Gravitation makes it stronger still.',
+    air: 'There is nothing to hold: manifest Matter first.', held: 'Lifts a held object high on its string, then drops it on the foe: a falling strike, +4 m/s, that no evasion can dodge.' }],
+  mass: ['HELD: +2 kg, heavier', 'HELD: +3 kg, heavier', { alone: 'Thrown alone it is a weight: 2 kg at 2 m/s. On Sir Isaac: Block 5.',
+    combo: '+2 kg to any Move. Three Masses and Gravity collapse into a Black Hole.', air: 'There is nothing to hold: manifest Matter first.', held: '+2 kg: the held object swells and sags on its string.' }],
+  force: ['HELD: push +3 v, aim', 'HELD: push +4 v, aim', { alone: 'A bolt of pure force: 1 kg at 3 m/s. On Sir Isaac: your next Move gains +2 m/s.',
+    combo: '+3 m/s to any Move. With Mass: F = ma. Three Forces become Unstoppable.', air: 'There is nothing to hold: manifest Matter first.',
+    held: 'Pushes a held object: +3 m/s, it streaks with speed and aims at the nearest foe (drag the object onto a foe to aim it yourself).' }],
+  rotation: ['HELD: spin, +1 hit', null, { alone: 'Alone it spins a foe Dizzy, so it may strike its friends. On Sir Isaac: Thorns 3. On the ground: a Whirlwind that blunts attacks.',
+    combo: '+1 hit; overkill ricochets to the next foe. Two make a Dizzy Spell.', air: 'There is nothing to hold: manifest Matter first.', held: 'Spins a held object: +1 hit, and it curves through the air and ricochets.' }],
+  inertia: ['HELD: strikes again', null, { alone: 'On Sir Isaac: keep your hand and your Block into next turn. On the ground: field objects last 2 more turns.',
+    combo: 'The Move keeps rolling into its target next turn, 2 m/s slower.', air: 'There is nothing to hold: manifest Matter first.', held: 'Once released, the object keeps rolling and strikes again next turn.' }],
+  heat: ['HELD: ignite, Burn 3', 'HELD: ignite, Burn 5', { alone: 'Sets a foe Burning 3 (a Wet foe hisses into blinding steam instead). On Sir Isaac: your hits Burn +2. On the ground: a Campfire that burns every foe each turn.',
+    combo: 'Adds Burn to any Move; burning kills cauterize Hydra heads. With a Lens: Archimedes’ Heat Ray.',
+    air: 'Can be manifested as a floating fireball that sets its target Burning.', held: 'Ignites a held object: it catches fire and Burns 3 on impact.' }],
+  lens: ['HELD: focus, x1.5', 'HELD: focus, x2', { alone: 'Studies a foe: Vulnerable 2 (it takes 50% more). On Sir Isaac: draw 2. On the ground: a Burning Glass.',
+    combo: 'x1.5 damage on a single target; it focuses a wave into one jet.', air: 'There is nothing to hold: manifest Matter first.', held: 'Focuses a held object: x1.5 damage on its one foe.' }],
+  spring: ['HELD: bounces on', null, { alone: 'On Sir Isaac: Block 3 and draw 1. On the ground: a Catapult you can load with a Move.',
+    combo: 'The Move bounces on to 1 more foe.', air: 'There is nothing to hold: manifest Matter first.', held: 'The held object bounces: after its target it springs on to another foe.' }],
+  superposition: [AIRL, null, { alone: 'An Apple and a Spark at once: thrown, 2 damage and a zap of 5. On Sir Isaac: heal 4 and your next hit carries +4 zap.',
+    combo: 'Counts as Matter and Energy both.', air: 'Manifest it and it hangs in two places at once (it only hits once, sadly).', held: 'Adds an apple and a spark to a held object.' }],
+  golden_apple: [AIRL, null, { alone: 'Thrown it is 3 kg at 2 m/s, and a kill pays 8 gold. On Sir Isaac: heal 8. On the ground: a golden sapling.', combo: 'Any Move with it pays gold on a kill.', air: 'Manifest a hanging golden apple; it glitters while you load it with Laws.', held: 'Adds 3 kg and a golden bounty.' }],
+  rotten_apple: [AIRL, null, { alone: 'Thrown it is 1 kg at 2 m/s and leaves Venom 4. On Sir Isaac: heal 1 (ew).', combo: 'Any Move with it poisons its target.', air: 'Manifest a rotten apple, buzzing faintly.', held: 'Adds Venom 4 to a held object.' }],
+  pumice: [AIRL, null, { alone: 'Thrown it is 2 kg at 2 m/s against ALL foes. On Sir Isaac: Block 4. On the ground: a light Boulder.', combo: 'Spreads any Move to every foe.', air: 'A rock that floats anyway; manifest it and it barely needs the string.', held: 'Spreads a held object’s strike to every foe.' }],
+  lodestone: [AIRL, null, { alone: 'Thrown it is 3 kg at 2 m/s and strips 2 Strength. On Sir Isaac: Block 6. On the ground: a Boulder.', combo: 'Any Move with it disarms its target.', air: 'Manifest a magnetic stone that tugs at the foes’ weapons.', held: 'Adds 3 kg and -2 Strength on impact.' }],
+  ice: [AIRL, null, { alone: 'Thrown it is 3 kg at 2 m/s and leaves the foe Weak 2. On Sir Isaac: Block 4. On the ground: a Puddle.', combo: 'Any Move with it chills its target.', air: 'Manifest a hanging icicle.', held: 'Adds 3 kg and chills the target (Weak 2).' }],
+  antigravity: ['HELD: float, Weak 2', null, { alone: 'Alone it unsteadies a foe: Weak 2. On Sir Isaac: Block 4.', combo: '+2 m/s and the struck foe is left Weak 2.', air: 'There is nothing to hold: manifest Matter first.', held: 'The held object floats higher and leaves its target Weak 2.' }],
+  dark_matter: ['HELD: +3 kg, pierce', null, { alone: 'Thrown alone: 3 kg at 2 m/s that ignores Block. On Sir Isaac: Block 5.', combo: '+3 kg and the Move ignores Block.', air: 'There is nothing to hold: manifest Matter first.', held: '+3 kg of void: the held object darkens and ignores Block.' }],
+  brute_force: ['HELD: push +6 v, aim', 'HELD: push +8 v, aim', { alone: 'A blast of force: 1 kg at 6 m/s, and you take 3.', combo: '+6 m/s, but you take 3.', air: 'There is nothing to hold: manifest Matter first.', held: 'Shoves a held object: +6 m/s and it aims at the nearest foe (you take 3 when it flies).' }],
+  torque: ['HELD: twist, +1 hit', 'HELD: twist, +2 hits', { alone: 'Alone it spins a foe Dizzy. On Sir Isaac: Thorns 4.', combo: '+1 hit and +2 m/s.', air: 'There is nothing to hold: manifest Matter first.', held: 'Twists a held object: +1 hit, +2 m/s, it curves and ricochets.' }],
+  momentum: ['HELD: rolls on, faster', null, { alone: 'On Sir Isaac: keep your hand and Block.', combo: 'The Move repeats for 2 turns and speeds up each time.', air: 'There is nothing to hold: manifest Matter first.', held: 'Once released the object keeps rolling for 2 turns, faster each time.' }],
+  plasma: ['HELD: burn and zap', null, { alone: 'Burns 3 and zaps 4. On Sir Isaac: your hits Burn +2. On the ground: a Campfire.', combo: 'Adds Burn and a zap to any Move.', air: 'Can be manifested as a ball of plasma.', held: 'Wraps a held object in plasma: Burn 3 and zap 4 on impact.' }],
+  prism: ['HELD: hits ALL foes', null, { alone: 'Alone: every foe is Vulnerable 1. On Sir Isaac: draw 2.', combo: 'The Move hits ALL foes.', air: 'There is nothing to hold: manifest Matter first.', held: 'Splits a held object’s strike across every foe.' }],
+  slinky: ['HELD: bounces x3', 'HELD: bounces x4', { alone: 'On Sir Isaac: Block 3 and draw 1. On the ground: a Catapult.', combo: 'The Move bounces on to 3 more foes, 25% weaker each time.', air: 'There is nothing to hold: manifest Matter first.', held: 'The held object bounces on to 3 more foes.' }],
+};
+for (const [id, [line, lineUp, desc]] of Object.entries(LORE)) { const d = BASICS[id]; if (!d) continue; d.desc = desc; d.text = [...d.text.slice(0, 3), line]; if (d.upText) d.upText = [...d.upText.slice(0, 3), lineUp || line]; }
+
 export const MUTATIONS = {
   apple: ['golden_apple', 'rotten_apple'], stone: ['pumice', 'lodestone'], gravity: ['antigravity'], mass: ['dark_matter'],
   force: ['brute_force'], rotation: ['torque'], inertia: ['momentum'], heat: ['plasma'], water: ['ice'], lens: ['prism'], spring: ['slinky'], spark: ['plasma'],
@@ -98,6 +152,27 @@ export const POWERS = {
   thermo: { name: 'Thermodynamics', num: 17, text: ['Burn no longer fades.', 'Heat applies +1 Burn.'], upText: ['Burn no longer fades.', 'Heat applies +2 Burn.'], flavor: 'Entropy always wins. Today, it is on your side.' },
   orbit: { name: 'Orbit', num: 18, text: ['A moon orbits you:', 'Block 4 each turn.', 'Gravity: it strikes (8).'], upText: ['A moon orbits you:', 'Block 6 each turn.', 'Gravity: it strikes (12).'], flavor: 'Falling forever and always missing. Relatable.' },
 };
+
+const POWER_DESC = {
+  first_law: 'A Law, not a card to throw: drop it on Sir Isaac to enact it for the whole battle. Field objects and repeating Moves last one turn longer.',
+  third_law: 'Enact it on Sir Isaac: for the rest of the battle every foe that hits you takes 3 damage back, ignoring Block.',
+  gravitation: 'Enact it on Sir Isaac: every Gravity gets +2 m/s, and at the start of each turn an apple falls on a random foe.',
+  calculus: 'Enact it on Sir Isaac: the first Move you make each turn (thrown or released from the air) gets +2 kg and +2 m/s.',
+  thermo: 'Enact it on Sir Isaac: Burn no longer fades from foes, and every Heat burns 1 more.',
+  orbit: 'Enact it on Sir Isaac: a little moon circles you, granting Block 4 each turn; whenever you use Gravity it strikes a foe for 8.',
+};
+for (const [id, d] of Object.entries(POWER_DESC)) POWERS[id].desc = d;
+
+// the full hover description of a hand card: [heading, ...paragraph lines] (plain text)
+export function describeCard(card) {
+  if (card.type === 'power') { const p = POWERS[card.id]; return p ? { title: p.name, lines: [['LAW', p.desc]], flavor: p.flavor } : null; }
+  const d = BASICS[card.id]; if (!d || !d.desc) return null;
+  const canHold = d.kind === 'matter' || d.kind === 'energy';
+  const lines = [['ALONE', d.desc.alone], ['COMBINED', d.desc.combo]];
+  if (canHold) lines.push(['MANIFEST', d.desc.air]);
+  lines.push(['ON A HELD OBJECT', d.desc.held]);
+  return { title: d.name + (card.up ? '+' : ''), kind: KIND_LABEL[d.kind], lines, flavor: d.flavor };
+}
 
 export const STARTER_DECK = ['apple', 'apple', 'apple', 'gravity', 'gravity', 'mass', 'force', 'force', 'rotation', 'inertia'];
 

@@ -39,7 +39,7 @@ export function cleanPage(d, S, k) {
     const p = (y * S + x) * 4; if (!src[p + 3] || skip(x, y)) continue; r.length = g.length = b.length = 0;
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const q = ((y + j) * S + x + i) * 4; if (!src[q + 3]) continue; r.push(src[q]); g.push(src[q + 1]); b.push(src[q + 2]); }
     r.sort((a, c) => a - c); g.sort((a, c) => a - c); b.sort((a, c) => a - c); const m = r.length >> 1;
-    d[p] = r[m]; d[p + 1] = g[m]; d[p + 2] = b[m]; // median only: keeps each material's own colour (cel banding comes from the toon ramp)
+    const mu = (r[m] + g[m] + b[m]) / 3; d[p] = Math.max(0, Math.min(255, (mu + (r[m] - mu) * 1.35) * 0.84)); d[p + 1] = Math.max(0, Math.min(255, (mu + (g[m] - mu) * 1.35) * 0.84)); d[p + 2] = Math.max(0, Math.min(255, (mu + (b[m] - mu) * 1.35) * 0.84)); // median, richer and a touch darker (no washed-out peach under the strong sun)
   }
 }
 
