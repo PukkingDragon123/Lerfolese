@@ -18,7 +18,7 @@ import { drawn, DRAWN_NAMES, DRAWN_FRAMES } from '../src/gfx/drawn.js';
 import { GR as RAMP } from '../src/gfx/art/ramps.js';
 window.addEventListener('error', (e) => { const p = document.createElement('pre'); p.textContent = String(e.message); document.body.appendChild(p); window.__done = true; });
 await document.fonts.ready;
-const Q = new URLSearchParams(location.search); const secs = (Q.get('sec') || 'ramps,drawn,items,critters,icons').split(','); const Z = Q.get('s') ? +Q.get('s') : 0; const only = Q.get('only') ? Q.get('only').split(',') : null;
+const Q = new URLSearchParams(location.search); const secs = (Q.get('sec') || 'ramps,vfx,drawn,items,critters,icons').split(','); const Z = Q.get('s') ? +Q.get('s') : 0; const only = Q.get('only') ? Q.get('only').split(',') : null;
 const BG = { neutral: '#8c8a90', dark: '#1a1220', brass: '#5e3c16' };
 function sceneBg(w, h, ground = 0.55) { // a small HD-2D backdrop: warm sky, distant hills, grass
   const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
@@ -37,6 +37,10 @@ const t0 = performance.now();
 if (secs.includes('ramps')) {
   const r = section('Material ramps in use (6-tone, dark -> light, hue shifted)');
   for (const k in RAMP) { const c = document.createElement('canvas'); const n = RAMP[k].length; c.width = n * 10; c.height = 12; const g = c.getContext('2d'); RAMP[k].forEach((h, i) => { g.fillStyle = h; g.fillRect(i * 10, 0, 10, 12); }); const cell = document.createElement('div'); cell.className = 'cell'; cell.appendChild(c); const s = document.createElement('span'); s.textContent = k; cell.appendChild(s); r.appendChild(cell); }
+}
+if (secs.includes('vfx')) {
+  const { VFX_DEFS, vfxSheet, sunSheet } = await import('../src/gfx/art/vfxart.js'); const sc = Z || 3;
+  for (const name of [...Object.keys(VFX_DEFS), 'sun']) { if (only && !only.includes(name)) continue; const r = section(`VFX ${name} (flipbook frames, x${sc} on dark and in scene)`); const pc = name === 'sun' ? sunSheet() : vfxSheet(name); show(pc, name, r, { scale: name === 'sun' ? 2 : sc, bgs: ['dark', 'scene'] }); }
 }
 if (secs.includes('drawn') || secs.includes('items')) {
   const want = (n) => (only ? only.includes(n) : true) && (n.startsWith('item_') ? secs.includes('items') : secs.includes('drawn'));

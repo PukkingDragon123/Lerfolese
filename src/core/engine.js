@@ -6,6 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { InkPass } from './ink.js';
 import { tweens } from './tween.js';
 import { clamp, damp } from './util.js';
 
@@ -112,6 +113,8 @@ export class Engine {
     this.gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1, thickness: 1, scale: 1, samples: 12 }); this.gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
     this.composer.addPass(this.gtao);
     this.gtao.enabled = this.aoForced || !this.testMode;
+    // anime/cartoon black ink lines on the 3D world
+    this.ink = new InkPass(this.world.scene, this.world.camera, size.x, size.y); this.ink.u.uThick.value = Math.max(1, this.pixelRatio * 0.9); this.composer.addPass(this.ink);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.55, 0.55, 0.82);
     this.composer.addPass(this.bloom);
     this.tiltH = new ShaderPass(TiltShiftShader); this.tiltV = new ShaderPass(TiltShiftShader);
@@ -135,7 +138,7 @@ export class Engine {
 
   setQuality(q) {
     this.quality = q;
-    this.pixelRatio = q === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, q === 'medium' ? 1.25 : 1.75);
+    this.pixelRatio = q === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, q === 'medium' ? 1.25 : 1.75); if (this.ink) this.ink.u.uThick.value = Math.max(1, this.pixelRatio * 0.9);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.shadowMap.enabled = q !== 'low'; if (this.gtao) this.gtao.enabled = this.aoForced || (q === 'high' && this.fx?.ao !== false);
     this.resize();
@@ -162,7 +165,7 @@ export class Engine {
 
   setWorld(scene, camera) {
     this.world.scene = scene; this.world.camera = camera;
-    this.renderPass.scene = scene; this.renderPass.camera = camera; this.gtao.scene = scene; this.gtao.camera = camera;
+    this.renderPass.scene = scene; this.renderPass.camera = camera; this.gtao.scene = scene; this.gtao.camera = camera; this.ink.scene = scene; this.ink.camera = camera;
     if (camera.isPerspectiveCamera) { camera.aspect = this.aspect; camera.updateProjectionMatrix(); }
   }
 
@@ -179,6 +182,7 @@ export class Engine {
     const g = fx.grade || {}; const gu = this.grade.uniforms;
     this.gtao.enabled = fx.ao !== false && (this.aoForced || (!this.testMode && this.quality === 'high')); if (fx.ao && typeof fx.ao === 'number') this.gtao.blendIntensity = fx.ao; else this.gtao.blendIntensity = 0.85;
     gu.uGamma.value.set(...(g.gamma || [1, 1, 1])); gu.uRolloff.value = g.rolloff ?? 0.5; gu.uToe.value = g.toe ?? 0.02; gu.uCA.value = g.ca ?? 0.0016;
+    const ik = fx.ink ?? {}; this.ink.enabled = fx.ink !== false; this.ink.u.uStrength.value = ik.strength ?? 0.92; this.ink.u.uInk.value.set(ik.color ?? 0x0e0710); this.ink.u.uDepthK.value = ik.depth ?? 0.045; this.ink.u.uNormalK.value = ik.normal ?? 0.42; this.ink.u.uFade.value.set(...(ik.fade || [55, 140]));
     gu.uSat.value = g.sat ?? 1.08; gu.uContrast.value = g.contrast ?? 1.06; gu.uVignette.value = g.vignette ?? 0.42; gu.uGrain.value = g.grain ?? 0.04; gu.uWarmth.value = g.warmth ?? 0;
     if (g.lift) gu.uLift.value.set(...g.lift); else gu.uLift.value.set(0.015, 0.0, 0.035);
     if (g.gain) gu.uGain.value.set(...g.gain); else gu.uGain.value.set(1.04, 1.0, 0.95);

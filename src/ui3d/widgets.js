@@ -50,7 +50,7 @@ export class UIScreen {
     this.handler = this.input.push({
       move() {
         const hb = S.pickButton(); for (const b of S.buttons) { const h = b === hb && !b.disabled; if (h && !b.hover) audio.play('ui_hover', { vol: 0.45 }); b.hover = h; }
-        const hc = S.rayCard(); for (const c of S.cards) { const h = c === hc; if (h !== c.hover) { c.hover = h; c.target = { ...c.target, s: c.home.s * (h ? 1.15 : 1), z: h ? 4 : 2 }; if (h) { audio.play('ui_hover', { vol: 0.4 }); if (c.tipLines) S.tip.show(c.tipLines, Math.min(S.W - 4, c.home.x + 5.5), c.home.y + 2, 8); } else S.tip.hide(); } }
+        const hc = S.rayCard(); for (const c of S.cards) { const h = c === hc; if (h !== !!c.hover) { c.hover = h; c.target = { ...c.target, s: c.home.s * (h ? 1.15 : 1), z: h ? 4 : 2 }; if (h) { audio.play('ui_hover', { vol: 0.4 }); if (c.tipLines) S.tip.show(c.tipLines, Math.min(S.W - 4, c.home.x + 5.5), c.home.y + 2, 8); } else S.tip.hide(); } }
         S.onMove?.();
       },
       click(e) { const hb = S.pickButton(); if (hb) { hb.press(); return true; } const hc = S.rayCard(); if (hc?.onClick) { audio.play('card_pick'); hc.onClick(hc); return true; } return S.onClick?.(e); },
