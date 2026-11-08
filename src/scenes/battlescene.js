@@ -7,7 +7,7 @@ import { createProfessor } from '../models/professor.js';
 import { createCreature } from '../models/creatures.js';
 import { Particles } from '../gfx/particles.js';
 import { Critters } from '../gfx/critters.js';
-import { playVFX, makeSun, BURST_VFX } from '../gfx/vfx.js';
+import { playVFX, makeSun, BURST_VFX, impactFX, riseFX, windupFX, slashFX, attachTrail } from '../gfx/vfx.js';
 import { HandView, cardBackTex } from '../ui3d/cards3d.js';
 import { Pile, Numbers } from '../ui3d/kit.js';
 import { hud, HudTip, BattleHUD } from '../ui3d/hud.js';
@@ -341,8 +341,8 @@ export class BattleScene {
         if (o.blocked) S.popNumber(p.clone().add(new THREE.Vector3(-0.6, 1.2, 0)), `-${o.blocked}`, { color: '#a8dcef', stroke: '#16304f', size: 1.0 });
         const kindFx = o.kind === 'zap' ? 'zap' : o.kind === 'burn' ? 'fire' : o.kind === 'apple' ? 'apple' : o.move?.art?.core === 'stone' ? 'stone' : o.move?.art?.core === 'water' ? 'water' : o.move?.art?.core?.includes('apple') ? 'apple' : 'magic';
         S.burst(p, kindFx, big ? 40 : 18);
-        if (dmg > 0) playVFX(S.scene, dmg >= 45 ? 'hit_crit' : big ? 'hit_heavy' : 'hit_light', p.clone().add(new THREE.Vector3(0, 0.2, 0.6)), { flip: Math.random() < 0.5 });
-        if (big && kindFx === 'magic') playVFX(S.scene, 'slash', p.clone().add(new THREE.Vector3(0, 0.3, 0.7)), { flip: Math.random() < 0.5 });
+        if (dmg > 0) impactFX(S.scene, { pos: p, root: v?.api.root, dmg, kind: kindFx, core: o.move?.art?.core, big, crit: dmg >= 45 });
+        if (dmg >= 45) { S.engine.hitStop(170); S.camPunch = 1; S.engine.shake(0.7); } // crit: slow-mo beat + punch-zoom
         audio.play(o.kind === 'zap' ? 'electric_zap' : o.kind === 'burn' ? 'sizzle' : big ? 'hit_heavy' : dmg > 10 ? 'hit_medium' : 'hit_light');
         if (kindFx === 'apple') audio.play('apple_squish', { vol: 0.7 }); if (kindFx === 'stone') audio.play('rock_impact', { vol: 0.8 });
         S.engine.shake(Math.min(0.6, 0.08 + dmg / 80)); if (dmg >= 12) S.critters.scare(p, 6 + dmg / 4); if (big) { S.engine.hitStop(70); S.camPunch = Math.min(1, dmg / 60); } if (dmg >= 45) S.engine.flash(0.25, 0xfff6cf, 0.3);
@@ -353,18 +353,18 @@ export class BattleScene {
       async enemyDie(e) { const v = S.enemyViews.get(e.uid); if (!v) return; v.api.act('die'); playVFX(S.scene, 'death_puff', S.enemyPos(e).add(new THREE.Vector3(0, 0.2, 0.6))); S.burst(S.enemyPos(e), 'smoke', 30); S.burst(S.enemyPos(e), 'magic', 24); audio.play('enemy_death'); if (!e.def.isHead) S.bark('player', vpick(PLAYER_BARKS.kill), 1.6); const j = S.game.journal; if (j.enemies[e.id]) j.enemies[e.id].killed++; v.hud.setVisible(false); hud.feed(`${e.def.name} falls.`, 'kill'); setTimeout(() => { tweens.to(v.api.root.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.5, { ease: 'inBack' }); }, 900); await tweens.wait(0.3); },
       async enemySpawn(e) { S.addEnemyView(e); audio.play('monster_roar', { vol: 0.6 }); S.burst(S.enemyPos(e), 'smoke', 14); await tweens.wait(0.3); },
       status(t, k, n) { if (t === S.battle.player) return; S.refreshEnemy(t); },
-      async heal(who, n) { if (!n) return; const p = who === 'player' ? S.prof.headWorld(new THREE.Vector3()) : S.enemyPos(who); S.popNumber(p, `+${n}`, { color: '#cfe07a', stroke: '#1e3320', size: 1.3, vy: 5 }); S.burst(p, 'heal', 16); audio.play('heal'); if (who !== 'player') S.refreshEnemy(who); await tweens.wait(0.2); },
-      async block(who, n) { if (!n) return; S.burst(S.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, -0.8, 0)), 'block', 16); audio.play('shield_block'); await tweens.wait(0.15); },
+      async heal(who, n) { if (!n) return; const p = who === 'player' ? S.prof.headWorld(new THREE.Vector3()) : S.enemyPos(who); S.popNumber(p, `+${n}`, { color: '#cfe07a', stroke: '#1e3320', size: 1.3, vy: 5 }); S.burst(p, 'heal', 16); if (who === 'player') riseFX(S.scene, p.clone().add(new THREE.Vector3(0, -0.6, 0)), 'heal'); audio.play('heal'); if (who !== 'player') S.refreshEnemy(who); await tweens.wait(0.2); },
+      async block(who, n) { if (!n) return; S.burst(S.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, -0.8, 0)), 'block', 16); riseFX(S.scene, S.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, -0.6, 0)), 'block'); audio.play('shield_block'); await tweens.wait(0.15); },
       async enemyBlock(e, n) { S.burst(S.enemyPos(e), 'block', 14); audio.play('shield_block'); S.refreshEnemy(e); await tweens.wait(0.3); },
       async cleanse() { audio.play('water_splash'); S.syncHand(); },
-      async selfApplied(mv) { S.prof.setExpr('delight'); S.burst(S.prof.headWorld(new THREE.Vector3()), 'magic', 20); S.syncHand(); await tweens.wait(0.2); },
+      async selfApplied(mv) { S.prof.setExpr('delight'); S.burst(S.prof.headWorld(new THREE.Vector3()), 'magic', 20); riseFX(S.scene, S.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, -0.6, 0)), 'buff'); S.syncHand(); await tweens.wait(0.2); },
       async placed(type) { audio.play(type === 'puddle' || type === 'rain' ? 'water_splash' : type === 'campfire' ? 'fire_ignite' : type === 'coil' ? 'electric_zap' : type === 'boulder' ? 'rock_impact' : 'magic_sparkle'); await tweens.wait(0.25); },
       fieldAdd(f) { S.addFieldView(f); },
       fieldRemove(f) { const fv = S.fieldViews.get(f.uid); if (!fv) return; S.fieldViews.delete(f.uid); S.burst(fv.group.position.clone().add(new THREE.Vector3(0, 0.6, 0)), 'smoke', 12); tweens.to(fv.group.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.35, { ease: 'inBack' }).then(() => S.scene.remove(fv.group)); },
       fieldUpdate(f) { const fv = S.fieldViews.get(f.uid); fv?.group.scale.setScalar(1.15); fv && tweens.to(fv.group.scale, { x: 1, y: 1, z: 1 }, 0.4, { ease: 'outBack' }); },
       async enemyAct(e, it) {
         const v = S.enemyViews.get(e.uid); if (!v) return;
-        v.api.act(it.kind === 'attack' ? 'attack' : 'cast'); hud.feed(`${e.def.name}: ${it.label || (it.kind === 'attack' ? 'attacks' : it.kind)}`, 'foe');
+        v.api.act(it.kind === 'attack' ? 'attack' : 'cast'); if (it.kind === 'attack') windupFX(S.scene, S.enemyPos(e, 0.8)); hud.feed(`${e.def.name}: ${it.label || (it.kind === 'attack' ? 'attacks' : it.kind)}`, 'foe');
         if (it.label) S.bark(e, it.kind === 'attack' ? null : vpick(e.def.barks.special), 1.4);
         audio.play(it.kind === 'attack' ? 'whoosh_heavy' : it.kind === 'buff' ? 'buff' : 'debuff', { vol: 0.8 });
         const sfx = { satyr: it.kind === 'attack' ? 'drunk_laugh' : 'hiccup', medusa: 'snake_hiss', kobalos: 'goblin_laugh', minotaur: it.charge ? 'bull_roar' : 'bull_snort', minotaur_king: 'bull_roar', hydra: 'monster_growl', hydra_head: 'monster_growl', hydra_elder: 'monster_roar' }[e.id];
@@ -373,7 +373,7 @@ export class BattleScene {
         await tweens.wait(0.35);
       },
       async playerHit(dmg, o) {
-        S.prof.act('hurt'); const p = S.prof.headWorld(new THREE.Vector3());
+        S.prof.act('hurt'); const p = S.prof.headWorld(new THREE.Vector3()); if (dmg > 0) slashFX(S.scene, p, { big: dmg >= 15 });
         if (dmg > 0) { hud.feed(`Sir Isaac takes ${dmg}`, 'hurt'); S.popNumber(p, dmg, { color: '#f6b3a0', stroke: '#3a0f18', size: 1.5 }); S.burst(p.clone().add(new THREE.Vector3(0, -0.6, 0)), 'wood', 16); audio.play('hit_wood'); S.engine.shake(Math.min(0.55, 0.12 + dmg / 50)); S.engine.flash(0.12, 0xc8443a, 0.25); if (Math.random() < 0.35) S.bark('player', vpick(PLAYER_BARKS.hit), 1.3); }
         if (o.blocked) { S.popNumber(p.clone().add(new THREE.Vector3(0.8, 0.4, 0)), `-${o.blocked}`, { color: '#a8dcef', stroke: '#16304f', size: 1.0 }); audio.play('shield_block'); }
         await tweens.wait(0.22);
@@ -432,7 +432,7 @@ export class BattleScene {
     const flights = targets.map(async (t, i) => {
       const to = this.enemyPos(t);
       if (art.falling) return this.dropOnto(to, art, i * 0.08);
-      const obj = projectileModel(art); obj.position.copy(from); this.scene.add(obj);
+      const obj = projectileModel(art); obj.position.copy(from); this.scene.add(obj); attachTrail(this.scene, obj, art.hot ? '#ff9a3a' : art.electric ? '#8ee8ff' : art.core === 'gravity' ? '#c8a8ff' : '#fff2b0', { spin: !!art.spin });
       const dur = art.fast ? 0.22 : 0.42; const arc = art.fast ? 0.4 : 2.0; const o = { k: 0 };
       await tweens.to(o, { k: 1 }, dur, { delay: i * 0.06, ease: 'inQuad', onUpdate: () => { obj.position.lerpVectors(from, to, o.k); obj.position.y += Math.sin(o.k * Math.PI) * arc; obj.rotation.x += 0.3; obj.rotation.z += art.spin ? 0.6 : 0.15; if (Math.random() < 0.5) this.glowParts.spawn({ pos: [obj.position.x, obj.position.y, obj.position.z], vel: [0, 0, 0], life: 0.35, size: 26, color: art.hot ? '#f08a2a' : art.electric ? '#fff3b0' : '#e8fbff', sprite: 'spark2' }); } });
       this.scene.remove(obj);

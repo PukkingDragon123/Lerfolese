@@ -83,6 +83,9 @@ const WipeShader = {
   }`,
 };
 
+// render resolution: supersample on 1x screens, full device resolution (capped at 2x) on hi-dpi ones
+const hiRes = (q) => { const d = window.devicePixelRatio || 1; return q === 'low' ? Math.max(1, Math.min(d, 1.25)) : q === 'medium' ? Math.min(2, Math.max(1.25, d)) : Math.min(2, Math.max(1.5, d)); };
+
 export class Engine {
   constructor(canvas) {
     this.canvas = canvas;
@@ -93,7 +96,7 @@ export class Engine {
     r.autoClear = false;
     this.quality = 'high';
     const qp = new URLSearchParams(location.search).get('q'); this.testMode = qp === 'test';
-    this.pixelRatio = this.testMode ? (Number(new URLSearchParams(location.search).get('pr')) || 0.5) : Math.min(window.devicePixelRatio || 1, 1.75);
+    this.pixelRatio = this.testMode ? (Number(new URLSearchParams(location.search).get('pr')) || 0.5) : hiRes('high');
     if (this.testMode) { r.shadowMap.enabled = false; window.__noAutoQuality = true; }
     r.setPixelRatio(this.pixelRatio);
 
@@ -139,7 +142,7 @@ export class Engine {
 
   setQuality(q) {
     this.quality = q;
-    this.pixelRatio = q === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, q === 'medium' ? 1.25 : 1.75); if (this.ink) this.ink.u.uThick.value = Math.max(1, this.pixelRatio * 0.9);
+    this.pixelRatio = hiRes(q); if (this.ink) this.ink.u.uThick.value = Math.max(1, this.pixelRatio * 0.9);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.shadowMap.enabled = q !== 'low'; if (this.gtao) this.gtao.enabled = this.aoForced || (q === 'high' && this.fx?.ao !== false);
     this.resize();
@@ -176,15 +179,15 @@ export class Engine {
     const b = fx.bloom || [0.55, 0.55, 0.82];
     this.bloom.strength = b[0]; this.bloom.radius = b[1]; this.bloom.threshold = b[2]; this.bloom.enabled = !this.testMode;
     const t = fx.tilt;
-    this.tiltH.enabled = this.tiltV.enabled = !!t && !this.testMode;
+    this.tiltH.enabled = this.tiltV.enabled = false; // user: crisp, never blurry (tilt-shift off)
     if (t) for (const p of [this.tiltH, this.tiltV]) {
-      const u = p.uniforms; u.uFocus.value = t.focus ?? 0.45; u.uWidth.value = t.width ?? 0.16; u.uFeather.value = t.feather ?? 0.3; u.uAmount.value = t.amount ?? 2.4; u.uTop.value = t.top ?? 1; u.uBottom.value = t.bottom ?? 0.8;
+      const u = p.uniforms; u.uFocus.value = t.focus ?? 0.45; u.uWidth.value = t.width ?? 0.16; u.uFeather.value = t.feather ?? 0.3; u.uAmount.value = (t.amount ?? 2.4) * 0.55; u.uTop.value = t.top ?? 1; u.uBottom.value = t.bottom ?? 0.8;
     }
     const g = fx.grade || {}; const gu = this.grade.uniforms;
     this.gtao.enabled = fx.ao !== false && (this.aoForced || (!this.testMode && this.quality === 'high')); if (fx.ao && typeof fx.ao === 'number') this.gtao.blendIntensity = fx.ao; else this.gtao.blendIntensity = 0.85;
-    gu.uGamma.value.set(...(g.gamma || [1, 1, 1])); gu.uRolloff.value = g.rolloff ?? 0.5; gu.uToe.value = g.toe ?? 0.02; gu.uCA.value = g.ca ?? 0.0016;
+    gu.uGamma.value.set(...(g.gamma || [1, 1, 1])); gu.uRolloff.value = g.rolloff ?? 0.5; gu.uToe.value = g.toe ?? 0.02; gu.uCA.value = 0;
     const ik = fx.ink ?? {}; this.ink.enabled = fx.ink !== false && (!this.testMode || this.inkForced); this.ink.u.uStrength.value = ik.strength ?? 0.92; this.ink.u.uInk.value.set(ik.color ?? 0x0e0710); this.ink.u.uDepthK.value = ik.depth ?? 0.045; this.ink.u.uNormalK.value = ik.normal ?? 0.42; this.ink.u.uFade.value.set(...(ik.fade || [55, 140]));
-    gu.uSat.value = g.sat ?? 1.08; gu.uContrast.value = g.contrast ?? 1.06; gu.uVignette.value = g.vignette ?? 0.42; gu.uGrain.value = g.grain ?? 0.04; gu.uWarmth.value = g.warmth ?? 0;
+    gu.uSat.value = g.sat ?? 1.08; gu.uContrast.value = g.contrast ?? 1.06; gu.uVignette.value = g.vignette ?? 0.42; gu.uGrain.value = Math.min(0.012, (g.grain ?? 0.04) * 0.3); gu.uWarmth.value = g.warmth ?? 0;
     if (g.lift) gu.uLift.value.set(...g.lift); else gu.uLift.value.set(0.015, 0.0, 0.035);
     if (g.gain) gu.uGain.value.set(...g.gain); else gu.uGain.value.set(1.04, 1.0, 0.95);
     this.renderer.toneMappingExposure = fx.exposure ?? 1.0;
@@ -231,7 +234,7 @@ export class Engine {
 
   _autoQuality() {
     if (this.quality === 'low' || window.__noAutoQuality) return;
-    if (this.fps < 38) this._lowFrames++; else this._lowFrames = Math.max(0, this._lowFrames - 1);
+    if (this.fps < 30) this._lowFrames++; else this._lowFrames = Math.max(0, this._lowFrames - 1);
     if (this._lowFrames >= 4) { this._lowFrames = 0; this.setQuality(this.quality === 'high' ? 'medium' : 'low'); console.info('[engine] auto quality ->', this.quality); }
   }
 

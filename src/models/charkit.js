@@ -146,10 +146,10 @@ export function paintUV(w, h, fn) {
   const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const img = cv.getContext('2d').createImageData(w, h);
   const orm = document.createElement('canvas'); orm.width = w; orm.height = h; orm.img = orm.getContext('2d').createImageData(w, h);
   const em = document.createElement('canvas'); em.width = w; em.height = h; em.img = em.getContext('2d').createImageData(w, h); em.used = false;
-  const o = { col: [0, 0, 0], ro: 0.8, me: 0, em: null };
+  const o = { col: [0, 0, 0], ro: 0.8, me: 0, em: null, a: 255 };
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    o.ro = 0.8; o.me = 0; o.em = null; fn((x + 0.5) / w, (y + 0.5) / h, o); const p = (y * w + x) * 4;
-    img.data[p] = o.col[0]; img.data[p + 1] = o.col[1]; img.data[p + 2] = o.col[2]; img.data[p + 3] = 255;
+    o.ro = 0.8; o.me = 0; o.em = null; o.a = 255; fn((x + 0.5) / w, (y + 0.5) / h, o); const p = (y * w + x) * 4;
+    img.data[p] = o.col[0]; img.data[p + 1] = o.col[1]; img.data[p + 2] = o.col[2]; img.data[p + 3] = o.a;
     orm.img.data[p] = 255; orm.img.data[p + 1] = o.ro * 255; orm.img.data[p + 2] = o.me * 255; orm.img.data[p + 3] = 255;
     if (o.em) { em.img.data.set([o.em[0], o.em[1], o.em[2]], p); em.used = true; } em.img.data[p + 3] = 255;
   }
