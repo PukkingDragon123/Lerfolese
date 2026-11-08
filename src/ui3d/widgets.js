@@ -50,8 +50,8 @@ export class Panel { // parchment sheet with title + body lines
 // warm tabletop world shared by rewards / shop / lab / end screens
 export function tabletopWorld(kind = 'study') {
   const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a1220); scene.fog = new THREE.Fog(0x1a1220, 14, 34);
-  const table = mk(S.slab(30, 1, 16, { seed: 51, jitter: 0.01, segs: 2 }), new THREE.MeshStandardMaterial({ map: TEX.wood('table', R.wood, { seed: 52, rings: 14 }), roughness: 0.55, flatShading: true }), scene, 0, -0.5, 0);
-  table.material.map.repeat.set(3, 1);
+  const table = mk(S.slab(30, 1, 16, { seed: 51, jitter: 0.01, segs: 2 }), new THREE.MeshStandardMaterial({ map: TEX.wood('table', R.wood, { seed: 52, rings: 14 }), roughness: 0.55, flatShading: false }), scene, 0, -0.5, 0);
+  table.material.map.repeat.set(10, 4);
   const lamp = new THREE.PointLight(0xffc880, 60, 30, 1.6); lamp.position.set(-3, 7, 4); lamp.castShadow = true; lamp.shadow.mapSize.set(1024, 1024); scene.add(lamp);
   scene.add(new THREE.HemisphereLight(0x8a7cff, 0x3a2410, 0.6));
   const rim = new THREE.DirectionalLight(0x8fe3ff, 0.8); rim.position.set(6, 4, -6); scene.add(rim);
@@ -61,7 +61,7 @@ export function tabletopWorld(kind = 'study') {
   for (let i = 0; i < 4; i++) { const b = mk(S.slab(2.2, 0.45, 1.6, { seed: 60 + i }), UIF({ color: [0x5a1a22, 0x24496b, 0x35562c, 0x6b4c9a][i], roughness: 0.7 }), props, -10.5 + (i % 2) * 0.2, 0.25 + i * 0.46, -4.5); b.rotation.y = (i - 2) * 0.12; }
   for (const [x, z] of [[9, -4], [-7, -5.5]]) { mk(S.limb(1.2, 0.22, 0.2, { sides: 7, seed: 70 }), UIF({ color: 0xf3e6c4, roughness: 0.6 }), props, x, 1.2, z); const f = P3.flame({ scale: 0.35 }); f.position.set(x, 1.45, z); props.add(f); const l = new THREE.PointLight(0xffa040, 8, 8, 2); l.position.set(x, 2, z); props.add(l); }
   add(P3.orrery(), 11, 1.4, -5.5, 2.2, 0.3); add(P3.apple(), -6, 0.45, -3, 0.9, 0.3); add(P3.apple({ kind: 'green' }), -5, 0.45, -3.6, 0.8, 1.2);
-  for (let i = 0; i < 6; i++) { const p = mk(new THREE.PlaneGeometry(2.4, 3.2), UIF({ map: TEX.parchment('loose'), roughness: 0.9, side: THREE.DoubleSide }), props, vrange(-12, 12), 0.02 + i * 0.01, vrange(-6, 4)); p.rotation.set(-Math.PI / 2, 0, vrange(-1, 1)); p.castShadow = false; }
+  for (let i = 0; i < 6; i++) { const p = mk(new THREE.PlaneGeometry(1.4, 1.9), UIF({ map: TEX.parchment('loose'), roughness: 0.9, side: THREE.DoubleSide }), props, vrange(-12, 12), 0.02 + i * 0.01, vrange(-6, 4)); p.rotation.set(-Math.PI / 2, 0, vrange(-1, 1)); p.castShadow = false; }
   const parts = new Particles(600, { additive: true }); scene.add(parts.points);
   const cam = new THREE.PerspectiveCamera(36, 1, 0.1, 100); cam.position.set(0, 9.5, 11.5); cam.lookAt(0, 0.5, -1);
   let acc = 0;

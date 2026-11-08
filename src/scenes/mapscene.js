@@ -17,7 +17,7 @@ import { tweens, Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
 import { mulberry32, vrange, vpick, clamp } from '../core/util.js';
 
-const F = (o) => new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.85, ...o });
+const F = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.85, ...o });
 const mk = (g, m, p, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; p.add(o); return o; };
 const NODE_INFO = {
   battle: ['Skirmish', 'Local wildlife with opinions.'], elite: ['ELITE', 'Something big. Drops a rare curio.'], event: ['Curiosity', 'An encounter. Bring your science.'],

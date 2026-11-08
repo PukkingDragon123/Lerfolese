@@ -12,7 +12,7 @@ import { tweens, Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
 import { vrange, vpick, clamp } from '../core/util.js';
 
-const F = (o) => new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.6, ...o });
+const F = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.6, ...o });
 const mk = (g, m, p, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); p.add(o); return o; };
 const QUIPS = ['Do you mind? I am suspended.', 'The strings are for emphasis.', 'I was dead once. Overrated.', 'Stop poking the genius.', 'Every action has an equal and opposite god.', 'I would bow, but the strings are tangled.'];
 
@@ -58,7 +58,7 @@ export class MenuScene extends UIScreen {
     }
     // the miniature universe: a glass orb with a spiral galaxy and tiny planets on gravity strings
     const orb = (this.orb = new THREE.Group()); orb.position.set(0, 3.2, 0); sc.add(orb);
-    mk(new THREE.IcosahedronGeometry(3.6, 3), new THREE.MeshPhysicalMaterial({ color: 0xbfe0ff, roughness: 0.05, transparent: true, opacity: 0.16, clearcoat: 1, flatShading: true, depthWrite: false }), orb);
+    mk(new THREE.IcosahedronGeometry(3.6, 3), new THREE.MeshPhysicalMaterial({ color: 0xbfe0ff, roughness: 0.05, transparent: true, opacity: 0.16, clearcoat: 1, flatShading: false, depthWrite: false }), orb);
     this.innerGal = galaxy(2600, 3.2, 3); orb.add(this.innerGal);
     mk(S.gem(0.35, 1, 30), new THREE.MeshBasicMaterial({ color: new THREE.Color(0xfff0c0).multiplyScalar(3) }), orb);
     this.planets = [];

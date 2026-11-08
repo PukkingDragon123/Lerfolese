@@ -4,6 +4,7 @@ import { buildStage } from '../models/world.js';
 import { createProfessor } from '../models/professor.js';
 import { createCreature } from '../models/creatures.js';
 import { Particles } from '../gfx/particles.js';
+import { Critters } from '../gfx/critters.js';
 import { HandView, cardBackTex } from '../ui3d/cards3d.js';
 import { Gauge, Bell, Bin, Pile, Pouch, Numbers, EnemyHUD, Note, textPlane } from '../ui3d/kit.js';
 import { fieldView, projectileModel } from './fieldviews.js';
@@ -47,7 +48,10 @@ export class BattleScene {
   buildWorld(enc) {
     const lead = enc.enemies[0]; this.theme = enc.kind === 'guardian' ? 'guardian' : THEME[lead] || 'meadow'; if (lead.startsWith('hydra')) this.theme = 'marsh'; if (lead.startsWith('minotaur')) this.theme = 'labyrinth';
     const sc = (this.scene = new THREE.Scene());
-    const stage = buildStage(this.theme, 7 + this.runData.stats.floors); sc.add(stage.group);
+    const stage = buildStage(this.theme, 7 + this.runData.stats.floors); sc.add(stage.group); this.stage = stage;
+    this.critters = new Critters(70); this.critters.bounds = { x: [-15, 15], y: [1.5, 8], z: [-10, 1] }; sc.add(this.critters.mesh);
+    sc.updateMatrixWorld(true); for (const t of stage.trees) this.critters.perchesFrom(t, 4);
+    this.critters.spawnBirds(14, this.theme === 'garden' ? ['crow', 'dove', 'sparrow'] : this.theme === 'marsh' ? ['swallow', 'crow'] : ['sparrow', 'swallow', 'hoopoe', 'dove']); this.critters.spawnButterflies(this.theme === 'labyrinth' ? 2 : 6, new THREE.Vector3(0, 0.5, -2), 14);
     sc.fog = new THREE.Fog(this.theme === 'marsh' ? 0x9ab0a0 : 0xe8b088, 22, 70);
     const sun = new THREE.DirectionalLight(0xffd0a0, 3.4); sun.position.set(-9, 11, 7); sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 10, bottom: -8, near: 1, far: 40 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
@@ -125,7 +129,7 @@ export class BattleScene {
       v.hud.update(dt, pb.x, Math.max(pb.y - 0.5, -this.ui.H + 7.4), pt.y + 0.6); v.hud.group.visible = v.e.alive;
     }
     for (const [, fv] of this.fieldViews) fv.update(dt, t);
-    this.parts.update(dt, t); this.glowParts.update(dt, t);
+    this.parts.update(dt, t); this.glowParts.update(dt, t); this.critters.update(dt, t);
     // ambient pixel particles: pollen + fireflies + leaves
     this.ambientT -= dt;
     if (this.ambientT <= 0) { this.ambientT = 0.08; const x = vrange(-12, 12), z = vrange(-6, 4);
@@ -330,7 +334,7 @@ export class BattleScene {
         S.burst(p, kindFx, big ? 40 : 18);
         audio.play(o.kind === 'zap' ? 'electric_zap' : o.kind === 'burn' ? 'sizzle' : big ? 'hit_heavy' : dmg > 10 ? 'hit_medium' : 'hit_light');
         if (kindFx === 'apple') audio.play('apple_squish', { vol: 0.7 }); if (kindFx === 'stone') audio.play('rock_impact', { vol: 0.8 });
-        S.engine.shake(Math.min(0.6, 0.08 + dmg / 80)); if (big) { S.engine.hitStop(70); S.camPunch = Math.min(1, dmg / 60); } if (dmg >= 45) S.engine.flash(0.25, 0xfff6cf, 0.3);
+        S.engine.shake(Math.min(0.6, 0.08 + dmg / 80)); if (dmg >= 12) S.critters.scare(p, 6 + dmg / 4); if (big) { S.engine.hitStop(70); S.camPunch = Math.min(1, dmg / 60); } if (dmg >= 45) S.engine.flash(0.25, 0xfff6cf, 0.3);
         if (v && Math.random() < 0.25 && dmg > 0) S.bark(e, vpick(e.def.barks.hurt), 1.3);
         S.refreshEnemy(e); await tweens.wait(dmg > 0 ? 0.16 : 0.05);
       },

@@ -17,7 +17,7 @@ import { tweens, Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
 import { vpick } from '../core/util.js';
 
-const F = (o) => new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.7, ...o });
+const F = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.7, ...o });
 const mk = (g, m, p, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; p.add(o); return o; };
 function propFor(k) {
   const g = new THREE.Group();
@@ -56,8 +56,8 @@ export default class EventScene extends UIScreen {
     this.engine.add(this); this.pushInput(); audio.playMusic('event'); audio.setAmbSet(['wilderness']);
     // UI
     const W = this.W, H = this.H;
-    this.panel = new Panel(ev.title, wrapLines(ev.text, 54), { w: 15, h: 8.2, size: 44, titleColor: '#5a1a22' }); this.panel.group.position.set(W - 8.4, H - 5.6, 2); this.root.add(this.panel.group);
-    this.choiceBtns = ev.choices.map((c, i) => { const ok = !c.if || c.if(run); const b = new Button3D(c.label, () => this.choose(c), { w: 14, h: 1.5, size: 50, sub: c.sub, color: c.slot ? 'purple' : 'wood', disabled: !ok }); return this.addButton(b, W - 8.4, H - 10.9 - i * 1.85, 2); });
+    this.panel = new Panel(ev.title, wrapLines(ev.text, 44), { w: 15, h: 8.2, size: 60, titleColor: '#5a1a22' }); this.panel.group.position.set(W - 8.4, H - 5.6, 2); this.root.add(this.panel.group);
+    this.choiceBtns = ev.choices.map((c, i) => { const ok = !c.if || c.if(run); const b = new Button3D(c.label, () => this.choose(c), { w: 14, h: 1.5, size: 64, sub: c.sub, color: c.slot ? 'purple' : 'wood', disabled: !ok }); return this.addButton(b, W - 8.4, H - 10.9 - i * 1.85, 2); });
     this.prof.setExpr('think'); this.say(vpick(['Fascinating. And probably lethal.', 'An experiment! Hold my strings.', 'Ah. The universe is being weird again.']));
   }
   say(text) { const p = this.engine.worldToUI(this.prof.headWorld(new THREE.Vector3())); this.prof.talk(1.6); if (!this.bubble) { this.bubble = textPlane([''], { w: 9, h: 1.2, font: 'VT323', size: 44, bg: (g, w, h) => { g.fillStyle = '#f3e6c4'; g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 16); g.fill(); } }); this.root.add(this.bubble); } this.bubble.userData.setText([[[text, '#2a160c']]]); this.bubble.position.set(p.x + 3.4, p.y + 1.6, 6); audio.play('wood_knock', { vol: 0.35 }); }
@@ -92,7 +92,7 @@ export default class EventScene extends UIScreen {
     this.chosen = true; audio.play('stamp');
     const text = c.run(this.ctx(), card, score);
     for (const b of this.choiceBtns) b.setDisabled(true);
-    this.panel.set(this.ev.title, wrapLines(text, 54), '#2d6e6a'); this.panel.s.value = 0.7;
+    this.panel.set(this.ev.title, wrapLines(text, 44), '#2d6e6a'); this.panel.s.value = 0.7;
     this.prof.setExpr(/damage|bites|lose|terrible/i.test(text) ? 'annoyed' : 'delight'); this.prof.act(/damage/.test(text) ? 'hurt' : 'cheer');
     this.say(vpick(['Noted. Filed. Mildly traumatised.', 'Science marches on. Limping.', 'Write that down. No, I will.']));
     this.addButton(new Button3D('Continue', () => this.leave(), { w: 5, h: 1.3, size: 58, color: 'teal' }), this.W - 8.4, -this.H + 1.6, 2);

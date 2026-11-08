@@ -6,7 +6,7 @@ import { R } from '../gfx/palette.js';
 import { mulberry32 } from '../core/util.js';
 import { makeNoise } from '../gfx/pixel.js';
 
-const F = (o) => new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.85, ...o });
+const F = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.85, ...o });
 const mats = {};
 const M = (k, fn) => (mats[k] ||= fn());
 const mesh = (g, m, p, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; p?.add(o); return o; };
@@ -48,7 +48,7 @@ export const PROPS = {
   },
   grassField(n = 500, w = 30, d = 14, seed = 3, color = 0x6a8a36) {
     const blade = new THREE.ConeGeometry(0.035, 0.3, 3); blade.translate(0, 0.15, 0);
-    const mat = F({ color, roughness: 0.9, flatShading: true });
+    const mat = F({ color, roughness: 0.9, flatShading: false });
     const inst = new THREE.InstancedMesh(blade, mat, n); const rnd = mulberry32(seed); const m4 = new THREE.Matrix4(); const q = new THREE.Quaternion(); const c = new THREE.Color();
     for (let i = 0; i < n; i++) {
       const x = (rnd() - 0.5) * w, z = (rnd() - 0.5) * d; if (Math.abs(z) < 2.2 && Math.abs(x) < 9 && rnd() < 0.85) { i--; continue; }
@@ -147,11 +147,12 @@ export function buildStage(theme = 'meadow', seed = 1) {
   g.add(skyDome(skies[theme] || skies.meadow));
   g.add(groundPlane(theme));
   g.add(PROPS.mountains(seed)); g.add(PROPS.clouds(seed));
+  const trees = [];
   const place = (o, x, z, ry = rnd() * 6) => { o.position.set(x, 0, z); o.rotation.y = ry; g.add(o); return o; };
   // background trees / framing
-  for (let i = 0; i < 7; i++) place(PROPS.oliveTree(seed + i, 0.9 + rnd() * 0.5), -14 + i * 4.6 + rnd() * 1.5, -7 - rnd() * 4);
+  for (let i = 0; i < 7; i++) trees.push(place(PROPS.oliveTree(seed + i, 0.9 + rnd() * 0.5), -14 + i * 4.6 + rnd() * 1.5, -7 - rnd() * 4));
   for (let i = 0; i < 5; i++) place(PROPS.cypress(seed + 20 + i, 0.9 + rnd() * 0.5), -16 + i * 8 + rnd() * 3, -11 - rnd() * 3);
-  place(PROPS.oliveTree(seed + 40, 1.3), -10.5, 1.5); place(PROPS.oliveTree(seed + 41, 1.2), 11.5, 0.5);
+  trees.push(place(PROPS.oliveTree(seed + 40, 1.3), -10.5, 1.5), place(PROPS.oliveTree(seed + 41, 1.2), 11.5, 0.5));
   for (let i = 0; i < 9; i++) place(PROPS.rock(seed + i, 0.6 + rnd() * 1.1, rnd() < 0.4 ? 'moss' : 'stone'), (rnd() - 0.5) * 26, -3 - rnd() * 5);
   g.add(PROPS.grassField(theme === 'labyrinth' ? 500 : 1600, 34, 16, seed, theme === 'marsh' ? 0x4f7a4a : 0x6a8a36)); g.add(PROPS.flowers(70, 30, 14, seed));
   if (theme === 'garden' || theme === 'guardian') { for (let i = 0; i < 4; i++) place(PROPS.statue(seed + i, 0.9 + rnd() * 0.2), -9 + i * 6 + rnd(), -4.5 - rnd() * 2, (rnd() - 0.5) * 1.2); for (let i = 0; i < 5; i++) place(PROPS.column(seed + i, 3 + rnd(), rnd() < 0.5), -12 + i * 6, -6.5 - rnd()); }
@@ -159,5 +160,5 @@ export function buildStage(theme = 'meadow', seed = 1) {
   if (theme === 'gully') { for (let i = 0; i < 6; i++) place(PROPS.rock(seed + 30 + i, 1.8 + rnd() * 1.5), -14 + i * 5.5, -5.5 - rnd() * 2); }
   if (theme === 'labyrinth') { for (let i = 0; i < 6; i++) place(PROPS.mazeWall(3 + rnd() * 3, 2.4, seed + i), -13 + i * 5.2, -4.5 - (i % 2) * 2.4, (i % 3) * Math.PI / 2); }
   if (theme === 'marsh') { g.add(PROPS.reeds(70, 30, 7, seed)); const water = mesh(new THREE.PlaneGeometry(40, 9, 12, 4), F({ color: 0x2a5a5a, roughness: 0.15, metalness: 0.3, transparent: true, opacity: 0.85 }), g, 0, 0.06, -6.5); water.rotation.x = -Math.PI / 2; water.receiveShadow = true; }
-  return { group: g, theme };
+  return { group: g, theme, trees };
 }

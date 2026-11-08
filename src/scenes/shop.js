@@ -11,7 +11,7 @@ import { vpick } from '../core/util.js';
 import { BASICS } from '../game/data/cards.js';
 
 const QUIPS = ['I am looking for an honest customer. Still looking.', 'Everything here is overpriced. Like your opinions.', 'Buy something or block my sunlight elsewhere.', 'A marionette! Finally, someone with fewer needs than me.', 'Cash only. I do not believe in credit. Or you.'];
-const F = (o) => new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.7, ...o });
+const F = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.7, ...o });
 
 export default class ShopScene extends UIScreen {
   async enter() {

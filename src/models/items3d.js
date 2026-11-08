@@ -5,7 +5,7 @@ import * as P3 from './props3d.js';
 import { getForge } from '../gfx/forge.js';
 import { PixelCanvas } from '../gfx/pixel.js';
 
-const F = (o) => new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.5, ...o });
+const F = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.5, ...o });
 const brass = () => F({ color: 0xd9a64a, metalness: 0.85, roughness: 0.3 }); const bronze = () => F({ color: 0xb27a30, metalness: 0.8, roughness: 0.35 });
 const mk = (g, m, p, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); p.add(o); return o; };
 

@@ -98,10 +98,10 @@ export class Journal {
   open() {
     if (this.isOpen) return; this.buildPages(); this.isOpen = true; this.parent.add(this.group); this.spread = 0; this.draw(0);
     this.handler = this.game.input.push(this.inputHandler()); audio.play('book_open'); audio.playMusic('journal');
-    this.coverPivot.rotation.y = 0; this.group.scale.setScalar(0.3); tweens.to(this.group.scale, { x: 0.92, y: 0.92, z: 0.92 }, 0.45, { ease: 'outBack' });
-    tweens.to(this.coverPivot.rotation, { y: -Math.PI * 0.98 }, 0.8, { ease: 'inOutCubic', delay: 0.25 });
+    this.coverPivot.rotation.y = 0; this.coverPivot.position.z = 0.35; this.group.scale.setScalar(0.3); tweens.to(this.group.scale, { x: 0.92, y: 0.92, z: 0.92 }, 0.45, { ease: 'outBack' });
+    tweens.to(this.coverPivot.rotation, { y: -Math.PI * 0.98 }, 0.8, { ease: 'inOutCubic', delay: 0.25 }).then(() => { this.coverPivot.position.z = -0.45; });
   }
-  close() { if (!this.isOpen) return; this.isOpen = false; audio.play('book_close'); this.game.input.remove(this.handler); tweens.to(this.coverPivot.rotation, { y: 0 }, 0.4).then(() => tweens.to(this.group.scale, { x: 0.01, y: 0.01, z: 0.01 }, 0.3, { ease: 'inBack' })).then(() => this.parent.remove(this.group)); }
+  close() { if (!this.isOpen) return; this.isOpen = false; audio.play('book_close'); this.game.input.remove(this.handler); this.coverPivot.position.z = 0.35; tweens.to(this.coverPivot.rotation, { y: 0 }, 0.4).then(() => tweens.to(this.group.scale, { x: 0.01, y: 0.01, z: 0.01 }, 0.3, { ease: 'inBack' })).then(() => this.parent.remove(this.group)); }
   async flip(dir) {
     const max = Math.ceil(this.P.length / 2) - 1; const next = this.spread + dir; if (next < 0 || next > max || this.flipping) { audio.play('ui_error', { vol: 0.4 }); return; }
     this.flipping = true; audio.play('page_turn');

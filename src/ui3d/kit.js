@@ -6,7 +6,7 @@ import { R } from '../gfx/palette.js';
 import { Spring } from '../core/tween.js';
 import { sprite } from '../gfx/sprites.js';
 
-export const UIF = (o) => new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.6, toneMapped: false, ...o });
+export const UIF = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.6, toneMapped: false, ...o });
 export function canvasTexture(c) { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.minFilter = THREE.LinearMipmapLinearFilter; return t; }
 
 // text drawn on a canvas -> plane mesh (world units: height h)

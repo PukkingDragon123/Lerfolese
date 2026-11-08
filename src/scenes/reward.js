@@ -48,7 +48,7 @@ export class RewardScene extends UIScreen {
       this.itemTaken = false;
     }
     this.cont = this.addButton(new Button3D('Onward', () => this.leave(), { w: 4, h: 1.3, size: 60 }), 0, -H + 1.6, 2);
-    return new Promise((r) => (this.done = r));
+    this.enc = enc;
   }
   onClick() {
     const hit = this.ray(this.items.map((t) => t.hit))[0]?.object.userData.item; if (!hit || this.itemTaken) return;
@@ -66,7 +66,7 @@ export class RewardScene extends UIScreen {
     for (const x of this.cards) { if (x === v) { x.target = { x: -this.W + 3, y: -this.H - 4, z: 3, rz: 2, s: 0.4 }; } else { x.target = { ...x.target, y: -this.H - 8 }; x.flip.target = 1; } }
     this.skip.setDisabled(true); this.lbl.userData.setText([[[c ? 'Added to your deck.' : 'Skipped. Restraint is also science.', '#f3e6c4']]]);
   }
-  leave() { if (this.leaving) return; this.leaving = true; this.done?.(); this.game.afterNode(); }
+  leave() { if (this.leaving) return; this.leaving = true; if (this.enc?.kind === 'guardian') this.game.areaComplete(); else this.game.afterNode(); }
   update(dt, t) { this.world.update(dt, t); this.updateUI(dt); this.pouch.update(dt); for (const it of this.items) it.update(dt, t); this.title.position.y = this.H - 1.8 + Math.sin(t * 1.5) * 0.1; }
 }
 

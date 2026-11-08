@@ -5,7 +5,7 @@ import * as P3 from '../models/props3d.js';
 import { PROPS } from '../models/world.js';
 import { baseOf } from '../game/combos.js';
 
-const F = (o) => new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.7, ...o });
+const F = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.7, ...o });
 const glow = (c, i = 2.5, o = 1) => new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(i), transparent: o < 1, opacity: o, depthWrite: o >= 1 });
 const mk = (g, m, p, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; p.add(o); return o; };
 

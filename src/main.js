@@ -72,7 +72,6 @@ class Game {
       const rewards = battleRewards(run, enc.kind); run.gold += rewards.gold;
       const { RewardScene } = await import('./scenes/reward.js');
       await this.swap(async () => { this.scene = new RewardScene(this); await this.scene.enter(rewards, enc); });
-      if (enc.kind === 'guardian') return this.areaComplete();
       return;
     }
     const mod = { event: './scenes/event.js', shop: './scenes/shop.js', lab: './scenes/lab.js' }[node.type];
