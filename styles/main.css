@@ -1,0 +1,26 @@
+@font-face { font-family: 'Pixelify'; src: url('../assets/fonts/PixelifySans.woff2') format('woff2'); font-weight: 400 700; font-display: block; }
+@font-face { font-family: 'VT323'; src: url('../assets/fonts/VT323.woff2') format('woff2'); font-display: block; }
+@font-face { font-family: 'Silkscreen'; src: url('../assets/fonts/Silkscreen-400.woff2') format('woff2'); font-weight: 400; font-display: block; }
+@font-face { font-family: 'Silkscreen'; src: url('../assets/fonts/Silkscreen-700.woff2') format('woff2'); font-weight: 700; font-display: block; }
+@font-face { font-family: 'Caveat'; src: url('../assets/fonts/Caveat.woff2') format('woff2'); font-weight: 400 700; font-display: block; }
+@font-face { font-family: 'HomemadeApple'; src: url('../assets/fonts/HomemadeApple.woff2') format('woff2'); font-display: block; }
+@font-face { font-family: 'Jacquard'; src: url('../assets/fonts/Jacquard24.woff2') format('woff2'); font-display: block; }
+@font-face { font-family: 'Tiny5'; src: url('../assets/fonts/Tiny5.woff2') format('woff2'); font-display: block; }
+
+html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #120d1c; overscroll-behavior: none; }
+body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; outline: none; cursor: none; }
+#game.show-cursor { cursor: default; }
+
+#boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 40%, #2a1d44 0%, #120d1c 70%); transition: opacity .8s ease; z-index: 10; }
+#boot.gone { opacity: 0; pointer-events: none; }
+.boot-inner { text-align: center; color: #f3e6c4; font-family: 'Pixelify', monospace; }
+.boot-title { font-size: 28px; letter-spacing: 4px; color: #f2c14e; text-shadow: 0 3px 0 #5a1a22, 0 0 18px rgba(242,193,78,.35); margin-top: 18px; }
+.boot-sub { font-family: 'VT323', monospace; font-size: 20px; color: #cdb27a; margin-top: 6px; min-height: 22px; }
+.boot-bar { width: 220px; height: 10px; margin: 14px auto 0; border: 2px solid #cdb27a; background: #1a1220; image-rendering: pixelated; }
+.boot-fill { height: 100%; width: 0%; background: repeating-linear-gradient(90deg, #f2c14e 0 6px, #d99a2b 6px 8px); transition: width .2s; }
+.pendulum { position: relative; width: 120px; height: 110px; margin: 0 auto; transform-origin: 50% 0; animation: swing 1.6s ease-in-out infinite alternate; }
+.pendulum .string { position: absolute; left: 59px; top: 0; width: 2px; height: 84px; background: linear-gradient(#b48cff, #8fe3ff); box-shadow: 0 0 6px #8fe3ff; }
+.pendulum .bob { position: absolute; left: 48px; top: 80px; width: 24px; height: 24px; background: #c8443a; border: 3px solid #1a1220; border-radius: 40% 40% 50% 50%; box-shadow: inset -5px -4px 0 #8f2a2e, inset 4px 4px 0 #f6b3a0; }
+.pendulum .bob::after { content: ''; position: absolute; left: 9px; top: -9px; width: 3px; height: 7px; background: #5a3622; }
+@keyframes swing { from { transform: rotate(24deg); } to { transform: rotate(-24deg); } }

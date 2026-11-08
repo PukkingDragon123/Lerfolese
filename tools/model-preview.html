@@ -1,0 +1,23 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles/main.css">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>#boot{display:none}</style></head><body><canvas id="game"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { Engine } from '../src/core/engine.js';
+const q = new URLSearchParams(location.search); const which = q.get('m') || 'professor';
+const eng = new Engine(document.getElementById('game')); window.__noAutoQuality = true;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x2a2236); scene.fog = new THREE.Fog(0x2a2236, 12, 30);
+const cam = new THREE.PerspectiveCamera(32, 1, 0.1, 100); cam.position.set(0, 2.2, 7.5); cam.lookAt(0, 1.9, 0);
+eng.setWorld(scene, cam); eng.setFx({ tilt: false, bloom: [0.5, 0.5, 0.85] });
+const sun = new THREE.DirectionalLight(0xffe2b8, 3); sun.position.set(-4, 6, 5); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); scene.add(sun, new THREE.HemisphereLight(0x9ab8ff, 0x4a3020, 1.1));
+const rim = new THREE.DirectionalLight(0x8fe3ff, 1.5); rim.position.set(3, 3, -4); scene.add(rim);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(6, 9), new THREE.MeshStandardMaterial({ color: 0x45652a, flatShading: true })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+let upd = [];
+const mods = { professor: async () => (await import('../src/models/professor.js')).createProfessor(), creature: async () => (await import('../src/models/creatures.js')).createCreature(q.get('id') || 'satyr') };
+const api = await mods[which === 'professor' ? 'professor' : 'creature']();
+scene.add(api.root); upd.push(api);
+const yaw = +(q.get('yaw') || 0.35); api.root.rotation.y = yaw;
+if (q.get('z')) { cam.position.set(0, +(q.get('cy') || 2.9), +q.get('z')); cam.lookAt(0, +(q.get('ly') || 2.9), 0); }
+eng.start((dt) => { for (const u of upd) u.update(dt); });
+setTimeout(() => window.__done = true, 1500);
+</script></body></html>

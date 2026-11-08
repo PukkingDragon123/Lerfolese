@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Apple of Discord</title>
+<meta name="description" content="A jazzy, slightly unhinged science deckbuilder. Combine Apple, Mass, Gravity, Force, Rotation and Inertia into real moves and argue with Greek gods.">
+<meta name="theme-color" content="#120d1c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect x='7' y='1' width='2' height='3' fill='%235a3622'/%3E%3Crect x='9' y='2' width='3' height='2' fill='%235f8a3a'/%3E%3Crect x='3' y='4' width='10' height='9' fill='%23c8443a'/%3E%3Crect x='2' y='6' width='12' height='6' fill='%23c8443a'/%3E%3Crect x='4' y='6' width='2' height='3' fill='%23f6b3a0'/%3E%3Crect x='4' y='13' width='8' height='2' fill='%238f2a2e'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles/main.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="game" tabindex="0" aria-label="Apple of Discord game canvas"></canvas>
+<div id="boot">
+  <div class="boot-inner">
+    <div class="pendulum"><div class="string"></div><div class="bob"></div></div>
+    <div class="boot-title">APPLE OF DISCORD</div>
+    <div class="boot-sub" id="boot-msg">Reassembling the universe…</div>
+    <div class="boot-bar"><div class="boot-fill" id="boot-fill"></div></div>
+  </div>
+</div>
+<noscript><p style="color:#fff;font-family:monospace;padding:2em">This experiment requires JavaScript. Sir Isaac is disappointed, but not surprised.</p></noscript>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles/main.css">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>body{background:#2a1f33;overflow:auto!important} #boot{display:none} canvas{width:240px;margin:4px;image-rendering:pixelated}</style></head><body>
+<div id="g"></div>
+<script type="module">
+import { renderCardFace, renderCardBack } from '../src/gfx/cardart.js';
+import { computeMove } from '../src/game/combos.js';
+import { BASICS, POWERS } from '../src/game/data/cards.js';
+await document.fonts.load('700 40px "Pixelify"'); await document.fonts.load('32px "VT323"'); await document.fonts.load('700 22px "Silkscreen"'); await document.fonts.load('8px "Silkscreen"');
+const g = document.getElementById('g');
+const add = (c) => g.appendChild(c);
+for (const id of Object.keys(BASICS)) add(renderCardFace({ id, up: id==='apple'?1:0 }));
+for (const id of Object.keys(POWERS)) add(renderCardFace({ id, type: 'power', up: 0 }));
+for (const r of [['apple','gravity'],['apple','gravity','mass','force'],['stone','gravity','heat'],['water','spark'],['gravity','mass','mass','mass'],['apple','rotation','heat','force','lens']]) { const comps=r.map(id=>({id,up:0})); const mv=computeMove(comps); add(renderCardFace({type:'move',comps,up:0}, mv)); }
+add(renderCardBack()); window.__done = true;
+</script></body></html>
