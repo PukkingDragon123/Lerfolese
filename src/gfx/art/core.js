@@ -115,7 +115,7 @@ export class Painter {
   //   outline: bool, clip: only over existing pixels, under: only into empty pixels, fixed: (x,y)=>hex (unlit colour) }
   add(mask, o = {}) {
     const W = this.w, H = this.h; const id = this.parts.length;
-    const part = { id, name: o.id || '', cast: o.cast ?? 0, contour: o.contour ?? 1, outline: o.outline !== false, shade: o.shade || 0, olw: o.olw ?? 1, noClean: !!o.noClean, clip: o.clip };
+    const part = { id, name: o.id || '', cast: o.cast ?? 0, contour: o.contour ?? 1, outline: o.outline !== false, shade: o.shade || 0, olw: o.olw ?? 1, noClean: !!o.noClean, clip: o.clip, ridge: o.ridge ?? 0 };
     this.parts.push(part);
     const b = mask.bb || [0, 0, W, H]; const x0 = Math.max(0, b[0]), y0 = Math.max(0, b[1]), x1 = Math.min(W, b[2]), y1 = Math.min(H, b[3]);
     const pix = [];
@@ -182,6 +182,16 @@ export class Painter {
       ct[i] = c;
     }
     for (let i = 0; i < n; i++) if (idx[i] >= 0) idx[i] = Math.max(0, idx[i] - sh[i] * shadowSteps - ct[i]);
+    // facet ridges: where two planes of the same part meet, the brighter side gets a crisp highlight line (gem bevels)
+    { const rd = new Int8Array(n);
+      for (let i = 0; i < n; i++) {
+        const p = this.pid[i]; if (p < 0 || !this.parts[p].ridge || idx[i] < 0) continue; const x = i % W, y = (i / W) | 0;
+        for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const q = Y * W + X; if (this.pid[q] !== p || idx[q] < 0) continue;
+          const d = this.nrm[i * 3] * this.nrm[q * 3] + this.nrm[i * 3 + 1] * this.nrm[q * 3 + 1] + this.nrm[i * 3 + 2] * this.nrm[q * 3 + 2]; if (d > 0.985) continue;
+          if (idx[i] > idx[q] || (idx[i] === idx[q] && (dx < 0 || dy < 0))) { rd[i] = this.parts[p].ridge; break; } }
+      }
+      for (let i = 0; i < n; i++) if (rd[i] && idx[i] >= 0) { const R = this.mats[this.mid[i]].ramp.length; idx[i] = Math.min(R - 1, idx[i] + rd[i]); }
+    }
     // orphan clean-up (within a part): a pixel with no 8-neighbour of its own band joins the majority around it
     if (clean) for (let pass = 0; pass < 2; pass++) {
       const src = idx.slice();
@@ -213,6 +223,15 @@ export class Painter {
   }
   // direct painting helpers (after render)
   px(x, y, c) { this.pc.px(x, y, c); }
+  // move a rendered pixel d steps along its own material ramp (hand-placed detail that stays in palette)
+  shift(x, y, d) { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; const i = y * this.w + x; if (this.pid[i] < 0 || this.mid[i] < 0 || !this.idx || this.idx[i] < 0 || this.fix[i]) return; const m = this.mats[this.mid[i]]; const k = clamp(this.idx[i] + d, 0, m.ramp.length - 1); this.idx[i] = k; this.pc.px(x, y, m.ramp[k]); }
+  shiftLine(pts, d) { for (let i = 0; i + 1 < pts.length; i++) { let [x0, y0] = pts[i].map(Math.round), [x1, y1] = pts[i + 1].map(Math.round); const dx = Math.abs(x1 - x0), sx = x0 < x1 ? 1 : -1, dy = -Math.abs(y1 - y0), sy = y0 < y1 ? 1 : -1; let err = dx + dy; for (;;) { this.shift(x0, y0, d); if (x0 === x1 && y0 === y1) break; const e2 = 2 * err; if (e2 >= dy) { err += dy; x0 += sx; } if (e2 <= dx) { err += dx; y0 += sy; } } } }
+  // crack: dark line with a lit lip one pixel above (reads as an incised groove)
+  crack(pts) { this.shiftLine(pts.map(([x, y]) => [x, y - 1]), 1); this.shiftLine(pts, -2); }
+  // sparse deliberate speckles on chosen parts: 1px pits (one step darker) with a lit pixel below-right on lit planes
+  speckle(names, density = 0.06, seed = 1, d = -1) { const W = this.w; for (let i = 0; i < this.pid.length; i++) { const p = this.pid[i]; if (p < 0 || (names && !names.includes(this.parts[p].name))) continue; const x = i % W, y = (i / W) | 0; if (hash2(x, y, seed) > density) continue; if ((x + y * 3) % 2) continue; const k = this.idx[i]; if (k <= 0) continue; this.shift(x, y, d); } }
+  // tone of a pixel (ramp index) or -1
+  tone(x, y) { if (x < 0 || y < 0 || x >= this.w || y >= this.h || !this.idx) return -1; return this.idx[y * this.w + x]; }
 }
 
 // ------------------------------------------------------------------ hand-painting helpers

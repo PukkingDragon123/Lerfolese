@@ -110,25 +110,36 @@ export function leather(ctx, base, { seed = 11, rough = 0.5, stitch = true } = {
   }, { geo: true });
 }
 // cast / polished metal with patina in crevices and fine scratches
-export function metal(ctx, base, { seed = 13, rough = 0.3, patina = '#3d5a40', scratch = 1 } = {}) {
+export function metal(ctx, base, { seed = 13, rough = 0.3, patina = '#3d5a40', scratch = 1, pat = 1 } = {}) {
   const n = noise(seed), b = C(base), p = C(patina);
   ctx.each((u, v, o) => {
     const X = o.x - ctx.x, Y = o.y - ctx.y, sc = Math.abs(n(X * 0.05 + Y * 0.6, Y * 0.05) - 0.5) < 0.012 * scratch;
-    put(o, b, 0.85 + (n.fbm(u * 8, v * 8, 3) - 0.5) * 0.3 + sat(-o.cav) * 0.3); mix(o, p, sat(o.cav * 1.4) * 0.8);
-    o.ro = rough + (n(X * 0.2, Y * 0.2) - 0.5) * 0.12 + sat(o.cav) * 0.4 - (sc ? 0.1 : 0); o.me = 1 - sat(o.cav * 1.4) * 0.7; o.h = sc ? 0.2 : 0.5;
+    put(o, b, 0.85 + (n.fbm(u * 8, v * 8, 3) - 0.5) * 0.3 + sat(-o.cav) * 0.3 * pat); mix(o, p, sat(o.cav * 1.4) * 0.8 * pat);
+    o.ro = rough + (n(X * 0.2, Y * 0.2) - 0.5) * 0.12 + sat(o.cav) * 0.4 * pat - (sc ? 0.1 : 0); o.me = 1 - sat(o.cav * 1.4) * 0.7 * pat; o.h = sc ? 0.2 : 0.5;
   }, { geo: true });
 }
-// hair card: individual strands with alpha gaps, darker roots, tapered tips (u across, v root -> tip)
-export function hairCard(ctx, root, tip, { seed = 5, strands = 26, rough = 0.42, gap = 0.35 } = {}) {
-  const n = noise(seed), a0 = C(root), a1 = C(tip);
-  const S = []; for (let i = 0; i < strands; i++) S.push({ u: (i + 0.5 + (n(i * 7.1, 3) - 0.5) * 0.8) / strands, len: 0.55 + n(i * 3.3, 9) * 0.45, k: 0.75 + n(i * 1.7, 5) * 0.5, wob: n(i * 2.3, 1) * 6 });
+// hair card: many fine strands with alpha gaps, darker roots, per-strand tone, tapered staggered tips (u across, v root->tip)
+export function hairCard(ctx, root, tip, { seed = 5, strands = 40, rough = 0.42, gap = 0.3 } = {}) {
+  const n = noise(seed), a0 = C(root), a1 = C(tip), S = [];
+  for (let i = 0; i < strands; i++) S.push({ u: (i + 0.5 + (n(i * 7.1, 3) - 0.5) * 0.9) / strands, len: 0.5 + n(i * 3.3, 9) * 0.5, k: 0.7 + n(i * 1.7, 5) * 0.6, wob: n(i * 2.3, 1) * 6, w: 0.6 + n(i, 4) * 0.8 });
+  const px = 1 / ctx.w;
   ctx.each((u, v, o) => {
-    let best = 0, kk = 1; const px = 1 / ctx.w;
-    for (const s of S) { if (v > s.len) continue; const cu = s.u + Math.sin(v * 4 + s.wob) * 0.015, w = (0.5 / strands) * (1 - gap * 0.5) * (1 - (v / s.len) ** 3); const c = line(u - cu, w, px); if (c > best) { best = c; kk = s.k; } }
-    const edge = 1 - sstep(0.3, 0.5, Math.abs(u - 0.5)) * 0.6, t = sstep(0, 0.6, v);
+    let best = 0, kk = 1;
+    for (const s of S) { if (v > s.len) continue; const cu = s.u + Math.sin(v * 5 + s.wob) * 0.012, w = (0.5 / strands) * (1 - gap * 0.5) * s.w * (1 - (v / s.len) ** 2); const c = line(u - cu, w, px); if (c > best) { best = c; kk = s.k; } }
+    const t = sstep(0, 0.55, v), edge = sstep(0.5, 0.32, Math.abs(u - 0.5));
     o.r = lerp(a0[0], a1[0], t) * kk; o.g = lerp(a0[1], a1[1], t) * kk; o.b = lerp(a0[2], a1[2], t) * kk;
-    const shine = Math.exp(-((v - 0.35) ** 2) / 0.01); o.r += shine * 0.1; o.g += shine * 0.1; o.b += shine * 0.11;
-    o.a = v < 0.12 ? Math.max(best, 0.9 * edge) : best * (v < 0.3 ? 1 : edge); o.h = best * 0.6; o.ro = rough; o.me = 0;
+    o.a = Math.max(best, v < 0.1 ? edge * 0.9 : 0) * (0.35 + 0.65 * edge); o.h = 0.3 + best * 0.5; o.ro = rough; o.me = 0;
+  });
+}
+// solid hair clump (lens-section tube; u around with 0.5 = outer face, v root -> tip): fine strands with per-strand
+// tone, grooves in the normal map, occluded underside, darker roots, a soft sheen band and lighter tips
+export function hairClump(ctx, root, tip, { seed = 6, strands = 46, rough = 0.4, sheen = 0.32 } = {}) {
+  const n = noise(seed), a0 = C(root), a1 = C(tip);
+  ctx.each((u, v, o) => {
+    const su = u * strands + Math.sin(v * 6 + u * 9) * 0.6, id = Math.floor(su), f = su - id, k = 0.78 + n(id * 3.1, 7) * 0.44, out = Math.cos((u - 0.5) * TAU), t = sstep(0, 0.6, v);
+    o.r = lerp(a0[0], a1[0], t) * k; o.g = lerp(a0[1], a1[1], t) * k; o.b = lerp(a0[2], a1[2], t) * k;
+    mul(o, 0.62 + 0.38 * sstep(-0.7, 0.4, out)); const sh = Math.exp(-((v - sheen - (n(u * 4, 1) - 0.5) * 0.1) ** 2) / 0.006) * sstep(-0.1, 0.6, out); o.r += sh * 0.16; o.g += sh * 0.15; o.b += sh * 0.13;
+    o.h = 0.5 + (f < 0.18 ? -0.3 : 0.1) + (k - 1) * 0.3; o.ro = rough - sh * 0.1; o.me = 0;
   });
 }
 // fur: directional clumped hair (flow along +v), darker undercoat, cavity shading

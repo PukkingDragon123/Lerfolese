@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { stack, sweep, ribbon, surface, shell, v3, sat, sstep, lerp, bump, g2, TAU, surfAt, smoothNormals } from './hq.js';
 import { noise, C, put, mix, mul, line, segD, fr } from './painters.js';
+export { hairClump } from './painters.js';
 
 // realistic adult head, normalised (H = 1: chin y=0 .. crown y=1, face toward +z). rows: [y, w, zs, zf, zb, nf, nb]
 export const HEAD = [
@@ -72,6 +73,8 @@ export function earFn(h = 0.135, { side = 1, out = 0.3 } = {}) {
     return o.set(side * x, Math.sin(a) * r * 1.0 - Math.sin(a) * curl, Math.cos(a) * r - Math.cos(a) * curl + 0.02 * h);
   };
 }
+// solid hair clump: lens-section tube along a path, wide at the root, tapering to a fine tip (up = outward hint)
+export const clumpFn = (pts, w, th, { up = v3(0, 1, 0), taper = 1 } = {}) => sweep(pts, (v) => { const k = Math.pow(1 - v, 0.8 * taper) * (1 + 0.25 * bump(v, 0.22, 0.2)); return [w * k + 0.0008, th * Math.pow(1 - v, 0.55) + 0.0006]; }, { up, sec: (a) => [Math.sin(a), Math.cos(a) * (0.6 + 0.4 * Math.abs(Math.cos(a)))], M: 24 });
 // hair card along a path (flat ribbon, both faces drawn by the material): width tapers to the tip
 export const cardFn = (pts, w, { up = v3(0, 1, 0), taper = 0.65, cup = 0 } = {}) => ribbon(pts, (v) => w * (1 - taper * v), { up, curl: cup });
 // path for a clump rooted on a head (centre c, scalp radius R): spherical root, flows from (az0, el0) toward (az1, el1)
@@ -105,10 +108,10 @@ export function skinPaint(S) {
     // regional colour: warm cheeks, nose, ears and chin; cooler eye hollows; yellower forehead
     mix(o, wm, (S.blush ?? 0.35) * (g2(ax, y, 0.21, 0.37, 0.075, 0.065) + 0.8 * g2(x, y, 0, 0.35, 0.05, 0.05) + 0.4 * g2(x, y, 0, 0.07, 0.06, 0.05) + (ax > 0.29 && !front ? 0.35 : 0)));
     mix(o, [0.62, 0.5, 0.55], 0.25 * g2(ax, y, 0.15, 0.44, 0.06, 0.03) * (S.tired ?? 1));
-    mul(o, 1 + (n.fbm(x * 30, y * 30, 3) - 0.5) * 0.08 + (n(x * 300, y * 300) - 0.5) * 0.03);
+    mul(o, 1 + (n.fbm(x * 30, y * 30, 3) - 0.5) * 0.07 + (n(x * 300, y * 300) - 0.5) * 0.02);
     // cavity: creases go darker and redder (subsurface), ridges catch a little light
     mix(o, cr, sat(o.cav * 1.8) * 0.55); mul(o, 1 + sat(-o.cav) * 0.12);
-    o.h = 0.5 + (n(x * 400, y * 400) - 0.5) * 0.25;
+    o.h = 0.5 + (n(x * 400, y * 400) - 0.5) * (S.pores ?? 0.08);
     // lips (front projection)
     if (front && Math.abs(y - my) < 0.05 && ax < 0.09) {
       const yU = my + 0.028 * Math.pow(sat(1 - (ax / 0.082) ** 2), 0.75) - 0.006 * bump(x, 0, 0.014) + 0.003 * bump(ax, 0.022, 0.012), yL = my - 0.03 * Math.pow(sat(1 - (ax / 0.074) ** 2), 0.6);

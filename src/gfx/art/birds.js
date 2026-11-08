@@ -127,7 +127,7 @@ function foldedWing(P, S, L, toL) { // one angular blade with crisp tract bands
     if (f.zebra) { if (u > 0.3) return mt(f.lesser); return Math.floor(((0.3 - u) * a) / 1.5) % 2 ? MT.white : MT.black; }
     if (u > 0.3) return mt(f.lesser); if (f.bar && u > 0.18) return mt(f.bar); if (u > -0.1) return mt(f.greater);
     if (f.dvbars && ((u > -0.05 && u < 0.12) || (u > -0.42 && u < -0.28))) return MT.black;
-    if (u > -0.62) return Math.abs(v + 0.1 + (u + 0.3) * 0.5) < 0.12 ? mt(f.edge) : mt(f.tert);
+    if (u > -0.62) return mt(f.tert);
     return mt(f.prim);
   };
   P.add(M.poly(pts), { m, n: roof(pts, { k: 0.8, table: 1.2, top: [-0.1, -0.35, 1] }), contour: 2, cast: 1 });
