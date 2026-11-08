@@ -210,8 +210,8 @@ function gearMats() {
   MAT.robeTop = K.uvMat('wiz-robe-top', 512, 256, (u, v, o) => { const f = Math.sin(u * TAU * 6 + v * 3); K.tone(hex('#30307a'), f > 0.5 ? 0.66 : f < -0.5 ? 0.32 : 0.48, o.col); const e = Math.min(u, 1 - u); if (e < 0.045) runeBand(o, v * 18, e / 0.045); }, { side: THREE.DoubleSide });
   MAT.cape = K.uvMat('wiz-cape', 256, 256, (u, v, o) => { const f = Math.sin(u * TAU * 5 + v * 2); K.tone(hex('#7a1e2e'), f > 0.45 ? 0.64 : f < -0.5 ? 0.3 : 0.48, o.col); if (v < 0.06) K.tone(gold, 0.6, o.col); const hem = 0.86 + Math.abs(((u * 13) % 1) - 0.5) * 0.18 + K.vnoise(u * 30, 1, 3) * 0.05; if (v > hem) o.a = 0; else if (v > hem - 0.03) K.tone(hex('#4a1020'), 0.45, o.col); if (K.vnoise(u * 12, v * 12, 4) > 0.86 && v > 0.3) o.a = 0; }, { side: THREE.DoubleSide, alphaTest: 0.5 });
   MAT.leather = K.uvMat('wiz-leather', 128, 128, (u, v, o) => { K.tone(hex('#6a3e22'), K.band(0.5 + (K.vnoise(u * 20, v * 20, 2) - 0.5) * 0.25, 4), o.col); const e = Math.min(u, 1 - u, v, 1 - v); if (e < 0.06 && e > 0.035 && ((u + v) * 60) % 1 < 0.5) K.tone(hex('#e0c890'), 0.6, o.col); if (e < 0.02) K.tone(hex('#3a2010'), 0.4, o.col); if (Math.abs(Math.hypot(u - 0.5, v - 0.5) - 0.2) < 0.02) K.tone(hex('#3a2010'), 0.35, o.col); }, { side: THREE.DoubleSide });
-  MAT.glass = new THREE.MeshStandardMaterial({ color: 0xd8f0ff, roughness: 0.08, metalness: 0, transparent: true, opacity: 0.35, depthWrite: false });
-  MAT.crystal = new THREE.MeshStandardMaterial({ color: 0x8ff0ff, emissive: 0x3ac8ff, emissiveIntensity: 1.6, roughness: 0.15, flatShading: true });
+  MAT.glass = new THREE.MeshToonMaterial({ color: 0xd8f0ff, transparent: true, opacity: 0.4, depthWrite: false });
+  MAT.crystal = new THREE.MeshToonMaterial({ color: 0x8ff0ff, emissive: 0x3ac8ff, emissiveIntensity: 1.6 });
   MAT.paper = K.uvMat('wiz-quill', 32, 128, (u, v, o) => { K.tone(hex('#f2ead8'), K.band(0.6 - Math.abs(u - 0.5) * 0.4 + (Math.sin(v * 160 + u * 8) > 0.6 ? -0.12 : 0), 3), o.col); if (Math.abs(u - 0.5) < 0.04) K.tone(hex('#8a7a60'), 0.5, o.col); }, { side: THREE.DoubleSide });
   return MAT;
 }

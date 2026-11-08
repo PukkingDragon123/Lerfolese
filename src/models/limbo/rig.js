@@ -13,7 +13,7 @@ const DEF = { skin: 0xe8b98f, hair: 0x3b2a1e, hairStyle: 'short', face: 0, build
 let GRAD = null;
 /** 3-band cel ramp for MeshToonMaterial (clean planes that read under the ink outline pass) */
 export function toonGradient() {
-  if (!GRAD) { GRAD = new THREE.DataTexture(new Uint8Array([70, 70, 70, 255, 150, 150, 150, 255, 255, 255, 255, 255]), 3, 1, THREE.RGBAFormat); GRAD.minFilter = GRAD.magFilter = THREE.NearestFilter; GRAD.generateMipmaps = false; GRAD.needsUpdate = true; }
+  if (!GRAD) { GRAD = new THREE.DataTexture(new Uint8Array([118, 118, 118, 255, 186, 186, 186, 255, 255, 255, 255, 255]), 3, 1, THREE.RGBAFormat); GRAD.minFilter = GRAD.magFilter = THREE.NearestFilter; GRAD.generateMipmaps = false; GRAD.needsUpdate = true; }
   return GRAD;
 }
 export const toonMat = (o = {}) => new THREE.MeshToonMaterial({ gradientMap: toonGradient(), ...o });
@@ -39,7 +39,7 @@ export function cleanPage(d, S, k) {
     const p = (y * S + x) * 4; if (!src[p + 3] || skip(x, y)) continue; r.length = g.length = b.length = 0;
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const q = ((y + j) * S + x + i) * 4; if (!src[q + 3]) continue; r.push(src[q]); g.push(src[q + 1]); b.push(src[q + 2]); }
     r.sort((a, c) => a - c); g.sort((a, c) => a - c); b.sort((a, c) => a - c); const m = r.length >> 1;
-    let R = r[m], G = g[m], Bb = b[m]; const L = R * 0.3 + G * 0.59 + Bb * 0.11; const Lq = Math.max(8, Math.round(L / 255 * 5) / 5 * 255 * 0.92 + 14); const f = Lq / Math.max(8, L);
+    let R = r[m], G = g[m], Bb = b[m]; const L = R * 0.3 + G * 0.59 + Bb * 0.11; const Lq = Math.max(8, Math.round(L / 255 * 4) / 4 * 255 * 0.92 + 14); const f = Lq / Math.max(8, L);
     d[p] = Math.min(255, R * f); d[p + 1] = Math.min(255, G * f); d[p + 2] = Math.min(255, Bb * f);
   }
 }

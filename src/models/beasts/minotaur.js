@@ -151,9 +151,8 @@ function painter(S, king) {
       K.tone(col, K.band(F, 4), o.col); o.ro = 0.95; return;
     }
     if (tag === 'muzzle' || tag === 'jaw') { const C = K.cells3(c.x / 0.012, c.y / 0.012, c.z / 0.012); K.tone(col, K.band(L + 0.06 + (C[1] - C[0] < 0.06 ? -0.12 : 0), 4), o.col); if (q.tag2 === 'mouth' && q.d2 < 0.012) K.tone(P.mouth, 0.3, o.col); return; }
-    // short-haired hide over the muscle: clean planes, crease lines from the sculpt, faint hair strokes on the lit side
-    const hair = ((Math.floor(c.y * 90 + Math.sin(c.x * 40) * 2 + Math.sin(c.z * 33)) & 7) === 0) && L > 0.55 ? -0.06 : 0;
-    K.tone(col, K.band(L + hair + (tag === 'belly' || tag === 'chest' ? 0.04 : 0), 4), o.col);
+    // short-haired hide over the muscle: clean anime planes, crease shadows from the sculpt
+    K.tone(col, K.band(L + (tag === 'belly' || tag === 'chest' ? 0.04 : 0), 4), o.col);
   };
 }
 

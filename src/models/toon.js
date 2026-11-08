@@ -109,11 +109,11 @@ const GRASS_VERT = `
   vec4 mvPosition = viewMatrix * gw; gl_Position = projectionMatrix * mvPosition;`;
 /** a field of instanced blades. spots: array of [x, y, z, height, hueJitter]. */
 export function grassBlades(spots, { colorJitter = 0.08, dry = 0.25, pointer = false, pbr = false } = {}) {
-  const geo = bladeGeometry(pbr ? ['#46702a', '#74a23e', '#c4d27a'] : undefined); const mat = pbr ? new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.78, metalness: 0 }) : new THREE.MeshToonMaterial({ vertexColors: true, side: THREE.DoubleSide, gradientMap: gradientMap([0.45, 0.72, 1.0]) });
+  const geo = bladeGeometry(pbr ? ['#46702a', '#74a23e', '#c4d27a'] : ['#4f7c2c', '#84b444', '#dce47e']); const mat = pbr ? new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.78, metalness: 0 }) : new THREE.MeshToonMaterial({ vertexColors: true, side: THREE.DoubleSide, gradientMap: gradientMap([0.45, 0.72, 1.0]) });
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, { uTime: WIND.time, uWindDir: WIND.dir, uWindAmp: WIND.amp, uPtr: WIND.ptr, uPtrR: WIND.ptrR, uPtrK: WIND.ptrK });
     sh.vertexShader = 'uniform float uTime; uniform vec2 uWindDir; uniform float uWindAmp; uniform vec3 uPtr; uniform float uPtrR; uniform float uPtrK;\n' + sh.vertexShader.replace('#include <project_vertex>', GRASS_VERT);
-    if (pbr) sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += diffuseColor.rgb * vec3(0.12, 0.12, 0.06);');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);').replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += diffuseColor.rgb * vec3(0.12, 0.12, 0.06);');
   };
   mat.customProgramCacheKey = () => (pbr ? 'grassblades-pbr' : 'grassblades');
   const mesh = new THREE.InstancedMesh(geo, mat, spots.length); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = new THREE.Vector3(), p = new THREE.Vector3(), c = new THREE.Color();

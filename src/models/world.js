@@ -1,7 +1,7 @@
 // Mythical Wilderness props for events and the map, plus the fallback stage: the detailed CC0 models, toon-shaded.
 // Each prop returns a Group at once and fills it when the model has loaded (callers place / scale the group).
 import * as THREE from 'three';
-import { realStage, envModel as toonModel, firePit as pit } from './realworld.js';
+import { realStage, toonModel, firePit as pit } from './realworld.js';
 import { mulberry32 } from '../core/util.js';
 
 const asyncProp = (name, s = 1, { y = 0, ry = 0 } = {}) => { const g = new THREE.Group(); g.name = name; toonModel(name, mulberry32(name.length * 7 + Math.round(s * 100))).then((o) => { o.scale.multiplyScalar(s); o.position.y = y; o.rotation.y = ry; g.add(o); }).catch(() => {}); return g; };

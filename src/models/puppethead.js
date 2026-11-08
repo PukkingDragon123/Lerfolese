@@ -16,43 +16,47 @@ export const EXPR = {
   smug: { b: [-0.15, 0.35], lid: 0.32, m: 0.25, asym: 0.7 }, delight: { b: [0.5, 0.45], lid: 0.05, m: 0.9, asym: 0 }, annoyed: { b: [-0.9, -0.2], lid: 0.42, m: -0.6, asym: 0 },
   hurt: { b: [0.9, -0.5], lid: 0.48, m: -0.85, asym: 0 }, shock: { b: [0.9, 0.9], lid: -0.2, m: -0.2, asym: 0 }, think: { b: [0.45, -0.3], lid: 0.3, m: -0.25, asym: -0.7 }, blink: { b: [0, 0.2], lid: 1.1, m: 0.2, asym: 0 },
 };
-const SKIN = [232, 188, 146], OAK = [170, 108, 58], OAKD = [92, 50, 28], IRIS = [96, 128, 146], LIP = [178, 104, 100], WHITE = [242, 238, 236], INK = [48, 28, 28];
-const G = (x, y, sx, sy) => Math.exp(-(x * x) / (2 * sx * sx) - (y * y) / (2 * sy * sy));
-const mixc = (o, c, t) => { for (let k = 0; k < 3; k++) o[k] += (c[k] - o[k]) * t; };
+// anime cel palette: flat tones, crisp shapes, no gradients
+const SKIN = [246, 212, 178], SKIN2 = [226, 178, 150], SKIN3 = [190, 132, 116], BLUSH = [240, 150, 140], IRIS = [70, 150, 190], IRIS2 = [34, 84, 128], LIP = [206, 120, 116], WHITE = [250, 248, 250], WHITE2 = [204, 206, 226], INK = [40, 22, 30], WOOD = [176, 108, 62];
+const set = (o, c) => { o[0] = c[0]; o[1] = c[1]; o[2] = c[2]; };
 function painter(E) {
   return (c, o) => {
-    const X = c.x - MX, ax = Math.abs(X), sx = X >= 0 ? 1 : -1, Y = c.y; const col = o.col; o.ro = 0.55;
-    const grain = ((c.y * 80 + Math.sin(c.x * 50 + c.z * 40) * 1.3 + 10) % 1);
-    col[0] = SKIN[0]; col[1] = SKIN[1]; col[2] = SKIN[2];
-    const wear = K.vnoise(c.x * 90, c.y * 90, c.z * 90); if (wear > 0.7) mixc(col, OAK, Math.min(1, (wear - 0.7) * 2.5)); if (grain < 0.07) mixc(col, OAKD, 0.2);
+    const X = c.x - MX, ax = Math.abs(X), sx = X >= 0 ? 1 : -1, Y = c.y; const col = o.col; set(col, SKIN);
     const hair = Y > 0.432 + Math.max(0, 0.07 - ax) * 0.25 || (c.z < 0.03 && Y > 0.33) || (ax > 0.075 && Y > 0.37 && c.z < 0.07);
-    if (hair) { const s = K.vnoise(c.x * 260, c.y * 260, c.z * 260); col[0] = WHITE[0] - s * 50; col[1] = WHITE[1] - s * 50; col[2] = WHITE[2] - s * 40 + 6; if (c.ny < -0.2) mixc(col, [150, 146, 160], 0.4); return; }
-    if (c.z < 0.06) return;
-    mixc(col, [204, 118, 98], 0.42 * G(ax - 0.045, Y - 0.35, 0.016, 0.014) + 0.45 * G(X, Y - 0.346, 0.01, 0.009)); // ruddy cheeks and nose
-    mixc(col, [156, 112, 92], 0.25 * G(ax - 0.032, Y - 0.369, 0.014, 0.005)); // tired under-eyes
-    const ex = ax - L.eyeX, ey = Y - L.eyeY; const lidY = 0.0048 - E.lid * 0.0098; const er = Math.hypot(ex / 2.0, ey);
-    if (er < 0.0062 && ey < lidY && ey > -0.0046 + Math.abs(ex) * 0.1) {
-      const ir = Math.hypot(ex - 0.0008 * sx, ey + 0.0003);
-      if (ir < 0.0052) { if (ir < 0.0023) { col[0] = 12; col[1] = 10; col[2] = 14; } else { const k = 0.78 + 0.22 * Math.sin(Math.atan2(ey, ex) * 16); col[0] = IRIS[0] * k; col[1] = IRIS[1] * k; col[2] = IRIS[2] * k; if (ir > 0.0045) mixc(col, [36, 44, 54], 0.7); } }
-      else { col[0] = 238; col[1] = 230; col[2] = 220; mixc(col, [200, 152, 142], Math.min(1, Math.abs(ex) / 0.012)); }
-      if (Math.hypot(ex + 0.0016, ey - 0.0016) < 0.001) col[0] = col[1] = col[2] = 255; // wet highlight
-      if (ey > lidY - 0.001) mixc(col, INK, 0.7); o.ro = 0.15; return;
+    if (hair) { set(col, c.ny < -0.15 || (c.nx * sx > 0.6 && c.ny < 0.2) ? WHITE2 : WHITE); if (c.ny > 0.7 && ((c.x * 220 + c.z * 160) % 1) < 0.18) set(col, [255, 255, 255]); return; }
+    if (c.z < 0.06) { if (c.ny < -0.3) set(col, SKIN2); return; }
+    if (c.ny < -0.45 && Y < 0.35) set(col, SKIN2); // crisp shadow shapes under the nose, lip and jaw
+    if (ax > 0.012 && ax < 0.021 && Y > 0.338 && Y < 0.372 && sx < 0 && c.nx < -0.3) set(col, SKIN2); // nose side tick
+    const bl = Math.hypot((ax - 0.046) / 1.5, Y - 0.352); if (bl < 0.011) { set(col, ((ax * 900 + Y * 300) % 1) < 0.35 ? BLUSH : [244, 186, 164]); } // anime blush hatching
+    if (sx > 0 && ax > 0.05 && ax < 0.058 && Y > 0.405 && Y < 0.43 && Math.abs(ax - 0.054 - (Y - 0.415) * 0.3) < 0.0008) set(col, [120, 70, 50]); // a hairline crack in the paint
+    // eyes: almond, thick upper lash line with a wing, big two-tone iris, pupil, two crisp highlights
+    const ex = ax - L.eyeX, ey = Y - L.eyeY; const lidY = 0.0052 - E.lid * 0.0102; const open = ey < lidY && ey > -0.0048 + ex * ex * 18;
+    if (Math.abs(ex) < 0.0115 && open) {
+      const ir = Math.hypot(ex - 0.0006 * sx, (ey + 0.0002) * 0.9);
+      if (ir < 0.0058) { set(col, ey > lidY - 0.0026 || ir > 0.0046 ? IRIS2 : IRIS); if (ir < 0.0024) set(col, [16, 14, 24]); }
+      else set(col, ex * sx > 0.006 ? [236, 230, 236] : WHITE);
+      if (Math.hypot(ex + 0.0018 * sx, ey - 0.0015) < 0.0012 || Math.hypot(ex - 0.0016 * sx, ey + 0.0021) < 0.0006) set(col, [255, 255, 255]);
+      return;
     }
-    if (er < 0.0082 && ey > lidY - 0.0004 && ey < lidY + 0.0014) mixc(col, INK, 0.8); // lid line + lashes
-    if (Math.abs(ey + 0.0058) < 0.0008 && Math.abs(ex) < 0.01) mixc(col, [150, 96, 80], 0.5);
-    if (Math.abs(Y - (L.eyeY + 0.009 - E.lid * 0.003)) < 0.001 && Math.abs(ex) < 0.011) mixc(col, [128, 84, 70], 0.4); // lid crease
-    const bt = (ax - 0.012) / 0.042; // white bushy brows on the carved ridge
-    if (bt > 0 && bt < 1) { const by = 0.398 - (ax - 0.03) * (ax - 0.03) * 4 + (E.b[0] * (1 - bt) + E.b[1] * bt) * 0.005 + sx * E.asym * 0.0028 * bt; const hw = 0.0038 * (1 - bt * 0.35) + K.vnoise(c.x * 900, Y * 300, 2) * 0.0016;
-      if (Math.abs(Y - by) < hw) { const s = K.vnoise(c.x * 1600 + Y * 400, Y * 220, 6); col[0] = WHITE[0] - s * 40; col[1] = WHITE[1] - s * 40; col[2] = WHITE[2] - s * 30; return; } }
-    if (Y > 0.412 && Y < 0.44 && ax < 0.05 && Math.pow(Math.max(0, Math.sin((Y - 0.412) * 380 + Math.sin(c.x * 55) * 1.2)), 4) > 0.55) mixc(col, [146, 98, 78], 0.4); // forehead lines
-    if (ax > 0.047 && ax < 0.064) for (const k of [-0.6, 0, 0.55]) if (Math.abs(Y - L.eyeY - (ax - 0.047) * k) < 0.0007) mixc(col, [146, 98, 78], 0.45 * (1 - (ax - 0.047) / 0.017)); // crow's feet
-    const nl = ax - (0.02 + (0.343 - Y) * 0.3); if (Y < 0.344 && Y > 0.305 && Math.abs(nl) < 0.0016) mixc(col, [146, 94, 78], 0.45);
-    if (Math.hypot(ax - 0.0085, Y - 0.3385) < 0.003 && c.ny < 0.1) mixc(col, [64, 36, 32], 0.85); // nostrils
+    if (Math.abs(ex) < 0.0125 && ey >= lidY && ey < lidY + 0.0016 + Math.max(0, ex * sx) * 0.12) { set(col, INK); return; } // upper lash line, winged at the outer corner
+    if (ex * sx > 0.008 && ex * sx < 0.014 && Math.abs(ey - lidY - (ex * sx - 0.008) * 0.35) < 0.0011) { set(col, INK); return; }
+    if (Math.abs(ex) < 0.009 && Math.abs(ey + 0.0049 - ex * ex * 18) < 0.0006) set(col, SKIN3); // lower lid
+    if (Math.abs(Y - (L.eyeY + 0.0095 - E.lid * 0.003)) < 0.0007 && Math.abs(ex) < 0.011) set(col, SKIN3); // lid crease
+    const bt = (ax - 0.012) / 0.042; // brows: crisp white shapes with a grey underside
+    if (bt > 0 && bt < 1) { const by = 0.398 - (ax - 0.03) * (ax - 0.03) * 4 + (E.b[0] * (1 - bt) + E.b[1] * bt) * 0.005 + sx * E.asym * 0.0028 * bt; const hw = 0.0042 * (1 - bt * 0.4) + 0.0006;
+      if (Math.abs(Y - by) < hw) { set(col, Y < by - hw * 0.35 ? WHITE2 : WHITE); return; } }
+    if (Y > 0.414 && Y < 0.44 && ax < 0.045) for (const k of [0, 1]) if (Math.abs(Y - 0.418 - k * 0.011 - Math.sin(X * 50) * 0.002) < 0.0006 && ax < 0.04 - k * 0.01) set(col, SKIN3); // two forehead lines
+    if (ax > 0.047 && ax < 0.06) for (const k of [-0.5, 0.5]) if (Math.abs(Y - L.eyeY - (ax - 0.047) * k) < 0.0006) set(col, SKIN3); // crow's feet
+    const nl = ax - (0.02 + (0.343 - Y) * 0.3); if (Y < 0.342 && Y > 0.31 && Math.abs(nl) < 0.0009) set(col, SKIN3);
+    if (Math.hypot(ax - 0.0085, Y - 0.3385) < 0.0026 && c.ny < 0.1) set(col, [120, 70, 64]); // nostrils
     const mw = L.mouthW, mc = L.mouthY + E.m * 0.003 * Math.min(1, ax / mw) ** 2 + sx * E.asym * 0.0022 * (ax / mw) ** 2;
-    if (ax < mw && Math.abs(Y - mc) < 0.0011) mixc(col, INK, 0.85); else if (ax < mw * 0.95 && Y > mc && Y < mc + 0.0052 * (1 - (ax / mw) ** 2)) mixc(col, LIP, 0.7); else if (ax < mw * 0.9 && Y < mc && Y > mc - 0.0062 * (1 - (ax / mw) ** 2)) mixc(col, LIP, 0.6);
-    if (Math.abs(ax - (L.mouthW + 0.004 + (L.mouthY - Y) * 0.16)) < 0.0013 && Y < L.mouthY && Y > 0.262 && c.z > 0.09) mixc(col, INK, 0.85); // marionette jaw seams
+    if (ax < mw && Math.abs(Y - mc) < 0.0009) set(col, INK); else if (ax < mw * 0.9 && Y > mc && Y < mc + 0.0042 * (1 - (ax / mw) ** 2)) set(col, LIP); else if (ax < mw * 0.5 && Y < mc - 0.0025 && Y > mc - 0.0045) set(col, [236, 170, 156]);
+    if (Math.abs(ax - (L.mouthW + 0.004 + (L.mouthY - Y) * 0.16)) < 0.001 && Y < L.mouthY && Y > 0.262 && c.z > 0.09) set(col, [92, 52, 40]); // marionette jaw seams
+    void WOOD;
   };
 }
+let FACEGRAD = null;
+const faceGradient = () => { if (!FACEGRAD) { FACEGRAD = new THREE.DataTexture(new Uint8Array([168, 168, 168, 255, 255, 255, 255, 255]), 2, 1, THREE.RGBAFormat); FACEGRAD.minFilter = FACEGRAD.magFilter = THREE.NearestFilter; FACEGRAD.generateMipmaps = false; FACEGRAD.needsUpdate = true; } return FACEGRAD; };
 
 let RES = null;
 function resources() {
@@ -62,8 +66,7 @@ function resources() {
   const S = K.surface('bust', { geometry: geo, isSkinnedMesh: false }, 1024);
   const res = K.paintSurface(S, painter(EXPR.smug));
   // oak grain bump
-  const bump = K.paintSurface(S, (c, o) => { const g = ((c.y * 80 + Math.sin(c.x * 50 + c.z * 40) * 1.3 + 10) % 1); const v = g < 0.07 ? 90 : 160 + K.vnoise(c.x * 300, c.y * 40, c.z * 300) * 40; o.col[0] = o.col[1] = o.col[2] = v; });
-  const mat = new THREE.MeshStandardMaterial({ map: K.canvasTex(res.canvas), bumpMap: K.canvasTex(bump.canvas, false), bumpScale: 0.6, roughness: 0.5, metalness: 0 });
+  const mat = new THREE.MeshToonMaterial({ map: K.canvasTex(res.canvas), gradientMap: faceGradient() }); // anime cel: one crisp shadow band
   // face texels only, for fast expression repaints (cached per expression)
   const sel = []; for (let i = 0; i < S.n; i++) { const x = S.P[i * 3] - MX, y = S.P[i * 3 + 1], z = S.P[i * 3 + 2]; if (z > 0.06 && y > 0.29 && y < 0.43 && Math.abs(x) < 0.07) sel.push(i); }
   const pick = (A, k) => { const out = new A.constructor(sel.length * k); sel.forEach((s, j) => { for (let q = 0; q < k; q++) out[j * k + q] = A[s * k + q]; }); return out; };
@@ -87,9 +90,9 @@ function mouthCavity() { // a mouth-shaped dark pocket behind the lips with an u
   return g;
 }
 let HAIRM = null;
-const hairMat = () => (HAIRM ||= K.uvMat('newton-locks', 64, 256, (u, v, o) => { // root grey -> tip white, shaded underside, strand lines
-  const st = (u * 9 + Math.sin(v * 12 + u * 3) * 0.6) % 1; const under = Math.cos(u * Math.PI * 2);
-  K.tone([226 + v * 20, 222 + v * 20, 228 + v * 18], K.band(0.42 + v * 0.18 + under * 0.2 + (st < 0.2 ? -0.14 : 0), 5), o.col); }));
+const hairMat = () => (HAIRM ||= K.uvMat('newton-locks', 64, 256, (u, v, o) => { // cel locks: flat white, crisp lavender underside, crisp highlight band
+  const under = Math.cos(u * Math.PI * 2) < -0.2; const ring = !under && v > 0.16 && v < 0.24 && Math.cos(u * Math.PI * 2) > 0.45;
+  o.col[0] = ring ? 255 : under ? 206 : 246; o.col[1] = ring ? 255 : under ? 206 : 244; o.col[2] = ring ? 255 : under ? 230 : 250; if (!under && ((u * 5) % 1) < 0.06 && v > 0.3) { o.col[0] -= 26; o.col[1] -= 26; o.col[2] -= 14; } }));
 /** volumetric wavy locks: tapered tubes rooted on the carved scalp, falling past the jaw with S-curls */
 function hairLocks(geo) {
   const g = new THREE.Group(); const p = geo.attributes.position, n = geo.attributes.normal; let s = 9; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);

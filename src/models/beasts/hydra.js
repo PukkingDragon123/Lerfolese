@@ -73,10 +73,10 @@ function bodyPainter(S, P) {
       const pl = ((c.z * 9) % 1 + 1) % 1; K.tone(P.belly, K.band(L + 0.06 - pl * 0.22 + (pl > 0.86 ? -0.2 : 0), 4), o.col); return;
     }
     // scale plates: 3D cells, lit crowns, dark seams; dorsal band darker; large clean camouflage blotches
-    const sz = q.tag === 'root' ? 0.045 : 0.06; const C = K.cells3(c.x / sz, c.y / (sz * 0.8), c.z / sz); const seam = C[1] - C[0] < 0.07;
+    const sz = q.tag === 'root' ? 0.055 : 0.075; const C = K.cells3(c.x / sz, c.y / (sz * 0.8), c.z / sz); const seam = C[1] - C[0] < 0.06;
     const blot = K.vnoise(c.x * 4.2, c.y * 4.2, c.z * 4.2) > 0.69; const dorsal = c.ny > 0.75;
     const col = blot ? P.dark : dorsal ? P.top : c.ny > 0.25 ? P.top : P.side;
-    K.tone(col, K.band(L + (seam ? -0.24 : (0.5 - C[0]) * 0.18), 4), o.col);
+    K.tone(col, K.band(L + (seam ? -0.16 : (0.5 - C[0]) * 0.12), 4), o.col);
     if (dorsal && Math.abs(c.x) < 0.06 + Math.max(0, c.z) * 0.02) K.tone(P.dark, K.band(L - 0.05, 4), o.col);
   };
 }
@@ -196,7 +196,7 @@ function headPainter(S, P) {
     if (tag === 'crest') { K.tone(P.spine, K.band(L, 4), o.col); return; }
     const under = tag === 'jaw' && c.ny < 0.2 || c.ny < -0.5; if (under) { const pl = ((c.z * 26) % 1 + 1) % 1; K.tone(P.belly, K.band(L + 0.05 - pl * 0.2, 4), o.col); return; }
     const sz = tag === 'brow' ? 0.016 : 0.02; const C = K.cells3(c.x / sz, c.y / sz, c.z / sz); const seam = C[1] - C[0] < 0.08;
-    const col = tag === 'lip' ? P.side : c.ny > 0.45 ? P.top : P.side; K.tone(col, K.band(L + (seam ? -0.22 : (0.5 - C[0]) * 0.15) + (tag === 'brow' ? 0.04 : 0), 4), o.col);
+    const col = tag === 'lip' ? P.side : c.ny > 0.45 ? P.top : P.side; K.tone(col, K.band(L + (seam ? -0.15 : (0.5 - C[0]) * 0.1) + (tag === 'brow' ? 0.04 : 0), 4), o.col);
     if (q.tag2 === 'mouth' && q.d2 < 0.006) K.tone(hex('#3a0e18'), 0.3, o.col);
   };
 }
@@ -218,7 +218,7 @@ function headAsset() {
     const vv = v * 7; const belly = Math.abs(u - 0.5) < 0.15; o.ro = 0.4;
     if (belly) { const pl = (vv * 3.2) % 1; K.tone(P.belly, K.band(0.55 + Math.cos((u - 0.5) * 9) * 0.08 - pl * 0.24 + (pl > 0.88 ? -0.2 : 0), 4), o.col); return; }
     const C = K.cells2(u * 30, vv * 5.5); const seam = C[1] - C[0] < 0.09; const blot = K.vnoise(u * 7, vv * 1.4, 3) > 0.64; const dors = Math.abs(u - 0.5) > 0.4;
-    K.tone(blot ? P.dark : dors ? P.top : P.side, K.band(0.55 + Math.cos(u * Math.PI * 2) * 0.16 + (seam ? -0.24 : (0.5 - C[0]) * 0.16), 4), o.col);
+    K.tone(blot ? P.dark : dors ? P.top : P.side, K.band(0.55 + Math.cos(u * Math.PI * 2) * 0.16 + (seam ? -0.16 : (0.5 - C[0]) * 0.1), 4), o.col);
   }));
   for (const k of ['map', 'emissiveMap']) if (neckMat[k]) neckMat[k].wrapS = neckMat[k].wrapT = THREE.RepeatWrapping;
   const nw = K.paintUV(128, 512, (u, v, o) => { // neck gashes in UV space (u round, v along)
