@@ -3,7 +3,8 @@
 ## Art direction (non-negotiable, from the user)
 - NEVER use simple/lazy shapes as visible art: no plain circles/spheres, cubes/boxes, cylinders, cones, blobs, or low-poly/faceted geometry.
 - Draw CUSTOM art yourself: detailed high-resolution pixel art (shading ramps, selective outlines, highlights, animation frames), like `src/gfx/critters.js` birds and the card illustrations, and/or detailed high-poly models with real structure (trees with branches and leaves).
-- Style: HD-2D. Detailed 3D world plus detailed 2D pixel-art life and objects; anime-style characters with super-detailed pixel-art textures.
+- Style: HD-2D. Detailed 3D world plus detailed 2D pixel-art life and objects.
+- Characters: REALISTIC (not anime): realistic faces, anatomy and proportions, high-poly, high-resolution realistic textures. Sir Isaac is a realistically carved and painted wooden marionette.
 - UI is physical but custom-drawn: pixel-art objects presented in 3D (lit, shadowed, springy), not primitive meshes.
 
 ## Tech
