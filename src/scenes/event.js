@@ -34,7 +34,7 @@ function propFor(k) {
     case 'amphorae': for (let i = 0; i < 5; i++) add(PROPS.amphora(i, 0.7), -1.6 + i * 0.8, 0, -0.8 + (i % 2) * 0.4); break;
     case 'wings': add(ITEM_MODELS.wings(), 0, 1.6, 0, 1.6); add(PROPS.rock(5, 2.2), 0, 0, -0.6); break;
     case 'statue': add(PROPS.statue(4, 1.3), 0, 0, -0.4); add(PROPS.column(2, 3), -1.8, 0, -1); add(PROPS.column(3, 3, true), 1.8, 0, -1); break;
-    case 'pond': { const p = mk(S.blob(2.4, 0.05, 1.6, { detail: 1, seed: 4, amt: 0.2 }), F({ color: 0x2f7ab0, roughness: 0.05, metalness: 0.4 }), g, 0, 0.05, 0.5); p.castShadow = false; add(PROPS.statue(9, 1.0), -1.6, 0, -0.8); break; }
+    case 'pond': add(PROPS.statue(9, 1.0), -1.6, 0, -0.8); break; // the pool itself is the stage's set-piece (models/places.js SETS.narcissus)
     case 'brazier': add(P3.brazier(), 0, 1.0, 0, 1.6); add(PROPS.rock(8, 1.8), 1.5, 0, -0.6); break;
     case 'bridge': for (let i = 0; i < 7; i++) mk(S.slab(0.5, 0.12, 2.2, { seed: i }), F({ color: 0x8a5634 }), g, -1.6 + i * 0.52, 0.5 + Math.sin(i / 6 * Math.PI) * 0.4, 0.4); break;
     case 'tub': mk(S.turn([[0.001, 0], [1.1, 0.0], [1.3, 0.7], [1.2, 0.75], [1.0, 0.2], [0.001, 0.2]], { sides: 10, seed: 3 }), F({ color: 0xf4f0e8, roughness: 0.3 }), g); mk(S.blob(1.0, 0.05, 1.0, { detail: 1, seed: 5 }), F({ color: 0x7cc6e8, roughness: 0.05 }), g, 0, 0.6, 0); break;
@@ -57,7 +57,7 @@ export default class EventScene extends UIScreen {
     const pool = EVENTS.filter((e) => !seen.has(e.id)); const ev = (this.ev = run.rng.pick(pool.length ? pool : EVENTS)); run.seenEvents.push(ev.id);
     const j = this.game.journal; (j.events[ev.id] ||= 0); j.events[ev.id]++; this.game.saveJournal();
     // world
-    const sc = (this.scene = new THREE.Scene()); let st; try { st = await realStage(ev.theme, 30 + ev.id.length, this.engine.renderer); sc.environment = st.env; sc.environmentIntensity = 0.75; sc.background = st.background; } catch (e) { console.warn('event stage fallback', e); st = buildStage(ev.theme, 30 + ev.id.length); } sc.add(st.group); sc.fog = new THREE.Fog(0xe8c09a, 30, 95);
+    const sc = (this.scene = new THREE.Scene()); let st; try { st = await realStage(ev.theme, 30 + ev.id.length, this.engine.renderer, { event: ev.id }); sc.environment = st.env; sc.environmentIntensity = 0.75; sc.background = st.background; } catch (e) { console.warn('event stage fallback', e); st = buildStage(ev.theme, 30 + ev.id.length); } sc.add(st.group); sc.fog = new THREE.Fog(0xe8c09a, 30, 95);
     const sun = new THREE.DirectionalLight(0xffd0a0, 3.2); sun.position.set(-8, 10, 7); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 10, bottom: -8 }); sc.add(sun, new THREE.HemisphereLight(0xa8c8ff, 0x6a4a30, 1.1));
     this.camera = new THREE.PerspectiveCamera(32, this.engine.aspect, 0.1, 300); this.camera.position.set(-2.5, 3.0, 10.5); this.camLook = new THREE.Vector3(-1.2, 1.4, 0); this.camera.lookAt(this.camLook); this.camBase = this.camera.position.clone(); this.stage = st;
     this.prof = createProfessor(); this.prof.root.position.set(-4.4, 0, 1.2); this.prof.root.rotation.y = 0.6; sc.add(this.prof.root);

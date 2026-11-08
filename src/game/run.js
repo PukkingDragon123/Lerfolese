@@ -2,7 +2,8 @@
 import { RNG, uid } from '../core/util.js';
 import { STARTER_DECK, POWERS, BASICS, CARD_POOL, MUTATIONS } from './data/cards.js';
 import { ITEMS, ITEM_POOLS } from './data/items.js';
-import { ENCOUNTERS } from './data/enemies.js';
+import { ENCOUNTERS, ENEMIES } from './data/enemies.js';
+import { LOOT } from './data/items.js';
 import { SPECIALS, computeMove, baseOf } from './combos.js';
 import { save } from '../core/save.js';
 
@@ -117,14 +118,29 @@ export function cardChoices(run, n = 3, rare = 0) {
   }
   return out;
 }
+// a discovery's offer: three different new cards (science cards mostly, now and then a rare one or a Law of nature)
+export function discoveryChoices(run, n = 3) {
+  const r = run.rng; const out = []; let guard = 0;
+  while (out.length < n && guard++ < 60) { const roll = r.next(); const id = roll < 0.08 ? r.pick(CARD_POOL.powers) : roll < 0.2 ? r.pick(CARD_POOL.rare) : r.pick(CARD_POOL.discover); if (!out.includes(id)) out.push(id); }
+  return out;
+}
 export function itemChoices(run, pool, n = 1) {
   const avail = ITEM_POOLS[pool].filter((i) => !run.items.includes(i));
   return run.rng.shuffle([...avail]).slice(0, n);
 }
-export function battleRewards(run, kind) {
-  const r = run.rng; const gm = run.items.includes('sack') ? 1.25 : 1;
-  const gold = Math.round((kind === 'guardian' ? r.int(90, 110) : kind === 'elite' ? r.int(28, 38) : r.int(12, 20)) * gm);
-  return { gold, cards: cardChoices(run, 3, kind === 'normal' ? 0 : 1), items: kind === 'elite' ? itemChoices(run, 'elite', 1) : kind === 'guardian' ? itemChoices(run, 'guardian', 3) : [] };
+// a won battle pays only what the foes carried: gold, and their own drops (cards come from discoveries)
+export function battleRewards(run, kind, enemies = []) {
+  const r = run.rng; const gm = run.items.includes('sack') ? 1.25 : 1; const loot = [];
+  let gold = 0;
+  for (const id of enemies) {
+    const def = ENEMIES[id] || {}; const L = def.loot || LOOT[id] || LOOT[id?.replace(/_.*$/, '')] || null;
+    gold += Math.round((L?.gold ? r.int(L.gold[0], L.gold[1]) : def.guardian ? r.int(60, 80) : def.elite ? r.int(25, 35) : r.int(8, 14)) * gm);
+    const chance = def.guardian || def.elite ? 1 : L?.chance ?? 0.4;
+    const drop = (L?.items || []).filter((x) => ITEMS[x] && !run.items.includes(x) && !loot.includes(x));
+    if (drop.length && r.chance(chance)) loot.push(r.pick(drop)); else gold += Math.round(r.int(4, 9) * gm);
+  }
+  if (kind === 'guardian') for (const x of itemChoices(run, 'guardian', 2)) if (!loot.includes(x)) loot.push(x);
+  return { gold, cards: [], items: loot, loot: true };
 }
 
 export function upgradeCard(c) { if (c.type === 'move') c.up = 1; else c.up = 1; }

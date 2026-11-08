@@ -18,7 +18,21 @@ export const ITEMS = {
   sack: { name: "Kobalos's Sack", icon: 'sack', text: '+25% gold. Stolen cards come back with interest (+10 gold).', flavor: 'Smells of pockets.' },
   thread: { name: "Ariadne's Thread", icon: 'thread', text: 'A seventh string: draw 1 extra card each turn.', flavor: 'For when the maze is metaphorical.' },
   wineskin: { name: 'Bottomless Wineskin', icon: 'wineskin', text: 'Heal 2 at the start of each turn. Your first Move each battle goes to a random foe.', flavor: 'Bottomless. Like your excuses.' },
+  wine_flask: { name: "Satyr's Wine Flask", icon: 'wineskin', text: 'Heal 3 at the start of each battle.', flavor: 'Still sloshing. Still singing.' },
+  horn_shard: { name: 'Minotaur Horn Shard', icon: 'horn', text: 'Every Force gives +1 extra v.', flavor: 'A splinter of very old anger.' },
+  gorgon_scale: { name: 'Gorgon Scale', icon: 'mirror', text: 'Start each battle with 4 Block.', flavor: 'Hard as stone. Obviously.' },
   plumb_bob: { name: 'Plumb Bob', icon: 'plumb', text: 'Gravity gives +1 v for every Mass in the same Move.', flavor: 'The truest vertical. My namesake. Ish.' },
+};
+
+// what each foe carries (battleRewards): its own drops, a chance for normal foes (elites always drop). Unknown
+// foes (new beasts) may declare `loot: { items: [...], gold: [a, b], chance }` on their enemy definition instead.
+export const LOOT = {
+  satyr: { items: ['wine_flask', 'pan_flute', 'wineskin'], chance: 0.45 },
+  kobalos: { items: ['sack', 'thread'], chance: 0.35 },
+  medusa: { items: ['mirror', 'gorgon_scale'], chance: 0.5 },
+  minotaur: { items: ['horn_shard', 'horn', 'lever'], gold: [30, 40] },
+  hydra: { items: ['fang', 'plumb_bob'], gold: [30, 40] },
+  hydra_head: { items: [], gold: [2, 4], chance: 0 },
 };
 
 export const ITEM_POOLS = {

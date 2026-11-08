@@ -1,147 +1,133 @@
-// The 18 handcrafted core cards (12 Basic + 6 Power) plus mutant variants.
-// Physics: a Move hits for  m (mass) × v (velocity)  per hit. Basics add mass, velocity, hits and effects.
-// Each Basic also has a SELF use (drop on Sir Isaac) and a FIELD use (drop on the ground to leave an object).
+// The card set. A battle is "prepare, then resolve": Matter is PLACED on the field (its 3D model appears), Laws are
+// MERGED into it, and End Turn releases everything. Damage per hit is  m (mass, kg) × v (velocity, m/s): matter is at
+// rest (v 0) until a LAUNCHER (Force, Motion, Gravity, Spring, Spark...) sends it flying. Newton starts with only the
+// four core cards (Apple, Force, Mass, Motion); every new merge discovered offers a pick of three new science cards.
+// Each card has a unique skill and a full description (desc: use / merge / skill) shown on hover and in the card view.
 
 export const KIND_LABEL = { matter: 'Matter', law: 'Law', energy: 'Energy', tool: 'Instrument' };
 
+const card = (o) => o;
 export const BASICS = {
-  apple: { name: 'Apple', kind: 'matter', num: 1, m: 1, v: 2, noun: 'Apple', heal: 4,
-    up: { m: 2, heal: 6 }, field: 'sapling',
-    text: ['THROW: m1 v2', 'SELF: Heal 4', 'FIELD: Apple sapling'], upText: ['THROW: m2 v2', 'SELF: Heal 6', 'FIELD: Apple sapling'],
-    flavor: 'It fell. Everything else is commentary.' },
-  stone: { name: 'Stone', kind: 'matter', num: 2, m: 3, v: 2, noun: 'Stone', block: 6, hard: true,
-    up: { m: 4, block: 9 }, field: 'boulder',
-    text: ['THROW: m3 v2, cracks Block', 'SELF: Block 6', 'FIELD: Boulder'], upText: ['THROW: m4 v2, cracks Block', 'SELF: Block 9', 'FIELD: Boulder'],
-    flavor: 'Igneous, sedimentary, rude.' },
-  water: { name: 'Water', kind: 'matter', num: 3, m: 2, v: 1, noun: 'Splash', spread: true, wet: 2, heal: 2, cleanse: true,
-    up: { m: 3, wet: 3, heal: 3 }, field: 'puddle',
-    text: ['WAVE: m2 v1 to ALL, Wet 2', 'SELF: Heal 2, cleanse', 'FIELD: Puddle'], upText: ['WAVE: m3 v1 to ALL, Wet 3', 'SELF: Heal 3, cleanse', 'FIELD: Puddle'],
-    flavor: 'Wet. Conducts. Judges you silently.' },
-  spark: { name: 'Spark', kind: 'energy', num: 4, charge: 5, noun: 'Spark', adj: 'Electric', charged: 4,
-    up: { charge: 8, charged: 6 }, field: 'coil',
-    text: ['ZAP 5, chains to Wet foes', 'SELF: next hit +4', 'FIELD: Tesla coil'], upText: ['ZAP 8, chains to Wet foes', 'SELF: next hit +6', 'FIELD: Tesla coil'],
-    flavor: 'Borrowed from a god. Not returning it.' },
-  gravity: { name: 'Gravity', kind: 'law', num: 5, dv: 4, fall: true, adj: 'Falling', block: 4,
-    up: { dv: 6, block: 6 }, field: 'well',
-    text: ['+4 v, falls from above', 'ALONE: foe Weak 2', 'SELF: Block 4'], upText: ['+6 v, falls from above', 'ALONE: foe Weak 2', 'SELF: Block 6'],
-    flavor: 'What goes up is contractually obliged.' },
-  mass: { name: 'Mass', kind: 'law', num: 6, dm: 2, adj: 'Heavy', noun: 'Weight', block: 5,
-    up: { dm: 3, block: 7 },
-    text: ['+2 m', 'ALONE: a weight, m2 v2', 'SELF: Block 5'], upText: ['+3 m', 'ALONE: a weight, m3 v2', 'SELF: Block 7'],
-    flavor: 'Heavy is a state of mind. Also of matter.' },
-  force: { name: 'Force', kind: 'law', num: 7, dv: 3, adj: 'Fast', noun: 'Punch', momentum: 2,
-    up: { dv: 4, momentum: 3 },
-    text: ['+3 v', 'ALONE: force bolt m1 v3', 'SELF: next Move +2 v'], upText: ['+4 v', 'ALONE: force bolt m1 v4', 'SELF: next Move +3 v'],
-    flavor: 'F = ma. Mostly a.' },
-  rotation: { name: 'Rotation', kind: 'law', num: 8, hits: 1, adj: 'Spinning', noun: 'Spin', thorns: 3,
-    up: { hits: 1, dv: 1, thorns: 5 }, field: 'whirl',
-    text: ['+1 HIT (overkill ricochets)', 'ALONE: foe Dizzy', 'SELF: Thorns 3'], upText: ['+1 HIT and +1 v', 'ALONE: foe Dizzy', 'SELF: Thorns 5'],
-    flavor: 'Round and round. Scientifically.' },
-  inertia: { name: 'Inertia', kind: 'law', num: 9, persist: 1, adj: 'Relentless', retain: true,
-    up: { persist: 2 },
-    text: ['Move repeats next turn (v-2)', 'SELF: keep hand + Block', 'FIELD: objects +2 turns'], upText: ['Move repeats 2 turns (v-2)', 'SELF: keep hand + Block', 'FIELD: objects +2 turns'],
-    flavor: 'Objects in motion stay in motion. So do grudges.' },
-  heat: { name: 'Heat', kind: 'energy', num: 10, burn: 3, adj: 'Hot', noun: 'Flame', kindle: 2,
-    up: { burn: 5, kindle: 3 }, field: 'campfire',
-    text: ['Burn 3 (Wet foes steam)', 'SELF: hits Burn +2', 'FIELD: Campfire'], upText: ['Burn 5 (Wet foes steam)', 'SELF: hits Burn +3', 'FIELD: Campfire'],
-    flavor: 'Thermodynamics, but spicy.' },
-  lens: { name: 'Lens', kind: 'tool', num: 11, focus: 1.5, adj: 'Focused', noun: 'Glare', draw: 2,
-    up: { focus: 2, draw: 3 }, field: 'glass',
-    text: ['x1.5 damage, single target', 'ALONE: foe Vulnerable 2', 'SELF: Draw 2'], upText: ['x2 damage, single target', 'ALONE: foe Vulnerable 2', 'SELF: Draw 3'],
-    flavor: 'Look closer. No, closer. There.' },
-  spring: { name: 'Spring', kind: 'tool', num: 12, bounce: 1, adj: 'Bouncy', noun: 'Boing', block: 3, draw: 1,
-    up: { bounce: 2, block: 5 }, field: 'catapult',
-    text: ['Bounces to 1 more foe', 'SELF: Block 3, Draw 1', 'FIELD: Catapult'], upText: ['Bounces to 2 more foes', 'SELF: Block 5, Draw 1', 'FIELD: Catapult'],
-    flavor: 'Hooke had a point. Several, actually.' },
+  // ------------------------------------------------------------------ the four core cards
+  apple: card({ name: 'Apple', kind: 'matter', num: 1, m: 1, v: 0, noun: 'Apple', heal: 5, up: { m: 2, heal: 7 }, field: 'sapling',
+    text: ['Matter: 1 kg, at rest', 'EAT: drop on you, heal 5', 'PLACE: drop on the field', 'Then Force or Motion'], upText: ['Matter: 2 kg, at rest', 'EAT: drop on you, heal 7', 'PLACE: drop on the field', 'Then Force or Motion'],
+    desc: { use: 'Drop it on the field to PLACE it: a 1 kg apple hangs there, waiting. Or drop it on Newton to EAT it and heal 5.', merge: 'It is the thing that gets thrown. Merge Force or Motion into it to launch it at a foe when you End Turn.', skill: 'Nourishing: the only card that heals when eaten whole.' },
+    flavor: 'It fell. Everything else is commentary.' }),
+  force: card({ name: 'Force', kind: 'law', num: 7, dv: 3, launch: true, shove: 2, adj: 'Forceful', noun: 'Shove', momentum: 2, up: { dv: 4, shove: 3, momentum: 3 },
+    text: ['+3 v, LAUNCHES it', 'SHOVE: foe hits 2 less', 'MERGE: into an object', 'SELF: next object +2 v'], upText: ['+4 v, LAUNCHES it', 'SHOVE: foe hits 3 less', 'MERGE: into an object', 'SELF: next object +3 v'],
+    desc: { use: 'Drag it onto a placed object to merge it in. On Newton: the next object you launch gets +2 m/s.', merge: '+3 m/s and the object is launched when you End Turn. Apple + Force is your first attack: 1 kg × 3 m/s = 3.', skill: 'Shove: the struck foe is knocked back, and its next attack deals 2 less.' },
+    flavor: 'F = ma. Mostly a.' }),
+  mass: card({ name: 'Mass', kind: 'law', num: 6, dm: 2, dv: -1, adj: 'Heavy', noun: 'Weight', block: 5, up: { dm: 3, block: 7 },
+    text: ['+2 kg, -1 v (heavier)', 'Heavy = more damage', 'SELF: Block 5 (brace)', 'MERGE: into an object'], upText: ['+3 kg, -1 v (heavier)', 'Heavy = more damage', 'SELF: Block 7 (brace)', 'MERGE: into an object'],
+    desc: { use: 'Merge it into a placed object to make it heavier, or drop it on Newton to brace: Block 5 against the next blows.', merge: '+2 kg but -1 m/s. Heavy and slow still hits harder: an apple with Force and Mass is 3 kg × 2 m/s = 6.', skill: 'Ballast: the heavier the object, the harder it lands.' },
+    flavor: 'Heavy is a state of mind. Also of matter.' }),
+  motion: card({ name: 'Motion', kind: 'law', num: 19, dv: 2, launch: true, carry: true, adj: 'Moving', noun: 'Projectile', draw: 1, up: { dv: 3, draw: 2 },
+    text: ['+2 v, LAUNCHES it', 'CARRY: overkill flies on', 'MERGE: into an object', 'SELF: draw 1'], upText: ['+3 v, LAUNCHES it', 'CARRY: overkill flies on', 'MERGE: into an object', 'SELF: draw 2'],
+    desc: { use: 'Merge it into a placed object to make it a projectile. On Newton: draw 1 card.', merge: '+2 m/s and the object is launched when you End Turn. Stack it with Force for a faster throw.', skill: 'Carry: if it kills, the damage left over flies on into the next foe.' },
+    flavor: 'Objects in motion would like a word.' }),
 
-  superposition: { name: 'Superposition', kind: 'matter', mutantOf: 'apple', m: 1, v: 2, charge: 5, noun: 'Quantum Apple', heal: 4, charged: 4, field: 'sapling',
-    text: ['Apple AND Spark at once', 'THROW: m1 v2 + ZAP 5', 'SELF: Heal 4, next hit +4'], flavor: 'Observed, it is lunch.' },
-  // ---- mutants (from the Lab's Mutate, events, Medusa, Kobalos...) ----
-  golden_apple: { name: 'Golden Apple', kind: 'matter', mutantOf: 'apple', m: 3, v: 2, noun: 'Golden Apple', heal: 8, goldOnKill: 8, field: 'sapling',
-    up: { m: 4, heal: 10 }, text: ['THROW: m3 v2, kill: +8 gold', 'SELF: Heal 8', 'FIELD: Golden sapling'], flavor: 'Discord, but make it shiny.' },
-  rotten_apple: { name: 'Rotten Apple', kind: 'matter', mutantOf: 'apple', m: 1, v: 2, noun: 'Rotten Apple', venom: 4, heal: 1, field: 'sapling',
-    up: { venom: 6 }, text: ['THROW: m1 v2, Venom 4', 'SELF: Heal 1 (ew)', 'FIELD: Apple sapling'], flavor: 'Smells like a hypothesis gone wrong.' },
-  pumice: { name: 'Pumice', kind: 'matter', mutantOf: 'stone', m: 2, v: 2, noun: 'Pumice', spread: true, block: 4, field: 'boulder',
-    up: { m: 3, block: 6 }, text: ['THROW: m2 v2 to ALL', 'SELF: Block 4', 'FIELD: Boulder (light)'], flavor: 'A rock that floats. Unacceptable.' },
-  lodestone: { name: 'Lodestone', kind: 'matter', mutantOf: 'stone', m: 3, v: 2, noun: 'Lodestone', disarm: 2, block: 6, field: 'boulder',
-    up: { m: 4, disarm: 3 }, text: ['THROW: m3 v2, foe -2 Strength', 'SELF: Block 6', 'FIELD: Boulder'], flavor: 'Magnetically attracted to trouble.' },
-  antigravity: { name: 'Antigravity', kind: 'law', mutantOf: 'gravity', dv: 2, fall: true, adj: 'Floating', weakOnHit: 2, block: 4, field: 'well',
-    up: { dv: 4 }, text: ['+2 v, hit foe Weak 2', 'ALONE: foe Weak 2', 'SELF: Block 4'], flavor: 'What goes up stays up. Out of spite.' },
-  dark_matter: { name: 'Dark Matter', kind: 'law', mutantOf: 'mass', dm: 3, adj: 'Dark', noun: 'Void', pierce: true, block: 5,
-    up: { dm: 4 }, text: ['+3 m, ignores Block', 'ALONE: m3 v2, ignores Block', 'SELF: Block 5'], flavor: 'Mostly hypothetical. Hits very real.' },
-  brute_force: { name: 'Brute Force', kind: 'law', mutantOf: 'force', dv: 6, adj: 'Brutal', noun: 'Haymaker', recoil: 3, momentum: 4,
-    up: { dv: 8 }, text: ['+6 v, you take 3', 'ALONE: force blast m1 v6', 'SELF: next Move +4 v'], flavor: 'The elegant solution, minus elegance.' },
-  torque: { name: 'Torque', kind: 'law', mutantOf: 'rotation', hits: 1, dv: 2, adj: 'Twisting', noun: 'Twist', thorns: 4, field: 'whirl',
-    up: { hits: 2 }, text: ['+1 HIT and +2 v', 'ALONE: foe Dizzy', 'SELF: Thorns 4'], flavor: 'Rotation with a grudge.' },
-  momentum: { name: 'Momentum', kind: 'law', mutantOf: 'inertia', persist: 2, grow: true, adj: 'Snowballing', retain: true,
-    up: { persist: 3 }, text: ['Repeats 2 turns, v GROWS +2', 'SELF: keep hand + Block', 'FIELD: objects +2 turns'], flavor: 'p = mv, and v is having a great day.' },
-  plasma: { name: 'Plasma', kind: 'energy', mutantOf: 'heat', burn: 3, charge: 4, adj: 'Plasma', noun: 'Plasma', kindle: 2, field: 'campfire',
-    up: { burn: 5, charge: 6 }, text: ['Burn 3 and ZAP 4', 'SELF: hits Burn +2', 'FIELD: Campfire'], flavor: 'The fourth state of matter. Fifth state of mind.' },
-  ice: { name: 'Ice', kind: 'matter', mutantOf: 'water', m: 3, v: 2, noun: 'Icicle', chill: 2, block: 4, field: 'puddle',
-    up: { m: 4, chill: 3 }, text: ['THROW: m3 v2, foe Weak 2', 'SELF: Block 4', 'FIELD: Puddle'], flavor: 'Water that made a decision.' },
-  prism: { name: 'Prism', kind: 'tool', mutantOf: 'lens', prism: true, adj: 'Prismatic', noun: 'Rainbow', draw: 2, field: 'glass',
-    up: { draw: 3 }, text: ['Move hits ALL foes', 'ALONE: ALL foes Vulnerable 1', 'SELF: Draw 2'], flavor: 'Splits light, attention and enemies.' },
-  slinky: { name: 'Slinky', kind: 'tool', mutantOf: 'spring', bounce: 3, bounceFalloff: 0.25, adj: 'Slinky', noun: 'Slinky', block: 3, draw: 1, field: 'catapult',
-    up: { bounce: 4 }, text: ['Bounces 3 more (-25% each)', 'SELF: Block 3, Draw 1', 'FIELD: Catapult'], flavor: 'Goes down stairs. And enemies.' },
-};
+  // ------------------------------------------------------------------ science cards (discovered)
+  stone: card({ name: 'Stone', kind: 'matter', num: 2, m: 3, v: 0, noun: 'Stone', block: 6, hard: true, up: { m: 4, block: 9 }, field: 'boulder',
+    text: ['Matter: 3 kg, at rest', 'CRACKS Block (x2)', 'SELF: Block 6', 'PLACE: then launch it'], upText: ['Matter: 4 kg, at rest', 'CRACKS Block (x2)', 'SELF: Block 9', 'PLACE: then launch it'],
+    desc: { use: 'Place it as a heavy object to launch, or drop it on Newton: Block 6.', merge: 'Three times the mass of an apple: every m/s you add counts three times over.', skill: 'Hard: counts double against a foe’s Block.' }, flavor: 'Igneous, sedimentary, rude.' }),
+  water: card({ name: 'Water', kind: 'matter', num: 3, m: 2, v: 0, noun: 'Splash', spread: true, wet: 2, heal: 2, cleanse: true, up: { m: 3, wet: 3, heal: 3 }, field: 'puddle',
+    text: ['Matter: 2 kg, hits ALL', 'WET 2: zaps hit x2', 'SELF: heal 2, cleanse', 'PLACE: then launch it'], upText: ['Matter: 3 kg, hits ALL', 'WET 3: zaps hit x2', 'SELF: heal 3, cleanse', 'PLACE: then launch it'],
+    desc: { use: 'Place a floating globe of water, or drop it on Newton to heal 2 and wash off Burn, Wet and Venom.', merge: 'Launched, it bursts over EVERY foe.', skill: 'Soak: foes are left Wet 2, so Spark deals double to them and fire turns to blinding steam.' }, flavor: 'Wet. Conducts. Judges you silently.' }),
+  spark: card({ name: 'Spark', kind: 'energy', num: 4, charge: 5, launch: true, noun: 'Spark', adj: 'Electric', charged: 4, up: { charge: 8, charged: 6 }, field: 'coil',
+    text: ['ZAP 5, ignores Block', 'Self-launching', 'Chains to Wet foes', 'SELF: next hit +4 zap'], upText: ['ZAP 8, ignores Block', 'Self-launching', 'Chains to Wet foes', 'SELF: next hit +6 zap'],
+    desc: { use: 'Place a ball of lightning (it launches itself), or merge it into an object to electrify it. On Newton: your next hit carries +4 zap.', merge: '+5 zap that ignores Block, and the object launches.', skill: 'Chain: the zap leaps to every Wet foe for double.' }, flavor: 'Borrowed from a god. Not returning it.' }),
+  heat: card({ name: 'Heat', kind: 'energy', num: 10, burn: 3, adj: 'Hot', noun: 'Flame', kindle: 2, up: { burn: 5, kindle: 3 }, field: 'campfire',
+    text: ['BURN 3 each turn', 'Wet foes steam (Blind)', 'MERGE: ignites it', 'SELF: hits Burn +2'], upText: ['BURN 5 each turn', 'Wet foes steam (Blind)', 'MERGE: ignites it', 'SELF: hits Burn +3'],
+    desc: { use: 'Merge it into an object to set it alight. On Newton: all your hits this turn Burn +2.', merge: 'The struck foe Burns 3 at the end of each turn. A fireball still needs a launcher.', skill: 'Cauterize: burning kills stop Hydra heads growing back.' }, flavor: 'Thermodynamics, but spicy.' }),
+  gravity: card({ name: 'Gravity', kind: 'law', num: 5, dv: 4, fall: true, launch: true, adj: 'Falling', block: 4, up: { dv: 6, block: 6 }, field: 'well',
+    text: ['+4 v, LAUNCHES it', 'FALLS: never dodged', 'MERGE: into an object', 'SELF: Block 4'], upText: ['+6 v, LAUNCHES it', 'FALLS: never dodged', 'MERGE: into an object', 'SELF: Block 6'],
+    desc: { use: 'Merge it into an object: it rises, then drops on the foe. On Newton: Block 4.', merge: '+4 m/s and it falls from above.', skill: 'Falling strike: cannot be dodged, and it ignores the Hydra’s thick hide.' }, flavor: 'What goes up is contractually obliged.' }),
+  rotation: card({ name: 'Rotation', kind: 'law', num: 8, hits: 1, adj: 'Spinning', noun: 'Spin', thorns: 3, up: { hits: 1, dv: 1, thorns: 5 }, field: 'whirl',
+    text: ['+1 HIT', 'Overkill ricochets', 'MERGE: spins it', 'SELF: Thorns 3'], upText: ['+1 HIT and +1 v', 'Overkill ricochets', 'MERGE: spins it', 'SELF: Thorns 3'],
+    desc: { use: 'Merge it to spin an object. On Newton: Thorns 3 (attackers take 3).', merge: 'The object strikes one extra time.', skill: 'Ricochet: if a hit kills, the next hit finds another foe.' }, flavor: 'Round and round. Scientifically.' }),
+  inertia: card({ name: 'Inertia', kind: 'law', num: 9, persist: 1, adj: 'Relentless', retain: true, up: { persist: 2 },
+    text: ['Strikes AGAIN next turn', '(v -2 each time)', 'MERGE: keeps it going', 'SELF: keep hand+Block'], upText: ['Strikes again 2 turns', '(v -2 each time)', 'MERGE: keeps it going', 'SELF: keep hand+Block'],
+    desc: { use: 'Merge it into an object. On Newton: keep your hand and your Block into next turn.', merge: 'After it lands, the object keeps rolling and strikes again next turn, 2 m/s slower.', skill: 'Persistence: one card, two turns of damage.' }, flavor: 'Objects in motion stay in motion. So do grudges.' }),
+  lens: card({ name: 'Lens', kind: 'tool', num: 11, focus: 1.5, adj: 'Focused', noun: 'Glare', draw: 2, up: { focus: 2, draw: 3 }, field: 'glass',
+    text: ['x1.5 damage', 'One target only', 'MERGE: focuses it', 'SELF: draw 2'], upText: ['x2 damage', 'One target only', 'MERGE: focuses it', 'SELF: draw 3'],
+    desc: { use: 'Merge it into an object to focus it. On Newton: draw 2.', merge: 'x1.5 damage, but a wave becomes a single jet.', skill: 'Study: a Lens alone leaves its foe Vulnerable 2 (takes 50% more).' }, flavor: 'Look closer. No, closer. There.' }),
+  spring: card({ name: 'Spring', kind: 'tool', num: 12, bounce: 1, launch: true, adj: 'Bouncy', noun: 'Boing', block: 3, draw: 1, up: { bounce: 2, block: 5 }, field: 'catapult',
+    text: ['LAUNCHES it', 'Bounces to 1 more foe', 'MERGE: springs it', 'SELF: Block 3, draw 1'], upText: ['LAUNCHES it', 'Bounces to 2 more', 'MERGE: springs it', 'SELF: Block 5, draw 1'],
+    desc: { use: 'Merge it as a launcher. On Newton: Block 3 and draw 1.', merge: 'Launches the object, and after its target it bounces on to another foe.', skill: 'Bounce: one throw, two foes.' }, flavor: 'Hooke had a point. Several, actually.' }),
+  friction: card({ name: 'Friction', kind: 'law', num: 20, weakOnHit: 2, adj: 'Grinding', noun: 'Drag', block: 4, up: { weakOnHit: 3, block: 6 },
+    text: ['Foe WEAK 2', '(it hits 25% less)', 'MERGE: grinds it', 'SELF: Block 4'], upText: ['Foe WEAK 3', '(it hits 25% less)', 'MERGE: grinds it', 'SELF: Block 6'],
+    desc: { use: 'Merge it into an object. On Newton: Block 4.', merge: 'The struck foe is Weak 2: its attacks deal 25% less.', skill: 'Brakes: the best counter to a big thought bubble.' }, flavor: 'Nothing slides forever. Not even excuses.' }),
+  pendulum: card({ name: 'Pendulum', kind: 'tool', num: 21, launch: true, swing: 1, adj: 'Swinging', noun: 'Swing', block: 3, up: { swing: 2 },
+    text: ['LAUNCHES it', '+1 v per other card', 'MERGE: a long swing', 'SELF: Block 3'], upText: ['LAUNCHES it', '+2 v per other card', 'MERGE: a long swing', 'SELF: Block 3'],
+    desc: { use: 'Merge it as a launcher. On Newton: Block 3.', merge: 'Launches the object with +1 m/s for every other card already in it.', skill: 'Long swing: the bigger the build, the faster it comes back.' }, flavor: 'Proof the world turns. Also the pendulum.' }),
+  lever: card({ name: 'Lever', kind: 'tool', num: 22, lever: true, adj: 'Levered', noun: 'Lever', draw: 1,
+    text: ['x2 FORCE damage', 'Needs Force in it', 'MERGE: multiplies it', 'SELF: draw 1'],
+    desc: { use: 'Merge it into an object that has Force. On Newton: draw 1.', merge: 'If the object holds a Force, its damage is doubled.', skill: 'Fulcrum: give it a place to stand.' }, flavor: 'Give me a place to stand. Also a snack.' }),
+  magnet: card({ name: 'Magnet', kind: 'tool', num: 23, launch: true, dv: 1, disarm: 2, seek: 'threat', adj: 'Magnetic', noun: 'Lodestar', block: 2,
+    text: ['+1 v, LAUNCHES it', 'Seeks the biggest hitter', 'Foe -2 Strength', 'SELF: Block 2'],
+    desc: { use: 'Merge it as a launcher. On Newton: Block 2.', merge: 'Launches the object at the foe about to hit you hardest.', skill: 'Disarm: the struck foe loses 2 Strength for the battle.' }, flavor: 'Attracted to trouble.' }),
+  buoyancy: card({ name: 'Buoyancy', kind: 'law', num: 24, launch: true, dv: 1, fall: true, float: true, adj: 'Floating', noun: 'Bubble', heal: 2,
+    text: ['+1 v, it rises & drops', 'You gain Block = mass', 'Never dodged', 'SELF: heal 2'],
+    desc: { use: 'Merge it into an object: it floats up and drops on the foe. On Newton: heal 2.', merge: '+1 m/s and a falling strike.', skill: 'Displacement: when it is released Newton gains Block equal to its mass.' }, flavor: 'Eureka. Also, someone get Archimedes a towel.' }),
+  pressure: card({ name: 'Pressure', kind: 'law', num: 25, pressure: 1, adj: 'Pressurised', noun: 'Squeeze', block: 3, up: { pressure: 2 },
+    text: ['+1 kg per other card', 'Packs it dense', 'MERGE: squeezes it', 'SELF: Block 3'], upText: ['+2 kg per other card', 'Packs it dense', 'MERGE: squeezes it', 'SELF: Block 3'],
+    desc: { use: 'Merge it into a big object. On Newton: Block 3.', merge: '+1 kg for every other card in the object.', skill: 'Compression: the payoff for big merges.' }, flavor: 'Force per area. Mostly per area of face.' }),
+  sound: card({ name: 'Sound', kind: 'energy', num: 26, launch: true, spread: true, waveMul: 0.5, dm: 1, dv: 2, dizzyOnHit: 1, adj: 'Sonic', noun: 'Shockwave', draw: 1,
+    text: ['+2 v, hits ALL at half', 'Foes DIZZY 1', 'Self-launching', 'SELF: draw 1'],
+    desc: { use: 'Merge it as a launcher, or place it alone as a shockwave. On Newton: draw 1.', merge: 'The object becomes a shockwave that hits every foe at half damage.', skill: 'Dizzy: shaken foes may strike each other.' }, flavor: 'A wave of pressure. Rude, at volume.' }),
 
-// ---- the fourth face line (what it does in the AIR / on a HELD object) and the full description for hover notes:
-// what it does alone, combined, manifested in mid-air, and dropped on a held object as a manipulator.
-const AIRL = 'AIR: hangs; add Laws';
-const LORE = {
-  apple: [AIRL, null, { alone: 'Thrown at a foe it is 1 kg at 2 m/s: 2 damage. Dropped on Sir Isaac it heals 4. Dropped on the ground it plants an apple sapling that grows and drops free Apples into your hand.',
-    combo: 'Stack Laws on it to throw it harder: Gravity drops it from above, Force adds speed, Mass adds weight. Named recipes (Falling Apple, Apple Shower, The Big Apple...) are written into the Journal.',
-    air: 'Drag it into the air above the field to MANIFEST it: the apple hangs on a glowing gravity string. Every Law you drop on it joins the throw and winds it up (+1 m/s). Ring the bell and it flies.',
-    held: 'Dropped on something already hanging, it adds its 1 kg to the throw.' }],
-  stone: [AIRL, null, { alone: 'Thrown it is 3 kg at 2 m/s: 6 damage, and it cracks Block (it counts double against it). On Sir Isaac: Block 6. On the ground: a Boulder that shields you and can be launched.',
-    combo: 'Heavy and hard. Gravity makes a Rockslide, Heat a Lava Rock, Inertia a Rolling Stone, Spring a Bouncing Boulder.',
-    air: 'Manifest a hovering stone; push it with Force or let Gravity hurl it down. Its weight makes every Law count for more.', held: 'Adds 3 kg and cracking power to a held object.' }],
-  water: [AIRL, null, { alone: 'A wave of 2 kg at 1 m/s that hits ALL foes and leaves them Wet 2: sparks deal double to the Wet, and fire turns to blinding steam. On Sir Isaac: heal 2 and cleanse Burn, Wet and Venom. On the ground: a Puddle.',
-    combo: 'Heat makes Steam (blinds everyone), Gravity makes Rain, Spark electrifies it, Rotation stirs a Whirlpool.',
-    air: 'Manifest a floating globe of water; released, it bursts over every foe and soaks them.', held: 'Soaks a held object: its target is left Wet on impact.' }],
-  spark: ['HELD: electrify, +5 zap', 'HELD: electrify, +8 zap', { alone: 'A bolt that zaps for 5, ignores Block, and chains to every Wet foe for double. On Sir Isaac: your next hit carries +4 zap. On the ground: a Tesla coil that zaps a random foe each turn.',
-    combo: 'Rides any thrown object as an electric charge. With Gravity: Stolen Thunder. With a Lens: the Death Ray.',
-    air: 'Can be manifested as a crackling ball of lightning; released, it strikes its target and arcs to the Wet.', held: 'Electrifies a held object: sparks crawl over it and it zaps +5 on impact (double on the Wet).' }],
-  gravity: ['HELD: lift it, then drop', null, { alone: 'Alone it pulls a foe off balance: Weak 2 (the unsteady fall Prone). On Sir Isaac: Block 4. On the ground: a Gravity Well that keeps foes from fleeing and from dodging.',
-    combo: '+4 m/s, and the Move falls from above, so it cannot be dodged. Universal Gravitation makes it stronger still.',
-    air: 'There is nothing to hold: manifest Matter first.', held: 'Lifts a held object high on its string, then drops it on the foe: a falling strike, +4 m/s, that no evasion can dodge.' }],
-  mass: ['HELD: +2 kg, heavier', 'HELD: +3 kg, heavier', { alone: 'Thrown alone it is a weight: 2 kg at 2 m/s. On Sir Isaac: Block 5.',
-    combo: '+2 kg to any Move. Three Masses and Gravity collapse into a Black Hole.', air: 'There is nothing to hold: manifest Matter first.', held: '+2 kg: the held object swells and sags on its string.' }],
-  force: ['HELD: push +3 v, aim', 'HELD: push +4 v, aim', { alone: 'A bolt of pure force: 1 kg at 3 m/s. On Sir Isaac: your next Move gains +2 m/s.',
-    combo: '+3 m/s to any Move. With Mass: F = ma. Three Forces become Unstoppable.', air: 'There is nothing to hold: manifest Matter first.',
-    held: 'Pushes a held object: +3 m/s, it streaks with speed and aims at the nearest foe (drag the object onto a foe to aim it yourself).' }],
-  rotation: ['HELD: spin, +1 hit', null, { alone: 'Alone it spins a foe Dizzy, so it may strike its friends. On Sir Isaac: Thorns 3. On the ground: a Whirlwind that blunts attacks.',
-    combo: '+1 hit; overkill ricochets to the next foe. Two make a Dizzy Spell.', air: 'There is nothing to hold: manifest Matter first.', held: 'Spins a held object: +1 hit, and it curves through the air and ricochets.' }],
-  inertia: ['HELD: strikes again', null, { alone: 'On Sir Isaac: keep your hand and your Block into next turn. On the ground: field objects last 2 more turns.',
-    combo: 'The Move keeps rolling into its target next turn, 2 m/s slower.', air: 'There is nothing to hold: manifest Matter first.', held: 'Once released, the object keeps rolling and strikes again next turn.' }],
-  heat: ['HELD: ignite, Burn 3', 'HELD: ignite, Burn 5', { alone: 'Sets a foe Burning 3 (a Wet foe hisses into blinding steam instead). On Sir Isaac: your hits Burn +2. On the ground: a Campfire that burns every foe each turn.',
-    combo: 'Adds Burn to any Move; burning kills cauterize Hydra heads. With a Lens: Archimedes’ Heat Ray.',
-    air: 'Can be manifested as a floating fireball that sets its target Burning.', held: 'Ignites a held object: it catches fire and Burns 3 on impact.' }],
-  lens: ['HELD: focus, x1.5', 'HELD: focus, x2', { alone: 'Studies a foe: Vulnerable 2 (it takes 50% more). On Sir Isaac: draw 2. On the ground: a Burning Glass.',
-    combo: 'x1.5 damage on a single target; it focuses a wave into one jet.', air: 'There is nothing to hold: manifest Matter first.', held: 'Focuses a held object: x1.5 damage on its one foe.' }],
-  spring: ['HELD: bounces on', null, { alone: 'On Sir Isaac: Block 3 and draw 1. On the ground: a Catapult you can load with a Move.',
-    combo: 'The Move bounces on to 1 more foe.', air: 'There is nothing to hold: manifest Matter first.', held: 'The held object bounces: after its target it springs on to another foe.' }],
-  superposition: [AIRL, null, { alone: 'An Apple and a Spark at once: thrown, 2 damage and a zap of 5. On Sir Isaac: heal 4 and your next hit carries +4 zap.',
-    combo: 'Counts as Matter and Energy both.', air: 'Manifest it and it hangs in two places at once (it only hits once, sadly).', held: 'Adds an apple and a spark to a held object.' }],
-  golden_apple: [AIRL, null, { alone: 'Thrown it is 3 kg at 2 m/s, and a kill pays 8 gold. On Sir Isaac: heal 8. On the ground: a golden sapling.', combo: 'Any Move with it pays gold on a kill.', air: 'Manifest a hanging golden apple; it glitters while you load it with Laws.', held: 'Adds 3 kg and a golden bounty.' }],
-  rotten_apple: [AIRL, null, { alone: 'Thrown it is 1 kg at 2 m/s and leaves Venom 4. On Sir Isaac: heal 1 (ew).', combo: 'Any Move with it poisons its target.', air: 'Manifest a rotten apple, buzzing faintly.', held: 'Adds Venom 4 to a held object.' }],
-  pumice: [AIRL, null, { alone: 'Thrown it is 2 kg at 2 m/s against ALL foes. On Sir Isaac: Block 4. On the ground: a light Boulder.', combo: 'Spreads any Move to every foe.', air: 'A rock that floats anyway; manifest it and it barely needs the string.', held: 'Spreads a held object’s strike to every foe.' }],
-  lodestone: [AIRL, null, { alone: 'Thrown it is 3 kg at 2 m/s and strips 2 Strength. On Sir Isaac: Block 6. On the ground: a Boulder.', combo: 'Any Move with it disarms its target.', air: 'Manifest a magnetic stone that tugs at the foes’ weapons.', held: 'Adds 3 kg and -2 Strength on impact.' }],
-  ice: [AIRL, null, { alone: 'Thrown it is 3 kg at 2 m/s and leaves the foe Weak 2. On Sir Isaac: Block 4. On the ground: a Puddle.', combo: 'Any Move with it chills its target.', air: 'Manifest a hanging icicle.', held: 'Adds 3 kg and chills the target (Weak 2).' }],
-  antigravity: ['HELD: float, Weak 2', null, { alone: 'Alone it unsteadies a foe: Weak 2. On Sir Isaac: Block 4.', combo: '+2 m/s and the struck foe is left Weak 2.', air: 'There is nothing to hold: manifest Matter first.', held: 'The held object floats higher and leaves its target Weak 2.' }],
-  dark_matter: ['HELD: +3 kg, pierce', null, { alone: 'Thrown alone: 3 kg at 2 m/s that ignores Block. On Sir Isaac: Block 5.', combo: '+3 kg and the Move ignores Block.', air: 'There is nothing to hold: manifest Matter first.', held: '+3 kg of void: the held object darkens and ignores Block.' }],
-  brute_force: ['HELD: push +6 v, aim', 'HELD: push +8 v, aim', { alone: 'A blast of force: 1 kg at 6 m/s, and you take 3.', combo: '+6 m/s, but you take 3.', air: 'There is nothing to hold: manifest Matter first.', held: 'Shoves a held object: +6 m/s and it aims at the nearest foe (you take 3 when it flies).' }],
-  torque: ['HELD: twist, +1 hit', 'HELD: twist, +2 hits', { alone: 'Alone it spins a foe Dizzy. On Sir Isaac: Thorns 4.', combo: '+1 hit and +2 m/s.', air: 'There is nothing to hold: manifest Matter first.', held: 'Twists a held object: +1 hit, +2 m/s, it curves and ricochets.' }],
-  momentum: ['HELD: rolls on, faster', null, { alone: 'On Sir Isaac: keep your hand and Block.', combo: 'The Move repeats for 2 turns and speeds up each time.', air: 'There is nothing to hold: manifest Matter first.', held: 'Once released the object keeps rolling for 2 turns, faster each time.' }],
-  plasma: ['HELD: burn and zap', null, { alone: 'Burns 3 and zaps 4. On Sir Isaac: your hits Burn +2. On the ground: a Campfire.', combo: 'Adds Burn and a zap to any Move.', air: 'Can be manifested as a ball of plasma.', held: 'Wraps a held object in plasma: Burn 3 and zap 4 on impact.' }],
-  prism: ['HELD: hits ALL foes', null, { alone: 'Alone: every foe is Vulnerable 1. On Sir Isaac: draw 2.', combo: 'The Move hits ALL foes.', air: 'There is nothing to hold: manifest Matter first.', held: 'Splits a held object’s strike across every foe.' }],
-  slinky: ['HELD: bounces x3', 'HELD: bounces x4', { alone: 'On Sir Isaac: Block 3 and draw 1. On the ground: a Catapult.', combo: 'The Move bounces on to 3 more foes, 25% weaker each time.', air: 'There is nothing to hold: manifest Matter first.', held: 'The held object bounces on to 3 more foes.' }],
+  // ------------------------------------------------------------------ mutants (events, the lab, discoveries)
+  superposition: card({ name: 'Superposition', kind: 'matter', mutantOf: 'apple', m: 1, v: 0, charge: 5, launch: true, noun: 'Quantum Apple', heal: 4, charged: 4, field: 'sapling',
+    text: ['Apple AND Spark', '1 kg + ZAP 5', 'Self-launching', 'EAT: heal 4'],
+    desc: { use: 'Place it (it launches itself), or eat it: heal 4 and your next hit +4 zap.', merge: 'Counts as both an apple and a spark.', skill: 'Uncertain: it is lunch until observed.' }, flavor: 'Observed, it is lunch.' }),
+  golden_apple: card({ name: 'Golden Apple', kind: 'matter', mutantOf: 'apple', m: 3, v: 0, noun: 'Golden Apple', heal: 8, goldOnKill: 8, field: 'sapling', up: { m: 4, heal: 10 },
+    text: ['Matter: 3 kg', 'KILL: +8 gold', 'EAT: heal 8', 'PLACE: then launch it'],
+    desc: { use: 'Place it to throw, or eat it to heal 8.', merge: 'A heavy golden apple.', skill: 'Bounty: a kill with it pays 8 gold.' }, flavor: 'Discord, but make it shiny.' }),
+  rotten_apple: card({ name: 'Rotten Apple', kind: 'matter', mutantOf: 'apple', m: 1, v: 0, noun: 'Rotten Apple', venom: 4, heal: 1, field: 'sapling', up: { venom: 6 },
+    text: ['Matter: 1 kg', 'VENOM 4', 'EAT: heal 1 (ew)', 'PLACE: then launch it'],
+    desc: { use: 'Place it to throw. Eating it is a mistake (heal 1).', merge: 'Poisons whatever it hits.', skill: 'Venom 4: the foe loses 4, then 3, then 2...' }, flavor: 'Smells like a hypothesis gone wrong.' }),
+  pumice: card({ name: 'Pumice', kind: 'matter', mutantOf: 'stone', m: 2, v: 0, noun: 'Pumice', spread: true, block: 4, field: 'boulder', up: { m: 3, block: 6 },
+    text: ['Matter: 2 kg', 'Hits ALL foes', 'SELF: Block 4', 'PLACE: then launch it'],
+    desc: { use: 'Place it to throw at everyone, or brace with it: Block 4.', merge: 'Spreads the object’s strike to all foes.', skill: 'Shatter: a rock that bursts on impact.' }, flavor: 'A rock that floats. Unacceptable.' }),
+  lodestone: card({ name: 'Lodestone', kind: 'matter', mutantOf: 'stone', m: 3, v: 0, noun: 'Lodestone', disarm: 2, block: 6, field: 'boulder', up: { m: 4, disarm: 3 },
+    text: ['Matter: 3 kg', 'Foe -2 Strength', 'SELF: Block 6', 'PLACE: then launch it'],
+    desc: { use: 'Place it to throw, or brace: Block 6.', merge: 'A magnetic stone.', skill: 'Disarm: the struck foe loses 2 Strength.' }, flavor: 'Magnetically attracted to trouble.' }),
+  ice: card({ name: 'Ice', kind: 'matter', mutantOf: 'water', m: 3, v: 0, noun: 'Icicle', chill: 2, block: 4, field: 'puddle', up: { m: 4, chill: 3 },
+    text: ['Matter: 3 kg', 'Foe WEAK 2', 'SELF: Block 4', 'PLACE: then launch it'],
+    desc: { use: 'Place an icicle to throw, or brace: Block 4.', merge: 'A heavy, chilling object.', skill: 'Chill: the struck foe is Weak 2.' }, flavor: 'Water that made a decision.' }),
+  antigravity: card({ name: 'Antigravity', kind: 'law', mutantOf: 'gravity', dv: 2, fall: true, launch: true, adj: 'Floating', weakOnHit: 2, block: 4, field: 'well', up: { dv: 4 },
+    text: ['+2 v, LAUNCHES it', 'Foe WEAK 2', 'Falls: never dodged', 'SELF: Block 4'],
+    desc: { use: 'Merge it as a launcher. On Newton: Block 4.', merge: '+2 m/s, a falling strike.', skill: 'Unsteady: the struck foe is Weak 2.' }, flavor: 'What goes up stays up. Out of spite.' }),
+  dark_matter: card({ name: 'Dark Matter', kind: 'law', mutantOf: 'mass', dm: 3, dv: -1, adj: 'Dark', noun: 'Void', pierce: true, block: 5, up: { dm: 4 },
+    text: ['+3 kg, -1 v', 'IGNORES Block', 'MERGE: darkens it', 'SELF: Block 5'],
+    desc: { use: 'Merge it into an object. On Newton: Block 5.', merge: '+3 kg and the object ignores Block.', skill: 'Void: Block simply is not there for it.' }, flavor: 'Mostly hypothetical. Hits very real.' }),
+  brute_force: card({ name: 'Brute Force', kind: 'law', mutantOf: 'force', dv: 6, launch: true, shove: 3, adj: 'Brutal', noun: 'Haymaker', recoil: 3, momentum: 4, up: { dv: 8 },
+    text: ['+6 v, LAUNCHES it', 'You take 3', 'SHOVE: foe hits 3 less', 'SELF: next object +4 v'],
+    desc: { use: 'Merge it as a launcher. On Newton: the next object gets +4 m/s.', merge: '+6 m/s, but you take 3 when it flies.', skill: 'Haymaker: a huge shove; the foe hits 3 less.' }, flavor: 'The elegant solution, minus elegance.' }),
+  torque: card({ name: 'Torque', kind: 'law', mutantOf: 'rotation', hits: 1, dv: 2, adj: 'Twisting', noun: 'Twist', thorns: 4, field: 'whirl', up: { hits: 2 },
+    text: ['+1 HIT and +2 v', 'Overkill ricochets', 'MERGE: twists it', 'SELF: Thorns 4'],
+    desc: { use: 'Merge it to twist an object. On Newton: Thorns 4.', merge: '+1 hit and +2 m/s.', skill: 'Ricochet: kills send the next hit on.' }, flavor: 'Rotation with a grudge.' }),
+  momentum: card({ name: 'Momentum', kind: 'law', mutantOf: 'inertia', persist: 2, grow: true, adj: 'Snowballing', retain: true, up: { persist: 3 },
+    text: ['Strikes 2 more turns', 'v GROWS +2 each time', 'MERGE: keeps it going', 'SELF: keep hand+Block'],
+    desc: { use: 'Merge it into an object. On Newton: keep your hand and Block.', merge: 'The object strikes again for 2 turns, faster each time.', skill: 'Snowball: p = mv, and v is having a great day.' }, flavor: 'p = mv, and v is having a great day.' }),
+  plasma: card({ name: 'Plasma', kind: 'energy', mutantOf: 'heat', burn: 3, charge: 4, launch: true, adj: 'Plasma', noun: 'Plasma', kindle: 2, field: 'campfire', up: { burn: 5, charge: 6 },
+    text: ['BURN 3 and ZAP 4', 'Self-launching', 'MERGE: wraps it', 'SELF: hits Burn +2'],
+    desc: { use: 'Place a ball of plasma or merge it into an object. On Newton: hits Burn +2.', merge: 'Burn 3 and zap 4, and it launches.', skill: 'Fourth state: fire and lightning at once.' }, flavor: 'The fourth state of matter. Fifth state of mind.' }),
+  prism: card({ name: 'Prism', kind: 'tool', mutantOf: 'lens', prism: true, adj: 'Prismatic', noun: 'Rainbow', draw: 2, field: 'glass', up: { draw: 3 },
+    text: ['Hits ALL foes', 'Splits the light', 'MERGE: splits it', 'SELF: draw 2'],
+    desc: { use: 'Merge it into an object. On Newton: draw 2.', merge: 'The object strikes every foe.', skill: 'Spectrum: one throw, every foe.' }, flavor: 'Splits light, attention and enemies.' }),
+  slinky: card({ name: 'Slinky', kind: 'tool', mutantOf: 'spring', bounce: 3, bounceFalloff: 0.25, launch: true, adj: 'Slinky', noun: 'Slinky', block: 3, draw: 1, field: 'catapult', up: { bounce: 4 },
+    text: ['LAUNCHES it', 'Bounces 3 more (-25%)', 'MERGE: slinks it', 'SELF: Block 3, draw 1'],
+    desc: { use: 'Merge it as a launcher. On Newton: Block 3, draw 1.', merge: 'Launches and bounces to 3 more foes, 25% weaker each time.', skill: 'Staircase: goes down stairs. And enemies.' }, flavor: 'Goes down stairs. And enemies.' }),
 };
-for (const [id, [line, lineUp, desc]] of Object.entries(LORE)) { const d = BASICS[id]; if (!d) continue; d.desc = desc; d.text = [...d.text.slice(0, 3), line]; if (d.upText) d.upText = [...d.upText.slice(0, 3), lineUp || line]; }
+// card-art subjects for the newer science cards (cardart.js draws BASICS[id].art when there is no subject of its own)
+Object.assign(BASICS.motion, { art: 'momentum' }); Object.assign(BASICS.friction, { art: 'lava' }); Object.assign(BASICS.pendulum, { art: 'mass' });
+Object.assign(BASICS.lever, { art: 'force' }); Object.assign(BASICS.magnet, { art: 'antigravity' }); Object.assign(BASICS.buoyancy, { art: 'water' });
+Object.assign(BASICS.pressure, { art: 'dark_matter' }); Object.assign(BASICS.sound, { art: 'rotation' });
 
 export const MUTATIONS = {
   apple: ['golden_apple', 'rotten_apple'], stone: ['pumice', 'lodestone'], gravity: ['antigravity'], mass: ['dark_matter'],
-  force: ['brute_force'], rotation: ['torque'], inertia: ['momentum'], heat: ['plasma'], water: ['ice'], lens: ['prism'], spring: ['slinky'], spark: ['plasma'],
+  force: ['brute_force'], rotation: ['torque'], inertia: ['momentum'], heat: ['plasma'], water: ['ice'], lens: ['prism'], spring: ['slinky'], spark: ['plasma'], motion: ['momentum'],
 };
 
 export const POWERS = {
@@ -154,32 +140,33 @@ export const POWERS = {
 };
 
 const POWER_DESC = {
-  first_law: 'A Law, not a card to throw: drop it on Sir Isaac to enact it for the whole battle. Field objects and repeating Moves last one turn longer.',
-  third_law: 'Enact it on Sir Isaac: for the rest of the battle every foe that hits you takes 3 damage back, ignoring Block.',
-  gravitation: 'Enact it on Sir Isaac: every Gravity gets +2 m/s, and at the start of each turn an apple falls on a random foe.',
-  calculus: 'Enact it on Sir Isaac: the first Move you make each turn (thrown or released from the air) gets +2 kg and +2 m/s.',
-  thermo: 'Enact it on Sir Isaac: Burn no longer fades from foes, and every Heat burns 1 more.',
-  orbit: 'Enact it on Sir Isaac: a little moon circles you, granting Block 4 each turn; whenever you use Gravity it strikes a foe for 8.',
+  first_law: 'A Law, not a card to throw: drop it on Newton to enact it for the whole battle. Field objects and repeating Moves last one turn longer.',
+  third_law: 'Enact it on Newton: for the rest of the battle every foe that hits you takes 3 damage back, ignoring Block.',
+  gravitation: 'Enact it on Newton: every Gravity gets +2 m/s, and at the start of each turn an apple falls on a random foe.',
+  calculus: 'Enact it on Newton: the first Move you make each turn (thrown or released from the air) gets +2 kg and +2 m/s.',
+  thermo: 'Enact it on Newton: Burn no longer fades from foes, and every Heat burns 1 more.',
+  orbit: 'Enact it on Newton: a little moon circles you, granting Block 4 each turn; whenever you use Gravity it strikes a foe for 8.',
 };
 for (const [id, d] of Object.entries(POWER_DESC)) POWERS[id].desc = d;
 
-// the full hover description of a hand card: [heading, ...paragraph lines] (plain text)
+// the full description of a card: [label, text] paragraphs (plain text) + flavour
 export function describeCard(card) {
-  if (card.type === 'power') { const p = POWERS[card.id]; return p ? { title: p.name, lines: [['LAW', p.desc]], flavor: p.flavor } : null; }
+  if (card.type === 'power') { const p = POWERS[card.id]; return p ? { title: p.name, kind: 'Power', lines: [['LAW', p.desc]], flavor: p.flavor } : null; }
   const d = BASICS[card.id]; if (!d || !d.desc) return null;
-  const canHold = d.kind === 'matter' || d.kind === 'energy';
-  const lines = [['ALONE', d.desc.alone], ['COMBINED', d.desc.combo]];
-  if (canHold) lines.push(['MANIFEST', d.desc.air]);
-  lines.push(['ON A HELD OBJECT', d.desc.held]);
+  const lines = [['USE', d.desc.use], ['MERGED', d.desc.merge], ['SKILL', d.desc.skill]];
+  if (d.launch) lines.push(['LAUNCHER', 'This card launches the object it is merged into.']);
   return { title: d.name + (card.up ? '+' : ''), kind: KIND_LABEL[d.kind], lines, flavor: d.flavor };
 }
 
-export const STARTER_DECK = ['apple', 'apple', 'apple', 'gravity', 'gravity', 'mass', 'force', 'force', 'rotation', 'inertia'];
+export const STARTER_DECK = ['apple', 'force', 'mass', 'motion'];
 
 // rarity weights for rewards / shop
 export const CARD_POOL = {
-  basic: ['apple', 'stone', 'water', 'spark', 'gravity', 'mass', 'force', 'rotation', 'inertia', 'heat', 'lens', 'spring'],
-  uncommonBasics: ['stone', 'water', 'spark', 'heat', 'lens', 'spring'],
+  basic: ['apple', 'stone', 'water', 'spark', 'gravity', 'mass', 'force', 'motion', 'rotation', 'inertia', 'heat', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound'],
+  uncommonBasics: ['stone', 'water', 'spark', 'heat', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound'],
+  // what a discovery may offer: the science cards, a few copies of the core, the occasional mutant or Law of nature
+  discover: ['stone', 'water', 'spark', 'heat', 'gravity', 'rotation', 'inertia', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound', 'apple', 'apple', 'force', 'motion', 'mass'],
+  rare: ['golden_apple', 'ice', 'lodestone', 'antigravity', 'dark_matter', 'torque', 'momentum', 'plasma', 'prism', 'slinky', 'brute_force'],
   powers: Object.keys(POWERS),
 };
 

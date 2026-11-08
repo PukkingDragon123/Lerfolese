@@ -72,7 +72,7 @@ class Game {
       const r = await res;
       if (!r.won) return this.gameOver(r);
       if (enc.kind === 'elite') { run.foughtElites.push(enc.enemies[0]); run.stats.elites++; }
-      const rewards = battleRewards(run, enc.kind); run.gold += rewards.gold;
+      const rewards = battleRewards(run, enc.kind, enc.enemies); run.gold += rewards.gold; // only what the foes carried
       const { RewardScene } = await import('./scenes/reward.js');
       await this.swap(async () => { this.scene = new RewardScene(this); await this.scene.enter(rewards, enc); });
       return;

@@ -20,9 +20,9 @@ import { tweens } from '../core/tween.js';
 import { audio } from '../core/audio.js';
 import { vpick, vrange, clamp, roman } from '../core/util.js';
 import { RNG } from '../core/util.js';
-import { POWERS, BASICS, describeCard } from '../game/data/cards.js';
-import { HeldLayer, heldFx } from './manifest.js';
-import { wrapText, PXP } from '../ui3d/craft.js';
+import { POWERS, BASICS } from '../game/data/cards.js';
+import { HeldLayer, heldFx, loreLines } from './manifest.js';
+import { IntentLayer } from './intents.js';
 import { battleIntro } from './cinematic.js';
 
 const THEME = { satyr: 'meadow', medusa: 'garden', kobalos: 'gully', minotaur: 'labyrinth', minotaur_king: 'labyrinth', hydra: 'marsh', hydra_elder: 'marsh' };
@@ -42,7 +42,8 @@ export class BattleScene {
     const rng = new RNG((run.seed ^ (run.stats.floors * 7919)) >>> 0);
     this.battle = new Battle({ run, enemies: encounter.enemies, rng, fx: this.fx(), kind: encounter.kind });
     for (const e of this.battle.enemies) this.addEnemyView(e);
-    this.held = new HeldLayer(this); // MANIFEST -> MANIPULATE -> RELEASE (things hung in mid-air until the bell)
+    this.held = new HeldLayer(this); // PLACE -> MERGE -> End Turn RELEASES (prepared objects wait in the air)
+    this.intents = new IntentLayer(this); this.thinkK = 0; // foes' thought bubbles; the camera's 'thinking' zoom
     { const names = [...new Set(this.battle.enemies.filter((e) => !e.def.isHead).map((e) => e.def.name))]; this.hudB.setObjective(`Defeat ${names.length > 1 ? names.slice(0, -1).join(', ') + ' & ' + names.at(-1) : names[0] || 'the foe'}`); }
     this.engine.setWorld(this.scene, this.camera);
     this.engine.setFx({ rays: this.stage?.sunPos ? { pos: this.stage.sunPos, strength: 0.25 } : null, exposure: 1.12, bloom: [0.45, 0.6, 0.82], tilt: false, grade: { sat: 0.95, contrast: 0.97, vignette: 0.2, grain: 0.008, warmth: 0.25, lift: [0.045, 0.035, 0.03], gain: [1.06, 1.03, 0.97], rolloff: 0.45, toe: 0.0, ca: 0, harmony: 0.32, hueLight: 0.11, hueShadow: 0.68, satMax: 0.5, satPull: 0.55 } });
@@ -120,7 +121,7 @@ export class BattleScene {
     if (this.battle.phase !== 'start') { api.root.scale.setScalar(0.01); tweens.to(api.root.scale, { x: s, y: s, z: s }, 0.6, { ease: 'outBack' }); }
     return v;
   }
-  refreshEnemy(e) { const v = this.enemyViews.get(e.uid); if (!v) return; v.hud.setHP(e.hp, e.maxHp, e.block, e.st); const it = e.intent; let val = null; if (it?.kind === 'attack' || it?.dmg) val = this.battle.attackValue(e, it.dmg); v.hud.setIntent(e.alive ? it : null, val, it?.hits || 1); }
+  refreshEnemy(e) { const v = this.enemyViews.get(e.uid); if (!v) return; v.hud.setHP(e.hp, e.maxHp, e.block, e.st); const it = e.intent; let val = null; if (it?.kind === 'attack' || it?.dmg) val = this.battle.attackValue(e, it.dmg); v.hud.setIntent(null, val, it?.hits || 1); this.intents?.refresh(e); }
 
   // ---------------------------------------------------------------- UI
   buildUI() {
@@ -172,6 +173,7 @@ export class BattleScene {
     this.camPunch = Math.max(0, this.camPunch - dt * 2.5);
     const cx = this.camBase.x + Math.sin(t * 0.21) * 0.25 + this.input.ndc.x * 0.25, cy = this.camBase.y + Math.sin(t * 0.17) * 0.12 + this.input.ndc.y * 0.12;
     this.camera.position.set(cx, cy, this.camBase.z - this.camPunch * 1.6); this.camera.lookAt(this.camLook);
+    this.thinkCam(dt, t);
     // UI
     this.hand.update(dt, t);
     const P = B.player; this.hudB.setVitals(P.hp, P.maxHp, P.block, this.runData.gold); this.hudB.setRedraws(B.redraws);
@@ -182,6 +184,29 @@ export class BattleScene {
     this.barks = this.barks.filter((b) => b.life >= -0.6);
     this.fieldMarker.material.opacity = this.hand.drag && this.dropTarget?.type === 'field' ? 0.85 : 0;
     this.prof.lookAt(this.input.ndc.x * 0.6, this.input.ndc.y * 0.4);
+  }
+
+  // preparing your turn: the camera eases in on Newton (thinking pose, calm vignette); End Turn pulls back wide to watch
+  thinkCam(dt, t) {
+    const B = this.battle; const prep = B.phase === 'player' && !this.busy && !this.done && !this.cine;
+    this.thinkK += ((prep ? 1 : 0) - this.thinkK) * Math.min(1, dt * (prep ? 1.6 : 3.2)); const k = this.thinkK * this.thinkK * (3 - 2 * this.thinkK);
+    if (k > 0.001) {
+      let maxX = -1; for (const [, v] of this.enemyViews) if (v.e.alive && !v.e.def.isHead) maxX = Math.max(maxX, v.api.root.position.x + (v.h > 2.6 ? 1.2 : 0.6));
+      const lookX = -0.1, half = Math.max(maxX + 1.0 - lookX, lookX + 4.6) / 0.52; const near = Math.min(this.camBase.z, Math.max(7.6, half));
+      const tp = new THREE.Vector3(lookX - 0.4, 2.55, near), tl = new THREE.Vector3(lookX, 1.65, 0.2);
+      this.camera.position.lerp(tp.add(new THREE.Vector3(Math.sin(t * 0.21) * 0.12, Math.sin(t * 0.17) * 0.06, 0)), k * 0.9); this.camera.lookAt(this.camLook.clone().lerp(tl, k * 0.9));
+    }
+    const g = this.engine.grade?.uniforms; if (g?.uVignette) { this.vig0 ??= g.uVignette.value; g.uVignette.value = this.vig0 + k * 0.28; }
+    if (prep) { this.thinkT = (this.thinkT ?? 0.6) - dt; if (this.thinkT <= 0 && !this.hand.drag) { this.thinkT = 3.2; this.prof.act('think'); } } else this.thinkT = 0.4;
+  }
+  // where a dropped card really goes: Matter is PLACED (on the field, or aimed at the foe it was dropped on); Laws
+  // MERGE into the object they land on (or the newest one); on Newton it is used on him. One objective: build, merge.
+  resolveDrop(slotV, tgt) {
+    const B = this.battle, s = slotV.slot; if (!tgt) return null; const power = s.cards.some((c) => c.type === 'power');
+    const placeable = !B.manifestBlock(s); const newest = B.held.at(-1);
+    if (tgt.type === 'enemy') { if (placeable) return { type: 'air', aim: tgt.uid }; if (newest && !power) return { type: 'held', uid: newest.uid, aim: tgt.uid }; return { type: 'none', text: power ? 'A Law of nature: drop it on Newton' : 'Place Matter first, then merge this into it' }; }
+    if (tgt.type === 'air' || tgt.type === 'field') { if (placeable) return { type: 'air' }; if (newest && !power) return { type: 'held', uid: newest.uid }; return { type: 'none', text: power ? 'A Law of nature: drop it on Newton' : B.manifestBlock(s) === 'Only Matter or Energy can be manifested' ? 'Place Matter first, then merge this into it' : B.manifestBlock(s) }; }
+    return tgt;
   }
 
   // ---------------------------------------------------------------- input
@@ -215,8 +240,9 @@ export class BattleScene {
         if (S.held?.aiming) { const w = S.rayWorld(); S.held.endAim(w?.type === 'enemy' ? w.uid : null); return; }
         const d = S.hand.drag; if (!d) return; S.hand.drag = null; S.preview.hide(); S.held?.ghost(null); let tgt = S.dropTarget; S.dropTarget = null; S.hand.dropTarget = null;
         if (!tgt && e.flick && e.vy < -300) tgt = S.flickTarget(e);
-        if (tgt?.type === 'air') { const pos = S.held.airPoint(); tgt = { type: 'air', pos: { x: pos.x, y: pos.y, z: pos.z }, aim: S.held.nearestFoe(pos) }; }
-        if (tgt?.type === 'held' && d.slot.slot.cards.some((c) => c.type !== 'power' && (c.type === 'move' ? c.comps.some((k) => /force/.test(k.id)) : /force/.test(c.id)))) { const v = S.held.views.get(tgt.uid); tgt = { ...tgt, aim: v ? S.held.nearestFoe(v.home) : undefined }; } // a push re-aims at the nearest foe
+        tgt = S.resolveDrop(d.slot, tgt);
+        if (tgt?.type === 'none') { audio.play('ui_error'); S.bark('player', tgt.text, 2); S.syncHand(); return; }
+        if (tgt?.type === 'air') { const pos = tgt.aim ? S.held.freeSpot() : S.held.airPoint(); tgt = { type: 'air', pos: { x: pos.x, y: pos.y, z: pos.z }, aim: tgt.aim }; } // aimed only when dropped on a foe; else the smartest target
         if (tgt?.type === 'combine') { const ok = S.battle.combine(d.slot.uid, tgt.slot.uid); if (ok) { audio.play('card_snap'); S.snapFX(tgt.slot); } else { audio.play('ui_error'); S.bark('player', 'Laws do not mix with matter. Or each other. Rules.'); } S.syncHand(); return; }
         if (tgt && tgt.type !== 'combine') { await S.playSlot(d.slot, tgt); return; }
         // reorder within hand
@@ -225,6 +251,8 @@ export class BattleScene {
       dragcancel() { S.held?.ghost(null); if (S.held?.aiming) S.held.endAim(null); if (S.hand.drag) { S.hand.drag = null; S.syncHand(); } },
       click(e) {
         if (S.done) return;
+        if (S.held?.insp) { S.held.closeInspect(); return true; }
+        const h = S.held?.pick(); if (h && !S.busy) { S._heldTip = null; S.held.inspect(h.uid); return true; }
         const s = S.hand.pick(S.rayUI(S.cardMeshes())); if (s && s.slot.cards.length > 1 && e.long) { S.battle.split(s.uid); S.syncHand(); return true; }
       },
       key(e) { if (S.done) return; if (e.code === 'Space' || e.code === 'Enter') S.endTurn(); },
@@ -238,13 +266,13 @@ export class BattleScene {
   updateDrop() {
     const d = this.hand.drag; let tgt = null;
     const other = this.hand.pick(this.rayUI(this.cardMeshes()));
-    if (other && other !== d.slot) tgt = { type: 'combine', slot: other };
+    if (other && other !== d.slot) tgt = null; // (cards merge on the placed object now, not in the hand)
     else if (this.hudB.wellHit(this.input.x, this.input.y)) tgt = { type: 'bin' };
     else { const w = this.rayWorld(); if (w) tgt = w; }
     const changed = JSON.stringify(tgt && { ...tgt, slot: tgt.slot?.uid }) !== JSON.stringify(this.dropTarget && { ...this.dropTarget, slot: this.dropTarget.slot?.uid });
     this.dropTarget = tgt; this.hand.dropTarget = tgt?.type === 'combine' ? tgt : null;
-    this.hudB.setWellHot(tgt?.type === 'bin'); this.held?.ghost(tgt?.type === 'air' && !this.battle.manifestBlock(d.slot.slot) ? d.slot : null);
-    for (const [, v] of this.enemyViews) v.api.root.userData.hl = tgt?.uid === v.e.uid;
+    const real = this.resolveDrop(d.slot, tgt); this.hudB.setWellHot(tgt?.type === 'bin'); this.held?.ghost(real?.type === 'air' && !real.aim ? d.slot : null);
+    for (const [, v] of this.enemyViews) v.api.root.userData.hl = tgt?.uid === v.e.uid || this.held?.isTargeted(v.e.uid);
     if (changed) { this.hand.layout(); if (tgt) audio.play('ui_hover', { vol: 0.35 }); }
     const p = this.ui.pointerPlane(8);
     const lines = this.previewLines(d.slot, tgt);
@@ -252,7 +280,8 @@ export class BattleScene {
   }
   previewLines(slotV, tgt) {
     const B = this.battle; const s = slotV.slot;
-    if (!tgt) { const mv = B.moveOf(s); if (!mv) return null; return [[[mv.name, '#3a2410']], [[B.manifestBlock(s) ? 'Drop on a foe, yourself, the ground, or a held object' : 'Drop on a foe, yourself, the ground, or up in the air', '#8a6a44']]]; }
+    if (!tgt) { const mv = B.moveOf(s); if (!mv) return null; return [[[mv.name, '#3a2410']], [[!B.manifestBlock(s) ? 'Drop it on the field to PLACE it, or on Newton' : B.held.length ? 'Drop it on an object to MERGE it, or on Newton' : 'Place Matter first, or drop it on Newton', '#8a6a44']]]; }
+    tgt = this.resolveDrop(slotV, tgt); if (tgt?.type === 'none') return [[[tgt.text, '#8f2a2e']]];
     if (tgt.type === 'combine') { const tmp = { uid: 'x', cards: [...tgt.slot.slot.cards, ...s.cards] }; if (tmp.cards.some((c) => c.type === 'power')) return [[['Laws do not combine', '#8f2a2e']]]; const mv = B.moveOf(tmp); const a = mv.attack; return [[['COMBINE → ', '#8f2a2e'], [mv.name, '#3a2410']], [[a.perHit ? `${a.m}kg × ${a.v}m/s = ${a.perHit}${a.hits > 1 ? ' ×' + a.hits : ''}` : describeSelf(mv.self).slice(0, 2).join(', '), '#2a160c']]]; }
     const pv = B.preview(s.uid, tgt);
     if (pv.kind === 'bin') return [[[pv.text, pv.ok ? '#2a160c' : '#8f2a2e']]];
@@ -260,25 +289,20 @@ export class BattleScene {
     if (!pv.ok) return [[[pv.text || 'No effect', '#8f2a2e']]];
     const mv = pv.move;
     if (pv.kind === 'attack') { const e = B.enemies.find((x) => x.uid === tgt.uid); const est = pv.est; const ex = describeAttack(mv.attack).slice(mv.attack.perHit > 0 ? 1 : 0, 3).join(' · '); return [[['ATTACK ', '#8f2a2e'], [e.def.name, '#3a2410'], [`  ${est.total}${mv.attack.spread ? ' each' : ''}`, '#c8443a']], [[mv.name + (ex ? ' · ' + ex : ''), '#2a160c']]]; }
-    if (pv.kind === 'self') return [[['SELF ', '#2d6e6a'], [mv.name, '#3a2410']], [[describeSelf(mv.self).join(' · '), '#2a160c']]];
+    if (pv.kind === 'self') return [[[mv.comps.some((c) => /apple/.test(c.id)) ? 'EAT ' : 'ON NEWTON ', '#2d6e6a'], [mv.name, '#3a2410']], [[describeSelf(mv.self).join(' · '), '#2a160c']]];
     if (pv.kind === 'field') return [[['FIELD ', '#5f8a3a'], [mv.field.name, '#3a2410']], [[fieldDesc(mv.field), '#2a160c']], ...(B.manifestBlock(s) ? [] : [[['Higher up, in the air: MANIFEST it instead', '#8a6a44']]])];
-    if (pv.kind === 'manifest') { const a = mv.attack; return [[['MANIFEST ', '#4e2e7e'], [mv.name, '#3a2410']], [['It hangs in the air on a gravity string.', '#2a160c']], [[`Now ${a.perHit ? `${a.m}kg × ${a.v}m/s = ${a.total}` : describeAttack(a)[0] || 'a charge'}. Drop Laws on it; the bell releases it.`, '#5a3622']]]; }
-    if (pv.kind === 'manipulate') { const a = mv.attack; const t = pv.target; return [[['MANIPULATE → ', '#4e2e7e'], [mv.name, '#3a2410']], [[a.perHit ? `${a.m}kg × ${a.v}m/s${a.hits > 1 ? ' ×' + a.hits : ''}` : describeAttack(a)[0] || '', '#2a160c'], [t && pv.est ? `  → ${t.def.name} ${pv.est.total}` : '', '#c8443a']], [[describeAttack(a).slice(a.perHit ? 1 : 0, 3).join(' · ') || 'Winds it up: +1 m/s', '#5a3622']]]; }
+    if (pv.kind === 'manifest') { const a = mv.attack; const foe = tgt.aim && B.enemies.find((e) => e.uid === tgt.aim); return [[['PLACE ', '#4e2e7e'], [mv.name, '#3a2410'], [foe ? `  aimed at ${foe.def.name}` : '', '#8a1a1c']], [['Its 3D model appears on the field. Merge Laws into it.', '#2a160c']], [[a.launched ? `${a.m} kg × ${a.v} m/s, launched at End Turn` : 'Needs Force or Motion to fly at End Turn', '#5a3622']]]; }
+    if (pv.kind === 'manipulate') { const a = mv.attack; const t = pv.target; return [[['MERGE → ', '#4e2e7e'], [mv.name, '#3a2410']], [[a.perHit ? `${a.m}kg × ${a.v}m/s${a.hits > 1 ? ' ×' + a.hits : ''}` : describeAttack(a)[0] || '', '#2a160c'], [t && pv.est ? `  → ${t.def.name} ${pv.est.total}` : '', '#c8443a']], [[describeAttack(a).slice(a.perHit ? 1 : 0, 3).join(' · ') || 'Winds it up: +1 m/s', '#5a3622']]]; }
     if (pv.kind === 'object') return [[['USE ON OBJECT', '#6b4c9a']], [[pv.text, '#2a160c']]];
     return null;
   }
   showCardTip(s) {
     const mv = s.move || this.battle.moveOf(s.slot); const c = s.slot.cards[0];
     let lines;
-    if (c.type === 'power') lines = [[[POWERS[c.id].name, '#3a2410']], [['Drop on Sir Isaac to enact this Law.', '#2a160c']], [[POWERS[c.id].flavor, '#8a6a44']]];
+    if (c.type === 'power') lines = [[[POWERS[c.id].name, '#3a2410']], [['Drop on Newton to enact this Law.', '#2a160c']], [[POWERS[c.id].flavor, '#8a6a44']]];
     else if (s.slot.cards.length > 1) lines = [[[mv.name, '#3a2410']], [['Drag to a target. Shake to split.', '#2a160c']], [[`ATK ${mv.attack.perHit}${mv.attack.hits > 1 ? '×' + mv.attack.hits : ''} · SELF ${describeSelf(mv.self).slice(0, 2).join(', ')}`, '#5a3622']]];
     else lines = [[[mv.name, '#3a2410']], [['Stack cards to combine. m × v = damage.', '#2a160c']], [[(c.petrified ? 'PETRIFIED: acts as Stone this battle.' : '') || flavorOf(c), '#8a6a44']]];
-    const lore = s.slot.cards.length === 1 && !c.petrified ? describeCard(c) : null; const W = 19;
-    if (lore) { // the full entry: alone, combined, manifested, as a manipulator, and a line of flavour
-      const maxT = Math.round(W * PXP) - 30; lines = [[[lore.title, '#3a2410'], [lore.kind ? `  ${lore.kind}` : '', '#7a5638']]];
-      for (const [label, text] of lore.lines) wrapText(`${label}: ${text}`, 'handS', maxT).forEach((l, i) => lines.push(i ? [[l, '#2a160c']] : [[label + ':', '#8a1a1c'], [l.slice(label.length + 1), '#2a160c']]));
-      lines.push([[lore.flavor, '#8a6a44']]);
-    }
+    const W = 17; const lore = s.slot.cards.length === 1 && !c.petrified ? loreLines(c, W) : null; if (lore) lines = lore; // use / merged / skill / flavour
     const b = s.base; this.tooltip.show(lines, clamp(b.x + (lore ? 9 : 6.4), -this.ui.W + 4, this.ui.W - 4.5), b.y + (lore ? 6.5 : 3.5), 10, lore ? { maxW: W } : {});
   }
   // hovering something held in the air: its Move, its target, how to aim and release it
@@ -323,7 +347,7 @@ export class BattleScene {
   async showBanner(title, sub = '', kind = '', hold = 0.7) { audio.play('transition_whoosh', { vol: 0.6 }); await hud.banner(title, sub, kind, hold); }
   bark(who, text, life = 2.4) {
     if (!text) return;
-    const note = hud.bubble(text, who === 'player' ? 'me' : 'foe', who === 'player' ? 'Sir Isaac' : `the ${who.def?.name || 'Foe'}`);
+    const note = hud.bubble(text, who === 'player' ? 'me' : 'foe', who === 'player' ? 'Newton' : `the ${who.def?.name || 'Foe'}`);
     const anchor = who === 'player' ? () => this.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, 0.6, 0)) : () => { const v = this.enemyViews.get(who.uid); return v ? v.api.root.position.clone().add(new THREE.Vector3(0, v.h + 0.3, 0)) : new THREE.Vector3(); };
     const b = { note, anchor, life, ox: who === 'player' ? 0.9 : -0.4, oy: who === 'player' ? 0.5 : 2.3 }; this.barks.push(b);
     if (who === 'player') { this.prof.talk(Math.min(2, text.length * 0.05)); audio.play('wood_knock', { vol: 0.35 }); } else { const v = this.enemyViews.get(who.uid); v?.api.talk(1.2); }
@@ -368,7 +392,7 @@ export class BattleScene {
         const p = kind === 'attack' ? S.enemyPos(S.battle.enemies.find((e) => e.uid === target.uid) || S.battle.alive()[0]) : kind === 'self' ? S.prof.headWorld(new THREE.Vector3()) : new THREE.Vector3(-1, 0.5, 1.1);
         const to = S.engine.worldToUI(p);
         hud.feed(`${mv.name}${kind === 'self' ? ' on Sir Isaac' : kind === 'field' ? ' takes the field' : ''}`, 'hit'); audio.play('card_whoosh'); S.hand.removeViews(slot.cards.map((c) => c.uid), { x: to.x, y: to.y, s: 0.3, flip: 0 });
-        S.prof.act(kind === 'attack' ? 'throw' : 'cast'); S.prof.setExpr(kind === 'attack' ? 'smug' : 'think');
+        S.prof.act(kind === 'attack' ? 'throw' : kind === 'self' && mv.comps.some((c) => /apple/.test(c.id)) ? 'eat' : 'cast'); S.prof.setExpr(kind === 'attack' ? 'smug' : 'think');
         await tweens.wait(0.18);
         if (kind === 'attack') await S.throwProjectile(mv, target);
       },

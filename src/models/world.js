@@ -1,14 +1,21 @@
-// Mythical Wilderness props for events and the map, plus the fallback stage: the detailed CC0 models, toon-shaded.
-// Each prop returns a Group at once and fills it when the model has loaded (callers place / scale the group).
+// Mythical Wilderness props for events and the map, plus the fallback stage: procedural cel trees and village
+// pieces (flora.js / village.js) and the detailed CC0 models, toon-shaded. Each prop returns a Group at once (model
+// props fill it when the model has loaded; callers place / scale the group).
 import * as THREE from 'three';
 import { realStage, toonModel, firePit as pit } from './realworld.js';
+import { tree } from './flora.js';
+import { cottage, windmill, well, shrine, tholos, chimneySmoke } from './village.js';
 import { mulberry32 } from '../core/util.js';
 
 const asyncProp = (name, s = 1, { y = 0, ry = 0 } = {}) => { const g = new THREE.Group(); g.name = name; toonModel(name, mulberry32(name.length * 7 + Math.round(s * 100))).then((o) => { o.scale.multiplyScalar(s); o.position.y = y; o.rotation.y = ry; g.add(o); }).catch(() => {}); return g; };
 
 export const PROPS = {
-  oliveTree(seed = 1, s = 1) { return asyncProp(seed % 2 ? 'olive_tree_wide' : 'olive_tree_tall', s * 0.62); },
-  cypress(seed = 1, s = 1) { return asyncProp(`othonna_cerarioides#${seed % 7}`, s * 1.4); },
+  oliveTree(seed = 1, s = 1) { return tree('olive', { v: seed % 3, s: s * 0.95 }); },
+  cypress(seed = 1, s = 1) { return tree('cypress', { v: seed % 3, s: s * 0.75 }); },
+  /** any cel tree / bush: olive, oak, pine, fir, cypress, laurel, apple, golden, bush, oleander, myrtle, broom, vine */
+  tree(kind = 'oak', seed = 1, s = 1) { return tree(kind, { v: seed % 3, s }); },
+  cottage(seed = 1, opts = {}) { const c = cottage(seed, opts); if (c.smoke.length) c.group.add(chimneySmoke(c.smoke)); return c.group; },
+  windmill(seed = 1) { return windmill(seed); }, well(seed = 1) { return well(seed); }, shrine(seed = 1) { return shrine(seed); }, tholos(seed = 1, opts = {}) { return tholos(seed, opts); },
   rock(seed = 1, s = 1, kind = 'stone') { return asyncProp(`${kind === 'moss' ? 'rock_moss_set_01' : 'rock_moss_set_02'}#${seed % 6}`, s * 0.9); },
   column(seed = 1, h = 3.2, broken = false) { return asyncProp(`greek_column#${broken ? 1 + (seed % 2) : 0}`, 0.75 * (h / 3.2)); },
   amphora(seed = 1, s = 1) { return asyncProp(seed % 2 ? 'antique_ceramic_vase_01' : 'ceramic_vase_04', s * 2.2); },

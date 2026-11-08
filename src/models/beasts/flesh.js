@@ -92,10 +92,10 @@ export class Sculpt {
   grad(x, y, z, e, out) { out[0] = this.eval(x + e, y, z) - this.eval(x - e, y, z); out[1] = this.eval(x, y + e, z) - this.eval(x, y - e, z); out[2] = this.eval(x, y, z + e) - this.eval(x, y, z - e); const l = Math.hypot(out[0], out[1], out[2]) || 1; out[0] /= l; out[1] /= l; out[2] /= l; return out; }
   /** nearest tagged mass at a surface point: {tag, d, tag2, d2 (nearest mass with another tag)} */
   query(x, y, z, out = {}) {
-    out.tag = null; out.d = 9; out.tag2 = null; out.d2 = 9; out.t = 0; out.prim = null; const list = this._cell(x, y, z); if (!list) return out;
+    out.tag = null; out.d = 9; out.tag2 = null; out.d2 = 9; out.t = 0; out.prim = null; out.dn = 9; const list = this._cell(x, y, z); if (!list) return out;
     for (const pi of list) {
       const p = this.prims[pi]; let d = Sculpt.dist(p, x, y, z); if (p.sub) { if (!p.tag) continue; d = Math.abs(d) - 0.004; }
-      if (d < out.d) { if (p.tag !== out.tag) { out.d2 = out.d; out.tag2 = out.tag; } out.d = d; out.tag = p.tag; out.t = Sculpt._t; out.prim = p; } else if (d < out.d2 && p.tag !== out.tag) { out.d2 = d; out.tag2 = p.tag; }
+      if (d < out.d) { out.dn = out.d; if (p.tag !== out.tag) { out.d2 = out.d; out.tag2 = out.tag; } out.d = d; out.tag = p.tag; out.t = Sculpt._t; out.prim = p; } else { if (d < out.dn) out.dn = d; if (d < out.d2 && p.tag !== out.tag) { out.d2 = d; out.tag2 = p.tag; } }
     }
     return out;
   }

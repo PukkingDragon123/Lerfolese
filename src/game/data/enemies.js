@@ -69,6 +69,89 @@ export const ENEMIES = {
     barks: { start: [], hurt: ['Ow!', 'Rude!', 'Noted!'], die: ['I yield my time...'], special: [] },
     ai(e, B, rng) { return A(4 + Math.min(2, Math.floor(e.turn / 3)), 1, { label: 'Bite' }); },
   },
+  harpy: {
+    name: 'Harpy', title: 'Snatcher of Suppers', hp: [26, 30], model: 'harpy', scale: 1, loot: { items: ['wings', 'thread'], chance: 0.3 },
+    weakness: 'Flies: Gravity and falling objects drag her down (Prone). Wind gusts blow her dive off course.',
+    barks: { start: ['SKREEE! Is that an apple? Give.', 'Zeus sends his regards. And his claws.', 'Ooh, a wooden snack.'], hurt: ['My feathers!', 'SKRAA!'], die: ['Tell the storm... I flew...', '*sad screech*'], special: ['Mine! Mine! MINE!', '*shrieks in your ear*'] },
+    ai(e, B, rng) {
+      const t = e.turn % 4;
+      if (t === 0) return A(7, 1, { label: 'Talon Dive' });
+      if (t === 1) return { kind: 'debuff', id: 'steal', icon: 'steal', label: 'Snatch!', dmg: 3 };
+      if (t === 2) return A(3, 3, { label: 'Raking Talons' });
+      return { kind: 'buff', id: 'nimble', icon: 'up', label: 'Take Wing', evade: 1 };
+    },
+  },
+  centaur: {
+    name: 'Centaur Archer', title: 'Four Legs, Zero Chill', hp: [38, 42], model: 'centaur', scale: 1, loot: { items: ['pendulum', 'thread'], chance: 0.35 },
+    weakness: 'Deadly at range: a Boulder or tree on the field blocks his volleys (cover soaks arrows).',
+    barks: { start: ['Hold still. I only need one arrow. Probably.', 'Chiron taught me patience. I skipped that lesson.', 'Nice strings. Shame about the rest.'], hurt: ['A scratch!', 'You will regret that, kindling.'], die: ['My aim... was true...', 'Tell Chiron... I tried...'], special: ['*draws a fistful of arrows*', 'Nock. Draw. Loose.'] },
+    ai(e, B, rng) {
+      const t = e.turn % 4;
+      if (t === 0) return A(4, 3, { label: 'Arrow Volley' });
+      if (t === 1) return { kind: 'buff', id: 'snort', icon: 'up', label: 'Steady Aim', str: 2 };
+      if (t === 2) return A(11, 1, { label: 'Aimed Shot' });
+      return { kind: 'block', id: 'rear', icon: 'shield', label: 'Rear & Guard', block: 9 };
+    },
+  },
+  wolf: {
+    name: 'Hound of Artemis', title: 'Very Good Boy (Not To You)', hp: [22, 26], model: 'wolf', scale: 1.1, loot: { items: ['fang'], chance: 0.2 },
+    weakness: 'Hunts in packs: strength grows with each Howl. Puddles and Water make it shake off (Wet).',
+    barks: { start: ['*low growl*', 'Grrrr... (the moon says hello)', '*sniffs* ...pine. And philosophy.'], hurt: ['*yelp*', 'Grrk!'], die: ['*whimpers*', '*one last howl*'], special: ['AWOOOOO!', '*bares fangs*'] },
+    ai(e, B, rng) {
+      const t = e.turn % 3;
+      if (t === 0) return A(5, 2, { label: 'Savage Bite' });
+      if (t === 1) return { kind: 'buff', id: 'snort', icon: 'up', label: 'Moon Howl', str: 1 };
+      return A(9, 1, { label: 'Pounce' });
+    },
+  },
+  spartoi: {
+    name: 'Spartoi', title: 'Sown From Dragon Teeth', hp: [30, 34], model: 'spartoi', scale: 1, loot: { items: ['plumb_bob', 'thread'], chance: 0.3 },
+    weakness: 'Shield wall soaks blows from the front. Heavy falling objects and Gravity crush it (Prone).',
+    barks: { start: ['*clatter* FOR... THEBES... *clatter*', 'We were planted. We grew. We fight.', '*jaw creaks in a rictus grin*'], hurt: ['*rattle*', 'Bone... chipped...'], die: ['*collapses into a heap*', 'Back... to the soil...'], special: ['PHALANX!', '*bangs spear on shield*'] },
+    ai(e, B, rng) {
+      const t = e.turn % 4;
+      if (t === 0) return { kind: 'block', id: 'wall', icon: 'shield', label: 'Shield Wall', block: 10 };
+      if (t === 1) return A(9, 1, { label: 'Spear Thrust' });
+      if (t === 2) return A(5, 2, { label: 'Phalanx Jabs' });
+      return { kind: 'buff', id: 'snort', icon: 'up', label: 'War Clatter', str: 1 };
+    },
+  },
+  cyclops: {
+    name: 'Cyclops', title: 'Shepherd of Very Large Sheep', hp: [124, 132], model: 'cyclops', scale: 1.3, elite: true, loot: { items: ['lever', 'prism'], gold: [30, 40] },
+    weakness: 'One eye: a Lens or bright flash Blinds him (half his blows miss). Boulders he throws can be caught as cover.',
+    barks: { start: ['WHO IS THERE? ...NOBODY? I KNEW IT.', 'Little wooden man. You look crunchy.', 'I count my sheep. You are not a sheep.'], hurt: ['MY EYE! ...no, wait, that was my toe.', 'GRAAARGH!'], die: ['Nobody... did this...', 'Tell... Polyphemus... I tried...'], special: ['*hefts a boulder*', 'SMASH TIME.'] },
+    ai(e, B, rng) {
+      const t = e.turn % 4;
+      if (t === 0) return { kind: 'buff', id: 'snort', icon: 'up', label: 'Bellowing Rage', str: 3, telegraph: true };
+      if (t === 1) return A(20, 1, { label: 'Club Smash' });
+      if (t === 2) return A(14, 1, { label: 'Hurl Boulder', icon: 'skull' });
+      return { kind: 'block', id: 'brace', icon: 'shield', label: 'Lumber & Brace', block: 12 };
+    },
+  },
+  chimera: {
+    name: 'Chimera', title: 'Lion, Goat, Snake, Problem', hp: [112, 120], model: 'chimera', scale: 1.5, elite: true, loot: { items: ['fang', 'leyden'], gold: [30, 40] },
+    weakness: 'Three heads, one stomach: Water (puddles, rain) douses its Fire Breath. Its serpent tail is venomous.',
+    barks: { start: ['LION: Roar. GOAT: Meh. SNAKE: Hssss.', 'We are three opinions and one appetite.', 'Smells like kindling. Excellent.'], hurt: ['ROAR! / MEEH! / HSS!', 'Which of us did you hit?!'], die: ['We... disagree... on dying...', '*three sad noises*'], special: ['*inhales a furnace*', 'All three: ATTACK!'] },
+    ai(e, B, rng) {
+      const t = e.turn % 4;
+      if (t === 0) return { kind: 'debuff', id: 'acid', icon: 'ember', label: 'Fire Breath', dmg: 9, corrode: 2 };
+      if (t === 1) return A(5, 3, { label: 'Three-Headed Maul' });
+      if (t === 2) return A(8, 1, { label: 'Serpent Strike', venom: 3 });
+      return { kind: 'block', id: 'bristle', icon: 'shield', label: 'Bristle', block: 11, str: 1 };
+    },
+  },
+  talos: {
+    name: 'Talos', title: 'Bronze Guardian of Crete', hp: [196, 206], model: 'talos', scale: 1.45, guardian: true, loot: { items: ['antikythera', 'leyden'], gold: [40, 50] },
+    weakness: 'One vein of ichor runs to the nail in his ankle: falling objects and Gravity crack his plating (Vulnerable).',
+    barks: { start: ['INTRUDER. CIRCUIT OF CRETE: THREE TIMES DAILY. YOU ARE IN THE WAY.', 'HEPHAESTUS BUILT ME. WHO CARVED YOU?', 'HEATING... PLATES...'], hurt: ['*CLANG*', 'DENT DETECTED.'], die: ['ICHOR... DRAINING...', 'THE NAIL... DO NOT... TOUCH THE NAIL...'], special: ['*bronze glows white-hot*', 'EMBRACE OF FIRE.'] },
+    ai(e, B, rng) {
+      const t = e.turn % 4;
+      if (t === 0) return A(26, 1, { label: 'Bronze Fist' });
+      if (t === 1) return { kind: 'block', id: 'heat', icon: 'shield', label: 'Heat the Bronze', block: 16, str: 2 };
+      if (t === 2) return { kind: 'debuff', id: 'acid', icon: 'ember', label: 'Ichor Spray', dmg: 7, corrode: 2 };
+      return A(9, 2, { label: 'Hurl Stones' });
+    },
+  },
 };
 
 // Guardians: empowered elites at the end of the Mythical Wilderness
@@ -77,9 +160,9 @@ ENEMIES.hydra_elder = { ...ENEMIES.hydra, name: 'Elder Hydra', title: 'The Perma
 
 export const ENCOUNTERS = {
   wilderness: {
-    easy: [['satyr'], ['kobalos', 'kobalos'], ['medusa']],
-    hard: [['satyr', 'kobalos'], ['medusa', 'kobalos'], ['satyr', 'satyr'], ['medusa', 'satyr'], ['kobalos', 'kobalos', 'kobalos']],
-    elite: [['minotaur'], ['hydra']],
-    guardian: [['minotaur_king'], ['hydra_elder']],
+    easy: [['satyr'], ['kobalos', 'kobalos'], ['medusa'], ['harpy'], ['wolf', 'wolf'], ['spartoi']],
+    hard: [['satyr', 'kobalos'], ['medusa', 'kobalos'], ['satyr', 'satyr'], ['medusa', 'satyr'], ['kobalos', 'kobalos', 'kobalos'], ['centaur'], ['harpy', 'harpy'], ['spartoi', 'spartoi'], ['centaur', 'wolf'], ['wolf', 'wolf', 'harpy'], ['spartoi', 'harpy']],
+    elite: [['minotaur'], ['hydra'], ['cyclops'], ['chimera']],
+    guardian: [['minotaur_king'], ['hydra_elder'], ['talos']],
   },
 };

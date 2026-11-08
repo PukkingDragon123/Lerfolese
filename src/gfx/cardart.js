@@ -36,7 +36,8 @@ export function compose(kind, sub, seed) {
 }
 function subjectFor(id) {
   const base = BASICS[id]?.mutantOf;
-  const f = MAGIC[id] || SUBJECTS[id] || MAGIC[base] || SUBJECTS[base] || SUBJECTS.apple;
+  const alias = BASICS[id]?.art; // newer science cards borrow a related subject
+  const f = MAGIC[id] || SUBJECTS[id] || MAGIC[base] || SUBJECTS[base] || MAGIC[alias] || SUBJECTS[alias] || SUBJECTS.apple;
   return f();
 }
 function illustration(key, make) {

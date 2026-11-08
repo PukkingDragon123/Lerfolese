@@ -12,6 +12,14 @@ export const SPECIALS = [
   { key: 'apple+heat', name: 'Baked Apple', exact: true, selfHealMul: 2, note: 'Cinnamon would help. The gods would not.' },
   { key: 'apple+water', name: 'Apple Bobbing', exact: true, note: 'A festive way to drown a monster.' },
   { key: 'apple+force', name: 'Apple, Briskly', exact: true, note: 'Same apple. More opinions.' },
+  { key: 'apple+motion', name: 'Flying Apple', exact: true, note: 'An apple with somewhere to be.' },
+  { key: 'apple+force+motion', name: "Newton's Pitch", exact: true, bonus: 1.1, note: 'Push AND motion. The fastest fruit in Christendom.' },
+  { key: 'apple+force+mass', name: 'Heavy Apple', exact: true, note: 'Slower. Much, much worse.' },
+  { key: 'apple+mass+motion', name: 'Cannonball Apple', exact: true, note: 'Ballistics, but with a stalk.' },
+  { key: 'apple+force+mass+motion', name: 'Principia Pitch', exact: true, bonus: 1.2, note: 'All four laws of the opening chapter. The universe flinched.' },
+  { key: 'force+lever', name: 'Archimedean Shove', note: 'Give me a place to stand and I will ruin your day.' },
+  { key: 'pendulum+stone', name: 'Wrecking Ball', exact: true, bonus: 1.2, note: 'Demolition, scientifically.' },
+  { key: 'sound+water', name: 'Tsunami Note', exact: true, note: 'A wave you can hear coming. Too late.' },
   { key: 'apple+rotation', name: 'Curveball Apple', exact: true, note: 'It goes around corners. And morals.' },
   { key: 'apple+inertia', name: 'Rolling Apple', exact: true, note: 'It simply does not stop. A role model.' },
   { key: 'apple+spark', name: 'Fruit Battery', exact: true, selfCharged: 8, note: 'Two wires and a Granny Smith. Electricity!' },
@@ -47,8 +55,8 @@ const PAIR_NOUN = {
   'apple+stone': 'Apple-Flavoured Rock', 'apple+water': 'Cider', 'spark+stone': 'Lodestone', 'stone+water': 'Mud',
   'apple+spark': 'Fruit Battery', 'spark+water': 'Shock Puddle', 'heat+water': 'Steam', 'heat+spark': 'Plasma Ball', 'heat+stone': 'Lava Rock',
 };
-const LAW_NOUN = { mass: 'Weight', force: 'Punch', gravity: 'Gravity Well', rotation: 'Spin', inertia: 'Momentum', lens: 'Glare', spring: 'Boing', heat: 'Fireball', spark: 'Spark' };
-const ADJ_ORDER = ['mass', 'dark_matter', 'force', 'brute_force', 'rotation', 'torque', 'gravity', 'antigravity', 'heat', 'plasma', 'spark', 'water', 'lens', 'prism', 'spring', 'slinky', 'inertia', 'momentum'];
+const LAW_NOUN = { motion: 'Projectile', friction: 'Drag', pendulum: 'Swing', lever: 'Lever', magnet: 'Lodestar', buoyancy: 'Bubble', pressure: 'Squeeze', sound: 'Shockwave', mass: 'Weight', force: 'Punch', gravity: 'Gravity Well', rotation: 'Spin', inertia: 'Momentum', lens: 'Glare', spring: 'Boing', heat: 'Fireball', spark: 'Spark' };
+const ADJ_ORDER = ['mass', 'dark_matter', 'pressure', 'force', 'brute_force', 'motion', 'lever', 'pendulum', 'magnet', 'rotation', 'torque', 'gravity', 'antigravity', 'heat', 'plasma', 'spark', 'water', 'lens', 'prism', 'spring', 'slinky', 'inertia', 'momentum'];
 const INTENS = ['', '', 'Very ', 'Absurdly ', 'Cosmically ', 'Illegally '];
 const SUFFIX = ['Deluxe', 'Supreme', 'Allegedly', 'Probably', '(Patent Pending)', 'of Mild Concern', 'Extra Crispy', 'with Sprinkles', 'Unabridged', 'Mk. II', 'Do Not Try At Home', 'Peer Reviewed'];
 
@@ -115,11 +123,13 @@ export function computeMove(comps, mods = {}) {
   const S = (c, k) => stat(c.id, c.up, k) || 0;
   let m = 0, baseV = 0, dv = 0, hits = 1, charge = 0, burn = 0, wet = 0, persist = 0, bounce = 0, venom = 0, disarm = 0, chill = 0, weakOnHit = 0, goldOnKill = 0, recoil = 0;
   let focus = 1, spread = false, prism = false, fall = false, hard = false, pierce = false, grow = false, bounceFalloff = 0;
-  let hasMatter = false, lensCount = 0, forceCount = 0, gravityCount = 0;
+  let hasMatter = false, lensCount = 0, forceCount = 0, gravityCount = 0, launched = false, shove = 0, carry = false, float = false, dizzyOnHit = 0, seek = null, lever = false, swing = 0, press = 0, waveMul = 1;
   const self = { heal: 0, block: 0, cleanse: false, charged: 0, momentum: 0, thorns: 0, retain: false, kindle: 0, draw: 0 };
   for (const c of comps) {
     const d = BASICS[c.id]; if (!d) continue;
-    if (d.kind === 'matter') { hasMatter = true; m += S(c, 'm'); baseV = Math.max(baseV, S(c, 'v')); if (d.spread) spread = true; if (d.hard) hard = true; }
+    if (d.kind === 'matter') { hasMatter = true; m += S(c, 'm'); baseV = Math.max(baseV, S(c, 'v')); if (d.hard) hard = true; }
+    if (d.spread) spread = true; if (d.launch) launched = true; shove += S(c, 'shove'); if (d.carry) carry = true; if (d.float) float = true; dizzyOnHit += S(c, 'dizzyOnHit'); if (d.seek) seek = d.seek;
+    if (d.lever) lever = true; swing += S(c, 'swing'); press += S(c, 'pressure'); if (d.waveMul) waveMul *= d.waveMul;
     m += S(c, 'dm');
     let thisDv = S(c, 'dv');
     if (baseOf(c.id) === 'gravity') { gravityCount++; thisDv += mods.gravityDv || 0; if (mods.plumb) thisDv += comps.filter((x) => baseOf(x.id) === 'mass').length; }
@@ -135,16 +145,18 @@ export function computeMove(comps, mods = {}) {
     self.thorns += S(c, 'thorns'); self.kindle += S(c, 'kindle'); self.draw += S(c, 'draw');
     if (d.cleanse) self.cleanse = true; if (d.retain) self.retain = true;
   }
-  if (!hasMatter && m > 0) baseV = 2; // a thrown weight
+  if (swing) dv += swing * (comps.length - 1); // a longer swing for a bigger build
+  if (press) m += press * (comps.length - 1);   // packed dense
+  if (lever && forceCount) focus *= 2;
   let fist = false;
   if (!hasMatter && m === 0 && forceCount > 0) { m = 1; fist = true; }
   if (mods.firstMove) { if (m > 0) m += mods.firstMove.dm; dv += mods.firstMove.dv; }
-  let v = m > 0 ? baseV + dv : 0;
+  let v = m > 0 ? Math.max(0, baseV + dv) : 0;
   if (mods.momentum && m > 0) v += mods.momentum;
   if (lensCount && !prism) spread = false; // a lens focuses a wave into a jet
   if (prism) { spread = true; focus = 1; }
   const bonus = (special?.bonus || 1) * (mods.bonusMul || 1);
-  const perHit = Math.round(m * v * focus * bonus);
+  const perHit = Math.round(m * v * focus * waveMul * bonus);
   const n = comps.length;
   const steam = !!special?.steam, moon = !!special?.moon, allFoes = !!special?.allFoes;
   if (special?.burnMul) burn *= special.burnMul;
@@ -153,7 +165,7 @@ export function computeMove(comps, mods = {}) {
   const alone = n === 1 ? baseOf(comps[0].id) : null;
   const attack = {
     m, v, hits, perHit, focus, spread: spread || allFoes, fall, hard, pierce, charge: charge + (mods.charged || 0), burn: burn + (burn > 0 || perHit > 0 ? (mods.kindle || 0) : 0), wet, persist: persist ? persist + (mods.firstLaw || 0) : 0, grow,
-    bounce, bounceFalloff, venom, disarm, chill, weakOnHit, goldOnKill, recoil, steam, fist,
+    bounce, bounceFalloff, venom, disarm, chill, weakOnHit, goldOnKill, recoil, steam, fist, launched, shove, carry, float, dizzyOnHit, seek,
     weak: 0, vulnerable: 0, dizzy: 0, valid: false,
   };
   if (alone === 'gravity' || (n === 1 && comps[0].id === 'antigravity')) attack.weak = 2;
@@ -237,6 +249,10 @@ export function describeAttack(a) {
   if (a.blind) out.push('Blind ALL foes');
   if (a.disarm) out.push(`-${a.disarm} Strength`);
   if (a.recoil) out.push(`You take ${a.recoil}`);
+  if (a.shove) out.push(`Shove: its next attack -${a.shove}`);
+  if (a.carry) out.push('Carry: overkill flies on');
+  if (a.dizzyOnHit) out.push(`Dizzy ${a.dizzyOnHit}`);
+  if (a.float) out.push('You gain Block = its mass');
   return out;
 }
 export function describeSelf(s) {

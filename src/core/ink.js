@@ -41,10 +41,18 @@ export class InkPass extends Pass {
   render(renderer, writeBuffer, readBuffer) {
     const sc = this.scene, cam = this.camera, vis = this._vis;
     // pre-pass: depth + view normals of solid geometry only (skip cut-outs, sprites, particles, invisible hit boxes)
-    sc.traverse((o) => { vis.set(o, o.visible); const m = o.material; if (o.isPoints || o.isLine || o.isSprite || o.userData.noInk || o.userData.noAO || (m && !Array.isArray(m) && (m.visible === false || m.transparent || m.alphaTest > 0 || (m.isShaderMaterial && !o.userData.ink)))) o.visible = false; });
+    // cut-outs that carry userData.inkOccluder (leaf cards) are drawn afterwards with that alpha-tested material, so the
+    // lines of whatever stands behind a crown do not show through its leaves
+    const occ = this._occ || (this._occ = []); occ.length = 0;
+    sc.traverse((o) => { vis.set(o, o.visible); if (o.userData.inkOccluder && o.visible) { occ.push(o); o.visible = false; return; } const m = o.material; if (o.isPoints || o.isLine || o.isSprite || o.userData.noInk || o.userData.noAO || (m && !Array.isArray(m) && (m.visible === false || m.transparent || m.alphaTest > 0 || (m.isShaderMaterial && !o.userData.ink)))) o.visible = false; });
     const bg = sc.background, ov = sc.overrideMaterial, fog = sc.fog; renderer.getClearColor(this._clear); const ca = renderer.getClearAlpha();
     sc.background = null; sc.overrideMaterial = this.normalMat; sc.fog = null;
     renderer.setRenderTarget(this.rt); renderer.setClearColor(0x7f7fff, 1); renderer.clear(); renderer.render(sc, cam);
+    if (occ.length) {
+      sc.overrideMaterial = null; for (const o of vis.keys()) o.visible = false; const mats = occ.map((o) => o.material);
+      for (const o of occ) { o.material = o.userData.inkOccluder; for (let p = o; p; p = p.parent) p.visible = vis.get(p) ?? true; }
+      const ac = renderer.autoClear; renderer.autoClear = false; renderer.render(sc, cam); renderer.autoClear = ac; occ.forEach((o, i) => { o.material = mats[i]; });
+    }
     sc.background = bg; sc.overrideMaterial = ov; sc.fog = fog; renderer.setClearColor(this._clear, ca);
     for (const [o, v] of vis) o.visible = v; vis.clear();
     this.u.tDiffuse.value = readBuffer.texture; this.u.tNormal.value = this.rt.texture; this.u.tDepth.value = this.rt.depthTexture;
