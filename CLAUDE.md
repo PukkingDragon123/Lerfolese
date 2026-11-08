@@ -7,6 +7,9 @@
 - Look: anime/cartoon BLACK INK OUTLINES on all 3D (engine InkPass, src/core/ink.js); clean cel-like banded textures.
 - (superseded) Map living layer: removed per user; NO TREES or grass on the map.
 - Humans may reuse the user's Limbo Phobia human generator (repo PukkingDragon123/fictional-octo-train).
+- HERO (LATEST): Sir Isaac is a YOUNG COOL guy (20s, anime-cool) — still a wooden marionette on the spectral hand's strings, battle-mage kit.
+- PLANTS: grass, flowers, bushes = polished 2D pixel-art sprites (swaying); trees/rocks stay 3D cel.
+- GAMEPLAY: hybrid — combine-in-hand stays, plus MANIFEST (drag Matter into the air = physical object) → MANIPULATE (drag Law cards like Force/Gravity onto it, live trajectory preview) → RELEASE on End. Cards have rich descriptions.
 - FONT: Alagard (assets/fonts/alagard.ttf) is the game font for titles, labels, buttons, banners and card names; render it at 16/32/48 px so it stays pixel-crisp.
 - STYLE (USER CHOSE, FINAL): ANIME CEL-SHADED for EVERYTHING (environment AND characters): detailed smooth models, hard 2–3 tone toon shading, black ink outlines, saturated colours, beautiful painted anime sky with stylized clouds and god rays, wind, little animals, polished road. NEVER photoreal (the user never wanted realistic). Characters keep believable anatomy/proportions but are PAINTED/SHADED anime-style (cel bands, crisp shapes). Cinematic travel and 3D cinematic events stay.
 - Presentation: MEDIEVAL STORYTELLING (illuminated-manuscript storybook / puppet theatre): sun and moon WITH FACES (personified, gilded), lapis manuscript sky with curly medieval clouds, layered painted backdrops (castles, towns, stepped mountains), chapter cards with drop caps. Gore welcome: physical blood droplets, splatter decals, severed hydra heads; Sir Isaac splinters (wood), never bleeds.
