@@ -10,6 +10,8 @@ import { createCreature } from '../models/creatures.js';
 import { reachable } from '../game/run.js';
 import { ItemToken } from './reward.js';
 import { Particles } from '../gfx/particles.js';
+import { Critters } from '../gfx/critters.js';
+import { standee, Animated, faceCamera } from '../ui3d/standee.js';
 import { makeNoise } from '../gfx/pixel.js';
 import { TEX } from '../gfx/textures.js';
 import { R } from '../gfx/palette.js';
@@ -88,21 +90,23 @@ export class MapScene extends UIScreen {
     // decor
     const rnd = mulberry32(this.run.seed % 1000 + 7); const free = (x, z, r = 1.2) => pathD(x, z) > r && Math.abs(x - riverX(z)) > 1.8 && Math.abs(x) < WID / 2 - 0.8 && z < Z0 - 0.8 && z > Z0 - LEN + 0.8;
     const place = (o, x, z, s = 1) => { o.position.set(x, this.heightAt(x, z), z); o.scale.multiplyScalar(s); o.rotation.y = rnd() * 6; world.add(o); return o; };
-    for (let i = 0; i < 70; i++) { const x = vrangeR(rnd, -WID / 2, WID / 2), z = vrangeR(rnd, Z0 - LEN, Z0); if (!free(x, z)) continue; place(rnd() < 0.6 ? PROPS.oliveTree(i, 0.32) : PROPS.cypress(i, 0.32), x, z); }
+    for (let i = 0; i < 70; i++) { const x = vrangeR(rnd, -WID / 2, WID / 2), z = vrangeR(rnd, Z0 - LEN, Z0); if (!free(x, z)) continue; place(rnd() < 0.6 ? PROPS.oliveTree(i, 0.32) : PROPS.cypress(i, 0.32), x, z).userData.perchable = true; }
     for (let i = 0; i < 30; i++) { const x = vrangeR(rnd, -WID / 2, WID / 2), z = vrangeR(rnd, Z0 - LEN, Z0); if (!free(x, z, 0.8)) continue; place(PROPS.rock(i, 0.25 + rnd() * 0.3, rnd() < 0.5 ? 'moss' : 'stone'), x, z); }
     for (let i = 0; i < 4; i++) { const x = vrangeR(rnd, -8, 8), z = -6 - i * 6; if (!free(x, z, 1.5)) continue; const ruin = new THREE.Group(); for (let k = 0; k < 4; k++) { const c = PROPS.column(k + i, 1.6 + rnd(), rnd() < 0.5); c.scale.setScalar(0.3); c.position.set((k % 2) * 0.8, 0, Math.floor(k / 2) * 0.8); ruin.add(c); } place(ruin, x, z); }
     // labyrinth near elite nodes, marsh reeds near the guardian, huts near shops/labs
     for (const nd of nodes) {
       const off = new THREE.Vector3(nd.x > 0 ? -1.8 : 1.8, 0, 0.4);
       if (nd.type === 'elite' && rnd() < 0.7) { const lab = new THREE.Group(); for (let k = 0; k < 5; k++) { const w = PROPS.mazeWall(1.2 + rnd(), 0.6, k); w.scale.setScalar(0.35); w.position.set((k % 3) * 0.5 - 0.5, 0, Math.floor(k / 3) * 0.5); w.rotation.y = (k % 2) * Math.PI / 2; lab.add(w); } if (free(nd.x + off.x, nd.z + off.z, 0.6)) place(lab, nd.x + off.x, nd.z + off.z); }
-      if ((nd.type === 'shop' || nd.type === 'lab') && free(nd.x + off.x, nd.z, 0.7)) place(hut(rnd), nd.x + off.x, nd.z, 0.9);
+      
     }
     const reeds = PROPS.reeds(60, 18, 3, 9); reeds.scale.setScalar(0.5); reeds.position.set(0, 0, -30); world.add(reeds);
     // living things: sheep, birds, a satyr party
-    this.sheep = []; for (let i = 0; i < 10; i++) { const x = vrangeR(rnd, -8, 8), z = vrangeR(rnd, -24, 0); if (!free(x, z, 0.8)) continue; const sh = sheepModel(); place(sh, x, z, 0.35); this.sheep.push({ o: sh, a: rnd() * 6, t: rnd() * 5 }); }
-    this.birds = []; for (let i = 0; i < 6; i++) { const b = birdModel(); world.add(b); this.birds.push({ o: b, r: 4 + rnd() * 5, h: 5 + rnd() * 3, sp: 0.3 + rnd() * 0.3, ph: rnd() * 6, cz: -6 - rnd() * 18 }); }
+    this.sheep = []; this.birds = [];
+    this.critters = new Critters(90); this.critters.bounds = { x: [-9, 9], y: [2.5, 7], z: [-30, 2] }; sc.add(this.critters.mesh);
     this.party = []; { const x = -6.5, z = -9; if (true) { const fire = new THREE.Group(); const f = PROPS.amphora(3, 0.3); fire.add(f); place(fire, x, z); for (let k = 0; k < 3; k++) { const s = createCreature('satyr'); s.root.scale.setScalar(0.28); world.add(s.root); this.party.push({ api: s, a: (k / 3) * 6.28, cx: x, cz: z }); } } }
     this.parts = new Particles(800, { additive: true }); sc.add(this.parts.points);
+    world.updateMatrixWorld(true); world.traverse((o) => { if (o.userData.perchable) this.critters.perchesFrom(o, 2); });
+    this.critters.spawnBirds(16); if (this.critters.spawnGrazers) this.critters.spawnGrazers(10, { x: [-8, 8], z: [-24, 0] }); this.critters.spawnButterflies(8, new THREE.Vector3(0, 0.6, -12), 16);
     // nodes
     this.nodeViews = new Map(); for (const nd of nodes) this.addNode(nd);
     // paths: dotted stones
@@ -114,18 +118,12 @@ export class MapScene extends UIScreen {
   }
   addNode(nd) {
     const g = new THREE.Group(); const y = this.heightAt(nd.x, nd.z); g.position.set(nd.x, y, nd.z); this.world.add(g);
-    const base = mk(S.facet(new THREE.CylinderGeometry(0.36, 0.44, 0.16, 8)), F({ color: 0xe2dcd0, roughness: 0.6 }), g, 0, 0.09, 0);
-    let fig;
-    if (nd.type === 'battle') { fig = createCreature(vpick(['satyr', 'kobalos', 'medusa'])); fig.root.scale.setScalar(0.34); }
-    else if (nd.type === 'elite') { fig = createCreature(vpick(['minotaur', 'hydra'])); fig.root.scale.setScalar(0.3); mk(S.horn([[0.4, 0, 0], [0.4, 1.3, 0]], 0.03, 0.03, { sides: 4, segs: 2, seed: 1 }), F({ color: 0x5a3622 }), g); mk(S.slab(0.5, 0.3, 0.02, { seed: 2 }), F({ color: 0xc8443a }), g, 0.65, 1.15, 0); }
-    else if (nd.type === 'guardian') { fig = createCreature(this.run.foughtElites.includes('hydra') ? 'minotaur_king' : 'hydra_elder'); fig.root.scale.setScalar(0.42); }
-    else if (nd.type === 'event') { const q = textPlane([[['?', '#ffe08a']]], { w: 1, h: 1, font: 'Pixelify', size: 100, weight: 700, stroke: ['#3a2410', 16] }); q.position.y = 1.2; g.add(q); mk(S.horn([[0, 0, 0], [0, 0.9, 0]], 0.04, 0.03, { sides: 4, segs: 2, seed: 3 }), F({ color: 0x6e4024 }), g); fig = { root: new THREE.Group(), update() {}, q }; }
-    else if (nd.type === 'shop') { const b = new THREE.Group(); mk(S.turn([[0.001, 0], [0.3, 0.02], [0.36, 0.3], [0.3, 0.6], [0.001, 0.62]], { sides: 8, seed: 4 }), F({ color: 0x8a5634 }), b).rotation.z = Math.PI / 2; b.position.y = 0.4; fig = { root: b, update() {} }; }
-    else if (nd.type === 'lab') { const b = new THREE.Group(); const fl = PROPS.amphora(2, 0.35); b.add(fl); mk(S.gem(0.12, 1, 5), F({ color: 0, emissive: 0x8fe3ff, emissiveIntensity: 3 }), b, 0, 0.5, 0); fig = { root: b, update() {} }; }
-    if (fig) { fig.root.position.y = 0.18; fig.root.rotation.y = 0.4; g.add(fig.root); }
-    const ring = mk(S.facet(new THREE.TorusGeometry(0.55, 0.05, 3, 12)), new THREE.MeshBasicMaterial({ color: new THREE.Color(0x8fe3ff).multiplyScalar(2.2), transparent: true, opacity: 0 }), g, 0, 0.12, 0); ring.rotation.x = Math.PI / 2; ring.castShadow = false;
-    const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 2.2, 8), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 0.9; hit.userData.node = nd; g.add(hit);
-    this.nodeViews.set(nd.id, { g, fig, ring, hit, base, nd, s: new Spring(1, 14, 0.4) });
+    const key = { battle: 'mk_battle', elite: 'mk_elite', event: 'mk_event', shop: 'mk_shop', lab: 'mk_lab', guardian: 'mk_guardian' }[nd.type];
+    const h = nd.type === 'guardian' ? 3.4 : nd.type === 'shop' || nd.type === 'lab' ? 1.5 : 1.6;
+    const fig = { root: standee(key, { height: h }), update() {} }; g.add(fig.root);
+    const ringA = new Animated('well', [0, 1, 2, 3], { height: 1.2, anchor: 'center', flat: true, fps: 8 }); const ring = ringA.mesh; ring.position.y = 0.06; ring.visible = false; g.add(ring);
+    const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 2.4, 8), new THREE.MeshBasicMaterial({ visible: false })); hit.position.y = 1.0; hit.userData.node = nd; g.add(hit);
+    this.nodeViews.set(nd.id, { g, fig, ring, ringA, hit, nd, s: new Spring(1, 14, 0.4) });
   }
   buildPaths() {
     while (this.pathGroup.children.length) this.pathGroup.remove(this.pathGroup.children[0]);
@@ -139,7 +137,7 @@ export class MapScene extends UIScreen {
   }
   refreshNodes() {
     const reach = new Set(reachable(this.run)); this.reach = reach;
-    for (const [id, v] of this.nodeViews) { v.reachable = reach.has(id); v.visited = (this.run.path || []).includes(id); v.ring.material.opacity = v.reachable ? 0.9 : 0; v.base.material = v.visited ? F({ color: 0x8fe3ff, emissive: 0x2a5a7a, emissiveIntensity: 0.5 }) : v.base.material; }
+    for (const [id, v] of this.nodeViews) { v.reachable = reach.has(id); v.visited = (this.run.path || []).includes(id); v.ring.visible = v.reachable; v.fig.root.material.color.setScalar(v.visited ? 0.55 : 1); }
   }
 
   // ------------------------------------------------------------ HUD
@@ -192,12 +190,12 @@ export class MapScene extends UIScreen {
     for (const s of [this.yaw, this.pitch, this.dist, this.fx, this.fz]) s.update(dt);
     const f = new THREE.Vector3(this.fx.value, 0, this.fz.value); const d = this.dist.value; const p = this.pitch.value; const y = this.yaw.value;
     this.camera.position.set(f.x + Math.sin(y) * Math.cos(p) * d, f.y + Math.sin(p) * d, f.z + Math.cos(y) * Math.cos(p) * d); this.camera.lookAt(f);
-    this.pawn.update(dt); for (const [, v] of this.nodeViews) { v.fig?.update?.(dt); v.s.update(dt); v.g.scale.setScalar(v.s.value); if (v.reachable) { v.ring.scale.setScalar(1 + Math.sin(t * 4) * 0.08); v.ring.position.y = 0.12 + Math.abs(Math.sin(t * 3)) * 0.15; } if (v.fig?.q) v.fig.q.rotation.y = t * 1.5; }
-    for (const sh of this.sheep) { sh.t -= dt; if (sh.t < 0) { sh.t = 2 + Math.random() * 4; sh.a += vrange(-1.5, 1.5); } const nx = sh.o.position.x + Math.sin(sh.a) * dt * 0.2, nz = sh.o.position.z + Math.cos(sh.a) * dt * 0.2; if (this.pathD(nx, nz) > 0.6 && Math.abs(nx) < 9) { sh.o.position.x = nx; sh.o.position.z = nz; sh.o.position.y = this.heightAt(nx, nz) + Math.abs(Math.sin(t * 8 + sh.a)) * 0.03; sh.o.rotation.y = sh.a; } else sh.a += 1; }
-    for (const b of this.birds) { const a = t * b.sp + b.ph; b.o.position.set(Math.cos(a) * b.r, b.h + Math.sin(t * 2 + b.ph) * 0.3, b.cz + Math.sin(a) * b.r * 0.6); b.o.rotation.y = -a; b.o.children.forEach((w, i) => (w.rotation.z = (i ? -1 : 1) * Math.sin(t * 10 + b.ph) * 0.6)); }
+    this.pawn.update(dt); for (const [, v] of this.nodeViews) { v.fig?.update?.(dt); v.s.update(dt); v.g.scale.setScalar(v.s.value); v.ringA.update(dt); if (v.reachable) v.ring.scale.setScalar(1 + Math.sin(t * 4) * 0.08); faceCamera(v.fig.root, this.camera); }
+    for (const sh of []) { sh.t -= dt; if (sh.t < 0) { sh.t = 2 + Math.random() * 4; sh.a += vrange(-1.5, 1.5); } const nx = sh.o.position.x + Math.sin(sh.a) * dt * 0.2, nz = sh.o.position.z + Math.cos(sh.a) * dt * 0.2; if (this.pathD(nx, nz) > 0.6 && Math.abs(nx) < 9) { sh.o.position.x = nx; sh.o.position.z = nz; sh.o.position.y = this.heightAt(nx, nz) + Math.abs(Math.sin(t * 8 + sh.a)) * 0.03; sh.o.rotation.y = sh.a; } else sh.a += 1; }
+    for (const b of []) { const a = t * b.sp + b.ph; b.o.position.set(Math.cos(a) * b.r, b.h + Math.sin(t * 2 + b.ph) * 0.3, b.cz + Math.sin(a) * b.r * 0.6); b.o.rotation.y = -a; b.o.children.forEach((w, i) => (w.rotation.z = (i ? -1 : 1) * Math.sin(t * 10 + b.ph) * 0.6)); }
     for (const pp of this.party) { pp.a += dt * 0.6; pp.api.root.position.set(pp.cx + Math.cos(pp.a) * 0.7, this.heightAt(pp.cx, pp.cz) + Math.abs(Math.sin(t * 5 + pp.a)) * 0.1, pp.cz + Math.sin(pp.a) * 0.7); pp.api.root.rotation.y = -pp.a; pp.api.update(dt); }
     if (Math.random() < 0.3) this.parts.spawn({ pos: [vrange(-9, 9), vrange(0.3, 3), vrange(-30, 2)], vel: [0, 0.1, 0], life: 4, size: vrange(10, 18), color: '#ffe08a', sprite: 'firefly', wobble: 0.4 });
-    this.parts.update(dt, t); this.water.material.color.setHSL(0.57, 0.55, 0.42 + Math.sin(t * 2) * 0.02);
+    this.parts.update(dt, t); this.critters.update(dt, t); this.water.material.color.setHSL(0.57, 0.55, 0.42 + Math.sin(t * 2) * 0.02);
     this.updateUI(dt); this.pouch.update(dt); for (const it of this.items) it.update(dt, t);
     this.journal?.update(dt, t); this.deckView?.update(dt, t);
   }

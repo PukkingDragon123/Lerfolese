@@ -6,6 +6,7 @@ import { TEX } from '../gfx/textures.js';
 import { R } from '../gfx/palette.js';
 import { Spring } from '../core/tween.js';
 import { textPlane, parchmentBG, UIF, Note } from './kit.js';
+import { standee, safeDrawn } from './standee.js';
 import { Card3D } from './cards3d.js';
 import { audio } from '../core/audio.js';
 import { Particles } from '../gfx/particles.js';
@@ -18,9 +19,7 @@ const mk = (g, m, p, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o
 export class Button3D {
   constructor(label, onClick, { w = 5, h = 1.3, color = 'wood', size = 56, sub = null, disabled = false } = {}) {
     this.onClick = onClick; this.disabled = disabled; const g = (this.group = new THREE.Group());
-    const mat = color === 'wood' ? UIF({ map: TEX.wood('btn', R.oak, { seed: 41 }), roughness: 0.55 }) : color === 'purple' ? UIF({ color: 0x3e2b6b, roughness: 0.5 }) : color === 'red' ? UIF({ color: 0x8f2a2e, roughness: 0.5 }) : UIF({ color: 0x2d6e6a, roughness: 0.5 });
-    this.body = mk(S.slab(w, h, 0.35, { seed: 42 + w, jitter: 0.03 }), mat, g);
-    mk(S.slab(w + 0.18, h + 0.18, 0.2, { seed: 43, jitter: 0.02 }), UIF({ color: 0xd9a64a, metalness: 0.85, roughness: 0.3 }), g, 0, 0, -0.12);
+    const tint = color === 'wood' ? null : color; this.body = standee(safeDrawn('sign', Math.round(w * 34), Math.round(h * 34), Math.round(w * 7 + h * 3), tint), { height: h, anchor: 'center' }); g.add(this.body);
     this.text = textPlane(sub ? [[[label, '#fff6cf']], [[sub, '#e8d4a2']]] : [[[label, '#fff6cf']]], { w: w - 0.2, h: h - 0.1, font: 'Pixelify', size: sub ? size * 0.8 : size, weight: 700, stroke: ['#1a1220', 10], lineH: 1.0 });
     this.text.position.z = 0.2; g.add(this.text);
     this.hit = this.body; this.body.userData.button = this;

@@ -5,6 +5,7 @@ import { TEX } from '../gfx/textures.js';
 import { R } from '../gfx/palette.js';
 import { Spring } from '../core/tween.js';
 import { sprite } from '../gfx/sprites.js';
+import { standee, safeDrawn, pixelTex } from './standee.js';
 
 export const UIF = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.6, toneMapped: false, ...o });
 export function canvasTexture(c) { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.minFilter = THREE.LinearMipmapLinearFilter; return t; }
@@ -59,32 +60,19 @@ const brassM = () => UIF({ color: 0xd9a64a, metalness: 0.85, roughness: 0.3 });
 const woodM = () => UIF({ map: TEX.wood('uiwood', R.wood, { seed: 31 }), roughness: 0.6 });
 function mk(g, m, p, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; p.add(o); return o; }
 
-export class Gauge { // brass pressure gauge for Integrity (HP) + wooden block shield
+export class Gauge { // hand-drawn brass pressure gauge for Integrity (HP) + block shield
   constructor() {
-    const g = (this.group = new THREE.Group());
-    mk(S.turn([[0.001, -0.25], [1.25, -0.25], [1.38, -0.05], [1.32, 0.18], [1.18, 0.25], [0.001, 0.25]], { sides: 12, amt: 0.01, seed: 3 }), brassM(), g).rotation.x = Math.PI / 2;
-    const face = document.createElement('canvas'); face.width = face.height = 256; this.faceC = face; this.faceT = canvasTexture(face);
-    this.face = mk(new THREE.CircleGeometry(1.12, 24), UIF({ map: this.faceT, roughness: 0.4 }), g, 0, 0, 0.27);
-    this.needle = new THREE.Group(); this.needle.position.z = 0.3; g.add(this.needle);
-    mk(S.slab(0.08, 0.95, 0.03, { seed: 4, taper: 0.8 }), UIF({ color: 0xc8443a, roughness: 0.4 }), this.needle, 0, 0.42, 0);
-    mk(S.gem(0.1, 0, 5), brassM(), this.needle, 0, 0, 0.02);
-    mk(new THREE.CircleGeometry(1.14, 24), new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, roughness: 0.05, metalness: 0.2, toneMapped: false }), g, 0, 0, 0.36);
-    this.label = textPlane(['64/64'], { w: 2.2, h: 0.8, font: 'Pixelify', size: 64, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 10] }); this.label.position.set(0, -1.75, 0.3); g.add(this.label);
-    this.tag = textPlane(['INTEGRITY'], { w: 2.4, h: 0.45, font: 'Silkscreen', size: 34, weight: 700, color: '#f3e6c4', stroke: ['#1a1220', 8] }); this.tag.position.set(0, 1.62, 0.3); g.add(this.tag);
-    // block shield
-    this.shield = new THREE.Group(); this.shield.position.set(1.55, 0.75, 0.6); g.add(this.shield);
-    mk(S.turn([[0.001, -0.6], [0.45, -0.35], [0.6, 0.2], [0.55, 0.55], [0.001, 0.6]], { sides: 7, seed: 9, amt: 0.04 }), woodM(), this.shield).scale.set(1, 1, 0.25);
-    mk(S.facet(new THREE.TorusGeometry(0.55, 0.06, 3, 9)), brassM(), this.shield, 0, 0, 0.1);
-    this.blockLabel = textPlane(['0'], { w: 1.2, h: 0.8, font: 'Pixelify', size: 80, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 12] }); this.blockLabel.position.z = 0.25; this.shield.add(this.blockLabel);
+    const g = (this.group = new THREE.Group()); const H = 3.6;
+    this.dial = standee('gauge', { height: H, anchor: 'center' }); g.add(this.dial);
+    this.needle = new THREE.Group(); this.needle.position.set(0, ((70 - 62) / 140) * H, 0.06); g.add(this.needle);
+    const nh = (64 / 140) * H; const nd = standee('needle', { height: nh, anchor: 'center' }); nd.position.y = ((54 - 32) / 64) * nh; nd.position.z = 0.01; this.needle.add(nd);
+    this.label = textPlane(['64/64'], { w: 2.4, h: 0.8, font: 'Pixelify', size: 64, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 10] }); this.label.position.set(0, -H / 2 - 0.35, 0.3); g.add(this.label);
+    this.tag = textPlane(['INTEGRITY'], { w: 2.6, h: 0.45, font: 'Silkscreen', size: 34, weight: 700, color: '#f3e6c4', stroke: ['#1a1220', 8] }); this.tag.position.set(0, H / 2 + 0.15, 0.3); g.add(this.tag);
+    this.shield = new THREE.Group(); this.shield.position.set(1.75, 0.95, 0.6); g.add(this.shield);
+    this.shield.add(standee(sprite('shield'), { height: 1.5, anchor: 'center' }));
+    this.blockLabel = textPlane(['0'], { w: 1.2, h: 0.8, font: 'Pixelify', size: 80, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 12] }); this.blockLabel.position.set(0, -0.05, 0.1); this.shield.add(this.blockLabel);
     this.shieldS = new Spring(0, 16, 0.4); this.needleS = new Spring(1, 6, 0.35); this.shake = new Spring(0, 30, 0.2);
-    this.hp = -1; this.max = 1; this.block = 0; this.drawFace();
-  }
-  drawFace() {
-    const g = this.faceC.getContext('2d'); const W = 256; g.fillStyle = '#f3e6c4'; g.fillRect(0, 0, W, W);
-    const cx = W / 2; for (let i = 0; i <= 20; i++) { const a = -Math.PI * 0.75 + (i / 20) * Math.PI * 1.5; const r1 = i % 5 ? 96 : 86; g.strokeStyle = i < 5 ? '#c8443a' : '#2a160c'; g.lineWidth = i % 5 ? 3 : 6; g.beginPath(); g.moveTo(cx + Math.sin(a) * r1, cx - Math.cos(a) * r1); g.lineTo(cx + Math.sin(a) * 108, cx - Math.cos(a) * 108); g.stroke(); }
-    g.strokeStyle = '#c8443a'; g.lineWidth = 10; g.beginPath(); g.arc(cx, cx, 114, -Math.PI * 0.75 - Math.PI / 2, -Math.PI * 0.75 - Math.PI / 2 + Math.PI * 0.375); g.stroke();
-    g.fillStyle = '#5a3622'; g.font = '700 26px "Silkscreen"'; g.textAlign = 'center'; g.fillText('PLUMB & CO.', cx, cx + 50); g.font = '400 30px "VT323"'; g.fillText('wood · varnish · spite', cx, cx + 78);
-    this.faceT.needsUpdate = true;
+    this.hp = -1; this.max = 1; this.block = 0;
   }
   set(hp, max, block) {
     if (hp !== this.hp || max !== this.max) { if (hp < this.hp) this.shake.kick(12); this.hp = hp; this.max = max; this.label.userData.setText([`${hp}/${max}`]); this.needleS.target = Math.max(0, hp / max); }
@@ -93,36 +81,33 @@ export class Gauge { // brass pressure gauge for Integrity (HP) + wooden block s
   }
   update(dt) {
     this.needleS.update(dt); this.shieldS.update(dt); this.shake.update(dt);
-    this.needle.rotation.z = Math.PI * 0.75 - this.needleS.value * Math.PI * 1.5 + Math.sin(performance.now() * 0.02) * 0.01;
+    this.needle.rotation.z = Math.PI * 0.75 - this.needleS.value * Math.PI * 1.5 + Math.sin(performance.now() * 0.02) * 0.008;
     this.group.rotation.z = this.shake.value * 0.02; const s = Math.max(0.001, this.shieldS.value); this.shield.scale.setScalar(s); this.shield.visible = s > 0.01;
   }
 }
 
-export class Bell { // brass desk bell: End Turn
+export class Bell { // hand-drawn brass desk bell: End Turn
   constructor() {
     const g = (this.group = new THREE.Group());
-    mk(S.slab(2.2, 0.35, 1.4, { seed: 11, taper: 0.1 }), woodM(), g, 0, -0.5, 0);
-    this.dome = new THREE.Group(); g.add(this.dome);
-    mk(S.turn([[0.001, 0.9], [0.25, 0.86], [0.55, 0.65], [0.78, 0.3], [0.92, 0.0], [0.95, -0.1], [0.001, -0.1]], { sides: 11, seed: 12, amt: 0.015 }), UIF({ color: 0xe6b450, metalness: 0.9, roughness: 0.22 }), this.dome, 0, -0.25, 0);
-    this.btn = mk(S.limb(0.25, 0.07, 0.06, { sides: 6, seed: 13 }), brassM(), this.dome, 0, 0.88, 0); this.btn.rotation.x = Math.PI;
-    this.tag = textPlane(['END TURN'], { w: 2.4, h: 0.55, font: 'Pixelify', size: 46, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 10] }); this.tag.position.set(0, -1.15, 0.8); g.add(this.tag);
-    this.press = new Spring(0, 30, 0.25); this.wob = new Spring(0, 12, 0.15); this.hover = false; this.enabled = true;
-    this.hit = mk(new THREE.BoxGeometry(2.4, 2.4, 1.6), new THREE.MeshBasicMaterial({ visible: false }), g, 0, 0.1, 0); this.hit.castShadow = false;
+    this.body = new THREE.Group(); g.add(this.body);
+    this.img = standee('bell', { height: 2.6, anchor: 'center', args: [0] }); this.body.add(this.img);
+    this.frames = [safeDrawn('bell', 0), safeDrawn('bell', 1)];
+    this.tag = textPlane(['END TURN'], { w: 2.4, h: 0.55, font: 'Pixelify', size: 46, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 10] }); this.tag.position.set(0, -1.6, 0.3); g.add(this.tag);
+    this.press = new Spring(0, 30, 0.25); this.wob = new Spring(0, 12, 0.15); this.hover = false; this.enabled = true; this.pressT = 0;
+    this.hit = mk(new THREE.BoxGeometry(2.6, 2.4, 1), new THREE.MeshBasicMaterial({ visible: false }), g, 0, 0, 0); this.hit.castShadow = false;
   }
-  ring() { this.press.kick(-14); this.wob.kick(10); }
-  update(dt) { this.press.update(dt); this.wob.update(dt); this.dome.position.y = Math.min(0, this.press.value * 0.05); this.dome.rotation.z = this.wob.value * 0.03 + (this.hover ? Math.sin(performance.now() * 0.012) * 0.03 : 0); this.dome.scale.y = 1 + Math.min(0, this.press.value) * 0.01; this.group.scale.setScalar(this.enabled ? 1 : 0.92); }
+  ring() { this.press.kick(-14); this.wob.kick(10); this.pressT = 0.18; this.setFrame(1); }
+  setFrame(i) { const f = this.frames[i]; if (f) { const t = pixelTex(f); if (this.img.material.map !== t) { this.img.material.map = t; this.img.material.needsUpdate = true; } } }
+  update(dt) { this.press.update(dt); this.wob.update(dt); if (this.pressT > 0) { this.pressT -= dt; if (this.pressT <= 0) this.setFrame(0); } this.body.rotation.z = this.wob.value * 0.03 + (this.hover ? Math.sin(performance.now() * 0.012) * 0.03 : 0); this.body.scale.set(1, 1 + Math.min(0, this.press.value) * 0.01, 1); this.group.scale.setScalar(this.enabled ? 1 : 0.92); }
 }
 
-export class Bin { // wicker basket of crumpled ideas: Second Thoughts
+export class Bin { // hand-drawn wicker basket of crumpled theories: Second Thoughts
   constructor() {
     const g = (this.group = new THREE.Group());
-    const weave = UIF({ map: TEX.blocks('wicker', ['#4a2a12', '#7a4a22', '#a87040', '#c89058', '#e0b070'], { bw: 6, bh: 4, mortar: 0.2 }), roughness: 0.9, side: THREE.DoubleSide });
-    mk(S.turn([[0.001, -0.8], [0.8, -0.8], [1.0, 0.0], [1.15, 0.7], [1.08, 0.75], [0.001, 0.6]], { sides: 9, seed: 21, amt: 0.03 }), weave, g);
-    for (let i = 0; i < 4; i++) mk(S.blob(0.28, 0.24, 0.26, { detail: 1, seed: 22 + i, amt: 0.35 }), UIF({ color: 0xf3e6c4, roughness: 1 }), g, -0.4 + i * 0.27, 0.62 + (i % 2) * 0.12, (i % 2) * 0.2);
-    this.tokens = [];
-    for (let i = 0; i < 4; i++) { const t = mk(S.facet(new THREE.CylinderGeometry(0.28, 0.28, 0.09, 9)), brassM(), g, 1.6, -0.6 + i * 0.12, 0.3); t.rotation.x = Math.PI / 2; this.tokens.push(t); }
-    this.tag = textPlane(['SECOND', 'THOUGHTS'], { w: 2.6, h: 0.9, font: 'Pixelify', size: 40, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 9], lineH: 1.0 }); this.tag.position.set(0.3, -1.4, 0.9); g.add(this.tag);
-    this.hit = mk(new THREE.BoxGeometry(2.8, 2.4, 1.6), new THREE.MeshBasicMaterial({ visible: false }), g, 0.3, 0, 0); this.hit.castShadow = false;
+    g.add(standee('basket', { height: 2.6, anchor: 'center' }));
+    this.tokens = []; for (let i = 0; i < 4; i++) { const t = standee('token', { height: 0.62, anchor: 'center' }); t.position.set(1.55 + (i % 2) * 0.18, -0.85 + i * 0.36, 0.2 + i * 0.01); g.add(t); this.tokens.push(t); }
+    this.tag = textPlane(['SECOND', 'THOUGHTS'], { w: 2.6, h: 0.9, font: 'Pixelify', size: 40, weight: 700, color: '#fff6cf', stroke: ['#1a1220', 9], lineH: 1.0 }); this.tag.position.set(0.1, -1.75, 0.5); g.add(this.tag);
+    this.hit = mk(new THREE.BoxGeometry(3, 2.6, 1), new THREE.MeshBasicMaterial({ visible: false }), g, 0.2, 0, 0); this.hit.castShadow = false;
     this.glow = new Spring(0, 12, 0.5); this.jig = new Spring(0, 18, 0.2); this.count = 3;
   }
   set(n) { if (n < this.count) this.jig.kick(10); this.count = n; this.tokens.forEach((t, i) => (t.visible = i < n)); }
@@ -143,15 +128,12 @@ export class Pile { // draw / discard pile: stacked card backs + count
   update(dt) { this.bump.update(dt); this.group.scale.setScalar(1 + this.bump.value * 0.02); }
 }
 
-export class Pouch { // leather coin pouch: gold. Shake it!
+export class Pouch { // hand-drawn leather coin pouch: gold. Shake it!
   constructor() {
     const g = (this.group = new THREE.Group());
-    mk(S.blob(0.75, 0.68, 0.6, { detail: 1, seed: 31, amt: 0.18 }), UIF({ color: 0x8a5634, roughness: 0.85 }), g);
-    mk(S.limb(0.4, 0.3, 0.42, { sides: 7, seed: 32 }), UIF({ color: 0x8a5634, roughness: 0.85 }), g, 0, 0.95, 0);
-    mk(S.facet(new THREE.TorusGeometry(0.32, 0.06, 3, 9)), UIF({ color: 0x3a2410 }), g, 0, 0.62, 0).rotation.x = Math.PI / 2;
-    for (let i = 0; i < 3; i++) { const c = mk(S.facet(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 8)), UIF({ color: 0xffd76a, metalness: 0.9, roughness: 0.25 }), g, -0.3 + i * 0.3, 0.85 + (i % 2) * 0.1, 0.25); c.rotation.x = 1.2; }
-    this.label = textPlane(['99'], { w: 1.8, h: 0.8, font: 'Pixelify', size: 70, weight: 700, color: '#ffe08a', stroke: ['#1a1220', 12] }); this.label.position.set(1.35, 0, 0.6); g.add(this.label);
-    this.hit = mk(new THREE.BoxGeometry(2.0, 2.2, 1.2), new THREE.MeshBasicMaterial({ visible: false }), g, 0.3, 0.2, 0); this.hit.castShadow = false;
+    this.img = standee('pouch', { height: 2.0, anchor: 'center' }); g.add(this.img);
+    this.label = textPlane(['99'], { w: 1.8, h: 0.8, font: 'Pixelify', size: 70, weight: 700, color: '#ffe08a', stroke: ['#1a1220', 12] }); this.label.position.set(1.45, -0.2, 0.6); g.add(this.label);
+    this.hit = mk(new THREE.BoxGeometry(2.2, 2.2, 1), new THREE.MeshBasicMaterial({ visible: false }), g, 0.3, 0, 0); this.hit.castShadow = false;
     this.jig = new Spring(0, 22, 0.15); this.gold = -1;
   }
   set(n) { if (n !== this.gold) { if (this.gold >= 0) this.jig.kick(8); this.gold = n; this.label.userData.setText([String(n)]); } }
