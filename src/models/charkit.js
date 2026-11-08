@@ -336,7 +336,7 @@ export class Loft {
     this.R = rings; this.M = sides; const vc = rings * (sides + 1);
     const g = (this.geo = new THREE.BufferGeometry()); const uv = new Float32Array(vc * 2); const idx = [];
     for (let r = 0; r < rings; r++) for (let s = 0; s <= sides; s++) { const i = r * (sides + 1) + s; uv[i * 2] = (s / sides) * uRep; uv[i * 2 + 1] = (r / (rings - 1)) * vRep; }
-    for (let r = 0; r < rings - 1; r++) for (let s = 0; s < sides; s++) { const a = r * (sides + 1) + s, b = a + sides + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    for (let r = 0; r < rings - 1; r++) for (let s = 0; s < sides; s++) { const a = r * (sides + 1) + s, b = a + sides + 1; idx.push(a, a + 1, b, a + 1, b + 1, b); } // outward-facing winding
     g.setIndex(idx); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vc * 3), 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
     this.pts = Array.from({ length: rings }, () => new THREE.Vector3());
   }

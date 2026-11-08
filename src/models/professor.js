@@ -174,7 +174,7 @@ export function createProfessor() {
   K.mesh(new K.Loft(20, 24).set((t, p) => p.set(0, -0.08 + t * 0.17, 0), (t) => [0.17 * capR(t, 0.25), 0.12 * capR(t, 0.25)], { ref: (t, n) => n.set(0, 0, 1) }).geo, M.oakB, pelvis);
   const torso = J(pelvis, 0, 0.12, 0);
   K.mesh(new K.Loft(32, 28).set((t, p) => p.set(0, 0.02 + t * 0.5, 0), (t) => { const w = 0.15 + Math.sin(Math.min(1, t * 1.15) * Math.PI * 0.62) * 0.07; return [w * capR(t, 0.12), (0.11 + t * 0.02) * capR(t, 0.12)]; }, { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => 1 + Math.max(0, Math.cos(a)) * 0.06 * Math.sin(t * Math.PI) }).geo, M.torso, torso);
-  for (const y of [0.16, 0.24]) torso.add(hoop(V(0, y, 0), V(0, 1, 0), 0.2, 0.004, M.brass)); // wire wrapped round the split
+  for (const y of [0.1, 0.16]) torso.add(hoop(V(0, y, 0.0), V(0, 1, 0), 0.172, 0.004, M.brass)); // wire wrapped round the split
   for (const [y, z] of [[0.12, 0.1], [0.3, 0.1], [0.42, 0.09]]) torso.add(nail(V(0.06, y, z), V(-0.3, 0.1, 1).normalize(), 0.03, M.brass));
   const neck = J(torso, 0, 0.56, -0.01); K.mesh(new K.Loft(10, 16).set((t, p) => p.set(0, -0.02 + t * 0.13, 0), () => 0.042).geo, M.oak, neck);
   const head = J(neck, 0, 0.12, 0.0); const headMesh = new THREE.Group(); head.add(headMesh);
@@ -188,7 +188,7 @@ export function createProfessor() {
   // lace cravat, waistcoat, tattered frock coat with sleeves and tails, standing collar
   K.mesh(new K.Loft(12, 16).set(K.curve([[0, 0.55, 0.11], [0, 0.47, 0.135], [0, 0.36, 0.14]]), (t) => [0.03 + t * 0.03, 0.012 + t * 0.006], { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => 1 + Math.sin(a * 5 + t * 14) * 0.22 }).geo, M.lace, torso);
   torso.add(sheet(8, 14, (u, v, p) => { const th = (u - 0.5) * 1.5; const y = 0.06 + v * 0.42; const w = 0.15 + Math.sin(Math.min(1, (y / 0.52) * 1.15) * Math.PI * 0.62) * 0.07 + 0.012; p.set(Math.sin(th) * w, y, Math.cos(th) * (0.115 + y * 0.04 + 0.012)); }, M.vest));
-  torso.add(sheet(10, 26, (u, v, p) => { const th = 0.62 + u * (TAU - 1.24); const y = -0.02 + v * 0.56; const w = 0.17 + Math.sin(Math.min(1, (y / 0.52) * 1.15) * Math.PI * 0.62) * 0.07 + 0.02; p.set(Math.sin(th) * w, y, Math.cos(th) * (0.13 + 0.03 + y * 0.02)); }, M.coat));
+  torso.add(sheet(10, 26, (u, v, p) => { const th = 0.62 + u * (TAU - 1.24); const y = 0.54 - v * 0.56; const w = 0.17 + Math.sin(Math.min(1, (y / 0.52) * 1.15) * Math.PI * 0.62) * 0.07 + 0.02; p.set(Math.sin(th) * w, y, Math.cos(th) * (0.13 + 0.03 + y * 0.02)); }, M.coat));
   torso.add(sheet(3, 16, (u, v, p) => { const th = 1.0 + u * (TAU - 2.0); const r = 0.06 + v * 0.03; p.set(Math.sin(th) * r, 0.54 + v * 0.09, -0.01 + Math.cos(th) * r); }, M.coat));
   const tails = J(pelvis, 0, 0.1, -0.05);
   tails.add(sheet(10, 16, (u, v, p) => { const th = 2.05 + u * (TAU - 4.1); const y = -v * 0.58; const r = 0.19 + v * 0.07; p.set(Math.sin(th) * r * (Math.abs(u - 0.5) < 0.02 && v > 0.3 ? 1.02 : 1), y, Math.cos(th) * (r * 0.75)); }, M.coat));
@@ -217,7 +217,7 @@ export function createProfessor() {
   const woodMat = K.uvMat('cross-wood', 64, 256, (u, v, o) => woodPx(o, u, v, hex('#b8783c'), C.oakD, { cracks: 1, seed: 3 }));
   const bar = (len, r) => K.mesh(new K.Loft(30, 16).set((t, p) => p.set((t - 0.5) * len, 0, 0), (t) => { const e = Math.min(t, 1 - t) * len; return r * (e < 0.035 ? 0.4 + e / 0.035 * 1.1 : e < 0.06 ? 1.5 - (e - 0.035) * 22 : e < 0.075 ? 0.85 : 1 + Math.sin(e * 40) * 0.04); }, { ref: (t, n) => n.set(0, 1, 0) }).geo, woodMat);
   cross.add(bar(1.04, 0.032)); { const b = bar(0.66, 0.03); b.rotation.y = Math.PI / 2; cross.add(b); }
-  const smat = spectralMat(); const S = spectralHand(smat); const ghost = S.hand; ghost.position.set(0, 0.02, 0.02); ctrl.add(ghost); ghost.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+  const smat = spectralMat(); const S = spectralHand(smat); const ghost = S.hand; ghost.position.set(0, -0.2, -0.05); ctrl.add(ghost); ghost.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
   const NM = 46; const mp = new Float32Array(NM * 3); const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.BufferAttribute(mp, 3));
   const motes = new THREE.Points(mg, new THREE.PointsMaterial({ color: new THREE.Color(0xb8f4ff).multiplyScalar(2.2), size: 0.045, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })); motes.frustumCulled = false; ctrl.add(motes);
   const moteSeed = Array.from({ length: NM }, (_, i) => [Math.random() * TAU, 0.2 + Math.random() * 0.7, Math.random() * 3, 0.3 + Math.random() * 0.7]);
@@ -265,7 +265,7 @@ export function createProfessor() {
       st.slack.update(dt); const sl = Math.max(0, st.slack.value); if (sl > 0.02) { H.curl.target = 0.15; P.L.target *= 1 - sl; P.R.target *= 1 - sl; P.kL.target *= 1 - sl; P.kR.target *= 1 - sl; P.head.target *= 1 - sl; }
       for (const k in H) H[k].update(dt); for (const k in P) P[k].update(dt);
       ctrl.position.set(H.x.value * 0.6, 3.55 + H.y.value, H.z.value * 0.5); cross.rotation.set(H.tilt.value, 0, H.roll.value);
-      ghost.rotation.set(H.tilt.value * 0.6, Math.sin(t * 0.5) * 0.08, H.roll.value * 0.6);
+      ghost.rotation.set(H.tilt.value * 0.6, Math.sin(t * 0.5) * 0.08, H.roll.value * 0.6); ghost.position.y = -0.2 + Math.sin(t * 1.3) * 0.02;
       S.fingers.forEach((f, i) => f.forEach((j, k) => { j.rotation.x = H.curl.value * (0.55 + k * 0.25) + Math.sin(t * 2.3 + i) * 0.04; }));
       S.thumb.rotation.z = -0.2 + H.curl.value * 0.3; smat.uniforms.uTime.value = t;
       for (let i = 0; i < NM; i++) { const [a, r, ph, sp2] = moteSeed[i]; const y = ((t * sp2 * 0.25 + ph) % 1.6) - 0.3; mp.set([Math.cos(a + t * sp2 * 0.6) * r, y + 0.3, Math.sin(a + t * sp2 * 0.6) * r * 0.8 - 0.25], i * 3); } mg.attributes.position.needsUpdate = true;

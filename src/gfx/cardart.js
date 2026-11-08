@@ -6,7 +6,7 @@ import { roman, hashString } from '../core/util.js';
 import { Spr, toCanvas } from './cards/kit.js';
 import { K, TRIM, ENAMEL } from './cards/pal.js';
 import { CW, CH, AX, AY, AW, AH, MED, drawFrame, medallion, emblem, windowCorners, backPanel } from './cards/frame.js';
-import { backdrop, shadow } from './cards/backdrops.js';
+import { backdrop, shadow, backlight } from './cards/backdrops.js';
 import { SUBJECTS } from './cards/subjects.js';
 import { MAGIC } from './cards/magic.js';
 import { POWER_SUBJECTS } from './cards/powers.js';
@@ -29,6 +29,7 @@ export function compose(kind, sub, seed) {
     if (bg.ground != null && !sub.float) { oy = bg.ground + 1 - ay + (sub.dy || 0); shadow(bg, gx + (sub.sx || 0), bg.ground, sub.sw || bb.w * 0.8); }
     else if (bg.ground != null && sub.float) { const lift = Math.max(0, Math.min(6, bg.ground - 2 - (bb.y1 - bb.y0))); oy = bg.ground - lift - bb.y1 + (sub.dy || 0); shadow(bg, gx + (sub.sx || 0), bg.ground, (sub.sw || bb.w) * 0.55); }
     else oy = Math.round(AH / 2 - (bb.y0 + bb.y1 + 1) / 2) + (sub.dy || 0);
+    backlight(bg, sub, ox, oy);
     sub.draw(bg, ox, oy);
   }
   return bg;

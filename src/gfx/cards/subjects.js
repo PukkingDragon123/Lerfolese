@@ -261,8 +261,6 @@ export function railBall({ steel = false, len = 124, ballX = 66 } = {}) {
   for (let x = 2; x < len - 2; x += 8) layer(s, (t) => { t.fill(poly([[x, 32], [x + 5, 32], [x + 4, 36], [x - 1, 36]]), (px, py) => K.oak[py === 32 ? 5 : py > 34 ? 2 : 3]); });
   // back rail, ball, front rail
   layer(s, (t) => { t.fill(box(0, 28, len, 2), (x, y) => K.steel[y === 28 ? 5 : 3]); });
-  // motion lines behind the ball
-  for (const [x0, y, n] of [[ballX - 26, 16, 10], [ballX - 30, 21, 14], [ballX - 24, 26, 8]]) for (let x = x0; x < x0 + n; x++) s.px(x, y, x < x0 + 3 ? K.cream[3] : K.cream[5]);
   layer(s, (t) => {
     orb(t, ell(ballX, 21, 10.5, 10.5), ballX, 21, 10.5, 10.5, B, { lo: 1, hi: 5, thr: [-0.3, 0.1, 0.5, 0.8] });
     t.clean();

@@ -47,7 +47,8 @@ export class MapScene extends UIScreen {
   story() {
     const lines = ['In 1687 a man published the laws of motion.', 'In 1688 the gods read them. They did not care for them.', 'Humanity had found the source code of the universe,', 'so the gods turned it off and on again. Forever.', 'One mind remembers every loop: Sir Isaac Plumb,', 'natural philosopher, deceased, still taking notes.', 'His body is gone. His marionette is not.'];
     const st = (this.storyPanel = new Panel('The Loop', lines, { w: Math.min(17, this.W * 1.7), h: 9, titleColor: '#5a1a22' })); uiPos(st.group, 0, 0.6, 9); this.root.add(st.group); audio.play('paper_rustle');
-    tweens.wait(8).then(() => { st.s.target = 0; audio.play('paper_rustle', { vol: 0.5 }); return tweens.wait(0.7); }).then(() => { this.root.remove(st.group); this.storyPanel = null; });
+    st.ty = st.group.position.y; st.seal = new Strip(['click to roll it up'], { font: 'handS', tone: 3, tacks: 0, maxW: 8 }); st.seal.group.position.set(0, -st.scroll.h / 2 - 0.75, 0.2); st.group.add(st.seal.group);
+    clearTimeout(this._storyT); this._storyT = setTimeout(() => this.dismissStory(), 9000); // real time, not game time
     this.game.journal.seenIntro = true; this.game.saveJournal();
   }
 
@@ -94,7 +95,14 @@ export class MapScene extends UIScreen {
     const nd = this.rayNodes(); if (nd !== this.hoverNode) { this.hoverNode = nd; this.sheet?.hover(nd); if (nd) { const [t, d] = NODE_INFO[nd.type]; audio.play('ui_hover', { vol: 0.4 }); this.tip.show([[[t, nd.type === 'elite' || nd.type === 'guardian' ? '#8f2a2e' : '#3a2410']], [[d, '#2a160c']], [[this.reach.has(nd.id) ? 'Click to travel here.' : 'Not reachable yet.', this.reach.has(nd.id) ? '#2d6e6a' : '#8a6a44']]], 0, -this.H + 3.5, 8); } else this.tip.hide(); }
     // pan the view towards the pointer edges
   }
+  // roll the story scroll up and let it slide away upward (click anywhere, or after nine real seconds)
+  dismissStory() {
+    const st = this.storyPanel; if (!st || st.leaving) return; st.leaving = performance.now(); clearTimeout(this._storyT);
+    st.s.target = 0; audio.play('paper_rustle', { vol: 0.5 }); st.seal.group.visible = false;
+    setTimeout(() => { if (this.storyPanel === st) { this.root.remove(st.group); this.storyPanel = null; } }, 1100);
+  }
   onClick() {
+    if (this.storyPanel && !this.storyPanel.leaving) { this.dismissStory(); return true; }
     if (this.journal?.isOpen || this.deckView?.isOpen || this.travelling) return;
     const nd = this.rayNodes(); if (!nd) return; if (!this.reach.has(nd.id)) { audio.play('ui_error'); return; }
     this.travel(nd); return true;
@@ -115,7 +123,7 @@ export class MapScene extends UIScreen {
     // parchment map: camera scroll, living layer, node animation, VFX (mapsheet.js)
     for (const sp of [this.pitch, this.dist, this.fz]) sp.update(dt);
     this.sheet.update(dt, t, { fz: this.fz.value, dist: this.dist.value, pitch: this.pitch.value, ndc: this.input.ndc }); this.pawn.update(dt);
-    this.updateUI(dt); for (const it of this.items) it.update(dt, t); this.hint.update(dt, this.ptr(2)); this.storyPanel?.update(dt, null);
+    this.updateUI(dt); for (const it of this.items) it.update(dt, t); this.hint.update(dt, this.ptr(2)); if (this.storyPanel) { const st = this.storyPanel; st.update(dt, null); st.seal.update(dt, null); if (st.leaving) { const k = Math.min(1, (performance.now() - st.leaving) / 1000); st.group.position.y = st.ty + k * k * 16; } }
     this.journal?.update(dt, t); this.deckView?.update(dt, t);
   }
   dispose() { super.dispose(); this.runHud?.dispose(); }

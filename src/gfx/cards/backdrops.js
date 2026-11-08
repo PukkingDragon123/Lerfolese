@@ -44,8 +44,8 @@ const P = {
   star: ramp('#3a4478', '#5a68a8', '#8a9ad0', '#c8d4f4', '#ffffff'),
   moon: ramp('#8a8a9a', '#c2bea8', '#e8e2c4', '#fbf6e0'),
   nightFar: ramp('#1a2648', '#22305a', '#2c3c6c'),
-  nightMid: ramp('#101a34', '#16223e', '#1e2c4e', '#3a5080'),
-  nightNear: ramp('#080e1c', '#0c1426', '#121c32', '#1a283e', '#2a3e5a', '#3e5878'),
+  nightMid: ramp('#141e3a', '#1a2646', '#24325a', '#44609a'),
+  nightNear: ramp('#0a1222', '#101a30', '#18243e', '#22324e', '#34486a', '#4a6488'),
   lamp: ramp('#5a2a10', '#c87a28', '#ffd070'),
   // space
   void: ramp('#020208', '#05040e', '#090718', '#0e0b22', '#15102e'),
@@ -130,7 +130,7 @@ function seaScene(s, r, n) {
   sky(s, P.duskSky, [0, 5, 10, 15, 20, 25, 29, 33, 35], n, hz);
   // setting sun sitting on the horizon, a band of glow either side
   const sx = 24 + Math.floor(r() * 50);
-  s.fill(ell(sx, hz, 6, 6), (x, y) => (y < hz ? P.sun[(x + y) % 5 === 0 ? 2 : 3] : null)); s.fill((x, y) => y === hz - 1 && Math.abs(x - sx) < 9 && !(Math.abs(x - sx) < 6), P.sun[1]);
+  s.fill(ell(sx, hz, 6.5, 6.5), (x, y) => (y < hz ? (ell(sx - 1, hz - 1, 4.5, 4.5)(x, y) ? P.sun[3] : P.sun[2]) : null)); s.fill((x, y) => y === hz - 1 && Math.abs(x - sx) < 9 && !(Math.abs(x - sx) < 6), P.sun[1]);
   streak(s, sx - 16, 18, 12, P.duskSky[7], P.duskSky[6]); streak(s, sx + 6, 13, 18, P.duskSky[6], P.duskSky[5]); streak(s, 4, 26, 10, P.duskSky[8], P.duskSky[7]);
   // sea: darkening toward the viewer, the sun's road in broken strokes, wave glints
   s.fill((x, y) => y >= hz, (x, y) => P.sea[Math.max(0, 5 - Math.floor((y - hz) / 3))]);
@@ -142,9 +142,9 @@ function seaScene(s, r, n) {
   for (let x = 0; x < 40; x++) {
     const top = Math.round(ct(x));
     for (let y = top; y < GY; y++) {
-      const k = y - top; const facetLit = x > 25 ? true : ((x + Math.floor((y - top) * 0.5)) % 11) < 5; let c = P.cliff[facetLit ? 4 : 3];
-      if (x > 25) c = P.cliff[k < 1 ? 6 : 5]; if (k === 0) c = P.cliff[6]; else if (y > GY - 6) c = P.cliff[x > 25 ? 3 : 2];
-      if ((y + Math.floor(x / 7)) % 7 === 0 && k > 1 && ((x * 13) % 5) < 3) c = P.cliff[x > 25 ? 4 : 2];
+      const k = y - top; const plate = n.fbm(x * 0.22 + 3, y * 0.07, 2); const front = x > 25; let c = P.cliff[front ? (plate > 0.55 ? 6 : 5) : plate > 0.62 ? 4 : plate > 0.45 ? 3 : 2];
+      if (k === 0) c = P.cliff[6]; else if (y > GY - 5) c = P.cliff[front ? 3 : 1];
+      if (y % 8 === 3 && k > 2 && n(x * 0.3, y) > 0.45) c = dk(c);
       s.px(cx(x), y, c);
     }
   }
@@ -263,7 +263,7 @@ function planetScene(s, r, n, ground) {
     gasGiant(s, 14 + r() * 10, 12, 6, 0.3);
     moonGround(s, r, n);
   } else {
-    const left = r() < 0.5; gasGiant(s, left ? 18 : 88, 44, 22, 0.24);
+    const left = r() < 0.5; gasGiant(s, left ? 6 : 100, 52, 17, 0.24);
     const m = new Spr(BW, BH); m.fill(ell(left ? 86 : 22, 12, 4, 4), (x, y) => P.rock[x + y < (left ? 98 : 34) ? 6 : 4]); m.outline({ col: P.rock[1] }); m.draw(s);
   }
 }
@@ -285,6 +285,17 @@ export function backdrop(kind, seed = 1) {
   else if (kind === 'energy' || kind === 'law') { pick(SPACE)(s, r, n, true); s.ground = GY - 1; }
   else { pick(SPACE)(s, r, n, false); s.ground = null; }
   return s;
+}
+
+// backlight: on very dark skies, a one-pixel dim halo around a subject keeps its silhouette readable
+const DARK = new Set([...P.void, ...P.nightSky.slice(0, 3), P.sstar[0], P.sstar[1], P.nebV[0], P.nebV[1], P.nebC[0], P.nebC[1], P.nebM[0], P.nebM[1], P.nebO[0], P.nebO[1]]);
+export function backlight(s, sub, ox, oy, col = '#2c2a54') {
+  const at = (x, y) => !!sub.get(x - ox, y - oy);
+  for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+    if (at(x, y) || !DARK.has(s.get(x, y))) continue;
+    let near = false; for (let j = -1; j <= 1 && !near; j++) for (let i = -1; i <= 1; i++) if (at(x + i, y + j)) { near = true; break; }
+    if (near) s.px(x, y, col);
+  }
 }
 
 // contact shadow on the ground under a subject: two flat steps darker than whatever is there
