@@ -80,7 +80,9 @@ export class LimboBody {
 }
 
 // ---------------------------------------------------------------- procedural animator
-const DUR = { attack: 0.9, throw: 0.8, hit: 0.55, cast: 1.1, cheer: 1.4, death: 1.2, punch: 0.7 };
+const DUR = { attack: 1.0, strike: 1.0, throw: 0.8, hit: 0.75, cast: 1.1, cheer: 1.4, death: 1.5, punch: 1.0 };
+/** seconds from act('attack') to the strike landing (anticipation -> strike) */
+export const IMPACT = 0.45;
 const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 export class LimboAnim {
   constructor(L, { sway = 1, speed = 1, fall = true } = {}) { this.fall = fall; this.L = L; this.t = Math.random() * 10; this.mode = 'idle'; this.mt = 0; this.hold = false; this.sway = sway; this.speed = speed; this.dead = 0; this.extra = null; }
@@ -94,19 +96,40 @@ export class LimboAnim {
     add('head', Math.sin(t * 1.3) * 0.03, Math.sin(t * 0.5) * 0.1 * sw, 0);
     add('uarmL', -0.05 + Math.sin(t * 1.6) * 0.03, 0, 0.1); add('uarmR', -0.05 + Math.sin(t * 1.6 + 1) * 0.03, 0, -0.1); add('farmL', -0.25); add('farmR', -0.25);
     add('fing1L', 0, 0, -0.5); add('fing1R', 0, 0, 0.5); add('fing2L', 0, 0, -0.6); add('fing2R', 0, 0, 0.6);
-    const d = DUR[this.mode] || 1; const p = this.mt / d; const e = Math.sin(Math.min(1, p) * Math.PI);
+    const d = DUR[this.mode] || 1; const p = this.mt / d; const e = Math.sin(Math.min(1, p) * Math.PI); this.drop = 0; this.fwd = 0;
     switch (this.mode) {
-      case 'attack': case 'punch': { const w = p < 0.35 ? ss(0, 0.35, p) : 1 - ss(0.35, 0.6, p) * 1.8; add('uarmR', 0.8 * w - (p > 0.35 ? 1.1 * e : 0), 0, -0.2 * e); add('farmR', -0.9 * e); add('chest', 0.15 * e, -0.5 * (p < 0.35 ? w : -w * 0.6)); add('spine', 0.1 * e); add('uarmL', -0.3 * e, 0, 0.3 * e); break; }
+      case 'attack': case 'punch': { // anticipation (wind back + crouch) -> strike (step in, twist through) -> follow-through -> recover
+        const a = ss(0, 0.4, p) * (1 - ss(0.4, 0.5, p)), k = ss(0.4, 0.5, p) * (1 - ss(0.68, 1.0, p));
+        add('uarmR', 0.95 * a - 1.75 * k, 0, -0.25 * a - 0.1 * k); add('farmR', -1.1 * a - 0.25 * k); add('handR', 0.4 * a - 0.3 * k);
+        add('chest', -0.12 * a + 0.32 * k, -0.55 * a + 0.5 * k); add('spine', -0.05 * a + 0.2 * k, -0.2 * a + 0.2 * k); add('head', 0.12 * a - 0.12 * k, 0.3 * a - 0.2 * k);
+        add('uarmL', -0.45 * a + 0.35 * k, 0, 0.35 * a + 0.2 * k); add('farmL', -0.8 * a - 0.3 * k);
+        add('thighL', -0.3 * a - 0.55 * k); add('shinL', 0.55 * a + 0.35 * k); add('thighR', 0.1 * a + 0.35 * k); add('shinR', 0.5 * a + 0.25 * k); add('footL', -0.2 * a); add('footR', -0.2 * a);
+        this.drop = 0.07 * a + 0.04 * k; this.fwd = -0.05 * a + 0.13 * k; break; }
+      case 'strike': { // serpent strike: coil back, lash forward with both claws
+        const a = ss(0, 0.4, p) * (1 - ss(0.4, 0.5, p)), k = ss(0.4, 0.5, p) * (1 - ss(0.7, 1.0, p));
+        add('spine', -0.35 * a + 0.45 * k); add('chest', -0.3 * a + 0.4 * k); add('neck', -0.2 * a + 0.2 * k); add('head', -0.25 * a - 0.1 * k);
+        add('uarmL', 0.6 * a - 1.5 * k, 0, 0.5 * a); add('uarmR', 0.6 * a - 1.5 * k, 0, -0.5 * a); add('farmL', -0.9 * a - 0.2 * k); add('farmR', -0.9 * a - 0.2 * k);
+        this.drop = 0.05 * a; this.fwd = -0.08 * a + 0.16 * k; break; }
       case 'throw': { const w = p < 0.4 ? ss(0, 0.4, p) : 1 - ss(0.4, 0.65, p) * 2; add('uarmR', -1.2 * Math.max(0, w) + (p > 0.4 ? -1.6 * e : -1.2 * e), 0, -0.3 * e); add('farmR', -1.0 * e); add('chest', -0.1 * w + 0.15 * e, 0.3 * w); break; }
-      case 'hit': add('spine', -0.3 * e); add('chest', -0.2 * e); add('head', -0.35 * e, 0.2 * e); add('uarmL', 0, 0, 0.5 * e); add('uarmR', 0, 0, -0.5 * e); add('farmL', -0.6 * e); add('farmR', -0.6 * e); break;
+      case 'hit': { // stagger: snap back, a step back on one leg, arms flung, recover
+        const k = ss(0, 0.1, p) * (1 - ss(0.35, 1, p)); const w = Math.sin(p * 18) * 0.06 * k;
+        add('spine', -0.38 * k); add('chest', -0.25 * k, 0.18 * k + w); add('head', -0.45 * k, 0.25 * k);
+        add('uarmL', -0.5 * k, 0, 0.65 * k); add('uarmR', 0.35 * k, 0, -0.75 * k); add('farmL', -0.7 * k); add('farmR', -0.5 * k);
+        add('thighR', 0.4 * k); add('shinR', 0.3 * k); add('thighL', -0.15 * k); add('shinL', 0.45 * k);
+        this.drop = 0.05 * k; this.fwd = -0.12 * k; break; }
       case 'cast': add('uarmL', -1.5 * e, 0, 0.2 * e); add('uarmR', -1.5 * e, 0, -0.2 * e); add('farmL', -0.3 * e); add('farmR', -0.3 * e); add('chest', -0.12 * e); add('head', -0.15 * e); break;
       case 'cheer': { const k = Math.min(1, p * 4) * (1 - ss(0.8, 1, p)); add('uarmL', -0.3 * k, 0, 2.5 * k); add('uarmR', -0.3 * k, 0, -2.5 * k); add('farmL', 0, 0, 0.3 * k + Math.sin(t * 14) * 0.15 * k); add('farmR', 0, 0, -0.3 * k - Math.sin(t * 14) * 0.15 * k); add('head', -0.2 * k); break; }
-      case 'death': { const k = ss(0, 1, p); this.dead = k; add('spine', 0.3 * k); add('head', 0.4 * k); add('thighL', -0.6 * k); add('thighR', -0.5 * k); add('shinL', 1.2 * k); add('shinR', 1.0 * k); add('uarmL', 0, 0, 0.9 * k); add('uarmR', 0, 0, -0.7 * k); break; }
+      case 'death': { // stagger, knees give, a gravity fall onto the back with a small bounce, limbs splay
+        const k1 = ss(0, 0.2, p), f = p < 0.2 ? 0 : Math.min(1, ((p - 0.2) / 0.45) ** 2), b = p > 0.65 ? Math.sin(Math.min(1, (p - 0.65) / 0.2) * Math.PI) * 0.12 * (1 - ss(0.85, 1, p)) : 0;
+        this.dead = Math.max(0, f - b * 0.6);
+        add('head', -0.4 * k1 + 0.5 * f, 0.3 * f); add('spine', -0.2 * k1 + 0.15 * f); add('chest', -0.15 * k1);
+        add('uarmL', -0.6 * k1 * (1 - f), 0, 0.5 * k1 + 0.7 * f); add('uarmR', -0.4 * k1 * (1 - f), 0, -0.4 * k1 - 0.8 * f); add('farmL', -0.5 * f); add('farmR', -0.3 * f);
+        add('thighL', -0.5 * k1 - 0.4 * f); add('thighR', -0.2 * k1 - 0.7 * f); add('shinL', 0.9 * k1 + 0.3 * f); add('shinR', 0.5 * k1 + 0.6 * f); this.drop = 0.1 * k1 * (1 - f); break; }
     }
     if (this.mode !== 'idle' && this.mode !== 'death' && this.mt > d) this.mode = 'idle';
     this.extra?.(add, t, this);
     for (const j in B) { if (SEC_BONES.includes(j)) continue; const p2 = P[j]; if (p2) B[j].rotation.set(p2[0], p2[1], p2[2]); else B[j].rotation.set(0, 0, 0); }
-    const hips = B.hips; if (this.fall) { hips.position.y = this.L.dims.off.hips[1] - this.dead * this.L.dims.off.hips[1] * 0.78; hips.rotation.x += -this.dead * 1.25; }
+    const hips = B.hips; hips.position.y = this.L.dims.off.hips[1] * (1 - this.drop); hips.position.z = this.fwd; if (this.fall) { hips.position.y = this.L.dims.off.hips[1] - this.dead * this.L.dims.off.hips[1] * 0.78; hips.rotation.x += -this.dead * 1.25; }
     this.L.update(dt);
   }
 }

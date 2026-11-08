@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { Spring } from '../core/tween.js';
 import * as K from './charkit.js';
-import { LimboBody, LimboAnim } from './limbo/rig.js';
+import { LimboBody, LimboAnim, IMPACT } from './limbo/rig.js';
 import { isBeast, createBeast } from './beasts/index.js';
 
 const { hex } = K;
@@ -32,7 +32,8 @@ function rig(root, height, proc = false) {
   const st = { t: Math.random() * 10, mode: 'idle', modeT: 0, hit: new Spring(0, 14, 0.35), lunge: new Spring(0, 9, 0.45), lift: new Spring(0, 10, 0.4), dead: 0, talk: 0 };
   return {
     root, height, st,
-    act(mode) { st.mode = mode; st.modeT = 0; if (mode === 'hurt') st.hit.kick(10); if (mode === 'attack') st.lunge.kick(9); if (mode === 'cast') st.lift.kick(6); if (mode === 'die') st.dead = 0.001; this.onAct?.(mode); },
+    act(mode) { st.mode = mode; st.modeT = 0; if (mode === 'hurt') st.hit.kick(10); if (mode === 'attack') st.lunge.kick(9); if (mode === 'cast') st.lift.kick(6); if (mode === 'die') st.dead = 0.001; this.onAct?.(mode); return mode === 'attack' ? this.impactTime : undefined; },
+    impactTime: 0.3,
     talk(s = 1) { st.talk = s; },
     common(dt) {
       st.t += dt; st.modeT += dt; for (const k of ['hit', 'lunge', 'lift']) st[k].update(dt);
@@ -51,7 +52,7 @@ function limboHumanoid(id, cfg, seed) {
   const sc = cfg.height / (cfg.refH || L.P.crown); L.root.scale.setScalar(sc); root.add(L.root);
   const anim = new LimboAnim(L, { sway: cfg.sway ?? 1, speed: cfg.speed ?? 1, fall: cfg.fall ?? true }); anim.t += seed * 1.7;
   const head = new THREE.Group(); L.bones.head.add(head); head.position.set(0, 0.14, 0.03);
-  const R_ = rig(root, cfg.height); R_.head = head; const M = { L, B: L.bones, P: L.P, anim, x: {}, root, sc };
+  const R_ = rig(root, cfg.height); R_.head = head; R_.impactTime = IMPACT; const M = { L, B: L.bones, P: L.P, anim, x: {}, root, sc };
   R_.onAct = (mode) => { const a = { ...ANIM, attack: cfg.attack || 'attack', cast: cfg.cast || 'cast' }[mode]; if (a) anim.play(a, { hold: mode === 'die' }); if (mode === 'hurt') L.setExpression('pain', 0.9); if (mode === 'attack' || mode === 'cast') L.setExpression(cfg.angry || 'angry', 1.2); };
   R_.talk = (s = 1) => { R_.st.talk = s; L.talk(s); };
   cfg.build?.(M);
@@ -105,7 +106,7 @@ function satyr(seed) {
   return limboHumanoid('satyr', {
     app: { skin: 0xc47c4e, hair: 0x3a2216, hairStyle: 'curly', facialHair: 'beard', build: 'heavy', age: 0.45, nose: 2, ears: 2, mouth: 1, face: 6, eyeColor: 0x8a5a1a },
     outfit: { legs: { tex: 'c_sweatpants', color: 0x8a5a38 }, legsKind: 'pants' }, severed: ['shin_l', 'shin_r'], hook: satyrHook,
-    overrides: { blush: 0.7, hairVolume: 1.2 }, height: 2.0, expr: 'happy', attack: 'punch', speed: 0.85,
+    overrides: { blush: 0.7, hairVolume: 1.2 }, height: 2.0, expr: 'happy', attack: 'attack', speed: 0.85,
     build(M) {
       const { L, P } = M; const fm = goatFur(), hm = hoofMat();
       for (const [b, x] of [['shinL', L.restOf('shinL').x], ['shinR', L.restOf('shinR').x]]) {
@@ -163,7 +164,7 @@ function medusa(seed) {
   return limboHumanoid('medusa', {
     app: { skin: 0x5c9c5c, hair: 0x1e4a2e, hairStyle: 'buzz', bodyShape: 1, build: 'slim', age: 0, eyeColor: 0xd8f040, mouth: 1, face: 7, brows: 3 },
     outfit: { torso: { tex: 'c_bandeau', color: 0x6a2c7a } }, severed: ['thigh_l', 'thigh_r'], hook: medusaHook,
-    overrides: { makeup: { liner: 1, lash: 1, shadow: [60, 140, 80] }, lipstick: 0x5a2650 }, height: 2.3, refH: 1.75, expr: 'cool', angry: 'angry', attack: 'cast', fall: false,
+    overrides: { makeup: { liner: 1, lash: 1, shadow: [60, 140, 80] }, lipstick: 0x5a2650 }, height: 2.3, refH: 1.75, expr: 'cool', angry: 'angry', attack: 'strike', fall: false,
     build(M) {
       const { L, P } = M; const tg = new THREE.Group(); at(L, 'hips', tg); const hy = L.restOf('hips').y;
       const pts = [new THREE.Vector3(0, hy + 0.04, 0), new THREE.Vector3(0, hy * 0.55, 0.03), new THREE.Vector3(0.02, 0.22, 0.12)];
@@ -210,7 +211,7 @@ function kobalos(seed) {
   return limboHumanoid('kobalos', {
     app: { skin: 0xa8d24e, hair: 0x2a2a18, hairStyle: 'bald', build: 'slim', age: 0.6, ears: 2, nose: 3, mouth: 5, eyeColor: 0xffd02c, face: 7, brows: 1, height: 1 },
     outfit: { torso: { tex: 'c_hoodie', color: 0xc42e3c }, legs: { tex: 'c_shorts', color: 0xe0a040 }, legsKind: 'shorts' }, hook: kobHook,
-    height: 1.5, expr: 'grin', angry: 'grin', attack: 'punch', cast: 'throw', speed: 1.25,
+    height: 1.5, expr: 'grin', angry: 'grin', attack: 'attack', cast: 'throw', speed: 1.25,
     build(M) {
       const { L, P, B } = M; B.head.scale.setScalar(1.42); for (const k of ['uarmL', 'uarmR', 'farmL', 'farmR']) B[k].scale.set(1, 1.22, 1); B.handL.scale.setScalar(1.3); B.handR.scale.setScalar(1.3); B.footL.scale.setScalar(1.35); B.footR.scale.setScalar(1.35);
       const em = K.uvMat('kob-ear', 64, 64, (u, v, o) => { const inner = Math.sin(u * Math.PI * 2) > 0.3; K.tone(inner ? hex('#e07a6a') : [168, 210, 78], K.band(0.5 + Math.cos(u * 6.28) * 0.2 - (inner ? 0.1 : 0), 4), o.col); }, { side: THREE.DoubleSide });
