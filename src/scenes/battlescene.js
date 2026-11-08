@@ -7,6 +7,7 @@ import { createProfessor } from '../models/professor.js';
 import { createCreature } from '../models/creatures.js';
 import { Particles } from '../gfx/particles.js';
 import { Critters } from '../gfx/critters.js';
+import { playVFX, makeSun, BURST_VFX } from '../gfx/vfx.js';
 import { HandView, cardBackTex } from '../ui3d/cards3d.js';
 import { Pile, Numbers } from '../ui3d/kit.js';
 import { hud, HudTip, BattleHUD } from '../ui3d/hud.js';
@@ -65,6 +66,8 @@ export class BattleScene {
     const sun = new THREE.DirectionalLight(0xffb070, 2.5); const sd = stage.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4); sun.position.copy(sd.clone().normalize().multiplyScalar(22)); if (sun.position.y < 6) sun.position.y = 6; sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 10, bottom: -8, near: 1, far: 40 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
     sc.add(sun, new THREE.HemisphereLight(0x8a98d8, 0x4a2c1a, 0.38));
+    // 2D pixel-art sun billboard far behind the stage, along the sky dome's setting-sun direction
+    this.sunSprite = makeSun({ size: 18 }); this.sunSprite.position.set(-0.1, 3, 11.4).addScaledVector(new THREE.Vector3(Math.sin(0.16), 0.085, -Math.cos(0.16)).normalize(), 170); sc.add(this.sunSprite);
     // dusk practicals, R.O.O.M.-style: warm braziers that actually light the fighters, a cool arcane rim, Sir Isaac's spirit glow
     const rim = new THREE.DirectionalLight(0xffa860, 1.1); rim.position.set(6, 5, -9); const arc = new THREE.DirectionalLight(0x8fb0ff, 1.5); arc.position.set(-7, 6, -10); sc.add(rim, arc);
     this.fires = [];
@@ -121,7 +124,7 @@ export class BattleScene {
   }
   layoutUI() {
     const W = (this.ui.W = this.engine.uiW), H = (this.ui.H = this.engine.uiH);
-    this.drawPile.group.position.set(-W + 1.95, -H + 2.7, 0.5); this.discardPile.group.position.set(W - 7.6, -H + 2.7, 0.5);
+    const k = this.hudB?.k ?? 1; this.drawPile.group.position.set(-W + 1.95 * k, -H + 2.7 * k, 0.5); this.discardPile.group.position.set(W - 7.6 * k, -H + 2.7 * k, 0.5); this.drawPile.group.scale.setScalar(k); this.discardPile.group.scale.setScalar(k);
     this.hand?.layout();
   }
 
@@ -292,6 +295,8 @@ export class BattleScene {
   enemyPos(e, dy = 0.5) { const v = this.enemyViews.get(e.uid); return v ? v.api.root.position.clone().add(new THREE.Vector3(0, v.e.def.isHead ? 0 : v.h * dy, 0)) : new THREE.Vector3(4, 1, 0); }
   popNumber(worldPos, text, opts) { const p = this.engine.worldToUI(worldPos); this.numbers.spawn(text, p.x, p.y, opts); }
   burst(pos, kind, n = 20) {
+    const n0 = n; n = Math.max(3, Math.round(n * 0.45)); // particles toned down; the pixel flipbook carries the hit
+    playVFX(this.scene, BURST_VFX[kind] || 'arcane', pos, { scale: n0 >= 36 ? 1.35 : n0 <= 12 ? 0.8 : 1, flip: Math.random() < 0.5 });
     const P = this.parts, G = this.glowParts; const [x, y, z] = [pos.x, pos.y, pos.z];
     const sets = {
       apple: () => P.burst(n, () => ({ pos: [x, y, z], vel: [vrange(-4, 4), vrange(1, 6), vrange(-2, 2)], life: vrange(0.6, 1.2), size: vrange(30, 50), color: vpick(['#c8443a', '#f6b3a0', '#fff3d0', '#9cb84a']), sprite: vpick(['applebit', 'chip', 'dot']), grav: 14, floor: 0.05, spin: vrange(-8, 8) })),
@@ -327,7 +332,7 @@ export class BattleScene {
         await tweens.wait(0.18);
         if (kind === 'attack') await S.throwProjectile(mv, target);
       },
-      eureka(mv) { S.eureka(mv); },
+      eureka(mv) { S.eureka(mv); playVFX(S.scene, 'eureka', S.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, 1.0, 0.6))); },
       async enemyHit(e, dmg, o) {
         const v = S.enemyViews.get(e.uid); const p = S.enemyPos(e);
         if (v) v.api.act('hurt');
@@ -336,14 +341,16 @@ export class BattleScene {
         if (o.blocked) S.popNumber(p.clone().add(new THREE.Vector3(-0.6, 1.2, 0)), `-${o.blocked}`, { color: '#a8dcef', stroke: '#16304f', size: 1.0 });
         const kindFx = o.kind === 'zap' ? 'zap' : o.kind === 'burn' ? 'fire' : o.kind === 'apple' ? 'apple' : o.move?.art?.core === 'stone' ? 'stone' : o.move?.art?.core === 'water' ? 'water' : o.move?.art?.core?.includes('apple') ? 'apple' : 'magic';
         S.burst(p, kindFx, big ? 40 : 18);
+        if (dmg > 0) playVFX(S.scene, dmg >= 45 ? 'hit_crit' : big ? 'hit_heavy' : 'hit_light', p.clone().add(new THREE.Vector3(0, 0.2, 0.6)), { flip: Math.random() < 0.5 });
+        if (big && kindFx === 'magic') playVFX(S.scene, 'slash', p.clone().add(new THREE.Vector3(0, 0.3, 0.7)), { flip: Math.random() < 0.5 });
         audio.play(o.kind === 'zap' ? 'electric_zap' : o.kind === 'burn' ? 'sizzle' : big ? 'hit_heavy' : dmg > 10 ? 'hit_medium' : 'hit_light');
         if (kindFx === 'apple') audio.play('apple_squish', { vol: 0.7 }); if (kindFx === 'stone') audio.play('rock_impact', { vol: 0.8 });
         S.engine.shake(Math.min(0.6, 0.08 + dmg / 80)); if (dmg >= 12) S.critters.scare(p, 6 + dmg / 4); if (big) { S.engine.hitStop(70); S.camPunch = Math.min(1, dmg / 60); } if (dmg >= 45) S.engine.flash(0.25, 0xfff6cf, 0.3);
         if (v && Math.random() < 0.25 && dmg > 0) S.bark(e, vpick(e.def.barks.hurt), 1.3);
         S.refreshEnemy(e); await tweens.wait(dmg > 0 ? 0.16 : 0.05);
       },
-      async miss(t, src, why) { const p = t === 'player' ? S.prof.headWorld(new THREE.Vector3()) : S.enemyPos(t); S.popNumber(p, why === 'wings' ? 'FLAP!' : 'MISS', { color: '#cdb6f0', stroke: '#22183f', size: 1.2 }); audio.play('whoosh_soft'); await tweens.wait(0.25); },
-      async enemyDie(e) { const v = S.enemyViews.get(e.uid); if (!v) return; v.api.act('die'); S.burst(S.enemyPos(e), 'smoke', 30); S.burst(S.enemyPos(e), 'magic', 24); audio.play('enemy_death'); if (!e.def.isHead) S.bark('player', vpick(PLAYER_BARKS.kill), 1.6); const j = S.game.journal; if (j.enemies[e.id]) j.enemies[e.id].killed++; v.hud.setVisible(false); hud.feed(`${e.def.name} falls.`, 'kill'); setTimeout(() => { tweens.to(v.api.root.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.5, { ease: 'inBack' }); }, 900); await tweens.wait(0.3); },
+      async miss(t, src, why) { const p = t === 'player' ? S.prof.headWorld(new THREE.Vector3()) : S.enemyPos(t); S.popNumber(p, why === 'wings' ? 'FLAP!' : 'MISS', { color: '#cdb6f0', stroke: '#22183f', size: 1.2 }); playVFX(S.scene, 'whoosh', p.clone().add(new THREE.Vector3(0, 0, 0.6)), { flip: t === 'player' }); audio.play('whoosh_soft'); await tweens.wait(0.25); },
+      async enemyDie(e) { const v = S.enemyViews.get(e.uid); if (!v) return; v.api.act('die'); playVFX(S.scene, 'death_puff', S.enemyPos(e).add(new THREE.Vector3(0, 0.2, 0.6))); S.burst(S.enemyPos(e), 'smoke', 30); S.burst(S.enemyPos(e), 'magic', 24); audio.play('enemy_death'); if (!e.def.isHead) S.bark('player', vpick(PLAYER_BARKS.kill), 1.6); const j = S.game.journal; if (j.enemies[e.id]) j.enemies[e.id].killed++; v.hud.setVisible(false); hud.feed(`${e.def.name} falls.`, 'kill'); setTimeout(() => { tweens.to(v.api.root.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.5, { ease: 'inBack' }); }, 900); await tweens.wait(0.3); },
       async enemySpawn(e) { S.addEnemyView(e); audio.play('monster_roar', { vol: 0.6 }); S.burst(S.enemyPos(e), 'smoke', 14); await tweens.wait(0.3); },
       status(t, k, n) { if (t === S.battle.player) return; S.refreshEnemy(t); },
       async heal(who, n) { if (!n) return; const p = who === 'player' ? S.prof.headWorld(new THREE.Vector3()) : S.enemyPos(who); S.popNumber(p, `+${n}`, { color: '#cfe07a', stroke: '#1e3320', size: 1.3, vy: 5 }); S.burst(p, 'heal', 16); audio.play('heal'); if (who !== 'player') S.refreshEnemy(who); await tweens.wait(0.2); },

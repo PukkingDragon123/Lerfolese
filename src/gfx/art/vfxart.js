@@ -103,7 +103,7 @@ const FX = {
   heal: { size: 48, frames: 8, fps: 14, world: 2.2, paint(pc, f, n, S) {
     const P = PAL.heal; const c = S / 2; const t = f / 7;
     ring(pc, c, 40, 12 + t * 6, Math.max(0.8, 3 - t * 2.4), 10, 0.3, P[2], f * 0.3, 0.3);
-    for (let i = 0; i < 5; i++) { const ph = (t + i * 0.2) % 1; const x = c - 12 + i * 6, y = 38 - ph * 32; const s = ph < 0.2 || ph > 0.85 ? 1 : 2; poly(pc, bar(x - s - 1, y, x + s + 1, y, 1), P[2]); poly(pc, bar(x, y - s - 1, x, y + s + 1, 1), P[2]); pc.px(Math.round(x), Math.round(y), P[0]); }
+    for (let i = 0; i < 5; i++) { const ph = (t + [0, 0.55, 0.25, 0.8, 0.4][i]) % 1; const x = c - 12 + i * 6, y = 38 - ph * 32; const s = ph < 0.2 || ph > 0.85 ? 1 : 2; poly(pc, bar(x - s - 1, y, x + s + 1, y, 1), P[2]); poly(pc, bar(x, y - s - 1, x, y + s + 1, 1), P[2]); pc.px(Math.round(x), Math.round(y), P[0]); }
     if (f % 2 === 0) sparkle(pc, c + 8, 14 + f, 2, P);
   } },
   smoke_poof: { size: 48, frames: 8, fps: 16, world: 2.2, paint(pc, f, n, S) {

@@ -325,3 +325,12 @@ export class Tag extends Body {
   }
   update(dt, p, t = performance.now() / 1000) { this.updateBody(dt, p); this.pivot.rotation.z += Math.sin(t * 1.6 + this.w) * 0.02; }
 }
+
+// ================================================================ CARVED SIGN for world props (event signposts): oak board, burnt letters
+export function carvedSign(text, { maxW = 2.4 } = {}) {
+  const t = String(text); const f = measure(t, 'bold') + 12 <= maxW * PX ? 'bold' : 'tiny'; const Wt = measure(t, f) + 12, Ht = f === 'bold' ? 18 : 12;
+  const S = new Surf(Wt, Ht); wood(S, 0, 0, Wt, Ht, RAMP.oak, { seed: t.length, base: 3, knots: 1, quiet: true }); S.bevel(null, { lit: 1, dark: -2 });
+  inscribe(S, t, 6, f === 'bold' ? 13 : 9, f, 'burn'); for (const x of [2, Wt - 4]) rivet(S, x, Math.round(Ht / 2) - 1, RAMP.iron);
+  const m = new THREE.Mesh(slab(Wt / PX, Ht / PX, 0.08, { cut: 0.05, bevel: 0.02 }), [new THREE.MeshStandardMaterial({ map: pxTex(S.toCanvas()), roughness: 0.85 }), new THREE.MeshStandardMaterial({ map: sideMat('oak').map, roughness: 0.85 })]);
+  m.castShadow = true; m.receiveShadow = true; return m;
+}

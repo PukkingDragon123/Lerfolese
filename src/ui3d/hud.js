@@ -82,7 +82,7 @@ export class BattleHUD {
     }
     this.plates = new Set(); this.v = {}; this.writeNote(); this.layout(); this.engine.add(this);
   }
-  get k() { return Math.max(0.55, Math.min(1, this.engine.uiW / 17)); }
+  get k() { return Math.max(0.42, Math.min(1, this.engine.uiW / 17)); }
   layout() {
     const W = this.engine.uiW, H = this.engine.uiH, k = this.k; this._W = W;
     uiPos(this.gauge.group, -W + 2.5 * k, H - 2.45 * k, 1); this.gauge.group.scale.setScalar(k);

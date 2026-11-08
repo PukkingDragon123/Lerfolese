@@ -2,7 +2,8 @@
 // flip forward, the left to flip back. Handwritten notes, sketches, recipes, weaknesses, curios.
 import * as THREE from 'three';
 import * as S from '../models/sculpt.js';
-import { canvasTexture, UIF, textPlane } from '../ui3d/kit.js';
+import { canvasTexture, UIF } from '../ui3d/kit.js';
+import { SurfTex, leather as craftLeather, inscribeLines, slab as craftSlab, frontMat, sideMat } from '../ui3d/craft.js';
 import { Button3D } from '../ui3d/widgets.js';
 import { SPECIALS } from '../game/combos.js';
 import { ENEMIES } from '../game/data/enemies.js';
@@ -49,7 +50,9 @@ export class Journal {
     // front cover (opens)
     this.coverPivot = new THREE.Group(); this.coverPivot.position.set(0, 0, 0.35); g.add(this.coverPivot);
     const cover = new THREE.Mesh(S.slab(BW + 0.3, BH + 0.5, 0.22, { seed: 9, jitter: 0.005 }), leather); cover.position.x = BW / 2 + 0.15; this.coverPivot.add(cover);
-    const title = textPlane([[['DISCOVERY', '#ffd76a']], [['JOURNAL', '#ffd76a']], [['of Sir Isaac Plumb', '#e8d4a2']]], { w: BW, h: 4, font: 'Jacquard', size: 110, stroke: ['#2a0f08', 10], lineH: 1.0 }); title.position.set(BW / 2 + 0.15, 1.5, 0.13); this.coverPivot.add(title);
+    // gilt-tooled leather label on the cover (title stamped in gold leaf, stitched border)
+    const tl = new SurfTex(Math.round((BW - 0.6) * 16), 66); tl.paint((Sf) => { craftLeather(Sf, 0, 0, tl.w, tl.h, { seed: 4, base: 2, stitch: 3 }); inscribeLines(Sf, ['Discovery', 'Journal'], { x: 0, y: 6, w: tl.w, h: 50 }, 'title', 'gild'); inscribeLines(Sf, ['OF SIR ISAAC PLUMB'], { x: 0, y: 53, w: tl.w, h: 9 }, 'tiny', 'gild'); });
+    const title = new THREE.Mesh(craftSlab(BW - 0.6, 66 / 16, 0.06, { cut: 0.15, bevel: 0.02 }), [frontMat(tl.tex), sideMat('leather')]); title.castShadow = true; title.position.set(BW / 2 + 0.15, 1.3, 0.14); this.coverPivot.add(title);
     const emb = new THREE.Mesh(S.gem(0.9, 1, 3), brass); emb.position.set(BW / 2 + 0.15, -2.6, 0.2); emb.scale.z = 0.3; this.coverPivot.add(emb);
     this.closeBtn = new Button3D('Close', () => this.close(), { w: 3, h: 1, size: 48, color: 'red' }); this.closeBtn.group.position.set(0, -BH / 2 - 1.1, 0.5); g.add(this.closeBtn.group);
     g.scale.setScalar(0.92);

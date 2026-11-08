@@ -90,6 +90,7 @@ export class GGSkin {
         const P = this.P;
         this.spec = spec;
         this.paint = makePainters(spec, P, app, cond);
+        if (spec.hook) this.paint = spec.hook(this.paint, P, spec) || this.paint; // Apple of Discord: per-character paint overrides
         if (baseKey !== this.baseKey) {
             this.baseKey = baseKey;
             this.base.fill(0);
@@ -123,7 +124,7 @@ export class GGSkin {
         }
         this.condExpr = spec.face.expr;
         this.faceNow(true);
-        this.tex.clearUpdateRanges();
+        this.tex.clearUpdateRanges?.();
         this.tex.needsUpdate = true;
         this.fullPending = true;
     }
@@ -319,7 +320,7 @@ export class GGSkin {
         if (!this.fullPending) {
             const S = this.S, x = Math.max(0, r[0]), w = Math.min(S - x, r[2]);
             for (let y = Math.max(0, r[1]); y < Math.min(S, r[1] + r[3]); y++)
-                t.addUpdateRange((y * S + x) * 4, w * 4);
+                t.addUpdateRange?.((y * S + x) * 4, w * 4);
         }
         t.needsUpdate = true;
     }

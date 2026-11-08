@@ -1,6 +1,6 @@
 // Curiosity node: a little outdoor vignette, a parchment story, physical choice plaques, card offerings.
 import * as THREE from 'three';
-import { Paper, Strip } from '../ui3d/objects.js';
+import { Paper, Strip, carvedSign } from '../ui3d/objects.js';
 import { uiPos } from '../ui3d/craft.js';
 import * as S from '../models/sculpt.js';
 import { UIScreen, Button3D, Panel } from '../ui3d/widgets.js';
@@ -42,7 +42,7 @@ function propFor(k) {
   }
   return g;
 }
-function signPost(text) { const g = new THREE.Group(); mk(S.limb(1.4, 0.05, 0.05, { sides: 4, seed: 1 }), F({ color: 0x5e3a1c }), g, 0, 1.4, 0); const b = textPlane([[[text, '#2a160c']]], { w: 1.6, h: 0.6, font: 'Pixelify', size: 70, weight: 700, basic: false, bg: (c, w, h) => { c.fillStyle = '#c99254'; c.fillRect(0, 0, w, h); } }); b.position.set(0, 1.2, 0.06); g.add(b); return g; }
+function signPost(text) { const g = new THREE.Group(); mk(S.limb(1.4, 0.05, 0.05, { sides: 4, seed: 1 }), F({ color: 0x5e3a1c }), g, 0, 1.4, 0); const b = carvedSign(text); b.position.set(0, 1.2, 0.06); g.add(b); return g; }
 
 export default class EventScene extends UIScreen {
   async enter(node) {
