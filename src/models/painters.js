@@ -7,7 +7,8 @@ import { sat, sstep, TAU } from './hq.js';
 const NZ = new Map();
 export const noise = (seed) => { if (!NZ.has(seed)) NZ.set(seed, makeNoise(seed)); return NZ.get(seed); };
 // ramp lookup with ordered dithering (d = dither amount in ramp steps)
-export const pick = (r, t, x, y, d = 0.9) => r[Math.max(0, Math.min(r.length - 1, Math.round(t * (r.length - 1) + (bayer(x, y) - 0.5) * d)))];
+// flat bands with ordered dithering only across the transition between two ramp steps (d = width of the dithered zone)
+export const pick = (r, t, x, y, d = 0.9) => { const f = Math.max(0, Math.min(r.length - 1, t * (r.length - 1))), i = Math.floor(f), k = f - i, h = d * 0.5, a = 0.5 - h * 0.5; return r[Math.min(r.length - 1, k < a ? i : k > 1 - a ? i + 1 : (k - a) / (1 - 2 * a) > bayer(x, y) ? i + 1 : i)]; };
 export const ramp = (r, i) => r[Math.max(0, Math.min(r.length - 1, i))];
 const fr = (x) => x - Math.floor(x);
 
@@ -229,8 +230,9 @@ export function faceCol(p, F, E, px, py) {
   if (F.nose) { const nx = (p.x - F.nose[0]) / F.nose[2], ny = (p.y - F.nose[1]) / F.nose[3]; if (nx > 0.2 && nx < 1.1 && Math.abs(ny + nx * 0.35) < 0.22) return F.noseC[0]; if (nx > -0.4 && nx < 0.2 && Math.abs(ny - 0.25) < 0.18) return F.noseC[1]; }
   // blush hatching, sweat drop, anger vein
   if (E.blush || F.blush) { const bx = (ax - F.cheek[0]) / F.cheek[2], by = (p.y - F.cheek[1]) / F.cheek[3]; if (bx * bx + by * by < 1 && ((px + py) % 4 === 0 || ((px + py) % 4 === 1 && bx * bx + by * by < 0.5))) return F.blushC; }
-  if (E.sweat && p.x < 0) { const sx = (p.x + F.eye[0] * 1.75) / (F.eye[2] * 0.35), sy = (p.y - F.brow[1] - F.eye[3] * 0.2) / (F.eye[3] * 0.6); const d = sx * sx + (sy < 0 ? sy * sy : sy * sy * 3.5); if (d < 1 && sy > -1) return d > 0.6 ? '#3a6ab0' : sx < -0.1 && sy < 0.1 && sy > -0.6 ? '#ffffff' : '#9ad0f4'; }
-  if (E.vein && p.x > 0) { const vx = (p.x - F.eye[0] * 1.3) / (F.eye[2] * 0.5), vy = (p.y - F.brow[1] - F.eye[3] * 1.3) / (F.eye[2] * 0.5); const a = Math.abs(vx), b = Math.abs(vy); if (a < 1 && b < 1 && ((Math.abs(a - 0.55) < 0.17 && b > 0.2) || (Math.abs(b - 0.55) < 0.17 && a > 0.2))) return '#d02838'; }
+  const browY = F.brow ? F.brow[1] : F.eye[1] + F.eye[3] * 1.45;
+  if (E.sweat && p.x < 0) { const sx = (p.x + F.eye[0] * 1.75) / (F.eye[2] * 0.35), sy = (p.y - browY - F.eye[3] * 0.2) / (F.eye[3] * 0.6); const d = sx * sx + (sy < 0 ? sy * sy : sy * sy * 3.5); if (d < 1 && sy > -1) return d > 0.6 ? '#3a6ab0' : sx < -0.1 && sy < 0.1 && sy > -0.6 ? '#ffffff' : '#9ad0f4'; }
+  if (E.vein && p.x > 0) { const vx = (p.x - F.eye[0] * 1.3) / (F.eye[2] * 0.5), vy = (p.y - browY - F.eye[3] * 1.3) / (F.eye[2] * 0.5); const a = Math.abs(vx), b = Math.abs(vy); if (a < 1 && b < 1 && ((Math.abs(a - 0.55) < 0.17 && b > 0.2) || (Math.abs(b - 0.55) < 0.17 && a > 0.2))) return '#d02838'; }
   return null;
 }
 // default face color sets

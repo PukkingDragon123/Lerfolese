@@ -1,0 +1,171 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Asset Library Preview</title>
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>html,body{margin:0;height:100%;background:#1a1410;overflow:hidden;font-family:system-ui,sans-serif}canvas{display:block}
+#hud{position:fixed;left:10px;top:8px;color:#f3e6c4;font-size:13px;text-shadow:0 1px 2px #000;pointer-events:none;white-space:pre}</style></head><body>
+<div id="hud">loading…</div>
+<script type="module">
+// Lineup of every model in assets/models/manifest.json on a PBR ground under an HDRI sky + low golden sun.
+// URL params: only=a,b#1  cat=tree,rock  hdri=<name>  ground=<texture set>  cam=close|x,y,z,tx,ty,tz
+//             exp=<exposure>  real=1 (no display magnification)  shadow=<mapsize>  bg=0  labels=0  sun=<deg azimuth>,<deg elevation>
+import * as THREE from 'three';
+import { loadModel, loadPBR, loadHDRI, getManifest, setAnisotropy } from '../src/gfx/assets.js';
+
+const q = new URLSearchParams(location.search);
+const hud = document.getElementById('hud');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = +(q.get('exp') || 1.0);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+setAnisotropy(renderer.capabilities.getMaxAnisotropy());
+
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 2000);
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
+
+const man = await getManifest();
+const texMan = { textures: man.textures || {} }, hdrMan = { hdris: man.hdris || {} };
+const hdriName = q.get('hdri') || Object.keys(hdrMan.hdris || {}).find((k) => hdrMan.hdris[k].kind === 'outdoor') || null;
+if (hdriName) {
+  const { envMap, background } = await loadHDRI(hdriName, renderer);
+  scene.environment = envMap; if (q.get('bg') !== '0') scene.background = background;
+  scene.backgroundBlurriness = +(q.get('blur') || 0); scene.environmentIntensity = +(q.get('env') || 1);
+} else scene.background = new THREE.Color(0x8aa0b8);
+
+// golden-hour sun
+const [az, el] = (q.get('sun') || '-50,16').split(',').map(Number);
+const sun = new THREE.DirectionalLight(0xffd2a0, +(q.get('sunI') || 3.2));
+const sd = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - el), THREE.MathUtils.degToRad(az));
+sun.castShadow = true; const sm = +(q.get('shadow') || 4096); sun.shadow.mapSize.set(sm, sm); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
+scene.add(sun, sun.target);
+
+// ---------------------------------------------------------------- choose + lay out models
+// groups are laid out front (small props) to back (trees, cliffs); each wraps at maxW metres.
+// mag = display magnification so small things are visible next to trees (real=1 disables it)
+const GROUPS = [
+  { cats: ['food', 'vessel', 'lighting', 'book'], mag: 3, gap: 0.4 },
+  { cats: ['statue'], mag: 2.5, gap: 0.5 },
+  { cats: ['container', 'furniture', 'structure'], mag: 1.25, gap: 0.5 },
+  { cats: ['plant', 'grass', 'flower'], mag: 3, gap: 0.4 },
+  { cats: ['shrub', 'log'], mag: 1, gap: 0.6 },
+  { cats: ['rock', 'cliff'], mag: 1, gap: 0.6, scale: { cliff_mountainside: 0.35 } },
+  { cats: ['tree'], mag: 1, gap: 1.0 },
+];
+const real = q.get('real') === '1';
+const only = q.get('only')?.split(',').filter(Boolean);
+const cats = q.get('cat')?.split(',').filter(Boolean);
+const entries = Object.entries(man.models || {}).filter(([n, m]) => (!cats || cats.includes(m.category)) && (!only || only.some((o) => o.split('#')[0] === n)));
+const items = only ? only.filter((o) => man.models?.[o.split('#')[0]]).map((o) => [o, man.models[o.split('#')[0]]]) : entries;
+
+function label(text, sub) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 96; const g = c.getContext('2d');
+  g.fillStyle = 'rgba(20,14,10,0.72)'; g.beginPath(); g.roundRect(4, 4, 504, 88, 14); g.fill();
+  g.fillStyle = '#ffe6b0'; g.font = 'bold 36px system-ui,sans-serif'; g.textAlign = 'center'; g.fillText(text, 256, 42, 496);
+  g.fillStyle = '#d8c8a8'; g.font = '26px system-ui,sans-serif'; g.fillText(sub, 256, 80, 496);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return new THREE.Mesh(new THREE.PlaneGeometry(1, 0.1875), new THREE.MeshBasicMaterial({ map: t, transparent: true, toneMapped: false, depthWrite: false }));
+}
+
+const placed = []; const t0 = performance.now(); let loaded = 0;
+const groupOf = (m) => { const i = GROUPS.findIndex((g) => g.cats.includes(m.category)); return i < 0 ? 0 : i; };
+const byGroup = new Map();
+for (const [name, m] of items) { const g = groupOf(m); if (!byGroup.has(g)) byGroup.set(g, []); byGroup.get(g).push([name, m]); }
+const loadedObjs = new Map(await Promise.all(items.map(async ([name]) => {
+  try { const o = await loadModel(name); hud.textContent = `loading ${++loaded}/${items.length}`; return [name, o]; } catch (e) { console.error('load failed', name, e); return [name, null]; }
+})));
+let zFront = 0; const all = new THREE.Box3();
+const showLabels = q.get('labels') !== '0';
+// measure everything (group order = front to back), then wrap into rows whose width gives a wide layout
+const its = [];
+for (const gi of [...byGroup.keys()].sort((a, b) => a - b)) {
+  const G0 = GROUPS[gi];
+  for (const [name, m] of byGroup.get(gi)) {
+    const o = loadedObjs.get(name); if (!o) continue;
+    const s = (m.category === 'tree' ? m.scale_hint || 1 : 1) * (G0.scale?.[name] ?? 1) * (real || only ? 1 : G0.mag);
+    o.scale.multiplyScalar(s); o.updateMatrixWorld(true);
+    const b = new THREE.Box3().setFromObject(o);
+    its.push({ name, m, o, s, b, gi, gap: G0.gap, w: Math.max(b.max.x - b.min.x, showLabels ? 0.9 : 0), d: b.max.z - b.min.z });
+  }
+}
+const area = its.reduce((t, it) => t + (it.w + it.gap) * (it.d + 1.0), 0);
+const maxW = +(q.get('maxw') || Math.max(6, Math.sqrt(area * 3.2)));
+const rows = []; let cur = []; let cw = 0;
+for (const it of its) {
+  const groupBreak = cur.length && it.gi !== cur[cur.length - 1].gi && cw > maxW * 0.6; // start big groups on a fresh row
+  if (cur.length && (cw + it.w > maxW || groupBreak)) { rows.push(cur); cur = []; cw = 0; }
+  cur.push(it); cw += it.w + it.gap;
+}
+if (cur.length) rows.push(cur);
+for (const row of rows) {
+  const width = row.reduce((t, it) => t + it.w + it.gap, -row[row.length - 1].gap); const depth = Math.max(...row.map((it) => it.d)) + (showLabels ? 0.4 : 0);
+  let x = -width / 2; const zc = zFront - depth / 2;
+  for (const it of row) {
+    const { o, b } = it; const bw = b.max.x - b.min.x;
+    o.position.x += x + (it.w - bw) / 2 - b.min.x; o.position.z += zc - (b.min.z + b.max.z) / 2 - (showLabels ? 0.2 : 0);
+    scene.add(o); o.updateMatrixWorld(true);
+    if (showLabels) {
+      const L = label(it.name, `${(it.m.tris / 1000).toFixed(1)}k tris · ${it.m.height_m} m${it.s !== 1 ? ` · shown ×${+it.s.toFixed(2)}` : ''}`);
+      const lw = Math.max(0.85, Math.min(2.6, it.w)); L.scale.setScalar(lw); L.rotation.x = -0.6;
+      L.position.set(x + it.w / 2, 0.05 + lw * 0.05, zc + it.d / 2 + lw * 0.06); scene.add(L);
+    }
+    placed.push({ name: it.name, o }); all.expandByObject(o);
+    x += it.w + it.gap;
+  }
+  zFront -= depth + 0.5;
+}
+const size = all.getSize(new THREE.Vector3()), ctr = all.getCenter(new THREE.Vector3());
+
+// ground
+const G = Math.max(size.x, size.z) * 3 + 40;
+const groundSet = q.get('ground') || Object.keys(texMan.textures || {}).find((k) => (texMan.textures[k].tags || []).includes('ground')) || null;
+const gmat = groundSet ? await loadPBR(groundSet, { repeat: G / (+(q.get('tile')) || 3) }) : new THREE.MeshStandardMaterial({ color: 0x8a7a5a, roughness: 1 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(G, G), gmat); ground.rotation.x = -Math.PI / 2; ground.position.set(ctr.x, 0, ctr.z); ground.receiveShadow = true; scene.add(ground);
+
+// sun shadow frustum around content
+const R = Math.max(size.x, size.z, size.y) * 0.6 + 2;
+sun.position.copy(ctr).addScaledVector(sd, R * 3); sun.target.position.copy(ctr);
+Object.assign(sun.shadow.camera, { left: -R, right: R, top: R, bottom: -R, near: 0.1, far: R * 7 }); sun.shadow.camera.updateProjectionMatrix();
+
+// camera
+const camQ = q.get('cam');
+if (camQ && camQ.includes(',')) { const v = camQ.split(',').map(Number); cam.position.set(v[0], v[1], v[2]); cam.lookAt(v[3], v[4], v[5]); }
+else {
+  // frame the content bbox from the front, elevated
+  const close = camQ === 'close';
+  const pitch = THREE.MathUtils.degToRad(+(q.get('pitch') || (close ? 10 : 24)));
+  const dir = new THREE.Vector3(0, Math.sin(pitch), Math.cos(pitch));
+  const look = new THREE.Vector3(ctr.x, close ? size.y * 0.45 : size.y * 0.12, ctr.z + (close ? 0 : size.z * 0.04));
+  const vf = THREE.MathUtils.degToRad(cam.fov) / 2, hf = Math.atan(Math.tan(vf) * cam.aspect);
+  // projected extents: width = size.x, height ≈ depth*sin(pitch) + height*cos(pitch)
+  const h = size.z * Math.sin(pitch) + size.y * Math.cos(pitch);
+  const dist = Math.max((size.x / 2) / Math.tan(hf), (h / 2) / Math.tan(vf)) * (close ? 1.08 : 1.0) + size.z * Math.cos(pitch) * 0.5 * (close ? 1 : 0.85);
+  cam.position.copy(look).addScaledVector(dir, dist); cam.lookAt(look);
+  // tighten/loosen until every bbox corner projects inside the frame (perspective makes near rows wider)
+  const corners = []; for (const { o } of placed) { const b = new THREE.Box3().setFromObject(o); for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) corners.push(new THREE.Vector3(x, y, z)); }
+  let lo = dist * 0.3, hi = dist * 4;
+  for (let i = 0; i < 30; i++) {
+    const d = (lo + hi) / 2; cam.position.copy(look).addScaledVector(dir, d); cam.lookAt(look); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+    const fits = corners.every((c) => { const p = c.clone().project(cam); return p.z < 1 && Math.abs(p.x) < 0.985 && p.y < 0.9 && p.y > -0.97; });
+    if (fits) hi = d; else lo = d;
+  }
+  cam.position.copy(look).addScaledVector(dir, hi); cam.lookAt(look);
+}
+cam.near = Math.max(0.01, cam.position.distanceTo(ctr) / 500); cam.far = cam.position.distanceTo(ctr) * 20 + G; cam.updateProjectionMatrix();
+// minimal orbit: drag to rotate around the look target, wheel to zoom
+const target = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion).multiplyScalar(cam.position.distanceTo(ctr)).add(cam.position);
+const sph = new THREE.Spherical().setFromVector3(cam.position.clone().sub(target)); let drag = null;
+const applyOrbit = () => { cam.position.setFromSpherical(sph).add(target); cam.lookAt(target); };
+renderer.domElement.addEventListener('pointerdown', (e) => { drag = [e.clientX, e.clientY]; });
+addEventListener('pointerup', () => { drag = null; });
+addEventListener('pointermove', (e) => { if (!drag) return; sph.theta -= (e.clientX - drag[0]) * 0.005; sph.phi = THREE.MathUtils.clamp(sph.phi - (e.clientY - drag[1]) * 0.005, 0.05, 1.55); drag = [e.clientX, e.clientY]; applyOrbit(); });
+renderer.domElement.addEventListener('wheel', (e) => { sph.radius *= Math.exp(e.deltaY * 0.001); applyOrbit(); }, { passive: true });
+
+let tris = 0; scene.traverse((o) => { if (o.isMesh) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
+hud.textContent = `${placed.length} models · ${(tris / 1e6).toFixed(2)}M tris · hdri ${hdriName} · ground ${groundSet} · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
+window.__info = { models: placed.length, tris, hdri: hdriName, ground: groundSet };
+// render on demand (keeps headless screenshots fast): a couple of frames now, then only after interaction
+let dirty = 2;
+const requestRender = () => { dirty = Math.max(dirty, 1); };
+['pointermove', 'wheel', 'resize'].forEach((ev) => addEventListener(ev, requestRender));
+renderer.setAnimationLoop(() => { if (!dirty) return; dirty--; renderer.render(scene, cam); if (!dirty && !window.__done) setTimeout(() => (window.__done = true), 50); });
+</script></body></html>

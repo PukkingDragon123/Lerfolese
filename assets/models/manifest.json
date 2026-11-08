@@ -1,0 +1,3690 @@
+{
+ "version": 1,
+ "description": "Realistic CC0 asset library (Poly Haven). Load with src/gfx/assets.js. Model units are metres (glTF, +Y up); scale_hint is a suggested uniform scale for the game (battle diorama ≈ 1 unit/m with stylised 3–6 m trees; tabletop study ≈ 10 units/m). name#k (or name#nodeName) selects one variant of a set.",
+ "conventions": {
+  "models": "assets/models/<name>.glb – self-contained GLB, JPEG/PNG textures (PNG only where alpha is needed), no Draco/KTX2/meshopt; alpha-cutout foliage materials carry extras.foliage, glass extras.glass, flames extras.flame.",
+  "textures": "assets/textures/<set>/{diff,nor,arm}.jpg – diff sRGB; nor OpenGL (+Y) normal map; arm = R ambient occlusion, G roughness, B metalness. repeat_m = real-world size of one tile.",
+  "hdris": "assets/hdri/<name>.hdr – 1k equirectangular Radiance HDR; use for PMREM environment light and as the visible sky."
+ },
+ "totals": {
+  "models": 54,
+  "model_tris": 1449831,
+  "bytes": {
+   "models": 58195349,
+   "textures": 12127015,
+   "hdri": 6221613
+  }
+ },
+ "models": {
+  "olive_tree_tall": {
+   "file": "olive_tree_tall.glb",
+   "tris": 148285,
+   "height_m": 5.027,
+   "size_m": [
+    4.761,
+    5.027,
+    4.823
+   ],
+   "min_y": -0.02,
+   "category": "tree",
+   "tags": [
+    "olive",
+    "mediterranean",
+    "gnarled",
+    "hero",
+    "alpha_leaves",
+    "grove"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "bytes": 4863144,
+   "texture_bytes": 1909327,
+   "source_tris": 1599403,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "island_tree_01",
+    "name": "Island Tree 01",
+    "url": "https://polyhaven.com/a/island_tree_01",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "olive_tree_wide": {
+   "file": "olive_tree_wide.glb",
+   "tris": 111218,
+   "height_m": 3.404,
+   "size_m": [
+    4.208,
+    3.404,
+    4.074
+   ],
+   "min_y": -0.017,
+   "category": "tree",
+   "tags": [
+    "olive",
+    "mediterranean",
+    "gnarled",
+    "hero",
+    "alpha_leaves",
+    "grove"
+   ],
+   "scale_hint": 1.2,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "bytes": 3963904,
+   "texture_bytes": 1846227,
+   "source_tris": 1072213,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "island_tree_02",
+    "name": "Island Tree 02",
+    "url": "https://polyhaven.com/a/island_tree_02",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "umbrella_tree": {
+   "file": "umbrella_tree.glb",
+   "tris": 147401,
+   "height_m": 19.483,
+   "size_m": [
+    24.456,
+    19.483,
+    19.29
+   ],
+   "min_y": -0.146,
+   "category": "tree",
+   "tags": [
+    "broadleaf",
+    "umbrella",
+    "shade_tree",
+    "hero",
+    "alpha_leaves",
+    "large",
+    "backdrop"
+   ],
+   "scale_hint": 0.3,
+   "scale_note": "Real size ~19 m; ×0.3 gives a ~6 m diorama tree.",
+   "bytes": 5277624,
+   "texture_bytes": 2144880,
+   "source_tris": 3863832,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "jacaranda_tree",
+    "name": "Jacaranda Tree",
+    "url": "https://polyhaven.com/a/jacaranda_tree",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "searsia_lucida": {
+   "file": "searsia_lucida.glb",
+   "tris": 135648,
+   "height_m": 2.338,
+   "size_m": [
+    4.787,
+    2.338,
+    2.866
+   ],
+   "min_y": -0.024,
+   "category": "shrub",
+   "tags": [
+    "shrub",
+    "maquis",
+    "mediterranean",
+    "bush",
+    "alpha_leaves"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall). 7 bushes (#0 biggest, 2.3 m … #6 smallest).",
+   "variants": [
+    {
+     "name": "searsia_lucida_a",
+     "tris": 40559,
+     "height_m": 2.338,
+     "size_m": [
+      1.828,
+      2.338,
+      1.974
+     ]
+    },
+    {
+     "name": "searsia_lucida_b",
+     "tris": 34462,
+     "height_m": 1.998,
+     "size_m": [
+      1.481,
+      1.998,
+      1.53
+     ]
+    },
+    {
+     "name": "searsia_lucida_c",
+     "tris": 27195,
+     "height_m": 1.684,
+     "size_m": [
+      1.523,
+      1.684,
+      1.259
+     ]
+    },
+    {
+     "name": "searsia_lucida_d",
+     "tris": 18932,
+     "height_m": 1.427,
+     "size_m": [
+      1.107,
+      1.427,
+      0.981
+     ]
+    },
+    {
+     "name": "searsia_lucida_e",
+     "tris": 9401,
+     "height_m": 1.024,
+     "size_m": [
+      1.041,
+      1.024,
+      0.73
+     ]
+    },
+    {
+     "name": "searsia_lucida_f",
+     "tris": 2717,
+     "height_m": 0.738,
+     "size_m": [
+      0.674,
+      0.738,
+      0.489
+     ]
+    },
+    {
+     "name": "searsia_lucida_g",
+     "tris": 2382,
+     "height_m": 0.787,
+     "size_m": [
+      0.403,
+      0.787,
+      0.327
+     ]
+    }
+   ],
+   "bytes": 3217624,
+   "texture_bytes": 1104739,
+   "source_tris": 377192,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "searsia_lucida",
+    "name": "Searsia Lucida",
+    "url": "https://polyhaven.com/a/searsia_lucida",
+    "authors": [
+     "James Ray Cock",
+     "Jenelle van Heerden"
+    ],
+    "license": "CC0"
+   }
+  },
+  "othonna_cerarioides": {
+   "file": "othonna_cerarioides.glb",
+   "tris": 59027,
+   "height_m": 1.972,
+   "size_m": [
+    3.971,
+    1.972,
+    1.81
+   ],
+   "min_y": -0.061,
+   "category": "shrub",
+   "tags": [
+    "shrub",
+    "columnar",
+    "cypress_like",
+    "succulent",
+    "alpha_leaves"
+   ],
+   "scale_hint": 1.6,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall). Columnar shrubs; ×1.6–2.5 reads as young cypresses.",
+   "variants": [
+    {
+     "name": "othonna_cerarioides_a",
+     "tris": 28524,
+     "height_m": 1.972,
+     "size_m": [
+      1.102,
+      1.972,
+      1.033
+     ]
+    },
+    {
+     "name": "othonna_cerarioides_b",
+     "tris": 14571,
+     "height_m": 1.769,
+     "size_m": [
+      1.012,
+      1.769,
+      1.058
+     ]
+    },
+    {
+     "name": "othonna_cerarioides_c",
+     "tris": 6237,
+     "height_m": 1.438,
+     "size_m": [
+      0.727,
+      1.438,
+      0.949
+     ]
+    },
+    {
+     "name": "othonna_cerarioides_d",
+     "tris": 4653,
+     "height_m": 1.154,
+     "size_m": [
+      0.66,
+      1.154,
+      0.57
+     ]
+    },
+    {
+     "name": "othonna_cerarioides_e",
+     "tris": 1914,
+     "height_m": 0.961,
+     "size_m": [
+      0.562,
+      0.961,
+      0.462
+     ]
+    },
+    {
+     "name": "othonna_cerarioides_f",
+     "tris": 1568,
+     "height_m": 0.681,
+     "size_m": [
+      0.393,
+      0.681,
+      0.461
+     ]
+    },
+    {
+     "name": "othonna_cerarioides_g",
+     "tris": 1560,
+     "height_m": 0.475,
+     "size_m": [
+      0.497,
+      0.475,
+      0.436
+     ]
+    }
+   ],
+   "bytes": 2125924,
+   "texture_bytes": 878001,
+   "source_tris": 118149,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "othonna_cerarioides",
+    "name": "Othonna Cerarioides",
+    "url": "https://polyhaven.com/a/othonna_cerarioides",
+    "authors": [
+     "James Ray Cock",
+     "Jenelle van Heerden"
+    ],
+    "license": "CC0"
+   }
+  },
+  "shrub_01": {
+   "file": "shrub_01.glb",
+   "tris": 60000,
+   "height_m": 0.395,
+   "size_m": [
+    2.586,
+    0.395,
+    0.218
+   ],
+   "min_y": -0.009,
+   "category": "shrub",
+   "tags": [
+    "shrub",
+    "small",
+    "leafy",
+    "alpha_leaves"
+   ],
+   "scale_hint": 1.5,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "variants": [
+    {
+     "name": "shrub_01_a_a",
+     "tris": 13160,
+     "height_m": 0.346,
+     "size_m": [
+      0.176,
+      0.346,
+      0.175
+     ]
+    },
+    {
+     "name": "shrub_01_a_b",
+     "tris": 20815,
+     "height_m": 0.395,
+     "size_m": [
+      0.232,
+      0.395,
+      0.202
+     ]
+    },
+    {
+     "name": "shrub_01_a_c",
+     "tris": 10951,
+     "height_m": 0.249,
+     "size_m": [
+      0.113,
+      0.249,
+      0.114
+     ]
+    },
+    {
+     "name": "shrub_01_a_d",
+     "tris": 951,
+     "height_m": 0.115,
+     "size_m": [
+      0.092,
+      0.115,
+      0.097
+     ]
+    },
+    {
+     "name": "shrub_01_a_e",
+     "tris": 1523,
+     "height_m": 0.183,
+     "size_m": [
+      0.094,
+      0.183,
+      0.109
+     ]
+    },
+    {
+     "name": "shrub_01_a_f",
+     "tris": 1878,
+     "height_m": 0.2,
+     "size_m": [
+      0.135,
+      0.2,
+      0.152
+     ]
+    },
+    {
+     "name": "shrub_01_a_g",
+     "tris": 2643,
+     "height_m": 0.294,
+     "size_m": [
+      0.161,
+      0.294,
+      0.175
+     ]
+    },
+    {
+     "name": "shrub_01_a_h",
+     "tris": 3304,
+     "height_m": 0.332,
+     "size_m": [
+      0.182,
+      0.332,
+      0.175
+     ]
+    },
+    {
+     "name": "shrub_01_a_i",
+     "tris": 4775,
+     "height_m": 0.372,
+     "size_m": [
+      0.231,
+      0.372,
+      0.206
+     ]
+    }
+   ],
+   "bytes": 1117152,
+   "texture_bytes": 398325,
+   "source_tris": 156012,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "shrub_01",
+    "name": "Shrub 01",
+    "url": "https://polyhaven.com/a/shrub_01",
+    "authors": [
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "shrub_sorrel_01": {
+   "file": "shrub_sorrel_01.glb",
+   "tris": 3319,
+   "height_m": 0.058,
+   "size_m": [
+    0.352,
+    0.058,
+    0.146
+   ],
+   "min_y": -0.001,
+   "category": "plant",
+   "tags": [
+    "plant",
+    "sorrel",
+    "small",
+    "flowers",
+    "alpha_leaves"
+   ],
+   "scale_hint": 2,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall). Tiny real size; scale up for visibility.",
+   "variants": [
+    {
+     "name": "shrub_sorrel_01_k",
+     "tris": 148,
+     "height_m": 0.058,
+     "size_m": [
+      0.015,
+      0.058,
+      0.013
+     ]
+    },
+    {
+     "name": "shrub_sorrel_01_b",
+     "tris": 414,
+     "height_m": 0.049,
+     "size_m": [
+      0.073,
+      0.049,
+      0.059
+     ]
+    },
+    {
+     "name": "shrub_sorrel_01_a",
+     "tris": 353,
+     "height_m": 0.056,
+     "size_m": [
+      0.038,
+      0.056,
+      0.055
+     ]
+    },
+    {
+     "name": "shrub_sorrel_01_c",
+     "tris": 284,
+     "height_m": 0.035,
+     "size_m": [
+      0.042,
+      0.035,
+      0.039
+     ]
+    },
+    {
+     "name": "shrub_sorrel_01_d",
+     "tris": 990,
+     "height_m": 0.054,
+     "size_m": [
+      0.061,
+      0.054,
+      0.049
+     ]
+    },
+    {
+     "name": "shrub_sorrel_01_e",
+     "tris": 503,
+     "height_m": 0.045,
+     "size_m": [
+      0.064,
+      0.045,
+      0.051
+     ]
+    },
+    {
+     "name": "shrub_sorrel_01_f",
+     "tris": 355,
+     "height_m": 0.023,
+     "size_m": [
+      0.032,
+      0.023,
+      0.045
+     ]
+    },
+    {
+     "name": "shrub_sorrel_01_g",
+     "tris": 71,
+     "height_m": 0.037,
+     "size_m": [
+      0.021,
+      0.037,
+      0.018
+     ]
+    },
+    {
+     "name": "shrub_sorrel_01_h",
+     "tris": 71,
+     "height_m": 0.036,
+     "size_m": [
+      0.017,
+      0.036,
+      0.026
+     ]
+    },
+    {
+     "name": "shrub_sorrel_01_i",
+     "tris": 63,
+     "height_m": 0.041,
+     "size_m": [
+      0.027,
+      0.041,
+      0.024
+     ]
+    },
+    {
+     "name": "shrub_sorrel_01_j",
+     "tris": 67,
+     "height_m": 0.045,
+     "size_m": [
+      0.024,
+      0.045,
+      0.022
+     ]
+    }
+   ],
+   "bytes": 394156,
+   "texture_bytes": 326286,
+   "source_tris": 3319,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "shrub_sorrel_01",
+    "name": "Shrub Sorrel 01",
+    "url": "https://polyhaven.com/a/shrub_sorrel_01",
+    "authors": [
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "fern_02": {
+   "file": "fern_02.glb",
+   "tris": 6232,
+   "height_m": 0.428,
+   "size_m": [
+    1.973,
+    0.428,
+    1.724
+   ],
+   "min_y": -0.031,
+   "category": "plant",
+   "tags": [
+    "plant",
+    "fern",
+    "shade",
+    "marsh",
+    "alpha_leaves"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "variants": [
+    {
+     "name": "fern_02_b",
+     "tris": 2384,
+     "height_m": 0.428,
+     "size_m": [
+      0.99,
+      0.428,
+      0.894
+     ]
+    },
+    {
+     "name": "fern_02_c",
+     "tris": 2248,
+     "height_m": 0.349,
+     "size_m": [
+      0.874,
+      0.349,
+      0.765
+     ]
+    },
+    {
+     "name": "fern_02_a",
+     "tris": 784,
+     "height_m": 0.287,
+     "size_m": [
+      0.552,
+      0.287,
+      0.613
+     ]
+    },
+    {
+     "name": "fern_02_d",
+     "tris": 816,
+     "height_m": 0.213,
+     "size_m": [
+      0.573,
+      0.213,
+      0.593
+     ]
+    }
+   ],
+   "bytes": 324500,
+   "texture_bytes": 244949,
+   "source_tris": 6232,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "fern_02",
+    "name": "Fern 02",
+    "url": "https://polyhaven.com/a/fern_02",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "grass_clumps": {
+   "file": "grass_clumps.glb",
+   "tris": 24730,
+   "height_m": 0.343,
+   "size_m": [
+    5.605,
+    0.343,
+    0.327
+   ],
+   "min_y": -0.026,
+   "category": "grass",
+   "tags": [
+    "grass",
+    "clump",
+    "meadow",
+    "scatter",
+    "alpha_leaves"
+   ],
+   "scale_hint": 1.5,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall). 17 clumps (tiny/small/mid/large/tall).",
+   "variants": [
+    {
+     "name": "grass_medium_01_small_a",
+     "tris": 833,
+     "height_m": 0.14,
+     "size_m": [
+      0.185,
+      0.14,
+      0.162
+     ]
+    },
+    {
+     "name": "grass_medium_01_large_b",
+     "tris": 4626,
+     "height_m": 0.169,
+     "size_m": [
+      0.284,
+      0.169,
+      0.276
+     ]
+    },
+    {
+     "name": "grass_medium_01_mid_b",
+     "tris": 1257,
+     "height_m": 0.178,
+     "size_m": [
+      0.188,
+      0.178,
+      0.201
+     ]
+    },
+    {
+     "name": "grass_medium_01_tall_b",
+     "tris": 310,
+     "height_m": 0.286,
+     "size_m": [
+      0.15,
+      0.286,
+      0.135
+     ]
+    },
+    {
+     "name": "grass_medium_01_tall_a",
+     "tris": 290,
+     "height_m": 0.323,
+     "size_m": [
+      0.161,
+      0.323,
+      0.159
+     ]
+    },
+    {
+     "name": "grass_medium_01_tall_c",
+     "tris": 340,
+     "height_m": 0.236,
+     "size_m": [
+      0.153,
+      0.236,
+      0.128
+     ]
+    },
+    {
+     "name": "grass_medium_01_small_b",
+     "tris": 653,
+     "height_m": 0.1,
+     "size_m": [
+      0.166,
+      0.1,
+      0.19
+     ]
+    },
+    {
+     "name": "grass_medium_01_mid_c",
+     "tris": 1466,
+     "height_m": 0.145,
+     "size_m": [
+      0.192,
+      0.145,
+      0.203
+     ]
+    },
+    {
+     "name": "grass_medium_01_mid_a",
+     "tris": 2287,
+     "height_m": 0.218,
+     "size_m": [
+      0.216,
+      0.218,
+      0.221
+     ]
+    },
+    {
+     "name": "grass_medium_01_large_a",
+     "tris": 6422,
+     "height_m": 0.147,
+     "size_m": [
+      0.317,
+      0.147,
+      0.327
+     ]
+    },
+    {
+     "name": "grass_medium_01_large_c",
+     "tris": 5945,
+     "height_m": 0.142,
+     "size_m": [
+      0.279,
+      0.142,
+      0.255
+     ]
+    },
+    {
+     "name": "grass_medium_01_tiny_c",
+     "tris": 40,
+     "height_m": 0.082,
+     "size_m": [
+      0.016,
+      0.082,
+      0.029
+     ]
+    },
+    {
+     "name": "grass_medium_01_tiny_a",
+     "tris": 79,
+     "height_m": 0.112,
+     "size_m": [
+      0.067,
+      0.112,
+      0.074
+     ]
+    },
+    {
+     "name": "grass_medium_01_tiny_b",
+     "tris": 28,
+     "height_m": 0.06,
+     "size_m": [
+      0.024,
+      0.06,
+      0.034
+     ]
+    },
+    {
+     "name": "grass_medium_01_tiny_d",
+     "tris": 32,
+     "height_m": 0.048,
+     "size_m": [
+      0.043,
+      0.048,
+      0.089
+     ]
+    },
+    {
+     "name": "grass_medium_01_tiny_e",
+     "tris": 62,
+     "height_m": 0.049,
+     "size_m": [
+      0.085,
+      0.049,
+      0.074
+     ]
+    },
+    {
+     "name": "grass_medium_01_tiny_f",
+     "tris": 60,
+     "height_m": 0.047,
+     "size_m": [
+      0.055,
+      0.047,
+      0.069
+     ]
+    }
+   ],
+   "bytes": 952460,
+   "texture_bytes": 522176,
+   "source_tris": 24730,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "grass_medium_01",
+    "name": "Grass Medium 01",
+    "url": "https://polyhaven.com/a/grass_medium_01",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "dandelion_01": {
+   "file": "dandelion_01.glb",
+   "tris": 29916,
+   "height_m": 0.17,
+   "size_m": [
+    4.214,
+    0.17,
+    0.258
+   ],
+   "min_y": -0.008,
+   "category": "flower",
+   "tags": [
+    "flower",
+    "dandelion",
+    "meadow",
+    "yellow",
+    "alpha_leaves"
+   ],
+   "scale_hint": 2,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "variants": [
+    {
+     "name": "dandelion_01_a",
+     "tris": 12845,
+     "height_m": 0.164,
+     "size_m": [
+      0.22,
+      0.164,
+      0.258
+     ]
+    },
+    {
+     "name": "dandelion_01_b",
+     "tris": 12765,
+     "height_m": 0.114,
+     "size_m": [
+      0.202,
+      0.114,
+      0.218
+     ]
+    },
+    {
+     "name": "dandelion_01_c",
+     "tris": 1742,
+     "height_m": 0.101,
+     "size_m": [
+      0.17,
+      0.101,
+      0.167
+     ]
+    },
+    {
+     "name": "dandelion_01_d",
+     "tris": 1426,
+     "height_m": 0.055,
+     "size_m": [
+      0.122,
+      0.055,
+      0.144
+     ]
+    },
+    {
+     "name": "dandelion_01_e",
+     "tris": 1138,
+     "height_m": 0.047,
+     "size_m": [
+      0.214,
+      0.047,
+      0.205
+     ]
+    }
+   ],
+   "bytes": 796304,
+   "texture_bytes": 409211,
+   "source_tris": 54764,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "dandelion_01",
+    "name": "Dandelion 01",
+    "url": "https://polyhaven.com/a/dandelion_01",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "celandine_01": {
+   "file": "celandine_01.glb",
+   "tris": 8966,
+   "height_m": 0.186,
+   "size_m": [
+    2.239,
+    0.186,
+    0.307
+   ],
+   "min_y": -0.007,
+   "category": "flower",
+   "tags": [
+    "flower",
+    "celandine",
+    "ground_cover",
+    "yellow",
+    "alpha_leaves"
+   ],
+   "scale_hint": 2,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "variants": [
+    {
+     "name": "celandine_01_a",
+     "tris": 622,
+     "height_m": 0.186,
+     "size_m": [
+      0.276,
+      0.186,
+      0.228
+     ]
+    },
+    {
+     "name": "celandine_01_b",
+     "tris": 599,
+     "height_m": 0.145,
+     "size_m": [
+      0.252,
+      0.145,
+      0.307
+     ]
+    },
+    {
+     "name": "celandine_01_c",
+     "tris": 4301,
+     "height_m": 0.176,
+     "size_m": [
+      0.257,
+      0.176,
+      0.186
+     ]
+    },
+    {
+     "name": "celandine_01_d",
+     "tris": 3002,
+     "height_m": 0.149,
+     "size_m": [
+      0.187,
+      0.149,
+      0.223
+     ]
+    },
+    {
+     "name": "celandine_01_e",
+     "tris": 442,
+     "height_m": 0.124,
+     "size_m": [
+      0.188,
+      0.124,
+      0.216
+     ]
+    }
+   ],
+   "bytes": 489960,
+   "texture_bytes": 357490,
+   "source_tris": 8966,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "celandine_01",
+    "name": "Celandine 01",
+    "url": "https://polyhaven.com/a/celandine_01",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "flower_gazania": {
+   "file": "flower_gazania.glb",
+   "tris": 14340,
+   "height_m": 0.166,
+   "size_m": [
+    1.481,
+    0.166,
+    0.703
+   ],
+   "min_y": -0.006,
+   "category": "flower",
+   "tags": [
+    "flower",
+    "daisy",
+    "orange",
+    "meadow"
+   ],
+   "scale_hint": 2,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "variants": [
+    {
+     "name": "flower_gazania_a",
+     "tris": 416,
+     "height_m": 0.045,
+     "size_m": [
+      0.138,
+      0.045,
+      0.133
+     ]
+    },
+    {
+     "name": "flower_gazania_b",
+     "tris": 448,
+     "height_m": 0.048,
+     "size_m": [
+      0.215,
+      0.048,
+      0.268
+     ]
+    },
+    {
+     "name": "flower_gazania_c",
+     "tris": 752,
+     "height_m": 0.069,
+     "size_m": [
+      0.241,
+      0.069,
+      0.186
+     ]
+    },
+    {
+     "name": "flower_gazania_d",
+     "tris": 1348,
+     "height_m": 0.1,
+     "size_m": [
+      0.246,
+      0.1,
+      0.266
+     ]
+    },
+    {
+     "name": "flower_gazania_h",
+     "tris": 3540,
+     "height_m": 0.166,
+     "size_m": [
+      0.338,
+      0.166,
+      0.326
+     ]
+    },
+    {
+     "name": "flower_gazania_g",
+     "tris": 3004,
+     "height_m": 0.124,
+     "size_m": [
+      0.269,
+      0.124,
+      0.288
+     ]
+    },
+    {
+     "name": "flower_gazania_f",
+     "tris": 2728,
+     "height_m": 0.11,
+     "size_m": [
+      0.312,
+      0.11,
+      0.307
+     ]
+    },
+    {
+     "name": "flower_gazania_e",
+     "tris": 2104,
+     "height_m": 0.107,
+     "size_m": [
+      0.241,
+      0.107,
+      0.186
+     ]
+    }
+   ],
+   "bytes": 590852,
+   "texture_bytes": 344503,
+   "source_tris": 14340,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "flower_gazania",
+    "name": "Flower Gazania",
+    "url": "https://polyhaven.com/a/flower_gazania",
+    "authors": [
+     "James Ray Cock",
+     "Jenelle van Heerden"
+    ],
+    "license": "CC0"
+   }
+  },
+  "weed_plant_02": {
+   "file": "weed_plant_02.glb",
+   "tris": 11116,
+   "height_m": 0.075,
+   "size_m": [
+    2.125,
+    0.075,
+    0.291
+   ],
+   "min_y": -0.009,
+   "category": "plant",
+   "tags": [
+    "plant",
+    "weed",
+    "ground_cover",
+    "alpha_leaves"
+   ],
+   "scale_hint": 2,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "variants": [
+    {
+     "name": "weed_plant_02_a",
+     "tris": 2967,
+     "height_m": 0.072,
+     "size_m": [
+      0.219,
+      0.072,
+      0.291
+     ]
+    },
+    {
+     "name": "weed_plant_02_b",
+     "tris": 2273,
+     "height_m": 0.068,
+     "size_m": [
+      0.188,
+      0.068,
+      0.199
+     ]
+    },
+    {
+     "name": "weed_plant_02_c",
+     "tris": 1766,
+     "height_m": 0.055,
+     "size_m": [
+      0.142,
+      0.055,
+      0.143
+     ]
+    },
+    {
+     "name": "weed_plant_02_d",
+     "tris": 1928,
+     "height_m": 0.039,
+     "size_m": [
+      0.154,
+      0.039,
+      0.108
+     ]
+    },
+    {
+     "name": "weed_plant_02_e",
+     "tris": 2182,
+     "height_m": 0.04,
+     "size_m": [
+      0.119,
+      0.04,
+      0.061
+     ]
+    }
+   ],
+   "bytes": 711400,
+   "texture_bytes": 576661,
+   "source_tris": 11116,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "weed_plant_02",
+    "name": "Weed Plant 02",
+    "url": "https://polyhaven.com/a/weed_plant_02",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "nettle_plant": {
+   "file": "nettle_plant.glb",
+   "tris": 31304,
+   "height_m": 0.218,
+   "size_m": [
+    1.083,
+    0.218,
+    0.095
+   ],
+   "min_y": -0.006,
+   "category": "plant",
+   "tags": [
+    "plant",
+    "nettle",
+    "weed",
+    "marsh",
+    "alpha_leaves"
+   ],
+   "scale_hint": 2,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "variants": [
+    {
+     "name": "nettle_plant_medium_a",
+     "tris": 5896,
+     "height_m": 0.131,
+     "size_m": [
+      0.077,
+      0.131,
+      0.089
+     ]
+    },
+    {
+     "name": "nettle_plant_medium_b",
+     "tris": 5664,
+     "height_m": 0.105,
+     "size_m": [
+      0.065,
+      0.105,
+      0.066
+     ]
+    },
+    {
+     "name": "nettle_plant_small_a",
+     "tris": 3592,
+     "height_m": 0.063,
+     "size_m": [
+      0.064,
+      0.063,
+      0.043
+     ]
+    },
+    {
+     "name": "nettle_plant_small_b",
+     "tris": 1088,
+     "height_m": 0.022,
+     "size_m": [
+      0.06,
+      0.022,
+      0.039
+     ]
+    },
+    {
+     "name": "nettle_plant_tall_a",
+     "tris": 6984,
+     "height_m": 0.217,
+     "size_m": [
+      0.104,
+      0.217,
+      0.09
+     ]
+    },
+    {
+     "name": "nettle_plant_tall_b",
+     "tris": 8080,
+     "height_m": 0.193,
+     "size_m": [
+      0.082,
+      0.193,
+      0.095
+     ]
+    }
+   ],
+   "bytes": 790912,
+   "texture_bytes": 424806,
+   "source_tris": 31304,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "nettle_plant",
+    "name": "Nettle Plant",
+    "url": "https://polyhaven.com/a/nettle_plant",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "tree_stump_01": {
+   "file": "tree_stump_01.glb",
+   "tris": 19999,
+   "height_m": 0.573,
+   "size_m": [
+    1.426,
+    0.573,
+    1.589
+   ],
+   "min_y": -0.193,
+   "category": "log",
+   "tags": [
+    "stump",
+    "wood",
+    "forest_floor"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall). Base sits ~0.2 m below y=0 (sink into ground).",
+   "bytes": 1162968,
+   "texture_bytes": 977517,
+   "source_tris": 41046,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "tree_stump_01",
+    "name": "Tree Stump 01",
+    "url": "https://polyhaven.com/a/tree_stump_01",
+    "authors": [
+     "Rob Tuytel"
+    ],
+    "license": "CC0"
+   }
+  },
+  "dead_tree_trunk_02": {
+   "file": "dead_tree_trunk_02.glb",
+   "tris": 24000,
+   "height_m": 1.055,
+   "size_m": [
+    4.048,
+    1.055,
+    1.052
+   ],
+   "min_y": -0.328,
+   "category": "log",
+   "tags": [
+    "log",
+    "fallen_tree",
+    "dead_wood"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "bytes": 1137188,
+   "texture_bytes": 911787,
+   "source_tris": 83128,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "dead_tree_trunk_02",
+    "name": "Dead Tree Trunk 02",
+    "url": "https://polyhaven.com/a/dead_tree_trunk_02",
+    "authors": [
+     "Jenelle van Heerden",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "dry_branches_medium_01": {
+   "file": "dry_branches_medium_01.glb",
+   "tris": 16803,
+   "height_m": 0.341,
+   "size_m": [
+    1.059,
+    0.341,
+    1.299
+   ],
+   "min_y": -0.017,
+   "category": "log",
+   "tags": [
+    "branches",
+    "dead_wood",
+    "debris"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "variants": [
+    {
+     "name": "dry_branches_medium_01_c",
+     "tris": 5616,
+     "height_m": 0.143,
+     "size_m": [
+      0.131,
+      0.143,
+      0.777
+     ]
+    },
+    {
+     "name": "dry_branches_medium_01_b",
+     "tris": 5254,
+     "height_m": 0.142,
+     "size_m": [
+      0.151,
+      0.142,
+      1.039
+     ]
+    },
+    {
+     "name": "dry_branches_medium_01_a",
+     "tris": 5933,
+     "height_m": 0.341,
+     "size_m": [
+      0.323,
+      0.341,
+      1.299
+     ]
+    }
+   ],
+   "bytes": 1055172,
+   "texture_bytes": 874065,
+   "source_tris": 16803,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "dry_branches_medium_01",
+    "name": "Dry Branches Medium 01",
+    "url": "https://polyhaven.com/a/dry_branches_medium_01",
+    "authors": [
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "rock_moss_set_01": {
+   "file": "rock_moss_set_01.glb",
+   "tris": 35994,
+   "height_m": 1.768,
+   "size_m": [
+    8.005,
+    1.768,
+    6.944
+   ],
+   "min_y": -0.661,
+   "category": "rock",
+   "tags": [
+    "rock",
+    "boulder",
+    "moss",
+    "set"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall). 6 rocks 0.8–3 m.",
+   "variants": [
+    {
+     "name": "rock_moss_set_01_rock01",
+     "tris": 6272,
+     "height_m": 1.471,
+     "size_m": [
+      2.238,
+      1.471,
+      3.364
+     ]
+    },
+    {
+     "name": "rock_moss_set_01_rock02",
+     "tris": 6270,
+     "height_m": 1.262,
+     "size_m": [
+      2.649,
+      1.262,
+      3.264
+     ]
+    },
+    {
+     "name": "rock_moss_set_01_rock03",
+     "tris": 2850,
+     "height_m": 1.1,
+     "size_m": [
+      2.109,
+      1.1,
+      2.08
+     ]
+    },
+    {
+     "name": "rock_moss_set_01_rock04",
+     "tris": 6038,
+     "height_m": 1.768,
+     "size_m": [
+      2.122,
+      1.768,
+      1.964
+     ]
+    },
+    {
+     "name": "rock_moss_set_01_rock05",
+     "tris": 9436,
+     "height_m": 1.205,
+     "size_m": [
+      1.817,
+      1.205,
+      2.999
+     ]
+    },
+    {
+     "name": "rock_moss_set_01_rock06",
+     "tris": 5128,
+     "height_m": 1.262,
+     "size_m": [
+      2.126,
+      1.262,
+      2.757
+     ]
+    }
+   ],
+   "bytes": 802408,
+   "texture_bytes": 468138,
+   "source_tris": 63127,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "rock_moss_set_01",
+    "name": "Rock Moss Set 01",
+    "url": "https://polyhaven.com/a/rock_moss_set_01",
+    "authors": [
+     "Kless Gyzen"
+    ],
+    "license": "CC0"
+   }
+  },
+  "rock_moss_set_02": {
+   "file": "rock_moss_set_02.glb",
+   "tris": 33992,
+   "height_m": 1.365,
+   "size_m": [
+    8.278,
+    1.365,
+    3.41
+   ],
+   "min_y": -0.315,
+   "category": "rock",
+   "tags": [
+    "rock",
+    "stone",
+    "grey",
+    "set"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall). 7 rocks.",
+   "variants": [
+    {
+     "name": "rock_moss_set_02_rock08",
+     "tris": 4718,
+     "height_m": 0.525,
+     "size_m": [
+      1.206,
+      0.525,
+      0.984
+     ]
+    },
+    {
+     "name": "rock_moss_set_02_rock09",
+     "tris": 4654,
+     "height_m": 0.61,
+     "size_m": [
+      1.629,
+      0.61,
+      1.011
+     ]
+    },
+    {
+     "name": "rock_moss_set_02_rock12",
+     "tris": 4716,
+     "height_m": 0.736,
+     "size_m": [
+      1.58,
+      0.736,
+      1.443
+     ]
+    },
+    {
+     "name": "rock_moss_set_02_rock13",
+     "tris": 4674,
+     "height_m": 1.256,
+     "size_m": [
+      2.091,
+      1.256,
+      1.138
+     ]
+    },
+    {
+     "name": "rock_moss_set_02_rock10",
+     "tris": 4718,
+     "height_m": 0.768,
+     "size_m": [
+      2.203,
+      0.768,
+      1.552
+     ]
+    },
+    {
+     "name": "rock_moss_set_02_rock11",
+     "tris": 4718,
+     "height_m": 1.308,
+     "size_m": [
+      1.954,
+      1.308,
+      1.526
+     ]
+    },
+    {
+     "name": "rock_moss_set_02_rock07",
+     "tris": 5794,
+     "height_m": 0.745,
+     "size_m": [
+      1.692,
+      0.745,
+      1.215
+     ]
+    }
+   ],
+   "bytes": 929336,
+   "texture_bytes": 621145,
+   "source_tris": 57647,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "rock_moss_set_02",
+    "name": "Rock Moss Set 02",
+    "url": "https://polyhaven.com/a/rock_moss_set_02",
+    "authors": [
+     "Kless Gyzen"
+    ],
+    "license": "CC0"
+   }
+  },
+  "boulder_01": {
+   "file": "boulder_01.glb",
+   "tris": 24000,
+   "height_m": 1.003,
+   "size_m": [
+    1.271,
+    1.003,
+    1.83
+   ],
+   "min_y": -0.073,
+   "category": "rock",
+   "tags": [
+    "rock",
+    "boulder",
+    "brown",
+    "large"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "bytes": 1260584,
+   "texture_bytes": 904393,
+   "source_tris": 66122,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "boulder_01",
+    "name": "Boulder 01",
+    "url": "https://polyhaven.com/a/boulder_01",
+    "authors": [
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "namaqualand_boulder_02": {
+   "file": "namaqualand_boulder_02.glb",
+   "tris": 27999,
+   "height_m": 0.882,
+   "size_m": [
+    2.532,
+    0.882,
+    1.233
+   ],
+   "min_y": -0.059,
+   "category": "rock",
+   "tags": [
+    "rock",
+    "boulder_cluster",
+    "sandstone",
+    "arid"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "bytes": 1099904,
+   "texture_bytes": 838090,
+   "source_tris": 97964,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "namaqualand_boulder_02",
+    "name": "Namaqualand Boulder 02",
+    "url": "https://polyhaven.com/a/namaqualand_boulder_02",
+    "authors": [
+     "Greg Zaal",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "namaqualand_boulder_03": {
+   "file": "namaqualand_boulder_03.glb",
+   "tris": 24000,
+   "height_m": 1.472,
+   "size_m": [
+    2.407,
+    1.472,
+    3.065
+   ],
+   "min_y": -0.013,
+   "category": "rock",
+   "tags": [
+    "rock",
+    "boulder",
+    "limestone_like",
+    "large",
+    "arid"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "bytes": 879472,
+   "texture_bytes": 677911,
+   "source_tris": 64826,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "namaqualand_boulder_03",
+    "name": "Namaqualand Boulder 03",
+    "url": "https://polyhaven.com/a/namaqualand_boulder_03",
+    "authors": [
+     "Jenelle van Heerden",
+     "Dario Barresi"
+    ],
+    "license": "CC0"
+   }
+  },
+  "namaqualand_boulder_05": {
+   "file": "namaqualand_boulder_05.glb",
+   "tris": 18000,
+   "height_m": 0.532,
+   "size_m": [
+    1.362,
+    0.532,
+    0.748
+   ],
+   "min_y": -0.006,
+   "category": "rock",
+   "tags": [
+    "rock",
+    "flat",
+    "slab",
+    "pale",
+    "limestone_like"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "bytes": 1035988,
+   "texture_bytes": 855673,
+   "source_tris": 89618,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "namaqualand_boulder_05",
+    "name": "Namaqualand Boulder 05",
+    "url": "https://polyhaven.com/a/namaqualand_boulder_05",
+    "authors": [
+     "Jenelle van Heerden",
+     "Dario Barresi"
+    ],
+    "license": "CC0"
+   }
+  },
+  "sand_rocks_small_01": {
+   "file": "sand_rocks_small_01.glb",
+   "tris": 35999,
+   "height_m": 0.534,
+   "size_m": [
+    4.626,
+    0.534,
+    3.88
+   ],
+   "min_y": -0.104,
+   "category": "rock",
+   "tags": [
+    "rocks",
+    "pebbles",
+    "sand",
+    "ground_patch",
+    "scatter"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall). 4.6 × 3.9 m ground patch.",
+   "bytes": 1046852,
+   "texture_bytes": 710412,
+   "source_tris": 739469,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "sand_rocks_small_01",
+    "name": "Sand Rocks Small 01",
+    "url": "https://polyhaven.com/a/sand_rocks_small_01",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "cliff_mountainside": {
+   "file": "cliff_mountainside.glb",
+   "tris": 29999,
+   "height_m": 10.52,
+   "size_m": [
+    10.205,
+    10.52,
+    5.245
+   ],
+   "min_y": -0.2,
+   "category": "cliff",
+   "tags": [
+    "cliff",
+    "rock_face",
+    "backdrop",
+    "distant",
+    "tall"
+   ],
+   "scale_hint": 1.5,
+   "scale_note": "Backdrop cliff (10 m tall, 10 m wide); place far behind the stage.",
+   "bytes": 1241144,
+   "texture_bytes": 976475,
+   "source_tris": 153472,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "mountainside",
+    "name": "Mountainside",
+    "url": "https://polyhaven.com/a/mountainside",
+    "authors": [
+     "Dario Barresi",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "rock_face_02": {
+   "file": "rock_face_02.glb",
+   "tris": 21997,
+   "height_m": 2.472,
+   "size_m": [
+    2.711,
+    2.472,
+    2.127
+   ],
+   "min_y": -0.14,
+   "category": "cliff",
+   "tags": [
+    "cliff",
+    "rock_face",
+    "limestone_like",
+    "moss",
+    "backdrop"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "bytes": 1055232,
+   "texture_bytes": 856940,
+   "source_tris": 29566,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "rock_face_02",
+    "name": "Rock Face 02",
+    "url": "https://polyhaven.com/a/rock_face_02",
+    "authors": [
+     "Dario Barresi",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "marble_bust_01": {
+   "file": "marble_bust_01.glb",
+   "tris": 17456,
+   "height_m": 0.515,
+   "size_m": [
+    0.272,
+    0.515,
+    0.3
+   ],
+   "min_y": 0,
+   "category": "statue",
+   "tags": [
+    "statue",
+    "bust",
+    "marble",
+    "classical",
+    "greek"
+   ],
+   "scale_hint": 3,
+   "scale_note": "Real 0.5 m bust; ×3 for a diorama statue, ×10 on the tabletop.",
+   "bytes": 545856,
+   "texture_bytes": 395676,
+   "source_tris": 17456,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "marble_bust_01",
+    "name": "Marble Bust 01",
+    "url": "https://polyhaven.com/a/marble_bust_01",
+    "authors": [
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "horse_statue_01": {
+   "file": "horse_statue_01.glb",
+   "tris": 15998,
+   "height_m": 0.22,
+   "size_m": [
+    0.163,
+    0.22,
+    0.108
+   ],
+   "min_y": 0,
+   "category": "statue",
+   "tags": [
+    "statue",
+    "horse",
+    "porcelain",
+    "figurine",
+    "greek"
+   ],
+   "scale_hint": 8,
+   "scale_note": "Real 22 cm figurine; ×8 ≈ life-size statue, ×10 on the tabletop.",
+   "bytes": 554692,
+   "texture_bytes": 399614,
+   "source_tris": 22388,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "horse_statue_01",
+    "name": "Horse Statue 01",
+    "url": "https://polyhaven.com/a/horse_statue_01",
+    "authors": [
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "lion_head": {
+   "file": "lion_head.glb",
+   "tris": 23998,
+   "height_m": 0.436,
+   "size_m": [
+    0.321,
+    0.436,
+    0.207
+   ],
+   "min_y": 0,
+   "category": "statue",
+   "tags": [
+    "statue",
+    "lion",
+    "bronze",
+    "nemean",
+    "trophy"
+   ],
+   "scale_hint": 3,
+   "scale_note": "Real 0.44 m bronze on a plinth.",
+   "bytes": 791832,
+   "texture_bytes": 580857,
+   "source_tris": 47214,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "lion_head",
+    "name": "Lion Head",
+    "url": "https://polyhaven.com/a/lion_head",
+    "authors": [
+     "Tina"
+    ],
+    "license": "CC0"
+   }
+  },
+  "bull_head": {
+   "file": "bull_head.glb",
+   "tris": 17148,
+   "height_m": 0.433,
+   "size_m": [
+    0.306,
+    0.433,
+    0.281
+   ],
+   "min_y": 0,
+   "category": "statue",
+   "tags": [
+    "statue",
+    "bull",
+    "bronze",
+    "minotaur",
+    "trophy"
+   ],
+   "scale_hint": 3,
+   "scale_note": "Real 0.43 m bronze on a plinth.",
+   "bytes": 547256,
+   "texture_bytes": 399919,
+   "source_tris": 17148,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "bull_head",
+    "name": "Bull Head",
+    "url": "https://polyhaven.com/a/bull_head",
+    "authors": [
+     "Tina"
+    ],
+    "license": "CC0"
+   }
+  },
+  "antique_ceramic_vase_01": {
+   "file": "antique_ceramic_vase_01.glb",
+   "tris": 9408,
+   "height_m": 0.44,
+   "size_m": [
+    0.255,
+    0.44,
+    0.255
+   ],
+   "min_y": 0,
+   "category": "vessel",
+   "tags": [
+    "vase",
+    "ceramic",
+    "amphora_standin",
+    "painted"
+   ],
+   "scale_hint": 3,
+   "scale_note": "Real 0.44 m.",
+   "bytes": 323224,
+   "texture_bytes": 246212,
+   "source_tris": 9408,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "antique_ceramic_vase_01",
+    "name": "Antique Ceramic Vase 01",
+    "url": "https://polyhaven.com/a/antique_ceramic_vase_01",
+    "authors": [
+     "James Ray Cock"
+    ],
+    "license": "CC0"
+   }
+  },
+  "ceramic_vase_04": {
+   "file": "ceramic_vase_04.glb",
+   "tris": 9000,
+   "height_m": 0.342,
+   "size_m": [
+    0.181,
+    0.342,
+    0.181
+   ],
+   "min_y": 0.001,
+   "category": "vessel",
+   "tags": [
+    "vase",
+    "jug",
+    "oinochoe_like",
+    "ceramic",
+    "white"
+   ],
+   "scale_hint": 3,
+   "scale_note": "Real 0.34 m.",
+   "bytes": 365212,
+   "texture_bytes": 278528,
+   "source_tris": 9000,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "ceramic_vase_04",
+    "name": "Ceramic Vase 04",
+    "url": "https://polyhaven.com/a/ceramic_vase_04",
+    "authors": [
+     "James Ray Cock"
+    ],
+    "license": "CC0"
+   }
+  },
+  "planter_pot_clay": {
+   "file": "planter_pot_clay.glb",
+   "tris": 3080,
+   "height_m": 0.222,
+   "size_m": [
+    0.266,
+    0.222,
+    0.263
+   ],
+   "min_y": 0,
+   "category": "vessel",
+   "tags": [
+    "pot",
+    "terracotta",
+    "clay",
+    "garden"
+   ],
+   "scale_hint": 3,
+   "scale_note": "Real 0.22 m.",
+   "bytes": 407832,
+   "texture_bytes": 375531,
+   "source_tris": 3080,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "planter_pot_clay",
+    "name": "Planter Pot Clay",
+    "url": "https://polyhaven.com/a/planter_pot_clay",
+    "authors": [
+     "Amal Kumar"
+    ],
+    "license": "CC0"
+   }
+  },
+  "brass_vase_01": {
+   "file": "brass_vase_01.glb",
+   "tris": 11999,
+   "height_m": 0.692,
+   "size_m": [
+    0.227,
+    0.692,
+    0.227
+   ],
+   "min_y": 0.001,
+   "category": "vessel",
+   "tags": [
+    "vase",
+    "brass",
+    "ancient",
+    "metal",
+    "tall"
+   ],
+   "scale_hint": 3,
+   "scale_note": "Real 0.69 m.",
+   "bytes": 396216,
+   "texture_bytes": 295737,
+   "source_tris": 21440,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "brass_vase_01",
+    "name": "Brass Vase 01",
+    "url": "https://polyhaven.com/a/brass_vase_01",
+    "authors": [
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "brass_vase_03": {
+   "file": "brass_vase_03.glb",
+   "tris": 2616,
+   "height_m": 0.2,
+   "size_m": [
+    0.083,
+    0.2,
+    0.083
+   ],
+   "min_y": 0.001,
+   "category": "vessel",
+   "tags": [
+    "vase",
+    "copper",
+    "engraved",
+    "ancient",
+    "small"
+   ],
+   "scale_hint": 3,
+   "scale_note": "Real 0.2 m.",
+   "bytes": 394168,
+   "texture_bytes": 366879,
+   "source_tris": 2616,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "brass_vase_03",
+    "name": "Brass Vase 03",
+    "url": "https://polyhaven.com/a/brass_vase_03",
+    "authors": [
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "brass_goblets": {
+   "file": "brass_goblets.glb",
+   "tris": 9600,
+   "height_m": 0.273,
+   "size_m": [
+    0.453,
+    0.273,
+    0.298
+   ],
+   "min_y": 0.005,
+   "category": "vessel",
+   "tags": [
+    "goblet",
+    "chalice",
+    "brass",
+    "feast",
+    "set"
+   ],
+   "scale_hint": 10,
+   "scale_note": "Tabletop study/shop: ~10 world units per metre (books ~2 units wide).",
+   "variants": [
+    {
+     "name": "brass_goblet_01",
+     "tris": 3072,
+     "height_m": 0.272,
+     "size_m": [
+      0.15,
+      0.272,
+      0.15
+     ]
+    },
+    {
+     "name": "brass_goblet_02",
+     "tris": 3264,
+     "height_m": 0.266,
+     "size_m": [
+      0.141,
+      0.266,
+      0.141
+     ]
+    },
+    {
+     "name": "brass_goblet_03",
+     "tris": 3264,
+     "height_m": 0.272,
+     "size_m": [
+      0.149,
+      0.272,
+      0.149
+     ]
+    }
+   ],
+   "bytes": 1323228,
+   "texture_bytes": 1224107,
+   "source_tris": 9600,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "brass_goblets",
+    "name": "Brass Goblets",
+    "url": "https://polyhaven.com/a/brass_goblets",
+    "authors": [
+     "Tina"
+    ],
+    "license": "CC0"
+   }
+  },
+  "wine_bottles_01": {
+   "file": "wine_bottles_01.glb",
+   "tris": 17982,
+   "height_m": 0.331,
+   "size_m": [
+    0.676,
+    0.331,
+    0.081
+   ],
+   "min_y": 0,
+   "category": "vessel",
+   "tags": [
+    "wine",
+    "bottle",
+    "glass",
+    "dionysus",
+    "set"
+   ],
+   "scale_hint": 10,
+   "scale_note": "Tabletop study/shop: ~10 world units per metre (books ~2 units wide).",
+   "variants": [
+    {
+     "name": "wine_bottles_01_bordeaux",
+     "tris": 4064,
+     "height_m": 0.298,
+     "size_m": [
+      0.075,
+      0.298,
+      0.075
+     ]
+    },
+    {
+     "name": "wine_bottles_01_alsace",
+     "tris": 4812,
+     "height_m": 0.331,
+     "size_m": [
+      0.072,
+      0.331,
+      0.072
+     ]
+    },
+    {
+     "name": "wine_bottles_01_burgundy",
+     "tris": 3994,
+     "height_m": 0.306,
+     "size_m": [
+      0.08,
+      0.306,
+      0.08
+     ]
+    },
+    {
+     "name": "wine_bottles_01_champagne",
+     "tris": 5112,
+     "height_m": 0.316,
+     "size_m": [
+      0.081,
+      0.316,
+      0.081
+     ]
+    }
+   ],
+   "bytes": 1266024,
+   "texture_bytes": 1089018,
+   "source_tris": 28848,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "wine_bottles_01",
+    "name": "Wine Bottles 01",
+    "url": "https://polyhaven.com/a/wine_bottles_01",
+    "authors": [
+     "Rico Cilliers",
+     "Jurita Burger"
+    ],
+    "license": "CC0"
+   }
+  },
+  "food_pomegranate_01": {
+   "file": "food_pomegranate_01.glb",
+   "tris": 8142,
+   "height_m": 0.115,
+   "size_m": [
+    0.114,
+    0.115,
+    0.115
+   ],
+   "min_y": 0,
+   "category": "food",
+   "tags": [
+    "fruit",
+    "pomegranate",
+    "persephone"
+   ],
+   "scale_hint": 10,
+   "scale_note": "Tabletop study/shop: ~10 world units per metre (books ~2 units wide).",
+   "bytes": 379068,
+   "texture_bytes": 304220,
+   "source_tris": 8142,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "food_pomegranate_01",
+    "name": "Food Pomegranate 01",
+    "url": "https://polyhaven.com/a/food_pomegranate_01",
+    "authors": [
+     "Oliver Harries"
+    ],
+    "license": "CC0"
+   }
+  },
+  "lambis_shell": {
+   "file": "lambis_shell.glb",
+   "tris": 9000,
+   "height_m": 0.047,
+   "size_m": [
+    0.139,
+    0.047,
+    0.075
+   ],
+   "min_y": 0,
+   "category": "food",
+   "tags": [
+    "shell",
+    "sea",
+    "conch",
+    "decor"
+   ],
+   "scale_hint": 10,
+   "scale_note": "Tabletop study/shop: ~10 world units per metre (books ~2 units wide).",
+   "bytes": 657376,
+   "texture_bytes": 568215,
+   "source_tris": 12498,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "lambis_shell",
+    "name": "Lambis Shell",
+    "url": "https://polyhaven.com/a/lambis_shell",
+    "authors": [
+     "Kuutti Siitonen"
+    ],
+    "license": "CC0"
+   }
+  },
+  "food_apple_01": {
+   "file": "food_apple_01.glb",
+   "tris": 7012,
+   "height_m": 0.085,
+   "size_m": [
+    0.098,
+    0.085,
+    0.096
+   ],
+   "min_y": 0,
+   "category": "food",
+   "tags": [
+    "fruit",
+    "apple",
+    "apple_of_discord",
+    "throwable"
+   ],
+   "scale_hint": 10,
+   "scale_note": "Tabletop study/shop: ~10 world units per metre (books ~2 units wide). Battle throw: ×3–5.",
+   "bytes": 351808,
+   "texture_bytes": 285310,
+   "source_tris": 7012,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "food_apple_01",
+    "name": "Food Apple 01",
+    "url": "https://polyhaven.com/a/food_apple_01",
+    "authors": [
+     "Oliver Harries"
+    ],
+    "license": "CC0"
+   }
+  },
+  "wine_barrel_01": {
+   "file": "wine_barrel_01.glb",
+   "tris": 10820,
+   "height_m": 0.871,
+   "size_m": [
+    0.742,
+    0.871,
+    0.756
+   ],
+   "min_y": 0.001,
+   "category": "container",
+   "tags": [
+    "barrel",
+    "wood",
+    "shop",
+    "diogenes"
+   ],
+   "scale_hint": 4,
+   "scale_note": "Real 0.87 m; Diogenes' barrel ×3–4 on the tabletop.",
+   "parts": [
+    "wine_barrel_01_Lid",
+    "wine_barrel_01_bung",
+    "wine_barrel_01",
+    "wine_barrel_01_base"
+   ],
+   "bytes": 665288,
+   "texture_bytes": 525053,
+   "source_tris": 10820,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "wine_barrel_01",
+    "name": "Wine Barrel 01",
+    "url": "https://polyhaven.com/a/wine_barrel_01",
+    "authors": [
+     "James Ray Cock"
+    ],
+    "license": "CC0"
+   }
+  },
+  "treasure_chest": {
+   "file": "treasure_chest.glb",
+   "tris": 31998,
+   "height_m": 0.619,
+   "size_m": [
+    0.959,
+    0.619,
+    0.523
+   ],
+   "min_y": -0.002,
+   "category": "container",
+   "tags": [
+    "chest",
+    "treasure",
+    "reward",
+    "wood",
+    "iron"
+   ],
+   "scale_hint": 4,
+   "scale_note": "Real 0.96 m wide; lid is a separate node (treasure_chest_lid).",
+   "parts": [
+    "treasure_chest_bottom",
+    "treasure_chest_lid",
+    "treasure_chest_handle_left",
+    "treasure_chest_handle_right",
+    "treasure_chest_lock"
+   ],
+   "bytes": 1085556,
+   "texture_bytes": 721068,
+   "source_tris": 103330,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "treasure_chest",
+    "name": "Treasure Chest",
+    "url": "https://polyhaven.com/a/treasure_chest",
+    "authors": [
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "wooden_crate_01": {
+   "file": "wooden_crate_01.glb",
+   "tris": 6576,
+   "height_m": 0.35,
+   "size_m": [
+    0.825,
+    0.35,
+    0.409
+   ],
+   "min_y": -0.008,
+   "category": "container",
+   "tags": [
+    "crate",
+    "box",
+    "wood",
+    "shop"
+   ],
+   "scale_hint": 4,
+   "scale_note": "Real 0.83 m; lid + latch are separate nodes.",
+   "parts": [
+    "wooden_crate_01_lid",
+    "wooden_crate_01",
+    "wooden_crate_01_latch"
+   ],
+   "bytes": 541612,
+   "texture_bytes": 465953,
+   "source_tris": 6576,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "wooden_crate_01",
+    "name": "Wooden Crate 01",
+    "url": "https://polyhaven.com/a/wooden_crate_01",
+    "authors": [
+     "James Ray Cock"
+    ],
+    "license": "CC0"
+   }
+  },
+  "wicker_basket_01": {
+   "file": "wicker_basket_01.glb",
+   "tris": 12000,
+   "height_m": 0.117,
+   "size_m": [
+    0.383,
+    0.117,
+    0.295
+   ],
+   "min_y": -0.001,
+   "category": "container",
+   "tags": [
+    "basket",
+    "wicker",
+    "market",
+    "fruit"
+   ],
+   "scale_hint": 10,
+   "scale_note": "Tabletop study/shop: ~10 world units per metre (books ~2 units wide).",
+   "bytes": 618288,
+   "texture_bytes": 473820,
+   "source_tris": 22276,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "wicker_basket_01",
+    "name": "Wicker Basket 01",
+    "url": "https://polyhaven.com/a/wicker_basket_01",
+    "authors": [
+     "Kuutti Siitonen"
+    ],
+    "license": "CC0"
+   }
+  },
+  "stone_fire_pit": {
+   "file": "stone_fire_pit.glb",
+   "tris": 3887,
+   "height_m": 0.388,
+   "size_m": [
+    1.448,
+    0.388,
+    1.433
+   ],
+   "min_y": -0.193,
+   "category": "structure",
+   "tags": [
+    "fire_pit",
+    "stone_ring",
+    "camp",
+    "rest_site"
+   ],
+   "scale_hint": 1.5,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall). Base sits ~0.2 m below y=0.",
+   "bytes": 763552,
+   "texture_bytes": 723835,
+   "source_tris": 3887,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "stone_fire_pit",
+    "name": "Stone Fire Pit",
+    "url": "https://polyhaven.com/a/stone_fire_pit",
+    "authors": [
+     "Sebastian Platen"
+    ],
+    "license": "CC0"
+   }
+  },
+  "lantern_01": {
+   "file": "lantern_01.glb",
+   "tris": 17998,
+   "height_m": 0.294,
+   "size_m": [
+    0.122,
+    0.294,
+    0.097
+   ],
+   "min_y": 0,
+   "category": "lighting",
+   "tags": [
+    "lantern",
+    "hurricane_lamp",
+    "brass",
+    "glass"
+   ],
+   "scale_hint": 10,
+   "scale_note": "Tabletop study/shop: ~10 world units per metre (books ~2 units wide).",
+   "parts": [
+    "Lantern_01",
+    "Lantern_01_glass"
+   ],
+   "bytes": 685072,
+   "texture_bytes": 618047,
+   "source_tris": 33902,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "Lantern_01",
+    "name": "Lantern 01",
+    "url": "https://polyhaven.com/a/Lantern_01",
+    "authors": [
+     "Rajil Jose Macatangay"
+    ],
+    "license": "CC0"
+   }
+  },
+  "vintage_oil_lamp": {
+   "file": "vintage_oil_lamp.glb",
+   "tris": 7208,
+   "height_m": 0.802,
+   "size_m": [
+    0.22,
+    0.802,
+    0.22
+   ],
+   "min_y": 0,
+   "category": "lighting",
+   "tags": [
+    "oil_lamp",
+    "lamp",
+    "glass",
+    "flame",
+    "study"
+   ],
+   "scale_hint": 6,
+   "scale_note": "Tabletop study/shop: ~10 world units per metre (books ~2 units wide).",
+   "parts": [
+    "vintage_oil_lamp_glass",
+    "vintage_oil_lamp",
+    "vintage_oil_lamp_flame"
+   ],
+   "bytes": 573408,
+   "texture_bytes": 514024,
+   "source_tris": 7208,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "vintage_oil_lamp",
+    "name": "Vintage Oil Lamp",
+    "url": "https://polyhaven.com/a/vintage_oil_lamp",
+    "authors": [
+     "Monsta3D"
+    ],
+    "license": "CC0"
+   }
+  },
+  "brass_candleholders": {
+   "file": "brass_candleholders.glb",
+   "tris": 25997,
+   "height_m": 0.809,
+   "size_m": [
+    1.053,
+    0.809,
+    0.365
+   ],
+   "min_y": 0,
+   "category": "lighting",
+   "tags": [
+    "candles",
+    "candelabra",
+    "brass",
+    "flame",
+    "set"
+   ],
+   "scale_hint": 6,
+   "scale_note": "Tabletop study/shop: ~10 world units per metre (books ~2 units wide). Flames use an emissive additive material.",
+   "variants": [
+    {
+     "name": "brass_candleholder_03",
+     "tris": 19937,
+     "height_m": 0.809,
+     "size_m": [
+      0.408,
+      0.809,
+      0.365
+     ]
+    },
+    {
+     "name": "brass_candleholder_02",
+     "tris": 4588,
+     "height_m": 0.383,
+     "size_m": [
+      0.261,
+      0.383,
+      0.097
+     ]
+    },
+    {
+     "name": "brass_candleholder_01",
+     "tris": 1472,
+     "height_m": 0.366,
+     "size_m": [
+      0.097,
+      0.366,
+      0.097
+     ]
+    }
+   ],
+   "bytes": 2671708,
+   "texture_bytes": 2400882,
+   "source_tris": 41936,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "brass_candleholders",
+    "name": "Brass Candleholders",
+    "url": "https://polyhaven.com/a/brass_candleholders",
+    "authors": [
+     "Tina"
+    ],
+    "license": "CC0"
+   }
+  },
+  "wooden_candlestick": {
+   "file": "wooden_candlestick.glb",
+   "tris": 9000,
+   "height_m": 0.22,
+   "size_m": [
+    0.097,
+    0.22,
+    0.099
+   ],
+   "min_y": 0,
+   "category": "lighting",
+   "tags": [
+    "candle",
+    "candlestick",
+    "wood",
+    "study"
+   ],
+   "scale_hint": 10,
+   "scale_note": "Tabletop study/shop: ~10 world units per metre (books ~2 units wide).",
+   "bytes": 591600,
+   "texture_bytes": 504172,
+   "source_tris": 212992,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "wooden_candlestick",
+    "name": "Wooden Candlestick",
+    "url": "https://polyhaven.com/a/wooden_candlestick",
+    "authors": [
+     "Josh Dean"
+    ],
+    "license": "CC0"
+   }
+  },
+  "book_encyclopedia_set_01": {
+   "file": "book_encyclopedia_set_01.glb",
+   "tris": 25960,
+   "height_m": 0.237,
+   "size_m": [
+    0.551,
+    0.237,
+    0.163
+   ],
+   "min_y": 0,
+   "category": "book",
+   "tags": [
+    "books",
+    "encyclopedia",
+    "leather",
+    "study",
+    "set"
+   ],
+   "scale_hint": 10,
+   "scale_note": "Tabletop study/shop: ~10 world units per metre (books ~2 units wide). 20 books; #k picks one.",
+   "variants": [
+    {
+     "name": "book_encyclopedia_set_01_book01",
+     "tris": 1309,
+     "height_m": 0.237,
+     "size_m": [
+      0.039,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book02",
+     "tris": 1297,
+     "height_m": 0.237,
+     "size_m": [
+      0.028,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book03",
+     "tris": 1297,
+     "height_m": 0.237,
+     "size_m": [
+      0.023,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book04",
+     "tris": 1297,
+     "height_m": 0.237,
+     "size_m": [
+      0.025,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book05",
+     "tris": 1298,
+     "height_m": 0.237,
+     "size_m": [
+      0.019,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book06",
+     "tris": 1298,
+     "height_m": 0.237,
+     "size_m": [
+      0.018,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book07",
+     "tris": 1297,
+     "height_m": 0.237,
+     "size_m": [
+      0.024,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book08",
+     "tris": 1298,
+     "height_m": 0.237,
+     "size_m": [
+      0.022,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book09",
+     "tris": 1297,
+     "height_m": 0.237,
+     "size_m": [
+      0.022,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book10",
+     "tris": 1298,
+     "height_m": 0.237,
+     "size_m": [
+      0.022,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book11",
+     "tris": 1297,
+     "height_m": 0.237,
+     "size_m": [
+      0.018,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book12",
+     "tris": 1297,
+     "height_m": 0.237,
+     "size_m": [
+      0.023,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book13",
+     "tris": 1298,
+     "height_m": 0.237,
+     "size_m": [
+      0.037,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book14",
+     "tris": 1298,
+     "height_m": 0.237,
+     "size_m": [
+      0.033,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book15",
+     "tris": 1297,
+     "height_m": 0.237,
+     "size_m": [
+      0.035,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book16",
+     "tris": 1298,
+     "height_m": 0.237,
+     "size_m": [
+      0.025,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book17",
+     "tris": 1297,
+     "height_m": 0.237,
+     "size_m": [
+      0.036,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book18",
+     "tris": 1298,
+     "height_m": 0.237,
+     "size_m": [
+      0.022,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book19",
+     "tris": 1297,
+     "height_m": 0.237,
+     "size_m": [
+      0.019,
+      0.237,
+      0.163
+     ]
+    },
+    {
+     "name": "book_encyclopedia_set_01_book20",
+     "tris": 1297,
+     "height_m": 0.237,
+     "size_m": [
+      0.024,
+      0.237,
+      0.163
+     ]
+    }
+   ],
+   "bytes": 856300,
+   "texture_bytes": 510365,
+   "source_tris": 67306,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "book_encyclopedia_set_01",
+    "name": "Book Encyclopedia Set 01",
+    "url": "https://polyhaven.com/a/book_encyclopedia_set_01",
+    "authors": [
+     "John Malcolm"
+    ],
+    "license": "CC0"
+   }
+  },
+  "wooden_table_02": {
+   "file": "wooden_table_02.glb",
+   "tris": 196,
+   "height_m": 0.8,
+   "size_m": [
+    1.134,
+    0.8,
+    0.706
+   ],
+   "min_y": 0,
+   "category": "furniture",
+   "tags": [
+    "table",
+    "wood",
+    "rustic",
+    "shop"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Real 1.13 m table.",
+   "bytes": 405372,
+   "texture_bytes": 399645,
+   "source_tris": 196,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "wooden_table_02",
+    "name": "Wooden Table 02",
+    "url": "https://polyhaven.com/a/wooden_table_02",
+    "authors": [
+     "Serhii Khromov"
+    ],
+    "license": "CC0"
+   }
+  },
+  "round_wooden_table_01": {
+   "file": "round_wooden_table_01.glb",
+   "tris": 8640,
+   "height_m": 1.005,
+   "size_m": [
+    1.399,
+    1.005,
+    1.399
+   ],
+   "min_y": -0.001,
+   "category": "furniture",
+   "tags": [
+    "table",
+    "round",
+    "dark_wood",
+    "study",
+    "pedestal"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Real 1.4 m round table.",
+   "parts": [
+    "round_wooden_table_01",
+    "round_wooden_table_01_bolts"
+   ],
+   "bytes": 329020,
+   "texture_bytes": 240401,
+   "source_tris": 8640,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "round_wooden_table_01",
+    "name": "Round Wooden Table 01",
+    "url": "https://polyhaven.com/a/round_wooden_table_01",
+    "authors": [
+     "Ulan Cabanilla"
+    ],
+    "license": "CC0"
+   }
+  },
+  "grandfather_clock": {
+   "file": "grandfather_clock.glb",
+   "tris": 8582,
+   "height_m": 2.191,
+   "size_m": [
+    0.626,
+    2.191,
+    0.427
+   ],
+   "min_y": 0,
+   "category": "furniture",
+   "tags": [
+    "clock",
+    "grandfather_clock",
+    "wood",
+    "study",
+    "animated_hands"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Real 2.19 m. Hour/minute hands are separate nodes pivoted on the dial centre (rotate about local Z). No visible pendulum in this model (closed case).",
+   "parts": [
+    "vintage_grandfather_clock_01_Body",
+    "vintage_grandfather_clock_01_HourHand",
+    "vintage_grandfather_clock_01_MinuteHand"
+   ],
+   "bytes": 1335596,
+   "texture_bytes": 1223171,
+   "source_tris": 8582,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "vintage_grandfather_clock_01",
+    "name": "Vintage Grandfather Clock 01",
+    "url": "https://polyhaven.com/a/vintage_grandfather_clock_01",
+    "authors": [
+     "Yann Kervran",
+     "James Ray Cock"
+    ],
+    "license": "CC0"
+   }
+  },
+  "ornate_mirror_01": {
+   "file": "ornate_mirror_01.glb",
+   "tris": 14246,
+   "height_m": 0.744,
+   "size_m": [
+    0.487,
+    0.744,
+    0.026
+   ],
+   "min_y": -0.411,
+   "category": "furniture",
+   "tags": [
+    "mirror",
+    "gold_frame",
+    "ornate",
+    "wall"
+   ],
+   "scale_hint": 3,
+   "scale_note": "Real 0.74 m tall wall mirror (pivot near its centre).",
+   "bytes": 369560,
+   "texture_bytes": 244434,
+   "source_tris": 14246,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "ornate_mirror_01",
+    "name": "Ornate Mirror 01",
+    "url": "https://polyhaven.com/a/ornate_mirror_01",
+    "authors": [
+     "James Ray Cock"
+    ],
+    "license": "CC0"
+   }
+  }
+ },
+ "textures": {
+  "ground_dry_grass": {
+   "dir": "textures/ground_dry_grass/",
+   "maps": [
+    "diff",
+    "nor",
+    "arm"
+   ],
+   "size": 1024,
+   "bytes": 1506539,
+   "category": "ground",
+   "tags": [
+    "ground",
+    "mediterranean",
+    "dry_grass",
+    "meadow",
+    "olive_grove"
+   ],
+   "repeat_m": 2,
+   "source": {
+    "id": "withered_grass",
+    "name": "Withered Grass",
+    "url": "https://polyhaven.com/a/withered_grass",
+    "authors": [
+     "Charlotte Baglioni"
+    ],
+    "license": "CC0"
+   }
+  },
+  "ground_rocky_trail": {
+   "dir": "textures/ground_rocky_trail/",
+   "maps": [
+    "diff",
+    "nor",
+    "arm"
+   ],
+   "size": 1024,
+   "bytes": 1469680,
+   "category": "ground",
+   "tags": [
+    "ground",
+    "mediterranean",
+    "gravel",
+    "path",
+    "rocky"
+   ],
+   "repeat_m": 2,
+   "source": {
+    "id": "rocky_trail",
+    "name": "Rocky Trail",
+    "url": "https://polyhaven.com/a/rocky_trail",
+    "authors": [
+     "Amal Kumar"
+    ],
+    "license": "CC0"
+   }
+  },
+  "ground_dry_dirt": {
+   "dir": "textures/ground_dry_dirt/",
+   "maps": [
+    "diff",
+    "nor",
+    "arm"
+   ],
+   "size": 1024,
+   "bytes": 1580883,
+   "category": "ground",
+   "tags": [
+    "ground",
+    "mediterranean",
+    "dirt",
+    "pebbles",
+    "arid"
+   ],
+   "repeat_m": 4,
+   "source": {
+    "id": "dry_ground_rocks",
+    "name": "Dry Ground Rocks",
+    "url": "https://polyhaven.com/a/dry_ground_rocks",
+    "authors": [
+     "Rob Tuytel"
+    ],
+    "license": "CC0"
+   }
+  },
+  "ground_meadow": {
+   "dir": "textures/ground_meadow/",
+   "maps": [
+    "diff",
+    "nor",
+    "arm"
+   ],
+   "size": 1024,
+   "bytes": 746953,
+   "category": "ground",
+   "tags": [
+    "ground",
+    "lush",
+    "meadow",
+    "green",
+    "grass"
+   ],
+   "repeat_m": 4,
+   "source": {
+    "id": "rocky_terrain_02",
+    "name": "Rocky Terrain 02",
+    "url": "https://polyhaven.com/a/rocky_terrain_02",
+    "authors": [
+     "Amal Kumar"
+    ],
+    "license": "CC0"
+   }
+  },
+  "mud_wet": {
+   "dir": "textures/mud_wet/",
+   "maps": [
+    "diff",
+    "nor",
+    "arm"
+   ],
+   "size": 1024,
+   "bytes": 1533340,
+   "category": "ground",
+   "tags": [
+    "ground",
+    "mud",
+    "marsh",
+    "wet"
+   ],
+   "repeat_m": 1.3,
+   "source": {
+    "id": "brown_mud_02",
+    "name": "Brown Mud 02",
+    "url": "https://polyhaven.com/a/brown_mud_02",
+    "authors": [
+     "Rob Tuytel"
+    ],
+    "license": "CC0"
+   }
+  },
+  "mud_mossy": {
+   "dir": "textures/mud_mossy/",
+   "maps": [
+    "diff",
+    "nor",
+    "arm"
+   ],
+   "size": 1024,
+   "bytes": 1496055,
+   "category": "ground",
+   "tags": [
+    "ground",
+    "mud",
+    "marsh",
+    "moss",
+    "bank"
+   ],
+   "repeat_m": 1.3,
+   "source": {
+    "id": "brown_mud_leaves_01",
+    "name": "Brown Mud Leaves 01",
+    "url": "https://polyhaven.com/a/brown_mud_leaves_01",
+    "authors": [
+     "Rob Tuytel"
+    ],
+    "license": "CC0"
+   }
+  },
+  "marble_slabs": {
+   "dir": "textures/marble_slabs/",
+   "maps": [
+    "diff",
+    "nor",
+    "arm"
+   ],
+   "size": 1024,
+   "bytes": 223953,
+   "category": "stone",
+   "tags": [
+    "marble",
+    "polished",
+    "tiles",
+    "temple",
+    "floor"
+   ],
+   "repeat_m": 1.5,
+   "source": {
+    "id": "marble_01",
+    "name": "Marble 01",
+    "url": "https://polyhaven.com/a/marble_01",
+    "authors": [
+     "Rob Tuytel"
+    ],
+    "license": "CC0"
+   }
+  },
+  "marble_weathered": {
+   "dir": "textures/marble_weathered/",
+   "maps": [
+    "diff",
+    "nor",
+    "arm"
+   ],
+   "size": 1024,
+   "bytes": 871323,
+   "category": "stone",
+   "tags": [
+    "marble",
+    "weathered",
+    "cracked",
+    "ruins",
+    "column",
+    "statue"
+   ],
+   "repeat_m": 2,
+   "source": {
+    "id": "marble_rock_01",
+    "name": "Marble Rock 01",
+    "url": "https://polyhaven.com/a/marble_rock_01",
+    "authors": [
+     "Amal Kumar"
+    ],
+    "license": "CC0"
+   }
+  },
+  "stone_wall_rough": {
+   "dir": "textures/stone_wall_rough/",
+   "maps": [
+    "diff",
+    "nor",
+    "arm"
+   ],
+   "size": 1024,
+   "bytes": 1003547,
+   "category": "wall",
+   "tags": [
+    "wall",
+    "stone",
+    "dry_stone",
+    "labyrinth",
+    "ruins"
+   ],
+   "repeat_m": 2,
+   "source": {
+    "id": "stone_wall",
+    "name": "Stone Wall",
+    "url": "https://polyhaven.com/a/stone_wall",
+    "authors": [
+     "Dario Barresi",
+     "Charlotte Baglioni"
+    ],
+    "license": "CC0"
+   }
+  },
+  "wood_dark": {
+   "dir": "textures/wood_dark/",
+   "maps": [
+    "diff",
+    "nor",
+    "arm"
+   ],
+   "size": 1024,
+   "bytes": 397556,
+   "category": "wood",
+   "tags": [
+    "wood",
+    "dark",
+    "table",
+    "varnished",
+    "tabletop"
+   ],
+   "repeat_m": 2,
+   "source": {
+    "id": "dark_wood",
+    "name": "Dark Wood",
+    "url": "https://polyhaven.com/a/dark_wood",
+    "authors": [
+     "Dario Barresi",
+     "Dimitrios Savva",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "bark_rough": {
+   "dir": "textures/bark_rough/",
+   "maps": [
+    "diff",
+    "nor",
+    "arm"
+   ],
+   "size": 1024,
+   "bytes": 1297186,
+   "category": "bark",
+   "tags": [
+    "bark",
+    "tree",
+    "trunk",
+    "log"
+   ],
+   "repeat_m": 1,
+   "source": {
+    "id": "bark_willow",
+    "name": "Bark Willow",
+    "url": "https://polyhaven.com/a/bark_willow",
+    "authors": [
+     "Dario Barresi",
+     "Dimitrios Savva"
+    ],
+    "license": "CC0"
+   }
+  }
+ },
+ "hdris": {
+  "golden_cape_hill": {
+   "file": "hdri/golden_cape_hill.hdr",
+   "res": "1k",
+   "bytes": 1642586,
+   "kind": "outdoor",
+   "tags": [
+    "golden_hour",
+    "low_sun",
+    "clouds",
+    "rocky_hills",
+    "mediterranean_like",
+    "warm"
+   ],
+   "source": {
+    "id": "cape_hill",
+    "name": "Cape Hill",
+    "url": "https://polyhaven.com/a/cape_hill",
+    "authors": [
+     "Greg Zaal",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "golden_dry_valley": {
+   "file": "hdri/golden_dry_valley.hdr",
+   "res": "1k",
+   "bytes": 1459086,
+   "kind": "outdoor",
+   "tags": [
+    "sunset",
+    "golden_hour",
+    "low_sun",
+    "clouds",
+    "dry_grass",
+    "warm"
+   ],
+   "source": {
+    "id": "qwantani_sunset",
+    "name": "Qwantani Sunset",
+    "url": "https://polyhaven.com/a/qwantani_sunset",
+    "authors": [
+     "Greg Zaal",
+     "Jarod Guest"
+    ],
+    "license": "CC0"
+   }
+  },
+  "sunset_dry_plain": {
+   "file": "hdri/sunset_dry_plain.hdr",
+   "res": "1k",
+   "bytes": 1590712,
+   "kind": "outdoor",
+   "tags": [
+    "sunset",
+    "low_sun",
+    "cloudy",
+    "dry_plain",
+    "warm",
+    "dusky"
+   ],
+   "source": {
+    "id": "belfast_sunset",
+    "name": "Belfast Sunset",
+    "url": "https://polyhaven.com/a/belfast_sunset",
+    "authors": [
+     "Greg Zaal",
+     "Dimitrios Savva"
+    ],
+    "license": "CC0"
+   }
+  },
+  "interior_fireplace": {
+   "file": "hdri/interior_fireplace.hdr",
+   "res": "1k",
+   "bytes": 1529229,
+   "kind": "interior",
+   "tags": [
+    "interior",
+    "warm",
+    "dim",
+    "fireplace",
+    "cozy",
+    "study"
+   ],
+   "source": {
+    "id": "fireplace",
+    "name": "Fireplace",
+    "url": "https://polyhaven.com/a/fireplace",
+    "authors": [
+     "Greg Zaal"
+    ],
+    "license": "CC0"
+   }
+  }
+ }
+}

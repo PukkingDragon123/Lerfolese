@@ -1,0 +1,78 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles/main.css">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>
+html,body{height:auto!important;overflow:visible!important}
+body{background:#6c6a72;color:#f3e6c4;font:12px/1.3 monospace;margin:0;padding:8px}
+#boot{display:none}
+h2{margin:14px 0 6px;font:bold 15px monospace;color:#ffe08a;border-bottom:1px solid #8a8690}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.cell{display:flex;flex-direction:column;align-items:center;gap:2px}
+.cell span{font-size:10px;color:#e8e2d0}
+canvas{image-rendering:pixelated;display:block;flex:none}
+.bgs{display:flex;gap:0;align-items:flex-start}
+</style></head><body>
+<script type="module">
+// Artist contact sheet: every sprite and frame at 1x and Nx on neutral, dark and in-scene backgrounds.
+// ?sec=drawn|critters|icons|ramps|items (comma separated) &s=4 (zoom) &only=name1,name2
+import { drawn, DRAWN_NAMES, DRAWN_FRAMES } from '../src/gfx/drawn.js';
+import { RAMP } from '../src/gfx/art/ramps.js';
+await document.fonts.ready;
+const Q = new URLSearchParams(location.search); const secs = (Q.get('sec') || 'ramps,drawn,items,critters,icons').split(','); const S = +(Q.get('s') || 4); const only = Q.get('only') ? Q.get('only').split(',') : null;
+const BG = { neutral: '#8c8a90', dark: '#1a1220', scene: null };
+function sceneBg(w, h) { // a little HD-2D backdrop: warm sky, distant hills, grass
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#f2b880'); gr.addColorStop(0.45, '#e8c49a'); gr.addColorStop(0.55, '#8aa060'); gr.addColorStop(1, '#55703a'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#9a8a88'; for (let x = 0; x < w; x += 6) g.fillRect(x, h * 0.45 - 6 - 6 * Math.sin(x * 0.03), 6, 12); return c;
+}
+function show(pc, label, parent, { scale = S, bgs = ['neutral', 'dark', 'scene'] } = {}) {
+  const cv = pc.commit ? pc.commit() : pc; const cell = document.createElement('div'); cell.className = 'cell';
+  const b = document.createElement('div'); b.className = 'bgs';
+  // 1x on neutral
+  const one = document.createElement('canvas'); one.width = cv.width + 8; one.height = cv.height + 8; const g1 = one.getContext('2d'); g1.fillStyle = BG.neutral; g1.fillRect(0, 0, one.width, one.height); g1.drawImage(cv, 4, 4); b.appendChild(one);
+  for (const k of bgs) {
+    const c = document.createElement('canvas'); c.width = cv.width * scale + 8; c.height = cv.height * scale + 8; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    if (k === 'scene') g.drawImage(sceneBg(c.width, c.height), 0, 0); else { g.fillStyle = BG[k]; g.fillRect(0, 0, c.width, c.height); }
+    g.drawImage(cv, 4, 4, cv.width * scale, cv.height * scale); b.appendChild(c);
+  }
+  cell.appendChild(b); const s = document.createElement('span'); s.textContent = label + ` (${cv.width}x${cv.height})`; cell.appendChild(s); parent.appendChild(cell);
+}
+function section(title) { const h = document.createElement('h2'); h.textContent = title; document.body.appendChild(h); const r = document.createElement('div'); r.className = 'row'; document.body.appendChild(r); return r; }
+const t0 = performance.now();
+if (secs.includes('ramps')) {
+  const r = section('Material ramps');
+  for (const k in RAMP) { const c = document.createElement('canvas'); const n = RAMP[k].length; c.width = n * 12; c.height = 12; const g = c.getContext('2d'); RAMP[k].forEach((h, i) => { g.fillStyle = h; g.fillRect(i * 12, 0, 12, 12); }); const cell = document.createElement('div'); cell.className = 'cell'; cell.appendChild(c); const s = document.createElement('span'); s.textContent = k; cell.appendChild(s); r.appendChild(cell); }
+}
+if (secs.includes('drawn') || secs.includes('items')) {
+  const want = (n) => (only ? only.includes(n) : true) && (n.startsWith('item_') ? secs.includes('items') : secs.includes('drawn'));
+  let r = null, lastGroup = '';
+  for (const name of DRAWN_NAMES) {
+    if (!want(name)) continue; const grp = name.startsWith('item_') ? 'Curio icons' : name.startsWith('mk_') ? 'Map standees' : 'Drawn objects';
+    if (grp !== lastGroup) { r = section(grp); lastGroup = grp; }
+    const variants = (DRAWN_FRAMES && DRAWN_FRAMES[name]) || [[]];
+    for (const args of variants) { try { show(drawn(name, ...args), name + (args.length ? '(' + args.join(',') + ')' : ''), r, { scale: name.startsWith('item_') ? Math.max(2, S - 1) : S >= 4 && drawn(name, ...args).w > 100 ? 3 : S }); } catch (e) { const s = document.createElement('pre'); s.textContent = name + ': ' + e.stack; r.appendChild(s); } }
+  }
+}
+if (secs.includes('critters')) {
+  const { critterAtlasCanvas, CRITTER_LAYOUT } = await import('../src/gfx/critters.js');
+  const r = section('Critters atlas (1x)'); const atlas = critterAtlasCanvas(); const c = document.createElement('canvas'); c.width = atlas.width; c.height = atlas.height; const g = c.getContext('2d'); g.fillStyle = '#7fb6dc'; g.fillRect(0, 0, c.width, c.height); g.drawImage(atlas, 0, 0); r.appendChild(c);
+  const L = CRITTER_LAYOUT; const cellPx = L.cell;
+  for (const grp of L.groups) {
+    if (only && !only.includes(grp.name)) continue;
+    const rr = section(`${grp.name} frames (x${S})`);
+    for (let f = 0; f < grp.frames.length; f++) {
+      const fr = grp.frames[f]; const idx = fr.index; const sx = (idx % L.cols) * cellPx, sy = Math.floor(idx / L.cols) * cellPx;
+      const crop = document.createElement('canvas'); crop.width = cellPx; crop.height = cellPx; crop.getContext('2d').drawImage(atlas, sx, sy, cellPx, cellPx, 0, 0, cellPx, cellPx);
+      show(crop, fr.name, rr, { scale: S, bgs: f === 0 ? ['neutral', 'scene'] : ['neutral'] });
+    }
+  }
+}
+if (secs.includes('icons')) {
+  const { SPR, sprite, buildAtlas } = await import('../src/gfx/sprites.js');
+  const r = section('Intent icons + particles (1x, x' + Math.max(4, S) + ', x8)');
+  for (const k of Object.keys(SPR)) { if (only && !only.includes(k)) continue; try { show(sprite(k), k, r, { scale: Math.max(4, S), bgs: ['neutral', 'dark'] }); } catch (e) { const s = document.createElement('pre'); s.textContent = k + ': ' + e.stack; r.appendChild(s); } }
+  const ra = section('Particle atlas'); const A = buildAtlas(); show(A.pc, 'atlas cell ' + A.cell, ra, { scale: 3, bgs: ['dark'] });
+}
+const info = document.createElement('div'); info.textContent = `built in ${(performance.now() - t0).toFixed(0)} ms`; document.body.appendChild(info);
+window.__done = true;
+window.addEventListener('error', (e) => { const p = document.createElement('pre'); p.textContent = String(e.message); document.body.appendChild(p); window.__done = true; });
+</script></body></html>

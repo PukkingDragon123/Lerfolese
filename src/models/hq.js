@@ -133,7 +133,7 @@ export class Atlas {
   // reserve a cell sized from the surface (or size [w,h] in world units) at `dens` px/unit; same key -> shared cell
   add(g, dens, paint, { key, size, over, fn } = {}) {
     let c = key && this.keys.get(key);
-    if (!c) { const f = fn || g.userData.fn; const [pw, ph] = size || measure(f); c = { w0: Math.max(4, pw * dens), h0: Math.max(4, ph * dens), paint, over, fn: f, geos: [] }; this.cells.push(c); if (key) this.keys.set(key, c); }
+    if (!c) { const f = fn || g.userData.fn; const [pw, ph] = size || measure(f); const [du, dv] = Array.isArray(dens) ? dens : [dens, dens]; c = { w0: Math.max(4, pw * du), h0: Math.max(4, ph * dv), paint, over, fn: f, geos: [] }; this.cells.push(c); if (key) this.keys.set(key, c); }
     c.geos.push(g); return g;
   }
   layout() {
