@@ -2,15 +2,15 @@
  "version": 1,
  "description": "Realistic CC0 asset library (Poly Haven). Load with src/gfx/assets.js. Model units are metres (glTF, +Y up); scale_hint is a suggested uniform scale for the game (battle diorama ≈ 1 unit/m with stylised 3–6 m trees; tabletop study ≈ 10 units/m). name#k (or name#nodeName) selects one variant of a set.",
  "conventions": {
-  "models": "assets/models/<name>.glb – self-contained GLB, JPEG/PNG textures (PNG only where alpha is needed), no Draco/KTX2/meshopt; alpha-cutout foliage materials carry extras.foliage, glass extras.glass, flames extras.flame.",
+  "models": "assets/models/<name>.glb – self-contained GLB; textures are JPEG (PNG only where alpha is needed); no Draco/KTX2. Geometry uses EXT_meshopt_compression + KHR_mesh_quantization, so load through src/gfx/assets.js (or any GLTFLoader with setMeshoptDecoder(MeshoptDecoder) from three/addons/libs/meshopt_decoder.module.js). Every authored node keeps its transform (variants: top-level children; animatable parts: named nodes, mesh in a child \"<name>_mesh\"). Material extras: foliage (alpha-cutout cards), glass, flame.",
   "textures": "assets/textures/<set>/{diff,nor,arm}.jpg – diff sRGB; nor OpenGL (+Y) normal map; arm = R ambient occlusion, G roughness, B metalness. repeat_m = real-world size of one tile.",
-  "hdris": "assets/hdri/<name>.hdr – 1k equirectangular Radiance HDR; use for PMREM environment light and as the visible sky."
+  "hdris": "assets/hdri/<name>.hdr – 1k equirectangular Radiance HDR; use for PMREM environment light and as the visible sky. sun.dir = unit vector towards the sun in three.js world space for an unrotated sky (EquirectangularReflectionMapping); with scene.backgroundRotation.y = scene.environmentRotation.y = r the sun is at sun.dir rotated by r about +Y (see hdriSunDirection in src/gfx/assets.js)."
  },
  "totals": {
-  "models": 54,
-  "model_tris": 1449831,
+  "models": 59,
+  "model_tris": 1636244,
   "bytes": {
-   "models": 58195349,
+   "models": 67814976,
    "textures": 12127015,
    "hdri": 6221613
   }
@@ -37,8 +37,8 @@
    ],
    "scale_hint": 1,
    "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
-   "bytes": 4863144,
-   "texture_bytes": 1909327,
+   "bytes": 4870288,
+   "texture_bytes": 1916477,
    "source_tris": 1599403,
    "geometry": "EXT_meshopt_compression",
    "alpha_cutout": true,
@@ -74,8 +74,8 @@
    ],
    "scale_hint": 1.2,
    "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
-   "bytes": 3963904,
-   "texture_bytes": 1846227,
+   "bytes": 3971048,
+   "texture_bytes": 1853377,
    "source_tris": 1072213,
    "geometry": "EXT_meshopt_compression",
    "alpha_cutout": true,
@@ -114,6 +114,115 @@
    "scale_note": "Real size ~19 m; ×0.3 gives a ~6 m diorama tree.",
    "bytes": 5277624,
    "texture_bytes": 2144880,
+   "source_tris": 3863832,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "jacaranda_tree",
+    "name": "Jacaranda Tree",
+    "url": "https://polyhaven.com/a/jacaranda_tree",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "olive_tree_tall_far": {
+   "file": "olive_tree_tall_far.glb",
+   "tris": 48163,
+   "height_m": 5.018,
+   "size_m": [
+    4.758,
+    5.018,
+    4.809
+   ],
+   "min_y": -0.016,
+   "category": "tree",
+   "tags": [
+    "olive",
+    "mediterranean",
+    "lod_far",
+    "background",
+    "alpha_leaves"
+   ],
+   "scale_hint": 1,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall). Distant version of olive_tree_tall (same silhouette).",
+   "bytes": 1742576,
+   "texture_bytes": 655062,
+   "source_tris": 1599403,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "island_tree_01",
+    "name": "Island Tree 01",
+    "url": "https://polyhaven.com/a/island_tree_01",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "olive_tree_wide_far": {
+   "file": "olive_tree_wide_far.glb",
+   "tris": 36746,
+   "height_m": 3.398,
+   "size_m": [
+    4.208,
+    3.398,
+    4.109
+   ],
+   "min_y": -0.017,
+   "category": "tree",
+   "tags": [
+    "olive",
+    "mediterranean",
+    "lod_far",
+    "background",
+    "alpha_leaves"
+   ],
+   "scale_hint": 1.2,
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall). Distant version of olive_tree_wide.",
+   "bytes": 1422168,
+   "texture_bytes": 627819,
+   "source_tris": 1072213,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": true,
+   "source": {
+    "id": "island_tree_02",
+    "name": "Island Tree 02",
+    "url": "https://polyhaven.com/a/island_tree_02",
+    "authors": [
+     "Rob Tuytel",
+     "Rico Cilliers"
+    ],
+    "license": "CC0"
+   }
+  },
+  "umbrella_tree_far": {
+   "file": "umbrella_tree_far.glb",
+   "tris": 54822,
+   "height_m": 19.535,
+   "size_m": [
+    24.321,
+    19.535,
+    19.279
+   ],
+   "min_y": -0.126,
+   "category": "tree",
+   "tags": [
+    "broadleaf",
+    "umbrella",
+    "lod_far",
+    "background",
+    "alpha_leaves",
+    "large"
+   ],
+   "scale_hint": 0.3,
+   "scale_note": "Distant version of umbrella_tree (real ~19 m; ×0.3).",
+   "bytes": 1985328,
+   "texture_bytes": 713012,
    "source_tris": 3863832,
    "geometry": "EXT_meshopt_compression",
    "alpha_cutout": true,
@@ -346,7 +455,7 @@
   },
   "shrub_01": {
    "file": "shrub_01.glb",
-   "tris": 60000,
+   "tris": 31936,
    "height_m": 0.395,
    "size_m": [
     2.586,
@@ -362,11 +471,11 @@
     "alpha_leaves"
    ],
    "scale_hint": 1.5,
-   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall).",
+   "scale_note": "Battle diorama: ~1 world unit per metre (stylised trees 3–6 units tall). Small (0.4 m) leafy shrubs.",
    "variants": [
     {
      "name": "shrub_01_a_a",
-     "tris": 13160,
+     "tris": 7009,
      "height_m": 0.346,
      "size_m": [
       0.176,
@@ -376,7 +485,7 @@
     },
     {
      "name": "shrub_01_a_b",
-     "tris": 20815,
+     "tris": 11163,
      "height_m": 0.395,
      "size_m": [
       0.232,
@@ -386,7 +495,7 @@
     },
     {
      "name": "shrub_01_a_c",
-     "tris": 10951,
+     "tris": 5720,
      "height_m": 0.249,
      "size_m": [
       0.113,
@@ -396,7 +505,7 @@
     },
     {
      "name": "shrub_01_a_d",
-     "tris": 951,
+     "tris": 504,
      "height_m": 0.115,
      "size_m": [
       0.092,
@@ -406,7 +515,7 @@
     },
     {
      "name": "shrub_01_a_e",
-     "tris": 1523,
+     "tris": 799,
      "height_m": 0.183,
      "size_m": [
       0.094,
@@ -416,7 +525,7 @@
     },
     {
      "name": "shrub_01_a_f",
-     "tris": 1878,
+     "tris": 1028,
      "height_m": 0.2,
      "size_m": [
       0.135,
@@ -426,17 +535,17 @@
     },
     {
      "name": "shrub_01_a_g",
-     "tris": 2643,
+     "tris": 1404,
      "height_m": 0.294,
      "size_m": [
-      0.161,
+      0.16,
       0.294,
       0.175
      ]
     },
     {
      "name": "shrub_01_a_h",
-     "tris": 3304,
+     "tris": 1765,
      "height_m": 0.332,
      "size_m": [
       0.182,
@@ -446,7 +555,7 @@
     },
     {
      "name": "shrub_01_a_i",
-     "tris": 4775,
+     "tris": 2544,
      "height_m": 0.372,
      "size_m": [
       0.231,
@@ -455,7 +564,7 @@
      ]
     }
    ],
-   "bytes": 1117152,
+   "bytes": 833772,
    "texture_bytes": 398325,
    "source_tris": 156012,
    "geometry": "EXT_meshopt_compression",
@@ -2406,7 +2515,7 @@
      ]
     }
    ],
-   "bytes": 1266024,
+   "bytes": 1266992,
    "texture_bytes": 1089018,
    "source_tris": 28848,
    "geometry": "EXT_meshopt_compression",
@@ -2485,6 +2594,264 @@
     "url": "https://polyhaven.com/a/lambis_shell",
     "authors": [
      "Kuutti Siitonen"
+    ],
+    "license": "CC0"
+   }
+  },
+  "stone_wall_kit": {
+   "file": "stone_wall_kit.glb",
+   "tris": 28218,
+   "height_m": 13.672,
+   "size_m": [
+    42.67,
+    13.672,
+    71.375
+   ],
+   "min_y": -0.169,
+   "category": "structure",
+   "tags": [
+    "wall",
+    "ruins",
+    "labyrinth",
+    "modular",
+    "stone",
+    "fortification"
+   ],
+   "scale_hint": 0.5,
+   "scale_note": "Modular stone fort walls (straight/corner/end/gate/stairs/tower) at real scale (walls ~4–8 m tall); ×0.4–0.6 for labyrinth or ruin walls.",
+   "variants": [
+    {
+     "name": "modular_fort_01_wall_thick_corner_02",
+     "tris": 836,
+     "height_m": 8.526,
+     "size_m": [
+      7.073,
+      8.526,
+      5.72
+     ]
+    },
+    {
+     "name": "modular_fort_01_tower_round",
+     "tris": 4772,
+     "height_m": 13.498,
+     "size_m": [
+      15.838,
+      13.498,
+      15.838
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thick_straight_01",
+     "tris": 2340,
+     "height_m": 8.526,
+     "size_m": [
+      4.172,
+      8.526,
+      14.563
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thick_end_02",
+     "tris": 642,
+     "height_m": 8.526,
+     "size_m": [
+      4.172,
+      8.526,
+      4.849
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thick_corner_01",
+     "tris": 816,
+     "height_m": 8.526,
+     "size_m": [
+      5.838,
+      8.526,
+      5.838
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thick_thin_transition_01",
+     "tris": 434,
+     "height_m": 8.567,
+     "size_m": [
+      4.172,
+      8.567,
+      3.557
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thin_straight_01",
+     "tris": 1076,
+     "height_m": 8.606,
+     "size_m": [
+      2.55,
+      8.606,
+      14.82
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thin_corner_01",
+     "tris": 654,
+     "height_m": 8.605,
+     "size_m": [
+      4.564,
+      8.605,
+      4.558
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thin_corner_02",
+     "tris": 708,
+     "height_m": 8.606,
+     "size_m": [
+      5.335,
+      8.606,
+      5.336
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thin_straight_02",
+     "tris": 2376,
+     "height_m": 8.608,
+     "size_m": [
+      2.55,
+      8.608,
+      14.819
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thin_straight_04",
+     "tris": 622,
+     "height_m": 8.606,
+     "size_m": [
+      2.55,
+      8.606,
+      7.41
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thick_end_01",
+     "tris": 442,
+     "height_m": 7.794,
+     "size_m": [
+      4.172,
+      7.794,
+      4.849
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thin_gate_01",
+     "tris": 1368,
+     "height_m": 8.616,
+     "size_m": [
+      2.672,
+      8.616,
+      7.41
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thin_corner_03",
+     "tris": 494,
+     "height_m": 8.606,
+     "size_m": [
+      6.456,
+      8.606,
+      4.99
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thin_straight_03",
+     "tris": 406,
+     "height_m": 7.794,
+     "size_m": [
+      2.55,
+      7.794,
+      7.41
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_walkway_straight_01",
+     "tris": 2654,
+     "height_m": 7.702,
+     "size_m": [
+      3.367,
+      7.702,
+      14.563
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_walkway_corner_01",
+     "tris": 140,
+     "height_m": 7.533,
+     "size_m": [
+      7.683,
+      7.533,
+      7.677
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_stairs_straight_01",
+     "tris": 1196,
+     "height_m": 7.533,
+     "size_m": [
+      3.539,
+      7.533,
+      14.819
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_walkway_corner_02",
+     "tris": 94,
+     "height_m": 7.085,
+     "size_m": [
+      2.785,
+      7.085,
+      2.785
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_thick_straight_02",
+     "tris": 5996,
+     "height_m": 8.522,
+     "size_m": [
+      4.228,
+      8.522,
+      14.563
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_walkway_straight_02",
+     "tris": 76,
+     "height_m": 7.533,
+     "size_m": [
+      3.12,
+      7.533,
+      14.563
+     ]
+    },
+    {
+     "name": "modular_fort_01_wall_walkway_end_01",
+     "tris": 76,
+     "height_m": 7.533,
+     "size_m": [
+      3.12,
+      7.533,
+      4.849
+     ]
+    }
+   ],
+   "bytes": 3436008,
+   "texture_bytes": 2895309,
+   "source_tris": 28218,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "modular_fort_01",
+    "name": "Modular Fort 01",
+    "url": "https://polyhaven.com/a/modular_fort_01",
+    "authors": [
+     "Rico Cilliers"
     ],
     "license": "CC0"
    }
@@ -2582,7 +2949,7 @@
     "iron"
    ],
    "scale_hint": 4,
-   "scale_note": "Real 0.96 m wide; lid is a separate node (treasure_chest_lid).",
+   "scale_note": "Real 0.96 m wide. Lid = node treasure_chest_lid, pivot on the hinge (rotate about local X, negative angle opens).",
    "parts": [
     "treasure_chest_bottom",
     "treasure_chest_lid",
@@ -2623,7 +2990,7 @@
     "shop"
    ],
    "scale_hint": 4,
-   "scale_note": "Real 0.83 m; lid + latch are separate nodes.",
+   "scale_note": "Real 0.83 m; lid (wooden_crate_01_lid) and latch are separate nodes.",
    "parts": [
     "wooden_crate_01_lid",
     "wooden_crate_01",
@@ -2775,8 +3142,8 @@
     "vintage_oil_lamp",
     "vintage_oil_lamp_flame"
    ],
-   "bytes": 573408,
-   "texture_bytes": 514024,
+   "bytes": 522784,
+   "texture_bytes": 508010,
    "source_tris": 7208,
    "geometry": "EXT_meshopt_compression",
    "alpha_cutout": false,
@@ -3128,36 +3495,38 @@
     "license": "CC0"
    }
   },
-  "wooden_table_02": {
-   "file": "wooden_table_02.glb",
-   "tris": 196,
-   "height_m": 0.8,
+  "carved_console_table": {
+   "file": "carved_console_table.glb",
+   "tris": 7566,
+   "height_m": 0.949,
    "size_m": [
-    1.134,
-    0.8,
-    0.706
+    1.543,
+    0.949,
+    0.589
    ],
    "min_y": 0,
    "category": "furniture",
    "tags": [
     "table",
-    "wood",
-    "rustic",
-    "shop"
+    "console",
+    "carved",
+    "dark_wood",
+    "study",
+    "shop_counter"
    ],
    "scale_hint": 1,
-   "scale_note": "Real 1.13 m table.",
-   "bytes": 405372,
-   "texture_bytes": 399645,
-   "source_tris": 196,
+   "scale_note": "Real 1.54 m long ornate carved table (cabriole legs).",
+   "bytes": 633400,
+   "texture_bytes": 531929,
+   "source_tris": 7566,
    "geometry": "EXT_meshopt_compression",
    "alpha_cutout": false,
    "source": {
-    "id": "wooden_table_02",
-    "name": "Wooden Table 02",
-    "url": "https://polyhaven.com/a/wooden_table_02",
+    "id": "ClassicConsole_01",
+    "name": "Classic Console 01",
+    "url": "https://polyhaven.com/a/ClassicConsole_01",
     "authors": [
-     "Serhii Khromov"
+     "Kirill Sannikov"
     ],
     "license": "CC0"
    }
@@ -3251,7 +3620,7 @@
     0.744,
     0.026
    ],
-   "min_y": -0.411,
+   "min_y": 0,
    "category": "furniture",
    "tags": [
     "mirror",
@@ -3260,8 +3629,8 @@
     "wall"
    ],
    "scale_hint": 3,
-   "scale_note": "Real 0.74 m tall wall mirror (pivot near its centre).",
-   "bytes": 369560,
+   "scale_note": "Real 0.74 m tall wall mirror; pivot moved to the bottom edge, mirror faces +Z.",
+   "bytes": 369600,
    "texture_bytes": 244434,
    "source_tris": 14246,
    "geometry": "EXT_meshopt_compression",
@@ -3275,11 +3644,86 @@
     ],
     "license": "CC0"
    }
+  },
+  "greek_column": {
+   "file": "greek_column.glb",
+   "tris": 39158,
+   "height_m": 5.243,
+   "size_m": [
+    5.144,
+    5.243,
+    1.421
+   ],
+   "min_y": -0.002,
+   "category": "structure",
+   "tags": [
+    "column",
+    "doric",
+    "marble",
+    "temple",
+    "ruins",
+    "greek",
+    "fluted"
+   ],
+   "scale_hint": 0.75,
+   "scale_note": "Real-scale Doric column (5.1 m with plinth). #0 intact, #1 broken, #2 fallen drum. ×0.6–0.8 for the diorama.",
+   "variants": [
+    {
+     "name": "greek_column_intact",
+     "tris": 22556,
+     "height_m": 5.242,
+     "size_m": [
+      1.421,
+      5.242,
+      1.421
+     ]
+    },
+    {
+     "name": "greek_column_broken",
+     "tris": 13682,
+     "height_m": 2.794,
+     "size_m": [
+      1.421,
+      2.794,
+      1.421
+     ]
+    },
+    {
+     "name": "greek_column_drum",
+     "tris": 2920,
+     "height_m": 0.845,
+     "size_m": [
+      1.452,
+      0.845,
+      1.359
+     ]
+    }
+   ],
+   "bytes": 1109044,
+   "texture_bytes": 760781,
+   "source_tris": 39158,
+   "geometry": "EXT_meshopt_compression",
+   "alpha_cutout": false,
+   "source": {
+    "id": "marble_rock_01",
+    "name": "Generated fluted column geometry; texture: Marble Rock 01",
+    "url": "https://polyhaven.com/a/marble_rock_01",
+    "authors": [
+     "Amal Kumar"
+    ],
+    "license": "CC0"
+   },
+   "note": "Geometry generated for this project (20-flute Doric shaft with entasis, annulets, echinus, abacus, stepped plinth, weathered chips); material uses the CC0 Poly Haven marble_rock_01 texture set."
   }
  },
  "textures": {
   "ground_dry_grass": {
    "dir": "textures/ground_dry_grass/",
+   "files": {
+    "diff": "textures/ground_dry_grass/diff.jpg",
+    "nor": "textures/ground_dry_grass/nor.jpg",
+    "arm": "textures/ground_dry_grass/arm.jpg"
+   },
    "maps": [
     "diff",
     "nor",
@@ -3304,10 +3748,16 @@
      "Charlotte Baglioni"
     ],
     "license": "CC0"
-   }
+   },
+   "scale_hint": 2
   },
   "ground_rocky_trail": {
    "dir": "textures/ground_rocky_trail/",
+   "files": {
+    "diff": "textures/ground_rocky_trail/diff.jpg",
+    "nor": "textures/ground_rocky_trail/nor.jpg",
+    "arm": "textures/ground_rocky_trail/arm.jpg"
+   },
    "maps": [
     "diff",
     "nor",
@@ -3332,10 +3782,16 @@
      "Amal Kumar"
     ],
     "license": "CC0"
-   }
+   },
+   "scale_hint": 2
   },
   "ground_dry_dirt": {
    "dir": "textures/ground_dry_dirt/",
+   "files": {
+    "diff": "textures/ground_dry_dirt/diff.jpg",
+    "nor": "textures/ground_dry_dirt/nor.jpg",
+    "arm": "textures/ground_dry_dirt/arm.jpg"
+   },
    "maps": [
     "diff",
     "nor",
@@ -3360,10 +3816,16 @@
      "Rob Tuytel"
     ],
     "license": "CC0"
-   }
+   },
+   "scale_hint": 4
   },
   "ground_meadow": {
    "dir": "textures/ground_meadow/",
+   "files": {
+    "diff": "textures/ground_meadow/diff.jpg",
+    "nor": "textures/ground_meadow/nor.jpg",
+    "arm": "textures/ground_meadow/arm.jpg"
+   },
    "maps": [
     "diff",
     "nor",
@@ -3388,10 +3850,16 @@
      "Amal Kumar"
     ],
     "license": "CC0"
-   }
+   },
+   "scale_hint": 4
   },
   "mud_wet": {
    "dir": "textures/mud_wet/",
+   "files": {
+    "diff": "textures/mud_wet/diff.jpg",
+    "nor": "textures/mud_wet/nor.jpg",
+    "arm": "textures/mud_wet/arm.jpg"
+   },
    "maps": [
     "diff",
     "nor",
@@ -3415,10 +3883,16 @@
      "Rob Tuytel"
     ],
     "license": "CC0"
-   }
+   },
+   "scale_hint": 1.3
   },
   "mud_mossy": {
    "dir": "textures/mud_mossy/",
+   "files": {
+    "diff": "textures/mud_mossy/diff.jpg",
+    "nor": "textures/mud_mossy/nor.jpg",
+    "arm": "textures/mud_mossy/arm.jpg"
+   },
    "maps": [
     "diff",
     "nor",
@@ -3443,10 +3917,16 @@
      "Rob Tuytel"
     ],
     "license": "CC0"
-   }
+   },
+   "scale_hint": 1.3
   },
   "marble_slabs": {
    "dir": "textures/marble_slabs/",
+   "files": {
+    "diff": "textures/marble_slabs/diff.jpg",
+    "nor": "textures/marble_slabs/nor.jpg",
+    "arm": "textures/marble_slabs/arm.jpg"
+   },
    "maps": [
     "diff",
     "nor",
@@ -3471,10 +3951,16 @@
      "Rob Tuytel"
     ],
     "license": "CC0"
-   }
+   },
+   "scale_hint": 1.5
   },
   "marble_weathered": {
    "dir": "textures/marble_weathered/",
+   "files": {
+    "diff": "textures/marble_weathered/diff.jpg",
+    "nor": "textures/marble_weathered/nor.jpg",
+    "arm": "textures/marble_weathered/arm.jpg"
+   },
    "maps": [
     "diff",
     "nor",
@@ -3500,10 +3986,16 @@
      "Amal Kumar"
     ],
     "license": "CC0"
-   }
+   },
+   "scale_hint": 2
   },
   "stone_wall_rough": {
    "dir": "textures/stone_wall_rough/",
+   "files": {
+    "diff": "textures/stone_wall_rough/diff.jpg",
+    "nor": "textures/stone_wall_rough/nor.jpg",
+    "arm": "textures/stone_wall_rough/arm.jpg"
+   },
    "maps": [
     "diff",
     "nor",
@@ -3529,10 +4021,16 @@
      "Charlotte Baglioni"
     ],
     "license": "CC0"
-   }
+   },
+   "scale_hint": 2
   },
   "wood_dark": {
    "dir": "textures/wood_dark/",
+   "files": {
+    "diff": "textures/wood_dark/diff.jpg",
+    "nor": "textures/wood_dark/nor.jpg",
+    "arm": "textures/wood_dark/arm.jpg"
+   },
    "maps": [
     "diff",
     "nor",
@@ -3559,10 +4057,16 @@
      "Rico Cilliers"
     ],
     "license": "CC0"
-   }
+   },
+   "scale_hint": 2
   },
   "bark_rough": {
    "dir": "textures/bark_rough/",
+   "files": {
+    "diff": "textures/bark_rough/diff.jpg",
+    "nor": "textures/bark_rough/nor.jpg",
+    "arm": "textures/bark_rough/arm.jpg"
+   },
    "maps": [
     "diff",
     "nor",
@@ -3587,7 +4091,8 @@
      "Dimitrios Savva"
     ],
     "license": "CC0"
-   }
+   },
+   "scale_hint": 1
   }
  },
  "hdris": {
@@ -3595,6 +4100,7 @@
    "file": "hdri/golden_cape_hill.hdr",
    "res": "1k",
    "bytes": 1642586,
+   "category": "hdri_sky",
    "kind": "outdoor",
    "tags": [
     "golden_hour",
@@ -3604,6 +4110,16 @@
     "mediterranean_like",
     "warm"
    ],
+   "sun": {
+    "dir": [
+     0.8011,
+     0.0722,
+     0.5941
+    ],
+    "elevation_deg": 4.1,
+    "azimuth_deg": 36.6,
+    "note": "sun disc"
+   },
    "source": {
     "id": "cape_hill",
     "name": "Cape Hill",
@@ -3619,6 +4135,7 @@
    "file": "hdri/golden_dry_valley.hdr",
    "res": "1k",
    "bytes": 1459086,
+   "category": "hdri_sky",
    "kind": "outdoor",
    "tags": [
     "sunset",
@@ -3628,6 +4145,16 @@
     "dry_grass",
     "warm"
    ],
+   "sun": {
+    "dir": [
+     0.8043,
+     0.1036,
+     0.5851
+    ],
+    "elevation_deg": 5.9,
+    "azimuth_deg": 36,
+    "note": "sun disc"
+   },
    "source": {
     "id": "qwantani_sunset",
     "name": "Qwantani Sunset",
@@ -3643,6 +4170,7 @@
    "file": "hdri/sunset_dry_plain.hdr",
    "res": "1k",
    "bytes": 1590712,
+   "category": "hdri_sky",
    "kind": "outdoor",
    "tags": [
     "sunset",
@@ -3652,6 +4180,16 @@
     "warm",
     "dusky"
    ],
+   "sun": {
+    "dir": [
+     0.7961,
+     0.0456,
+     0.6035
+    ],
+    "elevation_deg": 2.6,
+    "azimuth_deg": 37.2,
+    "note": "sun disc"
+   },
    "source": {
     "id": "belfast_sunset",
     "name": "Belfast Sunset",
@@ -3667,6 +4205,7 @@
    "file": "hdri/interior_fireplace.hdr",
    "res": "1k",
    "bytes": 1529229,
+   "category": "hdri_interior",
    "kind": "interior",
    "tags": [
     "interior",
@@ -3676,6 +4215,16 @@
     "cozy",
     "study"
    ],
+   "sun": {
+    "dir": [
+     0.8404,
+     -0.417,
+     0.346
+    ],
+    "elevation_deg": -24.6,
+    "azimuth_deg": 22.4,
+    "note": "brightest light (the fire)"
+   },
    "source": {
     "id": "fireplace",
     "name": "Fireplace",

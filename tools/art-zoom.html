@@ -1,0 +1,14 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles/main.css">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>html,body{height:auto!important;overflow:visible!important}body{background:#8c8a90;margin:0;padding:4px}#boot{display:none}canvas{image-rendering:pixelated;display:block;flex:none}.row{display:flex;flex-wrap:wrap;gap:4px;align-items:flex-start}</style></head><body>
+<script type="module">
+// zoomed critter frames: ?sp=sparrow&f=fly0,fly2&s=8   or drawn: ?d=bell:0,basket&s=4
+const Q = new URLSearchParams(location.search); const S = +(Q.get('s') || 8); const row = document.createElement('div'); row.className = 'row'; document.body.appendChild(row);
+const add = (pc) => { const cv = pc.commit(); const c = document.createElement('canvas'); c.width = cv.width * S; c.height = cv.height * S; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.fillStyle = Q.get('bg') || '#8c8a90'; g.fillRect(0, 0, c.width, c.height); g.drawImage(cv, 0, 0, c.width, c.height); row.appendChild(c); };
+if (Q.get('sp')) { const { paintBird, FRAMES } = await import('../src/gfx/art/birds.js'); for (const sp of Q.get('sp').split(',')) for (const f of (Q.get('f') || FRAMES.join(',')).split(',')) add(paintBird(sp, f)); }
+if (Q.get('b')) { const { paintBeast, BEASTS } = await import('../src/gfx/art/beasts.js'); for (const k of Q.get('b').split(',')) for (const f of (Q.get('f') || BEASTS[k].frames.join(',')).split(',')) add(paintBeast(k, f)); }
+if (Q.get('bf')) { const { paintButterfly } = await import('../src/gfx/art/bugs.js'); for (const k of Q.get('bf').split(',')) for (let f = 0; f < 4; f++) add(paintButterfly(k, f)); }
+if (Q.get('d')) { const { drawn } = await import('../src/gfx/drawn.js'); for (const it of Q.get('d').split(',')) { const [n, ...a] = it.split(':'); add(drawn(n, ...a.map((v) => (isNaN(+v) ? (v === 'null' ? null : v) : +v)))); } }
+if (Q.get('i')) { const { sprite } = await import('../src/gfx/sprites.js'); for (const n of Q.get('i').split(',')) add(sprite(n)); }
+window.__done = true;
+</script></body></html>

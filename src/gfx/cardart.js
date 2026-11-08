@@ -159,8 +159,8 @@ function illustration(key, build, kind, seed, opts = {}) {
     const pc = new PixelCanvas(CW, CH);
     backdrop(pc, kind, seed);
     try {
-      const art = getForge(forgeRenderer).paint(build(), { w: AW, h: AH, fit: opts.fit ?? 0.78, yaw: opts.yaw ?? 0.35, pitch: opts.pitch ?? 0.2, offset: [0, opts.oy ?? 0.06] });
-      pc.blit(art, AX, AY);
+      const half = getForge(forgeRenderer).paint(build(), { w: AW / 2, h: AH / 2, fit: opts.fit ?? 0.78, yaw: opts.yaw ?? 0.35, pitch: opts.pitch ?? 0.2, offset: [0, opts.oy ?? 0.06], levels: 4, satBoost: 1.3 });
+      for (let y = 0; y < half.h; y++) for (let x = 0; x < half.w; x++) { const v = half.get(x, y); if (v >>> 24) { pc.px(AX + x * 2, AY + y * 2, v); pc.px(AX + x * 2 + 1, AY + y * 2, v); pc.px(AX + x * 2, AY + y * 2 + 1, v); pc.px(AX + x * 2 + 1, AY + y * 2 + 1, v); } }
     } catch (e) { console.warn('forge failed', key, e); }
     artCache.set(key, pc);
   }

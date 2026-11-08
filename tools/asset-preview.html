@@ -1,171 +1,223 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Asset Library Preview</title>
 <script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
-<style>html,body{margin:0;height:100%;background:#1a1410;overflow:hidden;font-family:system-ui,sans-serif}canvas{display:block}
-#hud{position:fixed;left:10px;top:8px;color:#f3e6c4;font-size:13px;text-shadow:0 1px 2px #000;pointer-events:none;white-space:pre}</style></head><body>
-<div id="hud">loading…</div>
+<style>
+html,body{margin:0;height:100%;background:#17110d;overflow:hidden;font-family:system-ui,sans-serif;color:#f3e6c4}
+canvas{display:block;position:fixed;left:0;top:0}
+#hud{position:fixed;left:10px;top:8px;font-size:13px;text-shadow:0 1px 2px #000;pointer-events:none;white-space:pre}
+.lbl{position:fixed;transform:translate(-50%,0);color:#ffe6b0;font:600 11px/1.15 system-ui,sans-serif;background:rgba(20,14,10,.66);padding:1px 5px 2px;border-radius:5px;white-space:nowrap;pointer-events:none;text-align:center}
+.lbl i{display:block;font:400 9.5px/1.1 system-ui,sans-serif;color:#d8c8a8;font-style:normal}
+.badge{position:fixed;transform:translate(-50%,0);min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:rgba(24,16,10,.78);border:1px solid #c89a52;color:#ffe2a8;font:700 10px/15px system-ui,sans-serif;text-align:center;pointer-events:none}
+#legend{position:fixed;right:0;top:0;bottom:0;width:340px;overflow:hidden;background:linear-gradient(#1d1510,#140e0a);border-left:1px solid #3a2a1c;padding:8px 12px;box-sizing:border-box;font-size:9.6px;line-height:1.2}
+#legend h1{font-size:13px;margin:0 0 2px;color:#ffd890}#legend .sum{color:#cdb894;margin-bottom:3px}
+#legend h2{font-size:9.8px;margin:5px 0 0;color:#e7b45c;text-transform:uppercase;letter-spacing:.06em}
+#legend .r{display:grid;grid-template-columns:20px 1fr auto;column-gap:5px;white-space:nowrap}
+#legend .r b{color:#e7b45c;text-align:right}#legend .r span{overflow:hidden;text-overflow:ellipsis}#legend .r em{font-style:normal;color:#bba98a}
+</style></head><body>
+<div id="hud">loading…</div><div id="legend" hidden></div>
 <script type="module">
-// Lineup of every model in assets/models/manifest.json on a PBR ground under an HDRI sky + low golden sun.
-// URL params: only=a,b#1  cat=tree,rock  hdri=<name>  ground=<texture set>  cam=close|x,y,z,tx,ty,tz
-//             exp=<exposure>  real=1 (no display magnification)  shadow=<mapsize>  bg=0  labels=0  sun=<deg azimuth>,<deg elevation>
+// Lineup of every model in assets/models/manifest.json on a PBR ground, lit by an HDRI sky + a low golden sun with shadows.
+// URL params: only=a,b%231 (models / variants; write # as %23)  cat=tree,rock  hdri=<name>  ground=<texture set>  tile=<m>  exp=<exposure>
+//   cam=close | x,y,z,tx,ty,tz | rel:dx,dy,dz,tx,ty,tz (fractions of the content box)  pitch=<deg>  sun=<azimuth>,<elevation>
+//   rot=<deg> (sky rotation; default puts the HDRI sun at sunAz=125°, behind the camera)  minEl=<deg>  mode=textures
+//   real=1 (no display magnification)  labels=0  legend=0  shadow=<map size>  bg=0
+// e.g. tree close-up: ?only=olive_tree_tall&cam=0.8,3.3,1.6,0.2,3.4,-0.4   textures: ?mode=textures&pitch=32
 import * as THREE from 'three';
-import { loadModel, loadPBR, loadHDRI, getManifest, setAnisotropy } from '../src/gfx/assets.js';
+import { loadModel, loadPBR, loadHDRI, getManifest, setAnisotropy, hdriSunDirection } from '../src/gfx/assets.js';
 
 const q = new URLSearchParams(location.search);
 const hud = document.getElementById('hud');
+const man = await getManifest();
+const only = q.get('only')?.split(',').filter(Boolean);
+const cats = q.get('cat')?.split(',').filter(Boolean);
+const overview = !only && q.get('legend') !== '0' && q.get('mode') !== 'textures';
+const LEG = overview ? 340 : 0;
+const viewW = () => innerWidth - LEG;
+
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(viewW(), innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = +(q.get('exp') || 1.0);
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 setAnisotropy(renderer.capabilities.getMaxAnisotropy());
-
 const scene = new THREE.Scene();
-const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 2000);
-addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
+const cam = new THREE.PerspectiveCamera(35, viewW() / innerHeight, 0.05, 2000);
 
-const man = await getManifest();
-const texMan = { textures: man.textures || {} }, hdrMan = { hdris: man.hdris || {} };
-const hdriName = q.get('hdri') || Object.keys(hdrMan.hdris || {}).find((k) => hdrMan.hdris[k].kind === 'outdoor') || null;
+// ---------------------------------------------------------------- sky + sun
+const hdriName = q.get('hdri') || Object.keys(man.hdris || {}).find((k) => man.hdris[k].kind === 'outdoor') || null;
 if (hdriName) {
   const { envMap, background } = await loadHDRI(hdriName, renderer);
   scene.environment = envMap; if (q.get('bg') !== '0') scene.background = background;
   scene.backgroundBlurriness = +(q.get('blur') || 0); scene.environmentIntensity = +(q.get('env') || 1);
 } else scene.background = new THREE.Color(0x8aa0b8);
-
-// golden-hour sun
-const [az, el] = (q.get('sun') || '-50,16').split(',').map(Number);
+// sky rotation (rot=<deg>) moves the HDRI and its sun together; by default the sun light follows the HDRI's sun
+// (azimuth from manifest.hdris[].sun, elevation raised to ≥ minEl° so shadows stay readable); sun=<az>,<el> overrides
+// default: rotate the sky so its sun sits front-left behind the camera (azimuth sunAz°, measured atan2(z, x)), i.e. the models are front-lit
+const hSun = man.hdris?.[hdriName]?.sun;
+const rotY = THREE.MathUtils.degToRad(q.has('rot') ? +q.get('rot') : (hSun ? hSun.azimuth_deg - +(q.get('sunAz') ?? 125) : 0));
+scene.backgroundRotation.set(0, rotY, 0); scene.environmentRotation.set(0, rotY, 0);
 const sun = new THREE.DirectionalLight(0xffd2a0, +(q.get('sunI') || 3.2));
-const sd = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - el), THREE.MathUtils.degToRad(az));
+let sd;
+if (q.get('sun')) { const [az, el] = q.get('sun').split(',').map((v) => THREE.MathUtils.degToRad(+v)); sd = new THREE.Vector3(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el)); }
+else {
+  sd = hdriName ? await hdriSunDirection(hdriName, rotY) : new THREE.Vector3(0.5, 0.3, 0.8).normalize();
+  const minEl = THREE.MathUtils.degToRad(+(q.get('minEl') ?? 16)); const el = Math.max(Math.asin(sd.y), minEl); const h = Math.hypot(sd.x, sd.z) || 1;
+  sd.set(sd.x / h * Math.cos(el), Math.sin(el), sd.z / h * Math.cos(el));
+}
 sun.castShadow = true; const sm = +(q.get('shadow') || 4096); sun.shadow.mapSize.set(sm, sm); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
 scene.add(sun, sun.target);
 
 // ---------------------------------------------------------------- choose + lay out models
-// groups are laid out front (small props) to back (trees, cliffs); each wraps at maxW metres.
-// mag = display magnification so small things are visible next to trees (real=1 disables it)
+// groups run front (small props) to back (trees); mag = display magnification so small things read next to trees
 const GROUPS = [
-  { cats: ['food', 'vessel', 'lighting', 'book'], mag: 3, gap: 0.4 },
-  { cats: ['statue'], mag: 2.5, gap: 0.5 },
-  { cats: ['container', 'furniture', 'structure'], mag: 1.25, gap: 0.5 },
-  { cats: ['plant', 'grass', 'flower'], mag: 3, gap: 0.4 },
-  { cats: ['shrub', 'log'], mag: 1, gap: 0.6 },
-  { cats: ['rock', 'cliff'], mag: 1, gap: 0.6, scale: { cliff_mountainside: 0.35 } },
-  { cats: ['tree'], mag: 1, gap: 1.0 },
+  { title: 'Tabletop & vessels', cats: ['food', 'vessel', 'lighting', 'book'], mag: 3, gap: 0.45 },
+  { title: 'Statues', cats: ['statue'], mag: 2.5, gap: 0.6 },
+  { title: 'Containers & furniture', cats: ['container', 'furniture'], mag: 1.25, gap: 0.5 },
+  { title: 'Structures & ruins', cats: ['structure'], mag: 1, gap: 0.6, scale: { stone_wall_kit: 0.11, greek_column: 0.55, stone_fire_pit: 1.5 } },
+  { title: 'Plants, grass & flowers', cats: ['plant', 'grass', 'flower'], mag: 3, gap: 0.45 },
+  { title: 'Shrubs & dead wood', cats: ['shrub', 'log'], mag: 1, gap: 0.6 },
+  { title: 'Rocks & cliffs', cats: ['rock', 'cliff'], mag: 1, gap: 0.6, scale: { cliff_mountainside: 0.35 } },
+  { title: 'Trees', cats: ['tree'], mag: 1, gap: 1.0 },
 ];
 const real = q.get('real') === '1';
-const only = q.get('only')?.split(',').filter(Boolean);
-const cats = q.get('cat')?.split(',').filter(Boolean);
-const entries = Object.entries(man.models || {}).filter(([n, m]) => (!cats || cats.includes(m.category)) && (!only || only.some((o) => o.split('#')[0] === n)));
-const items = only ? only.filter((o) => man.models?.[o.split('#')[0]]).map((o) => [o, man.models[o.split('#')[0]]]) : entries;
-
-function label(text, sub) {
-  const c = document.createElement('canvas'); c.width = 512; c.height = 96; const g = c.getContext('2d');
-  g.fillStyle = 'rgba(20,14,10,0.72)'; g.beginPath(); g.roundRect(4, 4, 504, 88, 14); g.fill();
-  g.fillStyle = '#ffe6b0'; g.font = 'bold 36px system-ui,sans-serif'; g.textAlign = 'center'; g.fillText(text, 256, 42, 496);
-  g.fillStyle = '#d8c8a8'; g.font = '26px system-ui,sans-serif'; g.fillText(sub, 256, 80, 496);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-  return new THREE.Mesh(new THREE.PlaneGeometry(1, 0.1875), new THREE.MeshBasicMaterial({ map: t, transparent: true, toneMapped: false, depthWrite: false }));
-}
-
-const placed = []; const t0 = performance.now(); let loaded = 0;
+const texMode = q.get('mode') === 'textures';
+const items = texMode ? [] : only ? only.filter((o) => man.models?.[o.split('#')[0]]).map((o) => [o, man.models[o.split('#')[0]]])
+  : Object.entries(man.models || {}).filter(([, m]) => !cats || cats.includes(m.category));
 const groupOf = (m) => { const i = GROUPS.findIndex((g) => g.cats.includes(m.category)); return i < 0 ? 0 : i; };
-const byGroup = new Map();
-for (const [name, m] of items) { const g = groupOf(m); if (!byGroup.has(g)) byGroup.set(g, []); byGroup.get(g).push([name, m]); }
-const loadedObjs = new Map(await Promise.all(items.map(async ([name]) => {
+const t0 = performance.now(); let loaded = 0;
+const objs = new Map(await Promise.all(items.map(async ([name]) => {
   try { const o = await loadModel(name); hud.textContent = `loading ${++loaded}/${items.length}`; return [name, o]; } catch (e) { console.error('load failed', name, e); return [name, null]; }
 })));
-let zFront = 0; const all = new THREE.Box3();
-const showLabels = q.get('labels') !== '0';
-// measure everything (group order = front to back), then wrap into rows whose width gives a wide layout
-const its = [];
-for (const gi of [...byGroup.keys()].sort((a, b) => a - b)) {
-  const G0 = GROUPS[gi];
-  for (const [name, m] of byGroup.get(gi)) {
-    const o = loadedObjs.get(name); if (!o) continue;
-    const s = (m.category === 'tree' ? m.scale_hint || 1 : 1) * (G0.scale?.[name] ?? 1) * (real || only ? 1 : G0.mag);
-    o.scale.multiplyScalar(s); o.updateMatrixWorld(true);
-    const b = new THREE.Box3().setFromObject(o);
-    its.push({ name, m, o, s, b, gi, gap: G0.gap, w: Math.max(b.max.x - b.min.x, showLabels ? 0.9 : 0), d: b.max.z - b.min.z });
+
+// sets authored far apart (the fort kit spans ~70 m) are packed into a compact grid for the overview
+function repack(o, maxW) {
+  o.updateMatrixWorld(true); let x = 0, z = 0, rowD = 0;
+  for (const c of [...o.children]) {
+    const b = new THREE.Box3().setFromObject(c); const w = b.max.x - b.min.x, d = b.max.z - b.min.z, gap = 0.12 * Math.max(w, d) + 0.05;
+    if (x > 0 && x + w > maxW) { x = 0; z -= rowD; rowD = 0; }
+    c.position.x += x - b.min.x; c.position.z += z - (b.min.z + b.max.z) / 2 - d / 2;
+    x += w + gap; rowD = Math.max(rowD, d + gap);
   }
 }
-const area = its.reduce((t, it) => t + (it.w + it.gap) * (it.d + 1.0), 0);
-const maxW = +(q.get('maxw') || Math.max(6, Math.sqrt(area * 3.2)));
-const rows = []; let cur = []; let cw = 0;
-for (const it of its) {
-  const groupBreak = cur.length && it.gi !== cur[cur.length - 1].gi && cw > maxW * 0.6; // start big groups on a fresh row
-  if (cur.length && (cw + it.w > maxW || groupBreak)) { rows.push(cur); cur = []; cw = 0; }
-  cur.push(it); cw += it.w + it.gap;
+
+const its = [];
+for (const [name, m] of items) {
+  const o = objs.get(name); if (!o) continue;
+  const gi = groupOf(m); const G0 = GROUPS[gi];
+  const s = (m.category === 'tree' ? m.scale_hint || 1 : 1) * (real || only ? 1 : (G0.scale?.[name] ?? 1) * G0.mag);
+  if (!only && o.children.length > 1 && m.variants && Math.max(m.size_m[0], m.size_m[2]) * s > 12) repack(o, Math.max(2.5, 9 / s));
+  o.scale.multiplyScalar(s); o.updateMatrixWorld(true);
+  const b = new THREE.Box3().setFromObject(o); const bw = b.max.x - b.min.x, bd = b.max.z - b.min.z;
+  its.push({ name, m, o, s, b, gi, gap: only ? 0.04 + 0.25 * Math.max(bw, bd) : G0.gap, w: bw, d: bd });
 }
+if (texMode) { // PBR texture sets: a 3 m tile (tiled at the set's real size) + a sphere showing the normal/roughness response; HDRIs as panorama balls
+  const T = 3;
+  for (const [name, t] of Object.entries(man.textures || {})) {
+    const rep = T / (t.repeat_m || 2);
+    const g = new THREE.Group();
+    const tile = new THREE.Mesh(new THREE.PlaneGeometry(T, T), await loadPBR(name, { repeat: rep })); tile.rotation.x = -Math.PI / 2; tile.position.y = 0.01; tile.receiveShadow = true; g.add(tile);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.55, 64, 32), await loadPBR(name, { repeat: [2 * Math.PI * 0.55 / (t.repeat_m || 2), Math.PI * 0.55 / (t.repeat_m || 2)] }));
+    ball.position.set(0.6, 0.56, 0.4); ball.castShadow = ball.receiveShadow = true; g.add(ball);
+    g.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(g);
+    its.push({ name, m: { tris: 0, height_m: t.repeat_m, category: t.category, bytes: t.bytes }, o: g, s: 1, b, gi: 0, gap: 0.3, w: b.max.x - b.min.x, d: b.max.z - b.min.z, tex: t });
+  }
+  for (const [name, h] of Object.entries(man.hdris || {})) {
+    const { background } = await loadHDRI(name, renderer);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(1.1, 96, 48), new THREE.MeshBasicMaterial({ map: background }));
+    ball.material.map.mapping = THREE.UVMapping; ball.position.y = 1.15; ball.rotation.y = Math.PI;
+    const g = new THREE.Group(); g.add(ball); g.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(g);
+    its.push({ name, m: { tris: 0, height_m: 0, category: h.category, bytes: h.bytes }, o: g, s: 1, b, gi: 1, gap: 0.5, w: b.max.x - b.min.x, d: b.max.z - b.min.z, hdri: h });
+  }
+}
+its.sort((a, b) => a.gi - b.gi);
+const area = its.reduce((t, it) => t + (it.w + it.gap) * (it.d + 1.0), 0);
+const maxW = +(q.get('maxw') || (texMode ? 14 : Math.max(6, Math.sqrt(area * 4.2))));
+const rows = []; let cur = []; let cw = 0;
+for (const it of its) { if (cur.length && (cw + it.w > maxW || it.gi !== cur[cur.length - 1].gi)) { rows.push(cur); cur = []; cw = 0; } cur.push(it); cw += it.w + it.gap; }
 if (cur.length) rows.push(cur);
+let zFront = 0; const all = new THREE.Box3(); const tags = []; let num = 0;
+const labelMode = q.get('labels') === '0' ? 'none' : overview && !texMode ? 'badge' : 'label';
 for (const row of rows) {
-  const width = row.reduce((t, it) => t + it.w + it.gap, -row[row.length - 1].gap); const depth = Math.max(...row.map((it) => it.d)) + (showLabels ? 0.4 : 0);
+  const width = row.reduce((t, it) => t + it.w + it.gap, -row[row.length - 1].gap); const depth = Math.max(...row.map((it) => it.d)) + 0.3;
   let x = -width / 2; const zc = zFront - depth / 2;
   for (const it of row) {
-    const { o, b } = it; const bw = b.max.x - b.min.x;
-    o.position.x += x + (it.w - bw) / 2 - b.min.x; o.position.z += zc - (b.min.z + b.max.z) / 2 - (showLabels ? 0.2 : 0);
-    scene.add(o); o.updateMatrixWorld(true);
-    if (showLabels) {
-      const L = label(it.name, `${(it.m.tris / 1000).toFixed(1)}k tris · ${it.m.height_m} m${it.s !== 1 ? ` · shown ×${+it.s.toFixed(2)}` : ''}`);
-      const lw = Math.max(0.85, Math.min(2.6, it.w)); L.scale.setScalar(lw); L.rotation.x = -0.6;
-      L.position.set(x + it.w / 2, 0.05 + lw * 0.05, zc + it.d / 2 + lw * 0.06); scene.add(L);
+    it.o.position.x += x - it.b.min.x; it.o.position.z += zc - (it.b.min.z + it.b.max.z) / 2;
+    scene.add(it.o); it.o.updateMatrixWorld(true); all.expandByObject(it.o);
+    it.num = ++num; it.at = new THREE.Vector3(x + it.w / 2, 0, zc + it.d / 2 + 0.05);
+    if (labelMode !== 'none') {
+      const el = document.createElement('div');
+      if (labelMode === 'badge') { el.className = 'badge'; el.textContent = it.num; }
+      else if (it.tex) { el.className = 'lbl'; el.innerHTML = `${it.name}<i>${it.tex.source.id} · tile ${it.tex.repeat_m} m · ${(it.tex.bytes / 1e6).toFixed(2)} MB</i>`; }
+      else if (it.hdri) { el.className = 'lbl'; el.innerHTML = `${it.name}<i>${it.hdri.source.id} · ${it.hdri.kind} · sun el ${it.hdri.sun.elevation_deg}°</i>`; }
+      else { el.className = 'lbl'; el.innerHTML = `${it.name}<i>${(it.m.tris / 1000).toFixed(1)}k tris · ${it.m.height_m} m</i>`; }
+      document.body.appendChild(el); tags.push({ el, at: it.at, dy: labelMode === 'label' ? (tags.length % 2) * 24 : 2 });
     }
-    placed.push({ name: it.name, o }); all.expandByObject(o);
     x += it.w + it.gap;
   }
   zFront -= depth + 0.5;
 }
 const size = all.getSize(new THREE.Vector3()), ctr = all.getCenter(new THREE.Vector3());
 
-// ground
-const G = Math.max(size.x, size.z) * 3 + 40;
-const groundSet = q.get('ground') || Object.keys(texMan.textures || {}).find((k) => (texMan.textures[k].tags || []).includes('ground')) || null;
-const gmat = groundSet ? await loadPBR(groundSet, { repeat: G / (+(q.get('tile')) || 3) }) : new THREE.MeshStandardMaterial({ color: 0x8a7a5a, roughness: 1 });
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(G, G), gmat); ground.rotation.x = -Math.PI / 2; ground.position.set(ctr.x, 0, ctr.z); ground.receiveShadow = true; scene.add(ground);
+// ---------------------------------------------------------------- legend (overview)
+if (overview && !texMode) {
+  const L = document.getElementById('legend'); L.hidden = false;
+  const tot = man.totals || {}; const mb = (b) => (b / 1e6).toFixed(1);
+  let h = `<h1>Asset library · ${its.length} models</h1><div class="sum">${((tot.model_tris || 0) / 1e6).toFixed(2)}M tris · models ${mb(tot.bytes?.models || 0)} MB · textures ${mb(tot.bytes?.textures || 0)} MB · HDRIs ${mb(tot.bytes?.hdri || 0)} MB<br>${Object.keys(man.textures || {}).length} PBR texture sets · ${Object.keys(man.hdris || {}).length} HDRIs · sky: ${hdriName}</div>`;
+  for (let gi = 0; gi < GROUPS.length; gi++) {
+    const list = its.filter((it) => it.gi === gi); if (!list.length) continue;
+    h += `<h2>${GROUPS[gi].title}</h2>`;
+    for (const it of list) h += `<div class="r"><b>${it.num}</b><span>${it.name}${it.m.variants ? ` (${it.m.variants.length})` : ''}</span><em>${(it.m.tris / 1000).toFixed(1)}k · ${(it.m.bytes / 1e6).toFixed(2)} MB</em></div>`;
+  }
+  L.innerHTML = h;
+}
 
-// sun shadow frustum around content
+// ---------------------------------------------------------------- ground + shadow frustum
+const G = Math.max(size.x, size.z) * 3 + 40;
+const groundSet = q.get('ground') || (texMode ? null : Object.keys(man.textures || {}).find((k) => (man.textures[k].tags || []).includes('ground'))) || null;
+const gmat = groundSet ? await loadPBR(groundSet, { repeat: G / (+(q.get('tile')) || 3) }) : new THREE.MeshStandardMaterial({ color: 0x5a5048, roughness: 1 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(G, G), gmat); ground.rotation.x = -Math.PI / 2; ground.position.set(ctr.x, 0, ctr.z); ground.receiveShadow = true; scene.add(ground);
 const R = Math.max(size.x, size.z, size.y) * 0.6 + 2;
 sun.position.copy(ctr).addScaledVector(sd, R * 3); sun.target.position.copy(ctr);
 Object.assign(sun.shadow.camera, { left: -R, right: R, top: R, bottom: -R, near: 0.1, far: R * 7 }); sun.shadow.camera.updateProjectionMatrix();
 
-// camera
+// ---------------------------------------------------------------- camera
 const camQ = q.get('cam');
-if (camQ && camQ.includes(',')) { const v = camQ.split(',').map(Number); cam.position.set(v[0], v[1], v[2]); cam.lookAt(v[3], v[4], v[5]); }
-else {
-  // frame the content bbox from the front, elevated
+if (camQ && camQ.startsWith('rel:')) {
+  const v = camQ.slice(4).split(',').map(Number); const at = (a, b, c) => new THREE.Vector3(ctr.x + a * size.x, b * size.y, ctr.z + c * size.z);
+  cam.position.copy(at(v[0], v[1], v[2])); cam.lookAt(at(v[3], v[4], v[5]));
+} else if (camQ && camQ.includes(',')) { const v = camQ.split(',').map(Number); cam.position.set(v[0], v[1], v[2]); cam.lookAt(v[3], v[4], v[5]); }
+else { // frame every object from the front, elevated; binary-search the distance so all boxes project inside the view
   const close = camQ === 'close';
-  const pitch = THREE.MathUtils.degToRad(+(q.get('pitch') || (close ? 10 : 24)));
+  const pitch = THREE.MathUtils.degToRad(+(q.get('pitch') || (close ? 10 : 26)));
   const dir = new THREE.Vector3(0, Math.sin(pitch), Math.cos(pitch));
-  const look = new THREE.Vector3(ctr.x, close ? size.y * 0.45 : size.y * 0.12, ctr.z + (close ? 0 : size.z * 0.04));
-  const vf = THREE.MathUtils.degToRad(cam.fov) / 2, hf = Math.atan(Math.tan(vf) * cam.aspect);
-  // projected extents: width = size.x, height ≈ depth*sin(pitch) + height*cos(pitch)
-  const h = size.z * Math.sin(pitch) + size.y * Math.cos(pitch);
-  const dist = Math.max((size.x / 2) / Math.tan(hf), (h / 2) / Math.tan(vf)) * (close ? 1.08 : 1.0) + size.z * Math.cos(pitch) * 0.5 * (close ? 1 : 0.85);
-  cam.position.copy(look).addScaledVector(dir, dist); cam.lookAt(look);
-  // tighten/loosen until every bbox corner projects inside the frame (perspective makes near rows wider)
-  const corners = []; for (const { o } of placed) { const b = new THREE.Box3().setFromObject(o); for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) corners.push(new THREE.Vector3(x, y, z)); }
-  let lo = dist * 0.3, hi = dist * 4;
-  for (let i = 0; i < 30; i++) {
-    const d = (lo + hi) / 2; cam.position.copy(look).addScaledVector(dir, d); cam.lookAt(look); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
-    const fits = corners.every((c) => { const p = c.clone().project(cam); return p.z < 1 && Math.abs(p.x) < 0.985 && p.y < 0.9 && p.y > -0.97; });
+  const look = new THREE.Vector3(ctr.x, close ? size.y * 0.45 : size.y * 0.1, ctr.z);
+  const corners = []; for (const it of its) { const b = new THREE.Box3().setFromObject(it.o); for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) corners.push(new THREE.Vector3(x, y, z)); }
+  let lo = 0.1, hi = Math.max(size.x, size.y, size.z) * 6 + 5;
+  for (let i = 0; i < 40; i++) {
+    const d = (lo + hi) / 2; cam.position.copy(look).addScaledVector(dir, d); cam.lookAt(look); cam.updateMatrixWorld();
+    const fits = corners.every((c) => { const p = c.clone().project(cam); return p.z < 1 && Math.abs(p.x) < 0.95 && p.y < 0.9 && p.y > (labelMode === 'label' ? -0.8 : -0.9); });
     if (fits) hi = d; else lo = d;
   }
   cam.position.copy(look).addScaledVector(dir, hi); cam.lookAt(look);
 }
 cam.near = Math.max(0.01, cam.position.distanceTo(ctr) / 500); cam.far = cam.position.distanceTo(ctr) * 20 + G; cam.updateProjectionMatrix();
-// minimal orbit: drag to rotate around the look target, wheel to zoom
+
+// drag to orbit, wheel to zoom
 const target = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion).multiplyScalar(cam.position.distanceTo(ctr)).add(cam.position);
 const sph = new THREE.Spherical().setFromVector3(cam.position.clone().sub(target)); let drag = null;
-const applyOrbit = () => { cam.position.setFromSpherical(sph).add(target); cam.lookAt(target); };
+const orbit = () => { cam.position.setFromSpherical(sph).add(target); cam.lookAt(target); requestRender(); };
 renderer.domElement.addEventListener('pointerdown', (e) => { drag = [e.clientX, e.clientY]; });
 addEventListener('pointerup', () => { drag = null; });
-addEventListener('pointermove', (e) => { if (!drag) return; sph.theta -= (e.clientX - drag[0]) * 0.005; sph.phi = THREE.MathUtils.clamp(sph.phi - (e.clientY - drag[1]) * 0.005, 0.05, 1.55); drag = [e.clientX, e.clientY]; applyOrbit(); });
-renderer.domElement.addEventListener('wheel', (e) => { sph.radius *= Math.exp(e.deltaY * 0.001); applyOrbit(); }, { passive: true });
+addEventListener('pointermove', (e) => { if (!drag) return; sph.theta -= (e.clientX - drag[0]) * 0.005; sph.phi = THREE.MathUtils.clamp(sph.phi - (e.clientY - drag[1]) * 0.005, 0.05, 1.55); drag = [e.clientX, e.clientY]; orbit(); });
+renderer.domElement.addEventListener('wheel', (e) => { sph.radius *= Math.exp(e.deltaY * 0.001); orbit(); }, { passive: true });
+addEventListener('resize', () => { renderer.setSize(viewW(), innerHeight); cam.aspect = viewW() / innerHeight; cam.updateProjectionMatrix(); requestRender(); });
 
 let tris = 0; scene.traverse((o) => { if (o.isMesh) tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; });
-hud.textContent = `${placed.length} models · ${(tris / 1e6).toFixed(2)}M tris · hdri ${hdriName} · ground ${groundSet} · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
-window.__info = { models: placed.length, tris, hdri: hdriName, ground: groundSet };
-// render on demand (keeps headless screenshots fast): a couple of frames now, then only after interaction
+hud.textContent = `${its.length} models · ${(tris / 1e6).toFixed(2)}M tris · hdri ${hdriName} · ground ${groundSet} · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
+window.__info = { models: its.length, tris, hdri: hdriName, ground: groundSet };
+
+// render on demand (keeps headless screenshots cheap): a couple of frames now, then only after interaction
 let dirty = 2;
-const requestRender = () => { dirty = Math.max(dirty, 1); };
-['pointermove', 'wheel', 'resize'].forEach((ev) => addEventListener(ev, requestRender));
-renderer.setAnimationLoop(() => { if (!dirty) return; dirty--; renderer.render(scene, cam); if (!dirty && !window.__done) setTimeout(() => (window.__done = true), 50); });
+function requestRender() { dirty = Math.max(dirty, 1); }
+const placeTags = () => { const v = new THREE.Vector3(); for (const t of tags) { v.copy(t.at).project(cam); const vis = v.z < 1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05; t.el.style.display = vis ? '' : 'none'; t.el.style.left = `${(v.x * 0.5 + 0.5) * viewW()}px`; t.el.style.top = `${(-v.y * 0.5 + 0.5) * innerHeight + t.dy}px`; } };
+renderer.setAnimationLoop(() => { if (!dirty) return; dirty--; renderer.render(scene, cam); placeTags(); if (!dirty && !window.__done) setTimeout(() => (window.__done = true), 50); });
 </script></body></html>

@@ -1,8 +1,8 @@
 # 3D asset library – credits
 
-Every model, texture set and HDRI in `assets/models`, `assets/textures` and `assets/hdri` comes from [Poly Haven](https://polyhaven.com) and is licensed **CC0 1.0** (public domain). No attribution is required; the authors are credited here anyway, with thanks.
+All models, texture sets and HDRIs in `assets/models`, `assets/textures` and `assets/hdri` come from [Poly Haven](https://polyhaven.com) and are licensed **CC0 1.0** (public domain). No attribution is required; the authors are credited here anyway, with thanks. The one exception is the geometry of `greek_column.glb`, which was generated for this project (its marble material uses the Poly Haven texture credited below).
 
-The files were re-processed for the web (mesh simplification with meshoptimizer, leaf meshes turned into alpha-cutout cards, textures resized and re-encoded as JPEG/PNG, sets split into variants). Author names come from the Poly Haven API.
+The files were re-processed for the web: meshes simplified with meshoptimizer, leaf meshes turned into alpha-cutout cards (olive-tree leaves colour-graded towards a silvery olive green), textures resized and re-encoded as JPEG/PNG, sets split into variants, geometry stored with EXT_meshopt_compression. Author names come from the Poly Haven API.
 
 ## Models
 
@@ -11,6 +11,9 @@ The files were re-processed for the web (mesh simplification with meshoptimizer,
 | `olive_tree_tall.glb` | Island Tree 01 (`island_tree_01`) | https://polyhaven.com/a/island_tree_01 | Rob Tuytel, Rico Cilliers | CC0 |
 | `olive_tree_wide.glb` | Island Tree 02 (`island_tree_02`) | https://polyhaven.com/a/island_tree_02 | Rob Tuytel, Rico Cilliers | CC0 |
 | `umbrella_tree.glb` | Jacaranda Tree (`jacaranda_tree`) | https://polyhaven.com/a/jacaranda_tree | Rob Tuytel, Rico Cilliers | CC0 |
+| `olive_tree_tall_far.glb` | Island Tree 01 (`island_tree_01`) | https://polyhaven.com/a/island_tree_01 | Rob Tuytel, Rico Cilliers | CC0 |
+| `olive_tree_wide_far.glb` | Island Tree 02 (`island_tree_02`) | https://polyhaven.com/a/island_tree_02 | Rob Tuytel, Rico Cilliers | CC0 |
+| `umbrella_tree_far.glb` | Jacaranda Tree (`jacaranda_tree`) | https://polyhaven.com/a/jacaranda_tree | Rob Tuytel, Rico Cilliers | CC0 |
 | `searsia_lucida.glb` | Searsia Lucida (`searsia_lucida`) | https://polyhaven.com/a/searsia_lucida | James Ray Cock, Jenelle van Heerden | CC0 |
 | `othonna_cerarioides.glb` | Othonna Cerarioides (`othonna_cerarioides`) | https://polyhaven.com/a/othonna_cerarioides | James Ray Cock, Jenelle van Heerden | CC0 |
 | `shrub_01.glb` | Shrub 01 (`shrub_01`) | https://polyhaven.com/a/shrub_01 | Rico Cilliers | CC0 |
@@ -47,6 +50,7 @@ The files were re-processed for the web (mesh simplification with meshoptimizer,
 | `wine_bottles_01.glb` | Wine Bottles 01 (`wine_bottles_01`) | https://polyhaven.com/a/wine_bottles_01 | Rico Cilliers, Jurita Burger | CC0 |
 | `food_pomegranate_01.glb` | Food Pomegranate 01 (`food_pomegranate_01`) | https://polyhaven.com/a/food_pomegranate_01 | Oliver Harries | CC0 |
 | `lambis_shell.glb` | Lambis Shell (`lambis_shell`) | https://polyhaven.com/a/lambis_shell | Kuutti Siitonen | CC0 |
+| `stone_wall_kit.glb` | Modular Fort 01 (`modular_fort_01`) | https://polyhaven.com/a/modular_fort_01 | Rico Cilliers | CC0 |
 | `food_apple_01.glb` | Food Apple 01 (`food_apple_01`) | https://polyhaven.com/a/food_apple_01 | Oliver Harries | CC0 |
 | `wine_barrel_01.glb` | Wine Barrel 01 (`wine_barrel_01`) | https://polyhaven.com/a/wine_barrel_01 | James Ray Cock | CC0 |
 | `treasure_chest.glb` | Treasure Chest (`treasure_chest`) | https://polyhaven.com/a/treasure_chest | Rico Cilliers | CC0 |
@@ -58,10 +62,11 @@ The files were re-processed for the web (mesh simplification with meshoptimizer,
 | `brass_candleholders.glb` | Brass Candleholders (`brass_candleholders`) | https://polyhaven.com/a/brass_candleholders | Tina | CC0 |
 | `wooden_candlestick.glb` | Wooden Candlestick (`wooden_candlestick`) | https://polyhaven.com/a/wooden_candlestick | Josh Dean | CC0 |
 | `book_encyclopedia_set_01.glb` | Book Encyclopedia Set 01 (`book_encyclopedia_set_01`) | https://polyhaven.com/a/book_encyclopedia_set_01 | John Malcolm | CC0 |
-| `wooden_table_02.glb` | Wooden Table 02 (`wooden_table_02`) | https://polyhaven.com/a/wooden_table_02 | Serhii Khromov | CC0 |
+| `carved_console_table.glb` | Classic Console 01 (`ClassicConsole_01`) | https://polyhaven.com/a/ClassicConsole_01 | Kirill Sannikov | CC0 |
 | `round_wooden_table_01.glb` | Round Wooden Table 01 (`round_wooden_table_01`) | https://polyhaven.com/a/round_wooden_table_01 | Ulan Cabanilla | CC0 |
 | `grandfather_clock.glb` | Vintage Grandfather Clock 01 (`vintage_grandfather_clock_01`) | https://polyhaven.com/a/vintage_grandfather_clock_01 | Yann Kervran, James Ray Cock | CC0 |
 | `ornate_mirror_01.glb` | Ornate Mirror 01 (`ornate_mirror_01`) | https://polyhaven.com/a/ornate_mirror_01 | James Ray Cock | CC0 |
+| `greek_column.glb` | Generated fluted column geometry; texture: Marble Rock 01 (`marble_rock_01`) | https://polyhaven.com/a/marble_rock_01 | Amal Kumar | CC0 |
 
 ## Texture sets
 

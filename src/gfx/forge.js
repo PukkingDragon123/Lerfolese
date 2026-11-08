@@ -3,6 +3,22 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { PixelCanvas } from './pixel.js';
+// 2D art is geometric & stylized: render a decimated, flat-shaded twin of each subject (the 3D world keeps the detailed one)
+function geometricTwin(obj, cells = 7) {
+  obj.updateMatrixWorld(true);
+  obj.traverse((o) => {
+    if (!o.isMesh || !o.geometry?.attributes?.position) return;
+    const g0 = o.geometry; const n = g0.attributes.position.count;
+    if (n > 60) {
+      const g = g0.index ? g0.toNonIndexed() : g0.clone(); g.computeBoundingBox(); const sz = g.boundingBox.getSize(new THREE.Vector3());
+      const cell = Math.max(sz.x, sz.y, sz.z) / cells; const p = g.attributes.position; const thin = Math.min(sz.x, sz.y, sz.z) < cell * 2.2;
+      if (cell > 1e-5 && !thin) for (let i = 0; i < p.count; i++) p.setXYZ(i, Math.round(p.getX(i) / cell) * cell, Math.round(p.getY(i) / cell) * cell, Math.round(p.getZ(i) / cell) * cell);
+      g.deleteAttribute('normal'); g.computeVertexNormals(); o.geometry = g;
+    }
+    const mats = Array.isArray(o.material) ? o.material : [o.material]; const nm = mats.map((m) => { const c = m.clone(); c.flatShading = true; c.needsUpdate = true; return c; }); o.material = Array.isArray(o.material) ? nm : nm[0];
+  });
+  return obj;
+}
 
 const SS = 3;
 function rgb2hsl(r, g, b) {
@@ -36,8 +52,9 @@ export class Forge {
     return this.rts.get(k);
   }
   // returns a PixelCanvas w×h with the stylized subject on transparent background
-  paint(obj, { w = 104, h = 64, fit = 0.8, yaw = 0.5, pitch = 0.18, offset = [0, 0], levels = 7, outline = true, hueShadow = 0.72, satBoost = 1.18, rim = true } = {}) {
+  paint(obj, { w = 104, h = 64, fit = 0.8, yaw = 0.5, pitch = 0.18, offset = [0, 0], levels = 7, outline = true, hueShadow = 0.72, satBoost = 1.18, rim = true, geometric = true, cells = 9 } = {}) {
     const W = w * SS, H = h * SS;
+    if (geometric) geometricTwin(obj, cells);
     const holder = new THREE.Group(); holder.add(obj); this.scene.add(holder);
     obj.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(obj); const c = box.getCenter(new THREE.Vector3()); const sz = box.getSize(new THREE.Vector3());

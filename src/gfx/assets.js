@@ -1,12 +1,18 @@
 // Realistic asset library loader (Poly Haven CC0 models, PBR texture sets, HDRI skies).
-// Files live under <site root>/assets/{models,textures,hdri}; see assets/models/manifest.json and CREDITS.md.
+// Files live under <site root>/assets/{models,textures,hdri}; the catalogue (tris, sizes, tags, scale hints,
+// variants, animatable parts) is assets/models/manifest.json, credits in assets/models/CREDITS.md.
 //
 //   const tree = await loadModel('olive_tree_tall');          // whole model (a clone; materials/geometry shared)
-//   const rock = await loadModel('rock_moss_set_01#2');       // one variant of a set (by index or node name), re-centred
+//   const rock = await loadModel('rock_moss_set_01#2');       // one variant of a set (by index or node name), at the origin
 //   await preload(['olive_tree_wide', 'boulder_01']);
 //   const ground = await loadPBR('ground_dry_grass', { repeat: 8 });
-//   const { envMap, background } = await loadHDRI('golden_hills', renderer);
+//   const { envMap, background } = await loadHDRI('golden_cape_hill', renderer);
 //   scene.environment = envMap; scene.background = background;
+//   sun.position.copy(await hdriSunDirection('golden_cape_hill')).multiplyScalar(50);   // match the sky's sun
+//
+// Models are in metres (+Y up, base at y≈0); manifest scale_hint suggests a uniform scale for the game.
+// GLB geometry is meshopt-compressed, so always load through this module (it registers the vendored MeshoptDecoder).
+// Clones share geometry/materials with the cache: clone a material before tinting one instance.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
@@ -136,22 +142,34 @@ export async function loadPBR(setName, { repeat = 1, normalScale = 1, offset, ro
 }
 
 // ---------------------------------------------------------------- HDRI skies
-const hdrCache = new Map();
+const hdrCache = new WeakMap(); // renderer -> Map(name -> Promise)
 /**
  * Promise<{ envMap, background }> for assets/hdri/<name>.hdr: envMap is a PMREM cube-UV texture for
- * scene.environment, background the equirectangular HDR texture for scene.background (or a sky dome).
+ * scene.environment, background the equirectangular HDR texture for scene.background (cached per renderer).
  */
 export function loadHDRI(name, renderer) {
-  const key = name;
-  if (!hdrCache.has(key)) {
+  if (!hdrCache.has(renderer)) hdrCache.set(renderer, new Map());
+  const cache = hdrCache.get(renderer);
+  if (!cache.has(name)) {
     const p = rgbeLoader.loadAsync(assetURL(`hdri/${name}.hdr`)).then((tex) => {
       tex.mapping = THREE.EquirectangularReflectionMapping;
       const pm = new THREE.PMREMGenerator(renderer);
       const envMap = pm.fromEquirectangular(tex).texture; pm.dispose();
       return { envMap, background: tex };
     });
-    p.catch(() => hdrCache.delete(key));
-    hdrCache.set(key, p);
+    p.catch(() => cache.delete(name));
+    cache.set(name, p);
   }
-  return hdrCache.get(key);
+  return cache.get(name);
+}
+
+/**
+ * Promise<THREE.Vector3>: unit vector pointing towards the HDRI's sun (outdoor) or brightest light (interior), from
+ * manifest.hdris[name].sun, for a sky rotated by rotationY radians (scene.backgroundRotation.y = scene.environmentRotation.y).
+ * Put a DirectionalLight at target + dir * distance so shadows agree with the visible sky.
+ */
+export async function hdriSunDirection(name, rotationY = 0) {
+  const s = (await getManifest()).hdris?.[name]?.sun;
+  const d = s ? new THREE.Vector3(...s.dir) : new THREE.Vector3(0.6, 0.35, 0.6);
+  return d.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationY).normalize();
 }
