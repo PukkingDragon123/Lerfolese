@@ -7,7 +7,7 @@
 // hurt, death fall.
 import * as THREE from 'three';
 import * as K from '../charkit.js';
-import { Sculpt } from './flesh.js';
+import { Sculpt, bake } from './flesh.js';
 import { Spring } from '../../core/tween.js';
 import { makeBones, skinned, onBone, skinAttrs, sample, add, apply, battleRig, paintWounds, woundMat, woundTex } from './rig.js';
 
@@ -158,10 +158,10 @@ function painter(S, king) {
 }
 
 // ---------------------------------------------------------------- accessories
-const M = new Map(); const mat = (key, w, h, fn) => K.uvMat(key, w, h, fn);
+const mat = (key, w, h, fn) => K.uvMat(key, w, h, fn);
 function horn(s, king) {
   const k = king ? 1.22 : 1; const pts = [[0.12 * s, 2.79, 0.13], [0.26 * s, 2.83 + 0.01 * k, 0.12], [(0.38 + 0.04 * k) * s, 2.86 + 0.06 * k, 0.15], [(0.44 + 0.06 * k) * s, 2.94 + 0.1 * k, 0.24], [(0.44 + 0.06 * k) * s, 3.0 + 0.16 * k, 0.36 + 0.04 * k]];
-  const l = new K.Loft(34, 16).set(K.curve(pts), (t) => (0.068 * k * (1 - t * 0.9) + 0.004) * (1 + (t < 0.6 && Math.sin(t * 70) > 0.4 ? 0.05 : 0)));
+  const l = new K.Loft(28, 12).set(K.curve(pts), (t) => (0.068 * k * (1 - t * 0.9) + 0.004) * (1 + (t < 0.6 && Math.sin(t * 70) > 0.4 ? 0.05 : 0)));
   const m = mat(king ? 'mino-horn-k' : 'mino-horn', 64, 128, (u, v, o) => {
     const ring = Math.sin(v * 70) > 0.4 && v < 0.6; const tip = K.sstep(0.62, 0.95, v); const lit = Math.cos(u * Math.PI * 2);
     K.tone(hex('#e6d6b2'), K.band(0.5 + lit * 0.22 + (ring ? -0.18 : 0.04) - v * 0.1, 4), o.col); K.mixc(o.col, hex('#3a2a24'), tip * 0.9); o.ro = 0.45;
@@ -188,12 +188,12 @@ function tail(B, mats) {
 }
 function labrys(king) { // turned haft, leather grip, double crescent blades with bevelled edges (local: haft +Y, blades +-X)
   const g = new THREE.Group(); const L0 = -0.42, L1 = 1.08, hk = king ? 1.15 : 1;
-  const haft = new K.Loft(36, 12).set((t, p) => p.set(0, L0 + t * (L1 - L0), 0), (t) => { const y = L0 + t * (L1 - L0); return 0.028 * (y < -0.36 ? 1.5 : Math.abs(y) < 0.16 ? 1.12 : 1) * (y > 0.95 ? 1.3 : 1); });
+  const haft = new K.Loft(30, 10).set((t, p) => p.set(0, L0 + t * (L1 - L0), 0), (t) => { const y = L0 + t * (L1 - L0); return 0.028 * (y < -0.36 ? 1.5 : Math.abs(y) < 0.16 ? 1.12 : 1) * (y > 0.95 ? 1.3 : 1); });
   K.mesh(haft.geo, mat(king ? 'labrys-haft-k' : 'labrys-haft', 32, 128, (u, v, o) => { const y = L0 + v * (L1 - L0); const grip = Math.abs(y) < 0.16; const cap = y < -0.36 || y > 0.95; if (cap) { K.tone(king ? hex('#f2c040') : hex('#c8862e'), K.band(0.55 + Math.cos(u * 6.28) * 0.25, 4), o.col); o.me = 0.6; return; } if (grip) { K.tone(hex('#3a2416'), K.band(0.5 + Math.cos(u * 6.28) * 0.2 + (Math.sin((y + u * 0.05) * 160) > 0.6 ? -0.2 : 0), 4), o.col); return; } K.tone(hex('#8a5a32'), K.band(0.5 + Math.cos(u * 6.28) * 0.22 + (Math.sin(u * 40 + y * 3) > 0.9 ? -0.15 : 0), 4), o.col); }), g);
   const s = new THREE.Shape(); s.moveTo(0, -0.08); s.lineTo(0.12, -0.1); s.quadraticCurveTo(0.22, -0.2, 0.34, -0.32); s.quadraticCurveTo(0.44, 0, 0.34, 0.32); s.quadraticCurveTo(0.22, 0.2, 0.12, 0.1); s.lineTo(0, 0.08); s.closePath();
   const bm = mat(king ? 'labrys-blade-k' : 'labrys-blade', 128, 128, (u, v, o) => { const edge = u > 0.55 || u < 0.08; const etch = Math.abs(((u * 10 + v * 3) % 1) - 0.5) < 0.05 && !edge; K.tone(king ? hex('#f0c24a') : hex('#d8963a'), K.band(0.5 + (edge ? 0.3 : 0) + (etch ? -0.25 : 0) + (v - 0.5) * 0.2, 4), o.col); o.me = 0.65; o.ro = 0.3; });
   for (const sg of [-1, 1]) {
-    const bg = new THREE.ExtrudeGeometry(s, { depth: 0.03, bevelEnabled: true, bevelSize: 0.022, bevelThickness: 0.016, bevelSegments: 4, curveSegments: 18 }); bg.translate(0, 0, -0.015);
+    const bg = new THREE.ExtrudeGeometry(s, { depth: 0.03, bevelEnabled: true, bevelSize: 0.022, bevelThickness: 0.016, bevelSegments: 2, curveSegments: 12 }); bg.translate(0, 0, -0.015);
     const uv = bg.attributes.uv, p = bg.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, p.getX(i) / 0.46, p.getY(i) / 0.7 + 0.5);
     bg.scale(0.95 * hk, 0.95 * hk, 1); if (sg < 0) bg.rotateY(Math.PI);
     bg.translate(0, 0.86, 0); bg.computeVertexNormals(); K.mesh(bg, bm, g);
@@ -231,7 +231,7 @@ function kingRegalia(B, mats) {
   for (const s of [-1, 1]) {
     const pa = new THREE.Group(); pa.position.set(0.56 * s, 2.25, -0.01); pa.rotation.z = -0.62 * s;
     for (let i = 0; i < 3; i++) {
-      const r = 0.235 - i * 0.012, x0 = (0.02 + i * 0.075) * s; const R = new THREE.Vector3();
+      const r = 0.235 - i * 0.012, x0 = (0.02 + i * 0.075) * s;
       const l = new K.Loft(16, 10).set((t, p) => { const a = (t - 0.5) * 2.5; return p.set(x0, Math.cos(a) * r, Math.sin(a) * r); }, () => [0.06, 0.014], { ref: (t, n) => { const a = (t - 0.5) * 2.5; n.set(0, Math.cos(a), Math.sin(a)); } });
       K.mesh(l.geo, gm, pa);
     }
@@ -261,8 +261,8 @@ const CACHE = {};
 function asset(king) {
   const id = king ? 'minotaur_king' : 'minotaur'; if (CACHE[id]) return CACHE[id];
   const S = sculpt(king); const names = BONES.map((b) => b[0]);
-  const geo = S.build({ cell: 0.022, bones: names, atlas: 768, target: 15000 });
-  const surf = K.surface('beast-' + id, { geometry: geo, isSkinnedMesh: false, skeleton: { bones: names.map((name) => ({ name })) } }, 768);
+  const geo = S.build({ cell: 0.023, bones: names, atlas: 768, target: 13500 });
+  const surf = bake(geo, 768, names);
   const mat = K.paintedMat(K.paintSurface(surf, painter(S, king)));
   // gashes across chest, belly, arms, thighs, flank and brow, deepest last
   const sites = [[[0.22, 2.1, 0.27], [0.3, 0.2, 1], [1, -0.6, 0]], [[-0.1, 1.72, 0.24], [0, 0, 1], [1, 0.4, 0]], [[0.68, 1.95, 0.08], [0.6, 0, 0.8], [0.3, -1, 0]], [[-0.3, 1.18, 0.2], [-0.4, 0, 1], [0.2, -1, 0]],
@@ -311,7 +311,7 @@ const CLIPS = {
     [0.42, { hips: [0.25, 0, 0], spine1: [0.25, 0, 0], spine2: [0.2, 0, 0], neck: [0.3, 0, 0], head: [0.5, 0, 0.2], jaw: [0.4, 0, 0], thigh_L: [-1.2, 0, 0], thigh_R: [-1.1, 0, 0], shin_L: [1.3, 0, 0], shin_R: [1.2, 0, 0], hock_L: [-0.3, 0, 0], hock_R: [-0.3, 0, 0], uparm_L: [-0.4, 0, -0.2], uparm_R: [-0.4, 0, 0.2], forearm_L: [-0.4, 0, 0], forearm_R: [-0.4, 0, 0] }],
     [0.8, { hips: [0.35, 0, 0], spine1: [0.3, 0, 0.12], spine2: [0.25, 0, 0.12], neck: [0.1, 0.4, 0], head: [0.2, 0.5, 0.35], jaw: [0.5, 0, 0], thigh_L: [-1.3, 0, 0], thigh_R: [-0.8, 0, 0.2], shin_L: [1.4, 0, 0], shin_R: [0.9, 0, 0], hock_L: [-0.3, 0, 0], hock_R: [-0.2, 0, 0], uparm_L: [-1.1, 0, 0.5], uparm_R: [-0.3, 0, -0.9], forearm_L: [-0.2, 0, 0], forearm_R: [-0.1, 0, 0], hand_L: [0.4, 0, 0], tail1: [-0.5, 0, 0] }]],
 };
-const FOLLOW = { neck: [20, 0.5], head: [17, 0.42], ear_L: [10, 0.25], ear_R: [10, 0.25], jaw: [16, 0.3], tail1: [8, 0.3], tail2: [7, 0.28], tail3: [6, 0.26], tail4: [5.5, 0.25] };
+const FOLLOW = { neck: [34, 0.55], head: [28, 0.45], ear_L: [10, 0.25], ear_R: [10, 0.25], jaw: [16, 0.3], tail1: [8, 0.3], tail2: [7, 0.28], tail3: [6, 0.26], tail4: [5.5, 0.25] };
 function animate(api, B, model, flaps, seed, sc) {
   const st = api.st; const P = {}; let lastX = null, charge = 0, gait = 0, snortT = 4 + (seed % 5), snort = -1, impactDone = true;
   const parentOf = Object.fromEntries(BONES.map(([n, p]) => [n, p])); const anc = (n) => { const a = []; for (let p = parentOf[n]; p; p = parentOf[p]) a.push(p); return a; };
@@ -361,7 +361,7 @@ function animate(api, B, model, flaps, seed, sc) {
     if (st.dead > 0) { // knees buckle, he pitches over, slams down, bounces once and settles
       const T = st.deadT; const drop = THREE.MathUtils.smoothstep(T, 0.16, 0.42); const fT = Math.min(1, Math.max(0, (T - 0.4) / 0.38)); let fall = fT * fT;
       if (T > 0.78) { const u = T - 0.78; fall = 1 - Math.exp(-u * 7) * Math.sin(u * 22) * 0.07; }
-      model.position.y = -drop * 0.5 * sc - Math.min(1, fall) * 0.3 * sc; model.rotation.z = -fall * 1.32; model.rotation.x = fall * 0.22; model.position.x = fall * 0.55 * sc;
+      const ff = Math.min(1, fall); model.position.y = (-drop * 0.48 * (1 - ff) + ff * 0.1) * sc; model.rotation.z = -fall * 1.36; model.rotation.x = fall * 0.18; model.position.x = ff * 0.25 * sc;
     }
     const tl = B.map.thigh_L.rotation.x, tr = B.map.thigh_R.rotation.x;
     for (const f of flaps) { const a = f.userData.ang; const front = Math.cos(a), side = Math.sin(a); const leg = side > 0.3 ? tl : side < -0.3 ? tr : (tl + tr) / 2; f.rotation.x = Math.min(0.1, leg * 0.8) * (front > 0 ? 1 : -0.5) + Math.sin(t * 2 + a) * 0.03 + charge * (front > 0 ? -0.25 : 0.35); }

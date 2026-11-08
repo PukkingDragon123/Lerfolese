@@ -303,3 +303,30 @@ function unwrap(P3, N3, { SI, SW }, idx, { atlas, pad, maxChart }) {
   geo.computeBoundingSphere(); geo.userData = { charts: charts.length, tris: out.length / 3, verts: pos.length / 3, dens };
   return geo;
 }
+
+/** uncached UV bake for charkit's paintSurface: per covered texel the rest-pose point, normal and dominant bone */
+export function bake(geo, size, names) {
+  const pa = geo.attributes.position, na = geo.attributes.normal, ua = geo.attributes.uv, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, idx = geo.index.array;
+  const N = size * size; const P = new Float32Array(N * 3), NN = new Float32Array(N * 3), B = new Uint8Array(N), cov = new Uint8Array(N);
+  const dom = (v) => { let bw = -1, b = 0; for (let j = 0; j < 4; j++) { const w = sw.getComponent(v, j); if (w > bw) { bw = w; b = si.getComponent(v, j); } } return b; };
+  for (let t = 0; t < idx.length; t += 3) {
+    const a = idx[t], b = idx[t + 1], c = idx[t + 2]; const ax = ua.getX(a) * size, ay = ua.getY(a) * size, bx = ua.getX(b) * size, by = ua.getY(b) * size, cx = ua.getX(c) * size, cy = ua.getY(c) * size;
+    const d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy); if (Math.abs(d) < 1e-9) continue;
+    const x0 = Math.max(0, Math.floor(Math.min(ax, bx, cx))), x1 = Math.min(size - 1, Math.ceil(Math.max(ax, bx, cx))), y0 = Math.max(0, Math.floor(Math.min(ay, by, cy))), y1 = Math.min(size - 1, Math.ceil(Math.max(ay, by, cy)));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const px = x + 0.5, py = y + 0.5; const w0 = ((by - cy) * (px - cx) + (cx - bx) * (py - cy)) / d, w1 = ((cy - ay) * (px - cx) + (ax - cx) * (py - cy)) / d, w2 = 1 - w0 - w1;
+      if (w0 < -0.01 || w1 < -0.01 || w2 < -0.01) continue; const o = y * size + x;
+      for (let q = 0; q < 3; q++) { P[o * 3 + q] = pa.getComponent(a, q) * w0 + pa.getComponent(b, q) * w1 + pa.getComponent(c, q) * w2; NN[o * 3 + q] = na.getComponent(a, q) * w0 + na.getComponent(b, q) * w1 + na.getComponent(c, q) * w2; }
+      B[o] = dom(w0 >= w1 && w0 >= w2 ? a : w1 >= w2 ? b : c); cov[o] = 1;
+    }
+  }
+  for (let pass = 0; pass < 3; pass++) { // pad islands so filtering never reaches unpainted texels
+    const add = [];
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) { const o = y * size + x; if (cov[o]) continue; const nb = x > 0 && cov[o - 1] ? o - 1 : x < size - 1 && cov[o + 1] ? o + 1 : y > 0 && cov[o - size] ? o - size : y < size - 1 && cov[o + size] ? o + size : -1; if (nb >= 0) add.push(o, nb); }
+    for (let i = 0; i < add.length; i += 2) { const o = add[i], s = add[i + 1]; for (let q = 0; q < 3; q++) { P[o * 3 + q] = P[s * 3 + q]; NN[o * 3 + q] = NN[s * 3 + q]; } B[o] = B[s]; cov[o] = 1; }
+  }
+  let n = 0; for (let i = 0; i < N; i++) n += cov[i];
+  const S = { size, n, off: new Int32Array(n), P: new Float32Array(n * 3), N: new Float32Array(n * 3), B: new Uint8Array(n), names };
+  for (let i = 0, j = 0; i < N; i++) if (cov[i]) { S.off[j] = i; S.P.set(P.subarray(i * 3, i * 3 + 3), j * 3); const l = Math.hypot(NN[i * 3], NN[i * 3 + 1], NN[i * 3 + 2]) || 1; S.N[j * 3] = NN[i * 3] / l; S.N[j * 3 + 1] = NN[i * 3 + 1] / l; S.N[j * 3 + 2] = NN[i * 3 + 2] / l; S.B[j] = B[i]; j++; }
+  return S;
+}

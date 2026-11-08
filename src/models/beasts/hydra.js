@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import * as K from '../charkit.js';
 import { Spring } from '../../core/tween.js';
-import { Sculpt } from './flesh.js';
+import { Sculpt, bake } from './flesh.js';
 import { makeBones, skinned, onBone, skinAttrs, sample, add, apply, battleRig, paintWounds, woundMat, woundTex, rigidSkinned } from './rig.js';
 
 const { hex } = K;
@@ -89,7 +89,7 @@ function bodyAsset(elder) {
   const id = elder ? 'hydra_elder' : 'hydra'; if (BCACHE[id]) return BCACHE[id];
   const S = bodySculpt(elder); const names = BODY.map((b) => b[0]); const P = elder ? PAL.elder : PAL.base;
   const geo = S.build({ cell: 0.034, bones: names, atlas: 768, target: 13000, maxChart: 0.09 });
-  const surf = K.surface('beast-' + id, { geometry: geo, isSkinnedMesh: false, skeleton: { bones: names.map((name) => ({ name })) } }, 768);
+  const surf = bake(geo, 768, names);
   const mat = K.paintedMat(K.paintSurface(surf, bodyPainter(S, P)));
   const sites = [[0.5, 1.1, 0.5], [-0.55, 1.0, 0.1], [0.45, 1.15, -0.4], [-0.3, 1.32, 0.45], [0.6, 0.85, -0.1], [-0.5, 1.0, -0.7], [0.2, 1.38, -0.1], [-0.62, 0.9, 0.35], [0.4, 0.7, 0.62], [0.25, 0.65, -1.5], [-0.2, 0.6, -1.9]]
     .map((p, i) => ({ p, n: [p[0], Math.max(0.1, p[1] - 0.9), p[2] * 0.3], len: 0.2 + (i % 3) * 0.08, wid: 0.03 + (i % 2) * 0.012 }));
@@ -203,14 +203,14 @@ let HCACHE = null;
 function headAsset() {
   if (HCACHE) return HCACHE;
   const S = headSculpt(); const P = PAL.base;
-  const geo = S.build({ cell: 0.011, bones: ['head', 'jaw'], atlas: 512, target: 5200, maxChart: 0.012 });
-  const surf = K.surface('beast-hydra-head', { geometry: geo, isSkinnedMesh: false, skeleton: { bones: [{ name: 'head' }, { name: 'jaw' }] } }, 512);
+  const geo = S.build({ cell: 0.012, bones: ['head', 'jaw'], atlas: 512, target: 3800, maxChart: 0.012 });
+  const surf = bake(geo, 512, ['head', 'jaw']);
   const mat = K.paintedMat(K.paintSurface(surf, headPainter(S, P)));
   const sites = [[[0.1, 0.06, -0.05], [1, 0.4, 0], [0.2, 1, 0.4]], [[-0.08, 0.1, 0.05], [-0.6, 0.8, 0], [1, 0, 1]], [[0.07, 0.03, 0.25], [1, 0.5, 0], [0, 0.3, 1]], [[-0.05, 0.08, 0.28], [-0.5, 0.8, 0.2], [1, 0, -0.5]]].map(([p, n, dir], i) => ({ p, n, dir, len: 0.07 + (i % 2) * 0.03, wid: 0.012 }));
   const wq = {}; const wound = K.paintSurface(surf, paintWounds(surf, { sites, seed: 7, select: (c) => { S.query(c.x, c.y, c.z, wq); return wq.tag !== 'eye'; } }));
   // neck: straight rest tube along +Z (dorsal +Y), skinned across the 8 neck bones
-  const neck = new K.Loft(40, 20).set((t, p) => p.set(0, 0, t * HL), (t) => [neckR(t) * 1.12, neckR(t)], {});
-  skinAttrs(neck.geo, { names: [...Array(NB).keys()].map((i) => 'n' + i) }, (i) => { const v = Math.floor(i / 21) / 39; const x = Math.min(NB - 1e-3, v * NB); const b = Math.floor(x), f = x - b; if (f < 0.5) return b > 0 ? [['n' + b, 0.5 + f], ['n' + (b - 1), 0.5 - f]] : [['n0', 1]]; return b < NB - 1 ? [['n' + b, 1.5 - f], ['n' + (b + 1), f - 0.5]] : [['n' + b, 1]]; });
+  const neck = new K.Loft(32, 16).set((t, p) => p.set(0, 0, t * HL), (t) => [neckR(t) * 1.12, neckR(t)], {});
+  skinAttrs(neck.geo, { names: [...Array(NB).keys()].map((i) => 'n' + i) }, (i) => { const v = Math.floor(i / 17) / 31; const x = Math.min(NB - 1e-3, v * NB); const b = Math.floor(x), f = x - b; if (f < 0.5) return b > 0 ? [['n' + b, 0.5 + f], ['n' + (b - 1), 0.5 - f]] : [['n0', 1]]; return b < NB - 1 ? [['n' + b, 1.5 - f], ['n' + (b + 1), f - 0.5]] : [['n' + b, 1]]; });
   const neckMat = K.paintedMat(K.paintUV(128, 512, (u, v, o) => {
     const vv = v * 7; const belly = Math.abs(u - 0.5) < 0.15; o.ro = 0.4;
     if (belly) { const pl = (vv * 3.2) % 1; K.tone(P.belly, K.band(0.55 + Math.cos((u - 0.5) * 9) * 0.08 - pl * 0.24 + (pl > 0.88 ? -0.2 : 0), 4), o.col); return; }
@@ -245,7 +245,7 @@ export function createHydraHead(seed = 1) {
   const teeth = [], crest = [];
   for (let i = 0; i < 7; i++) for (const s of [-1, 1]) { // fangs: long front pair, rows tapering back; lower row on the jaw
     const z = 0.36 - i * 0.05, x = s * (0.05 + i * 0.006); const L = i === 1 ? 0.075 : 0.045 - i * 0.003;
-    teeth.push([curved([x, -0.022, z], [0, -1, 0.15], L, 0.011 - i * 0.0008, [0, 0, -0.01], 6, 6), 'head'], [curved([x * 0.9, -0.045, z - 0.02], [0, 1, 0.1], L * 0.75, 0.009, [0, 0, 0.005], 6, 6), 'jaw']);
+    teeth.push([curved([x, -0.022, z], [0, -1, 0.15], L, 0.011 - i * 0.0008, [0, 0, -0.01], 5, 5), 'head'], [curved([x * 0.9, -0.045, z - 0.02], [0, 1, 0.1], L * 0.75, 0.009, [0, 0, 0.005], 5, 5), 'jaw']);
   }
   const tongue = new K.Loft(14, 8).set(K.curve([[0, -0.06, -0.02], [0, -0.055, 0.14], [0, -0.05, 0.28]]), (t) => [0.028 * (1 - t * 0.5), 0.008]);
   rigidSkinned(hb, [[tongue.geo, 'jaw']], api.own(K.uvMat('hyd-tongue', 16, 32, (u, v, o) => K.tone(hex('#b8384a'), K.band(0.5 + Math.cos(u * 6.28) * 0.2, 3), o.col))), head);

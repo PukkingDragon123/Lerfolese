@@ -72,16 +72,16 @@ export class Narration {
   say(text, { font = 'hand', maxW = 18 } = {}) {
     this.clear();
     const s = new Strip(rubricLines(text, font, maxW), { font, maxW: maxW + 3, tacks: 2, tone: 5 }); noShadow(s.group); this.parent.add(s.group);
-    const it = { s, k: 0, target: 1 }; this.items.push(it); s.kick(0.7); audio.play('page_turn', { vol: 0.45 }); return it;
+    const it = { s, k: this.items.length ? -0.35 : 0, target: 1 }; this.items.push(it); s.kick(0.7); audio.play('page_turn', { vol: 0.45 }); return it; // waits for the last strip to leave
   }
   clear() { for (const it of this.items) it.target = 0; }
   get empty() { return !this.items.length; }
   update(dt, W, H, band) {
     for (const it of this.items) {
-      it.k += (it.target - it.k) * (1 - Math.exp(-dt * (it.target ? 7 : 9)));
-      const e = ease.out(clamp01(it.k)); const y = -H + band * 0.5 + 0.06;
-      place(it.s.group, it.target ? 0 : (1 - e) * 2.5, y - (1 - e) * (it.target ? 1.6 : -0.4), 15, (0.6 + 0.4 * e) * 1.05);
-      it.s.group.rotation.z = (1 - e) * (it.target ? -0.12 : 0.18); it.s.update(dt, null);
+      if (it.target) it.k = Math.min(1, it.k + Math.max(dt * 0.6, (1 - it.k) * (1 - Math.exp(-dt * 7)))); else it.k += (0 - it.k) * (1 - Math.exp(-dt * 13));
+      const e = ease.out(clamp01(it.k)); const y = -H + band * 0.5 + 0.06; it.s.group.visible = it.k > 0;
+      place(it.s.group, it.target ? 0 : (1 - e) * 1.6, y - (1 - e) * (it.target ? 1.6 : 2.4), 15, (0.6 + 0.4 * e) * 1.05); // in from below; out, tucked down off the beam
+      it.s.group.rotation.z = (1 - e) * (it.target ? -0.12 : 0.22); it.s.update(dt, null);
     }
     this.items = this.items.filter((it) => { if (it.target === 0 && it.k < 0.02) { this.parent.remove(it.s.group); it.s.tex?.dispose(); it.s.mat?.dispose(); return false; } return true; });
   }
@@ -120,7 +120,7 @@ export class Director {
   }
   get W() { return this.engine.uiW; } get H() { return this.engine.uiH; } get band() { return this.H * BAND; }
   at(t, fn) { this.cues.push({ t, fn }); this.cues.sort((a, b) => a.t - b.t); return this; }
-  say(text, o) { return this.narr.say(text, o); }
+  say(text, o) { return this.narr.say(text, { maxW: Math.min(18, this.W * 1.8), ...o }); } // narrower on a portrait screen
   card(name, epithet) { const c = new NameCard(this.group, name, epithet); this.cards.push(c); return c; }
   skip() { if (this.skipped || this.ended) return; this.skipped = true; this.cues = []; this.narr.clear(); for (const c of this.cards) c.hide(); audio.play('page_turn', { vol: 0.7 }); this.onSkip?.(); }
   end() { if (this.ended) return; this.ended = true; this.restoreShafts(); this.cues = []; this.bars?.hide(); this.narr.clear(); for (const c of this.cards) c.hide(); this.input.remove(this.handler); if (window.__cine === this) window.__cine = null; this._res(); }
@@ -299,8 +299,8 @@ export function battleIntro(S, { onReveal = () => {} } = {}) {
         prof.lookAt(t > walk.t1 - 0.3 ? 0.7 : Math.sin(t * 1.1) * 0.25, 0.1);
       } else { // reveal: whip to each foe as it steps out
         const i = Math.min(N - 1, Math.floor((t - R0) / DN)); const f = foes[i]; if (f) {
-          const h = f.v.h; const E = f.home; const toCam = V(S.camBase.x - E.x, 0, S.camBase.z - E.z).normalize();
-          pos.copy(E).addScaledVector(toCam, 2.6 + h * 1.35).add(V(-0.9 - h * 0.15, 0.5 + h * 0.35, 0)); look.copy(E).add(V(-0.15, h * 0.62, 0));
+          const h = f.v.h, big = f.kids.length ? 1.7 : 1; const E = f.home; const toCam = V(S.camBase.x - E.x, 0, S.camBase.z - E.z).normalize(); // many-headed foes need a wider lens on their necks
+          pos.copy(E).addScaledVector(toCam, (2.6 + h * 1.35) * big).add(V(-0.9 - h * 0.15, 0.5 + h * 0.35 * big, 0)); look.copy(E).add(V(-0.15, h * 0.62 * big, 0));
           const first = t - R0 < DN; rig.follow(pos, look, 30, dt, first ? 2.6 : 3.4, first ? 9 : 6);
           head.copy(E).add(V(0, h * 0.95 + 0.2, 0)); const p = S.engine.worldToUI(head); f.card?.at(p.x - 4.6, p.y + 0.2);
           prof.lookAt(0.85, 0.12);
@@ -329,8 +329,8 @@ export function eventIntro(E, { title, text, onReveal = () => {} } = {}) {
   const home = prof.root.position.clone(), homeRy = prof.root.rotation.y;
   const walk = new Walker(prof, roadPath(E.stage, { from: 6.6, home }), { t0: 0.15, speed: 1.75, endRy: homeRy });
   const start = walk.path.getPointAt(0), A = frameAt(start, walk.path.getTangentAt(0.02)); const sky = skyPoint(E.stage, start);
-  const focus = V(-0.6, 1.1, 0), toCam = V(); let r = 3, d0 = 6.6;
-  const measure = () => { const m = E.measureProp?.(); if (m) { focus.copy(m.focus); r = m.size; } d0 = clamp(3.2 + r * 1.15, 5, 11); toCam.set(restPos.x - focus.x, 0, restPos.z - focus.z).normalize(); };
+  const focus = V(-0.6, 1.1, 0); let r = 3;
+  const measure = () => { const m = E.measureProp?.(); if (m) { focus.copy(m.focus); r = m.size; } };
   measure();
   const TA = 2.0, R0 = walk.t1 + 0.25, RD = 2.4; let S0 = R0 + RD, SD = 1.1;
   const first = String(text || '').split(/(?<=[.!?])\s+/)[0] || '';
@@ -353,8 +353,9 @@ export function eventIntro(E, { title, text, onReveal = () => {} } = {}) {
         if (!rig.tracking) { rig.tracking = true; rig.snap(pos, look, 36); } else rig.follow(pos, look, 36, dt, 5, 7);
         prof.lookAt(t > walk.t1 - 0.4 ? 0.6 : Math.sin(t * 1.1) * 0.25, 0.1);
       } else { // a slow dolly onto the curiosity, Sir Isaac at the edge of frame
-        const u = ease.io(span(t, R0, S0)); const dd = d0 * (1 - 0.2 * u); pos.copy(focus).addScaledVector(toCam, dd).add(V(-1.0 - 0.4 * u, 0.4 + r * 0.12, 0)); look.copy(focus).add(V(-0.7, 0.1, 0));
-        rig.follow(pos, look, 30, dt, 2.4, 6); prof.lookAt(0.7, 0.1);
+        const u = ease.io(span(t, R0, S0)); const k = clamp(r / 3.5, 0.85, 1.4);
+        pos.copy(focus).add(V((-1.8 + 0.6 * u) * k, 0.25 + r * 0.08 - 0.2 * u, (8.6 - 1.8 * u) * k)); look.copy(focus).add(V(-0.9 * k, 0.15, 0));
+        if (!rig.revealing) { rig.revealing = true; rig.snap(pos, look, 30); } else rig.follow(pos, look, 30, dt, 8, 8); prof.lookAt(0.7, 0.1); // a cut, then a slow dolly
         cardAt.copy(focus).add(V(0, 1.6, 0)); const p = E.engine.worldToUI(cardAt); card?.at(p.x - 5, p.y + 1.2);
       }
     } else {
@@ -375,7 +376,8 @@ export function eventIntro(E, { title, text, onReveal = () => {} } = {}) {
 // a stretch of the road between map nodes: crane, then a tracking walk; ends while he is still walking (<= 5 s).
 export function travelShot(T, { lines = [], dur = 4.6 } = {}) {
   const D = new Director(T.engine, T.input); const cam = T.camera, prof = T.prof, rig = new CamRig(cam);
-  const walk = new Walker(prof, roadPath(T.stage, { from: 19, to: 10.5 }), { t0: 0.05, speed: 1.75, glide: true });
+  const road = roadPath(T.stage, { from: 6.5 }); const pts = road.getSpacedPoints(8); pts.push(V(-1.2, 0, 1.25), V(2.6, 0, 1.0));
+  const walk = new Walker(prof, new THREE.CatmullRomCurve3(pts, false, 'centripetal'), { t0: 0.05, speed: 2.0, glide: true });
   const start = walk.path.getPointAt(0), A = frameAt(start, walk.path.getTangentAt(0.02)); const TA = 1.9; const sky = skyPoint(T.stage, start);
   lines.forEach((l, i) => D.at(0.3 + i * 2.0, () => D.say(l)));
   D.at(dur - 0.5, () => { D.narr.clear(); D.bars?.hide(); });
