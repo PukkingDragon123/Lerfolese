@@ -5,6 +5,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { tweens } from './tween.js';
 import { clamp, damp } from './util.js';
 
@@ -32,15 +33,20 @@ const GradeShader = {
     uSat: { value: 1.08 }, uContrast: { value: 1.06 }, uLift: { value: new THREE.Vector3(0.015, 0.0, 0.035) }, uGain: { value: new THREE.Vector3(1.04, 1.0, 0.95) },
     uVignette: { value: 0.42 }, uVigColor: { value: new THREE.Color(0x1a0f24) }, uGrain: { value: 0.045 }, uCA: { value: 0.0016 },
     uFlash: { value: 0 }, uFlashColor: { value: new THREE.Color(1, 1, 1) }, uWarmth: { value: 0.0 },
+    uGamma: { value: new THREE.Vector3(1, 1, 1) }, uRolloff: { value: 0.5 }, uToe: { value: 0.02 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uSat, uContrast, uVignette, uGrain, uCA, uFlash, uWarmth; uniform vec3 uLift, uGain, uVigColor, uFlashColor; uniform vec2 uRes; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uSat, uContrast, uVignette, uGrain, uCA, uFlash, uWarmth, uRolloff, uToe; uniform vec3 uLift, uGain, uGamma, uVigColor, uFlashColor; uniform vec2 uRes; varying vec2 vUv;
   float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
   void main(){
     vec2 cc = vUv - 0.5; float dist = length(cc);
     vec2 off = cc * dist * uCA * 8.0;
     vec3 col; col.r = texture2D(tDiffuse, vUv + off).r; col.g = texture2D(tDiffuse, vUv).g; col.b = texture2D(tDiffuse, vUv - off).b;
+    // camcorder grade (from R.O.O.M.): highlight roll-off, lift/gamma/gain, a soft toe that keeps blacks velvety
+    col = mix(col, col / (1.0 + col * 0.35) * 1.35, uRolloff);
     col = col * uGain + uLift * (1.0 - col);
+    col = pow(max(col, 0.0), 1.0 / max(uGamma, vec3(0.01)));
+    col = max(col, 0.0); col = col + uToe * (1.0 - col) * exp(-col * 24.0);
     float l = dot(col, vec3(0.299,0.587,0.114));
     col = mix(vec3(l), col, uSat);
     col = (col - 0.5) * uContrast + 0.5;
@@ -100,6 +106,12 @@ export class Engine {
     this.composer = new EffectComposer(r, rt);
     this.renderPass = new RenderPass(this.world.scene, this.world.camera);
     this.composer.addPass(this.renderPass);
+    // ground-truth AO (as in R.O.O.M.): contact shadows under feet, in roots, folds and ruins
+    this.aoForced = new URLSearchParams(location.search).get('ao') === '1';
+    this.gtao = new GTAOPass(this.world.scene, this.world.camera, size.x, size.y); this.gtao.output = GTAOPass.OUTPUT.Default; this.gtao.blendIntensity = 0.85;
+    this.gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1, thickness: 1, scale: 1, samples: 12 }); this.gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
+    this.composer.addPass(this.gtao);
+    this.gtao.enabled = this.aoForced || !this.testMode;
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.55, 0.55, 0.82);
     this.composer.addPass(this.bloom);
     this.tiltH = new ShaderPass(TiltShiftShader); this.tiltV = new ShaderPass(TiltShiftShader);
@@ -125,7 +137,7 @@ export class Engine {
     this.quality = q;
     this.pixelRatio = q === 'low' ? 1 : Math.min(window.devicePixelRatio || 1, q === 'medium' ? 1.25 : 1.75);
     this.renderer.setPixelRatio(this.pixelRatio);
-    this.renderer.shadowMap.enabled = q !== 'low';
+    this.renderer.shadowMap.enabled = q !== 'low'; if (this.gtao) this.gtao.enabled = this.aoForced || (q === 'high' && this.fx?.ao !== false);
     this.resize();
   }
 
@@ -150,7 +162,7 @@ export class Engine {
 
   setWorld(scene, camera) {
     this.world.scene = scene; this.world.camera = camera;
-    this.renderPass.scene = scene; this.renderPass.camera = camera;
+    this.renderPass.scene = scene; this.renderPass.camera = camera; this.gtao.scene = scene; this.gtao.camera = camera;
     if (camera.isPerspectiveCamera) { camera.aspect = this.aspect; camera.updateProjectionMatrix(); }
   }
 
@@ -165,6 +177,8 @@ export class Engine {
       const u = p.uniforms; u.uFocus.value = t.focus ?? 0.45; u.uWidth.value = t.width ?? 0.16; u.uFeather.value = t.feather ?? 0.3; u.uAmount.value = t.amount ?? 2.4; u.uTop.value = t.top ?? 1; u.uBottom.value = t.bottom ?? 0.8;
     }
     const g = fx.grade || {}; const gu = this.grade.uniforms;
+    this.gtao.enabled = fx.ao !== false && (this.aoForced || (!this.testMode && this.quality === 'high')); if (fx.ao && typeof fx.ao === 'number') this.gtao.blendIntensity = fx.ao; else this.gtao.blendIntensity = 0.85;
+    gu.uGamma.value.set(...(g.gamma || [1, 1, 1])); gu.uRolloff.value = g.rolloff ?? 0.5; gu.uToe.value = g.toe ?? 0.02; gu.uCA.value = g.ca ?? 0.0016;
     gu.uSat.value = g.sat ?? 1.08; gu.uContrast.value = g.contrast ?? 1.06; gu.uVignette.value = g.vignette ?? 0.42; gu.uGrain.value = g.grain ?? 0.04; gu.uWarmth.value = g.warmth ?? 0;
     if (g.lift) gu.uLift.value.set(...g.lift); else gu.uLift.value.set(0.015, 0.0, 0.035);
     if (g.gain) gu.uGain.value.set(...g.gain); else gu.uGain.value.set(1.04, 1.0, 0.95);
@@ -184,9 +198,9 @@ export class Engine {
   // cinematic wipe: closes to color, runs fn, opens. center in 0..1 screen coords
   async wipe(fn, { center = [0.5, 0.5], color = 0x120d1c, dur = 0.55, mode = 0 } = {}) {
     const u = this.wipeMat.uniforms; u.uCenter.value.set(center[0], 1 - center[1]); u.uColor.value.set(color); u.uMode.value = mode;
-    this.wipeActive = true;
+    this.wipeActive = true; const hudEl = document.getElementById('hud'); hudEl?.classList.add('wiping');
     await tweens.to(u.uT, { value: 1 }, dur, { ease: 'inCubic' });
-    if (fn) await fn();
+    if (fn) await fn(); hudEl?.classList.remove('wiping');
     await tweens.wait(0.08);
     await tweens.to(u.uT, { value: 0 }, dur * 1.1, { ease: 'outCubic' });
     this.wipeActive = false;

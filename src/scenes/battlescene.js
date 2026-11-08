@@ -2,18 +2,20 @@
 import * as THREE from 'three';
 import { buildStage } from '../models/world.js';
 import { realStage } from '../models/realworld.js';
+import { loadModel } from '../gfx/assets.js';
 import { createProfessor } from '../models/professor.js';
 import { createCreature } from '../models/creatures.js';
 import { Particles } from '../gfx/particles.js';
 import { Critters } from '../gfx/critters.js';
 import { HandView, cardBackTex } from '../ui3d/cards3d.js';
-import { Gauge, Bell, Bin, Pile, Pouch, Numbers, EnemyHUD, Note, textPlane } from '../ui3d/kit.js';
+import { Pile, Numbers, Note } from '../ui3d/kit.js';
+import { hud, HudTip, BattleHUD } from '../ui/hud.js';
 import { fieldView, projectileModel } from './fieldviews.js';
 import { Battle } from '../game/battle.js';
 import { describeAttack, describeSelf, FIELD_INFO } from '../game/combos.js';
 import { tweens } from '../core/tween.js';
 import { audio } from '../core/audio.js';
-import { vpick, vrange, clamp } from '../core/util.js';
+import { vpick, vrange, clamp, roman } from '../core/util.js';
 import { RNG } from '../core/util.js';
 import { POWERS, BASICS } from '../game/data/cards.js';
 
@@ -34,8 +36,9 @@ export class BattleScene {
     const rng = new RNG((run.seed ^ (run.stats.floors * 7919)) >>> 0);
     this.battle = new Battle({ run, enemies: encounter.enemies, rng, fx: this.fx(), kind: encounter.kind });
     for (const e of this.battle.enemies) this.addEnemyView(e);
+    { const names = [...new Set(this.battle.enemies.filter((e) => !e.def.isHead).map((e) => e.def.name))]; this.hudB.setObjective(`Defeat ${names.length > 1 ? names.slice(0, -1).join(', ') + ' & ' + names.at(-1) : names[0] || 'the foe'}`); }
     this.engine.setWorld(this.scene, this.camera);
-    this.engine.setFx({ bloom: [0.5, 0.6, 0.8], tilt: { focus: 0.52, width: 0.2, feather: 0.32, amount: 2.2, top: 1.1, bottom: 0.7 }, grade: { sat: 1.12, contrast: 1.07, vignette: 0.45, grain: 0.04, warmth: 0.3 } });
+    this.engine.setFx({ exposure: 0.92, bloom: [0.55, 0.6, 0.78], tilt: { focus: 0.52, width: 0.2, feather: 0.32, amount: 2.2, top: 1.1, bottom: 0.7 }, grade: { sat: 1.06, contrast: 1.08, vignette: 0.5, grain: 0.05, warmth: 0.35, lift: [0.02, 0.006, 0.045], gain: [1.05, 0.99, 0.92], rolloff: 0.6, toe: 0.025, ca: 0.0008 } });
     this.handler = this.input.push(this.makeInput());
     this.engine.add(this);
     const kind = encounter.kind; audio.playMusic(kind === 'guardian' ? 'boss' : kind === 'elite' ? 'elite' : vpick(['battle', 'battle2']));
@@ -51,17 +54,24 @@ export class BattleScene {
     const lead = enc.enemies[0]; this.theme = enc.kind === 'guardian' ? 'guardian' : THEME[lead] || 'meadow'; if (lead.startsWith('hydra')) this.theme = 'marsh'; if (lead.startsWith('minotaur')) this.theme = 'labyrinth';
     const sc = (this.scene = new THREE.Scene());
     let stage = null;
-    try { stage = await realStage(this.theme, 7 + this.runData.stats.floors, this.engine.renderer); sc.environment = stage.env; sc.environmentIntensity = 0.75; sc.background = stage.background; sc.backgroundIntensity = 1.25; }
+    try { stage = await realStage(this.theme, 7 + this.runData.stats.floors, this.engine.renderer); sc.environment = stage.env; sc.environmentIntensity = 0.5; sc.background = stage.background; sc.backgroundIntensity = 0.8; }
     catch (e) { console.warn('realistic stage failed, using fallback', e); stage = buildStage(this.theme, 7 + this.runData.stats.floors); }
     sc.add(stage.group); this.stage = stage;
     this.critters = new Critters(70); this.critters.bounds = { x: [-15, 15], y: [1.5, 8], z: [-10, 1] }; sc.add(this.critters.mesh);
     sc.updateMatrixWorld(true); for (const t of stage.trees) this.critters.perchesFrom(t, 4);
     this.critters.spawnBirds(14, this.theme === 'garden' ? ['crow', 'dove', 'sparrow'] : this.theme === 'marsh' ? ['swallow', 'crow'] : ['sparrow', 'swallow', 'hoopoe', 'dove']); this.critters.spawnButterflies(this.theme === 'labyrinth' ? 2 : 6, new THREE.Vector3(0, 0.5, -2), 14);
-    sc.fog = new THREE.Fog(this.theme === 'marsh' ? 0xa8b8a8 : 0xe8c09a, 30, 95);
-    const sun = new THREE.DirectionalLight(0xffd8b0, 3.0); const sd = stage.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4); sun.position.copy(sd.clone().normalize().multiplyScalar(22)); if (sun.position.y < 6) sun.position.y = 6; sun.castShadow = true;
+    sc.fog = new THREE.Fog(this.theme === 'marsh' ? 0x7a8a86 : 0xb07c62, 26, 90);
+    const sun = new THREE.DirectionalLight(0xffb070, 2.5); const sd = stage.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4); sun.position.copy(sd.clone().normalize().multiplyScalar(22)); if (sun.position.y < 6) sun.position.y = 6; sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 10, bottom: -8, near: 1, far: 40 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
-    sc.add(sun, new THREE.HemisphereLight(0xa8c8ff, 0x6a4a30, 0.55));
-    const rim = new THREE.DirectionalLight(0xffa860, 1.6); rim.position.set(6, 5, -9); sc.add(rim);
+    sc.add(sun, new THREE.HemisphereLight(0x8a98d8, 0x4a2c1a, 0.38));
+    // dusk practicals, R.O.O.M.-style: warm braziers that actually light the fighters, a cool arcane rim, Sir Isaac's spirit glow
+    const rim = new THREE.DirectionalLight(0xffa860, 1.1); rim.position.set(6, 5, -9); const arc = new THREE.DirectionalLight(0x8fb0ff, 1.5); arc.position.set(-7, 6, -10); sc.add(rim, arc);
+    this.fires = [];
+    for (const [x, z, s] of [[-6.4, -2.4, 1.6], [7.0, -3.2, 1.7]]) {
+      const l = new THREE.PointLight(0xff8a3a, 26, 12, 1.6); l.position.set(x, 1.5, z + 0.4); sc.add(l); this.fires.push({ l, x, z, s, ph: Math.random() * 9 });
+      loadModel('stone_fire_pit').then((o) => { o.position.set(x, 0, z); o.scale.multiplyScalar(s); o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); sc.add(o); }).catch(() => {});
+    }
+    this.spirit = new THREE.PointLight(0xa58cff, 5, 6, 2); this.spirit.position.set(-3.5, 2.6, 1.8); sc.add(this.spirit);
     this.camera = new THREE.PerspectiveCamera(32, this.engine.aspect, 0.1, 400); this.camBase = new THREE.Vector3(-0.1, 3.0, 11.4); this.camLook = new THREE.Vector3(0.3, 1.7, 0);
     this.camera.position.copy(this.camBase); this.camera.lookAt(this.camLook); this.camOff = new THREE.Vector3(); this.camPunch = 0;
     // professor
@@ -87,8 +97,7 @@ export class BattleScene {
     const h = api.height * s; const hit = new THREE.Mesh(new THREE.BoxGeometry(e.def.isHead ? 1.2 : 1.6 * s, e.def.isHead ? 1.2 : h, 1.4), new THREE.MeshBasicMaterial({ visible: false }));
     hit.position.copy(p).add(new THREE.Vector3(0, e.def.isHead ? 0 : h / 2, 0)); hit.userData.target = { type: 'enemy', uid: e.uid }; this.scene.add(hit);
     if (e.def.isHead) { const body = this.enemyViews.get(e.parent); if (body) { api.anchorPos = new THREE.Vector3(); api.anchorIdx = this.battle.enemies.filter((x) => x.parent === e.parent).indexOf(e); this.scene.add(api.neckGroup); } }
-    const hud = new EnemyHUD(e.def.name); this.ui.scene.add(hud.group);
-    const v = { e, api, hit, hud, h, flash: 0, spawnT: 0 }; this.enemyViews.set(e.uid, v); this.refreshEnemy(e);
+    const v = { e, api, hit, hud: this.hudB.plate(e.def.name), h, flash: 0, spawnT: 0 }; this.enemyViews.set(e.uid, v); this.refreshEnemy(e);
     if (this.battle.phase !== 'start') { api.root.scale.setScalar(0.01); tweens.to(api.root.scale, { x: s, y: s, z: s }, 0.6, { ease: 'outBack' }); }
     return v;
   }
@@ -104,20 +113,16 @@ export class BattleScene {
     ui.root.add(key, new THREE.AmbientLight(0xffffff, 1.35));
     const catcher = new THREE.Mesh(new THREE.PlaneGeometry(120, 80), new THREE.ShadowMaterial({ opacity: 0.28 })); catcher.position.z = -2; catcher.receiveShadow = true; ui.root.add(catcher);
     this.hand = new HandView(ui);
-    this.gauge = new Gauge(); this.bell = new Bell(); this.bin = new Bin(); this.drawPile = new Pile('DRAW', cardBackTex()); this.discardPile = new Pile('USED', cardBackTex()); this.pouch = new Pouch();
-    for (const w of [this.gauge, this.bell, this.bin, this.drawPile, this.discardPile, this.pouch]) ui.root.add(w.group);
-    this.tooltip = new Note({ w: 7, h: 2.6, size: 40 }); this.preview = new Note({ w: 7.5, h: 2.2, size: 40 }); ui.root.add(this.tooltip.group, this.preview.group);
+    this.drawPile = new Pile('DRAW', cardBackTex()); this.discardPile = new Pile('USED', cardBackTex()); ui.root.add(this.drawPile.group, this.discardPile.group);
+    hud.engine = this.engine; hud.clear();
+    const enc = this.encounter; this.hudB = new BattleHUD({ floor: (this.runData.stats.floors || 0) + 1, kind: enc.kind, onEnd: () => this.endTurn(), onWell: () => this.toast('Drag cards into Second Thoughts to redraw them. 3 per battle.') });
+    this.tooltip = new HudTip(); this.preview = new HudTip();
     this.barks = []; this.numbers = new Numbers(ui.scene);
-    this.powerRow = new THREE.Group(); ui.root.add(this.powerRow);
-    this.banner = textPlane(['YOUR TURN'], { w: 14, h: 2, font: 'Pixelify', size: 150, weight: 700, color: '#fff6cf', stroke: ['#3a2410', 22] }); this.banner.position.z = 12; this.banner.visible = false; ui.root.add(this.banner);
     this.layoutUI(); this.onResize = () => this.layoutUI();
   }
   layoutUI() {
     const W = (this.ui.W = this.engine.uiW), H = (this.ui.H = this.engine.uiH);
-    this.gauge.group.position.set(-W + 2.3, -H + 6.4, 1); this.gauge.group.scale.setScalar(0.92);
-    this.drawPile.group.position.set(-W + 2.2, -H + 2.4, 0.5); this.discardPile.group.position.set(W - 2.4, -H + 2.4, 0.5);
-    this.bell.group.position.set(W - 3.0, -H + 6.6, 1); this.bin.group.position.set(W - 5.6, -H + 2.6, 0.6); this.bin.group.scale.setScalar(0.85);
-    this.pouch.group.position.set(-W + 2.0, H - 2.0, 1); this.powerRow.position.set(-W + 5.5, H - 1.9, 1);
+    this.drawPile.group.position.set(-W + 2.2, -H + 2.4, 0.5); this.discardPile.group.position.set(W - 7.4, -H + 2.4, 0.5);
     this.hand?.layout();
   }
 
@@ -131,9 +136,15 @@ export class BattleScene {
       if (v.api.anchorPos) { const body = this.enemyViews.get(v.e.parent); if (body?.api.anchor) body.api.anchor(v.api.anchorIdx ?? 0, v.api.anchorPos); if (!body?.e.alive) v.api.anchorPos = null; }
       const top = new THREE.Vector3().copy(v.api.root.position); top.y += v.e.def.isHead ? 1.0 : v.h + 0.45; const bot = v.api.root.position.clone(); bot.y += v.e.def.isHead ? -0.9 : -0.1;
       const pt = this.engine.worldToUI(top), pb = this.engine.worldToUI(bot);
-      v.hud.update(dt, pb.x, Math.max(pb.y - 0.5, -this.ui.H + 7.4), pt.y + 0.6); v.hud.group.visible = v.e.alive;
+      v.hud.update(dt, pb.x, Math.max(pb.y - 0.5, -this.ui.H + 7.4), pt.y + 0.6); v.hud.setVisible(v.e.alive);
     }
     for (const [, fv] of this.fieldViews) fv.update(dt, t);
+    for (const f of this.fires) {
+      f.l.intensity = 26 + Math.sin(t * 9 + f.ph) * 4 + Math.sin(t * 23 + f.ph * 2) * 2.5 + (Math.random() - 0.5) * 3;
+      if (Math.random() < dt * 22) this.glowParts.spawn({ pos: [f.x + vrange(-0.35, 0.35), 0.55, f.z + vrange(-0.3, 0.3)], vel: [vrange(-0.2, 0.2), vrange(1.4, 2.6), 0], life: vrange(0.5, 0.9), size: vrange(34, 52), size1: 6, color: vpick(['#ff9a3a', '#ffc45a', '#ff6a2a']), sprite: 'ember', grav: -1 });
+      if (Math.random() < dt * 3) this.glowParts.spawn({ pos: [f.x, 1.2, f.z], vel: [vrange(-0.4, 0.4), vrange(1.5, 3), 0], life: vrange(1.2, 2.2), size: vrange(10, 16), color: '#ffd08a', sprite: 'dot', wobble: 0.8 });
+    }
+    this.spirit.intensity = 5 + Math.sin(t * 2.1) * 1.2;
     this.parts.update(dt, t); this.glowParts.update(dt, t); this.critters.update(dt, t);
     // ambient pixel particles: pollen + fireflies + leaves
     this.ambientT -= dt;
@@ -146,13 +157,12 @@ export class BattleScene {
     this.camera.position.set(cx, cy, this.camBase.z - this.camPunch * 1.6); this.camera.lookAt(this.camLook);
     // UI
     this.hand.update(dt, t);
-    const P = B.player; this.gauge.set(P.hp, P.maxHp, P.block); this.gauge.update(dt);
-    this.bin.set(B.redraws); this.bin.update(dt); this.bell.enabled = B.phase === 'player'; this.bell.update(dt);
+    const P = B.player; this.hudB.setVitals(P.hp, P.maxHp, P.block, this.runData.gold); this.hudB.setRedraws(B.redraws);
+    this.hudB.setEnd(B.phase === 'player' && !this.busy && !this.done, B.phase === 'player' || this.done ? 'End Turn' : 'Foes act');
     this.drawPile.set(B.draw.length); this.discardPile.set(B.discard.length); this.drawPile.update(dt); this.discardPile.update(dt);
-    this.pouch.set(this.runData.gold); this.pouch.update(dt);
     this.tooltip.update(dt); this.preview.update(dt); this.numbers.update(dt);
-    for (const b of this.barks) { b.note.update(dt); b.life -= dt; const p = this.engine.worldToUI(b.anchor()); b.note.group.position.set(p.x + b.ox, p.y + 1.6, 9); if (b.life < 0 && b.note.hideAt == null) b.note.hide(); }
-    this.barks = this.barks.filter((b) => { if (b.life < -0.5) { this.ui.root.remove(b.note.group); return false; } return true; });
+    for (const b of this.barks) { b.life -= dt; const p = this.engine.worldToUI(b.anchor()); const [sx, sy] = hud.toScreen(p.x + b.ox, p.y + 0.5); b.note.style.transform = `translate(${sx | 0}px,${sy | 0}px) translate(-50%,-100%)`; if (b.life < 0) b.note.classList.add('out'); }
+    this.barks = this.barks.filter((b) => { if (b.life < -0.4) { b.note.remove(); return false; } return true; });
     this.fieldMarker.material.opacity = this.hand.drag && this.dropTarget?.type === 'field' ? 0.85 : 0;
     this.prof.lookAt(this.input.ndc.x * 0.6, this.input.ndc.y * 0.4);
   }
@@ -172,7 +182,6 @@ export class BattleScene {
         if (S.done || S.hand.drag) return;
         const hits = S.rayUI(S.cardMeshes()); const s = S.hand.pick(hits);
         if (s !== S.hand.hover) { S.hand.hover = s; S.hand.layout(); if (s) { audio.play('ui_hover', { vol: 0.5 }); S.showCardTip(s); } else S.tooltip.hide(); }
-        const hb = S.rayUI([S.bell.hit]).length > 0; if (hb !== S.bell.hover) { S.bell.hover = hb; }
         S.engine.canvas.classList.toggle('show-cursor', true);
       },
       dragstart() {
@@ -194,9 +203,6 @@ export class BattleScene {
       dragcancel() { if (S.hand.drag) { S.hand.drag = null; S.syncHand(); } },
       click(e) {
         if (S.done) return;
-        if (S.rayUI([S.bell.hit]).length) { S.endTurn(); return true; }
-        if (S.rayUI([S.pouch.hit]).length) { S.pouch.jig.kick(14); audio.play('pouch_jingle'); S.bark('player', vpick(['Money: the other conserved quantity.', 'Jingle. Jingle. Science.'])); return true; }
-        if (S.rayUI([S.bin.hit]).length) { S.bin.jig.kick(8); S.toast('Drag cards into the basket to redraw them. 3 per battle.'); return true; }
         const s = S.hand.pick(S.rayUI(S.cardMeshes())); if (s && s.slot.cards.length > 1 && e.long) { S.battle.split(s.uid); S.syncHand(); return true; }
       },
       key(e) { if (S.done) return; if (e.code === 'Space' || e.code === 'Enter') S.endTurn(); },
@@ -211,11 +217,11 @@ export class BattleScene {
     const d = this.hand.drag; let tgt = null;
     const other = this.hand.pick(this.rayUI(this.cardMeshes()));
     if (other && other !== d.slot) tgt = { type: 'combine', slot: other };
-    else if (this.rayUI([this.bin.hit]).length) tgt = { type: 'bin' };
+    else if (this.hudB.wellHit(this.input.x, this.input.y)) tgt = { type: 'bin' };
     else { const w = this.rayWorld(); if (w) tgt = w; }
     const changed = JSON.stringify(tgt && { ...tgt, slot: tgt.slot?.uid }) !== JSON.stringify(this.dropTarget && { ...this.dropTarget, slot: this.dropTarget.slot?.uid });
     this.dropTarget = tgt; this.hand.dropTarget = tgt?.type === 'combine' ? tgt : null;
-    this.bin.glow.target = tgt?.type === 'bin' ? 1 : 0;
+    this.hudB.setWellHot(tgt?.type === 'bin');
     for (const [, v] of this.enemyViews) v.api.root.userData.hl = tgt?.uid === v.e.uid;
     if (changed) { this.hand.layout(); if (tgt) audio.play('ui_hover', { vol: 0.35 }); }
     const p = this.ui.pointerPlane(8);
@@ -245,7 +251,7 @@ export class BattleScene {
     else lines = [[[mv.name, '#3a2410']], [['Stack cards to combine. m × v = damage.', '#2a160c']], [[(c.petrified ? 'PETRIFIED: acts as Stone this battle.' : '') || flavorOf(c), '#8a6a44']]];
     const b = s.base; this.tooltip.show(lines, clamp(b.x + 6.4, -this.ui.W + 4, this.ui.W - 4.5), b.y + 3.5, 10);
   }
-  toast(text) { this.bark('player', text, 3); }
+  toast(text) { hud.toast(text); }
 
   syncHand(from) { const W = this.ui.W, H = this.ui.H; this.hand.sync(this.battle.hand, this.battle, from || { x: -W + 2.2, y: -H + 2.4 }); }
 
@@ -257,7 +263,7 @@ export class BattleScene {
   }
   async endTurn() {
     if (this.battle.phase !== 'player' || this.busy) return;
-    this.busy = true; this.bell.ring(); audio.play('bell_ding'); this.tooltip.hide();
+    this.busy = true; this.hudB.ringEnd(); audio.play('bell_ding'); this.tooltip.hide();
     await this.battle.endTurn(); this.busy = false; this.afterAction();
   }
   afterAction() {
@@ -267,25 +273,19 @@ export class BattleScene {
   async finish() {
     if (this.done) return; this.done = true; const won = this.battle.phase === 'won';
     this.battle.finish(); await tweens.wait(0.6);
-    if (won) { audio.play('sting_victory'); this.prof.act('cheer'); this.bark('player', vpick(PLAYER_BARKS.win), 2.5); await this.showBanner('VICTORY', '#ffe08a'); }
-    else { audio.stopMusic(1); audio.play('sting_defeat'); await this.showBanner('THE UNIVERSE RESETS', '#cdb6f0'); }
+    if (won) { audio.play('sting_victory'); this.prof.act('cheer'); this.bark('player', vpick(PLAYER_BARKS.win), 2.5); this.hudB.setEnd(false); await this.showBanner('Victory', 'THE WILDS GROW QUIET', '', 1.1); }
+    else { audio.stopMusic(1); audio.play('sting_defeat'); await this.showBanner('The Universe Resets', 'THE JOURNAL REMEMBERS', 'dread', 1.3); }
     await tweens.wait(0.5);
     this.resolve({ won, kind: this.encounter.kind, enemies: this.encounter.enemies });
   }
-  async showBanner(text, color = '#fff6cf') {
-    this.banner.userData.setText([[[text, color]]]); this.banner.visible = true; this.banner.position.set(-30, 0, 12); this.banner.rotation.z = 0.05;
-    audio.play('transition_whoosh', { vol: 0.6 });
-    await tweens.to(this.banner.position, { x: 0 }, 0.45, { ease: 'outBack' }); await tweens.wait(0.7); await tweens.to(this.banner.position, { x: 30 }, 0.35, { ease: 'inCubic' }); this.banner.visible = false;
-  }
+  async showBanner(title, sub = '', kind = '', hold = 0.7) { audio.play('transition_whoosh', { vol: 0.6 }); await hud.banner(title, sub, kind, hold); }
   bark(who, text, life = 2.4) {
     if (!text) return;
-    const note = new Note({ w: Math.min(9, 2.4 + text.length * 0.13), h: text.length > 44 ? 1.8 : 1.15, size: 40, tail: true });
-    this.ui.root.add(note.group);
+    const note = hud.bubble(text, who === 'player' ? 'me' : 'foe');
     const anchor = who === 'player' ? () => this.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, 0.6, 0)) : () => { const v = this.enemyViews.get(who.uid); return v ? v.api.root.position.clone().add(new THREE.Vector3(0, v.h + 0.3, 0)) : new THREE.Vector3(); };
-    const lines = text.length > 44 ? splitHalf(text) : [text];
-    note.show(lines.map((l) => [[l, '#2a160c']]), 0, 0, 9); const b = { note, anchor, life, ox: who === 'player' ? 2.2 : -1.2 }; this.barks.push(b);
+    const b = { note, anchor, life, ox: who === 'player' ? 1.6 : -0.6 }; this.barks.push(b);
     if (who === 'player') { this.prof.talk(Math.min(2, text.length * 0.05)); audio.play('wood_knock', { vol: 0.35 }); } else { const v = this.enemyViews.get(who.uid); v?.api.talk(1.2); }
-    if (this.barks.length > 3) { const old = this.barks.shift(); old.life = -1; this.ui.root.remove(old.note.group); }
+    if (this.barks.length > 3) { const old = this.barks.shift(); old.note.remove(); }
   }
   snapFX(slotV) { const v = slotV.views[slotV.views.length - 1]; if (!v) return; v.sc.kick(4); v.rz.kick(3); }
 
@@ -313,17 +313,17 @@ export class BattleScene {
     const S = this; const W = () => S.ui.W, H = () => S.ui.H;
     return {
       async battleStart(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); await tweens.wait(0.25); const lead = B.enemies.find((e) => !e.def.isHead); if (lead) S.bark(lead, vpick(lead.def.barks.start), 2.6); await tweens.wait(0.8); S.bark('player', vpick(PLAYER_BARKS.start), 2.4); },
-      async playerTurn(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); if (B.turn > 1 || true) S.showBanner(`TURN ${B.turn}`, '#fff6cf'); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); },
+      async playerTurn(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); S.hudB.setTurn(B.turn); S.showBanner('Your Turn', `TURN ${roman(B.turn)}`); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); },
       async drew(slots) { S.syncHand(); audio.play('card_slide', { vol: 0.8 }); for (let i = 0; i < Math.min(slots.length, 6); i++) audio.play('card_slide', { delay: i * 0.07, vol: 0.6 }); await tweens.wait(0.12); },
       async reshuffle() { audio.play('card_shuffle'); },
       async petrified(cards) { audio.play('stone_grind'); S.syncHand(); S.bark('player', 'My cards! They are... gravel now.'); await tweens.wait(0.4); },
       async invalid(text) { audio.play('ui_error'); if (text) S.bark('player', text); },
-      async binned(slot) { audio.play('paper_crumple'); S.hand.removeViews(slot.cards.map((c) => c.uid), { x: S.bin.group.position.x, y: S.bin.group.position.y + 0.5, s: 0.2 }); await tweens.wait(0.25); },
+      async binned(slot) { audio.play('paper_crumple'); const [wx, wy] = S.hudB.wellUI(); S.hand.removeViews(slot.cards.map((c) => c.uid), { x: wx, y: wy, s: 0.2 }); hud.feed(`Second thoughts: ${slot.cards.length} card${slot.cards.length > 1 ? 's' : ''} redrawn`, 'arc'); await tweens.wait(0.25); },
       async power(c) { audio.play('magic_shimmer'); S.prof.act('cast'); S.burst(S.prof.headWorld(new THREE.Vector3()), 'magic', 40); S.hand.removeViews([c.uid], { x: 0, y: 2, s: 0.1 }); S.bark('player', `${POWERS[c.id].name}: ${POWERS[c.id].flavor}`, 3); S.addPowerToken(c); await tweens.wait(0.5); },
       async played(slot, mv, target, kind) {
         const p = kind === 'attack' ? S.enemyPos(S.battle.enemies.find((e) => e.uid === target.uid) || S.battle.alive()[0]) : kind === 'self' ? S.prof.headWorld(new THREE.Vector3()) : new THREE.Vector3(-1, 0.5, 1.1);
         const to = S.engine.worldToUI(p);
-        audio.play('card_whoosh'); S.hand.removeViews(slot.cards.map((c) => c.uid), { x: to.x, y: to.y, s: 0.3, flip: 0 });
+        hud.feed(`${mv.name}${kind === 'self' ? ' on Sir Isaac' : kind === 'field' ? ' takes the field' : ''}`, 'hit'); audio.play('card_whoosh'); S.hand.removeViews(slot.cards.map((c) => c.uid), { x: to.x, y: to.y, s: 0.3, flip: 0 });
         S.prof.act(kind === 'attack' ? 'throw' : 'cast'); S.prof.setExpr(kind === 'attack' ? 'smug' : 'think');
         await tweens.wait(0.18);
         if (kind === 'attack') await S.throwProjectile(mv, target);
@@ -333,7 +333,7 @@ export class BattleScene {
         const v = S.enemyViews.get(e.uid); const p = S.enemyPos(e);
         if (v) v.api.act('hurt');
         const big = dmg >= 25; const col = o.kind === 'zap' ? '#fff3b0' : o.kind === 'burn' ? '#f08a2a' : o.kind === 'venom' ? '#9cb84a' : '#fff6cf';
-        if (dmg > 0) S.popNumber(p.clone().add(new THREE.Vector3(0, 0.6, 0)), dmg, { color: col, size: big ? 2.0 : 1.4, stroke: '#5a1a22' });
+        if (dmg > 0) { S.popNumber(p.clone().add(new THREE.Vector3(0, 0.6, 0)), dmg, { color: col, size: big ? 2.0 : 1.4, stroke: '#5a1a22' }); hud.feed(`${e.def.name} takes ${dmg}${o.kind && o.kind !== 'hit' ? ' ' + o.kind : ''}${big ? '!' : ''}`); }
         if (o.blocked) S.popNumber(p.clone().add(new THREE.Vector3(-0.6, 1.2, 0)), `-${o.blocked}`, { color: '#a8dcef', stroke: '#16304f', size: 1.0 });
         const kindFx = o.kind === 'zap' ? 'zap' : o.kind === 'burn' ? 'fire' : o.kind === 'apple' ? 'apple' : o.move?.art?.core === 'stone' ? 'stone' : o.move?.art?.core === 'water' ? 'water' : o.move?.art?.core?.includes('apple') ? 'apple' : 'magic';
         S.burst(p, kindFx, big ? 40 : 18);
@@ -344,7 +344,7 @@ export class BattleScene {
         S.refreshEnemy(e); await tweens.wait(dmg > 0 ? 0.16 : 0.05);
       },
       async miss(t, src, why) { const p = t === 'player' ? S.prof.headWorld(new THREE.Vector3()) : S.enemyPos(t); S.popNumber(p, why === 'wings' ? 'FLAP!' : 'MISS', { color: '#cdb6f0', stroke: '#22183f', size: 1.2 }); audio.play('whoosh_soft'); await tweens.wait(0.25); },
-      async enemyDie(e) { const v = S.enemyViews.get(e.uid); if (!v) return; v.api.act('die'); S.burst(S.enemyPos(e), 'smoke', 30); S.burst(S.enemyPos(e), 'magic', 24); audio.play('enemy_death'); if (!e.def.isHead) S.bark('player', vpick(PLAYER_BARKS.kill), 1.6); const j = S.game.journal; if (j.enemies[e.id]) j.enemies[e.id].killed++; v.hud.group.visible = false; setTimeout(() => { tweens.to(v.api.root.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.5, { ease: 'inBack' }); }, 900); await tweens.wait(0.3); },
+      async enemyDie(e) { const v = S.enemyViews.get(e.uid); if (!v) return; v.api.act('die'); S.burst(S.enemyPos(e), 'smoke', 30); S.burst(S.enemyPos(e), 'magic', 24); audio.play('enemy_death'); if (!e.def.isHead) S.bark('player', vpick(PLAYER_BARKS.kill), 1.6); const j = S.game.journal; if (j.enemies[e.id]) j.enemies[e.id].killed++; v.hud.setVisible(false); hud.feed(`${e.def.name} falls.`, 'kill'); setTimeout(() => { tweens.to(v.api.root.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.5, { ease: 'inBack' }); }, 900); await tweens.wait(0.3); },
       async enemySpawn(e) { S.addEnemyView(e); audio.play('monster_roar', { vol: 0.6 }); S.burst(S.enemyPos(e), 'smoke', 14); await tweens.wait(0.3); },
       status(t, k, n) { if (t === S.battle.player) return; S.refreshEnemy(t); },
       async heal(who, n) { if (!n) return; const p = who === 'player' ? S.prof.headWorld(new THREE.Vector3()) : S.enemyPos(who); S.popNumber(p, `+${n}`, { color: '#cfe07a', stroke: '#1e3320', size: 1.3, vy: 5 }); S.burst(p, 'heal', 16); audio.play('heal'); if (who !== 'player') S.refreshEnemy(who); await tweens.wait(0.2); },
@@ -358,7 +358,7 @@ export class BattleScene {
       fieldUpdate(f) { const fv = S.fieldViews.get(f.uid); fv?.group.scale.setScalar(1.15); fv && tweens.to(fv.group.scale, { x: 1, y: 1, z: 1 }, 0.4, { ease: 'outBack' }); },
       async enemyAct(e, it) {
         const v = S.enemyViews.get(e.uid); if (!v) return;
-        v.api.act(it.kind === 'attack' ? 'attack' : 'cast');
+        v.api.act(it.kind === 'attack' ? 'attack' : 'cast'); hud.feed(`${e.def.name}: ${it.label || (it.kind === 'attack' ? 'attacks' : it.kind)}`, 'foe');
         if (it.label) S.bark(e, it.kind === 'attack' ? null : vpick(e.def.barks.special), 1.4);
         audio.play(it.kind === 'attack' ? 'whoosh_heavy' : it.kind === 'buff' ? 'buff' : 'debuff', { vol: 0.8 });
         const sfx = { satyr: it.kind === 'attack' ? 'drunk_laugh' : 'hiccup', medusa: 'snake_hiss', kobalos: 'goblin_laugh', minotaur: it.charge ? 'bull_roar' : 'bull_snort', minotaur_king: 'bull_roar', hydra: 'monster_growl', hydra_head: 'monster_growl', hydra_elder: 'monster_roar' }[e.id];
@@ -368,7 +368,7 @@ export class BattleScene {
       },
       async playerHit(dmg, o) {
         S.prof.act('hurt'); const p = S.prof.headWorld(new THREE.Vector3());
-        if (dmg > 0) { S.popNumber(p, dmg, { color: '#f6b3a0', stroke: '#3a0f18', size: 1.5 }); S.burst(p.clone().add(new THREE.Vector3(0, -0.6, 0)), 'wood', 16); audio.play('hit_wood'); S.engine.shake(Math.min(0.55, 0.12 + dmg / 50)); S.engine.flash(0.12, 0xc8443a, 0.25); if (Math.random() < 0.35) S.bark('player', vpick(PLAYER_BARKS.hit), 1.3); }
+        if (dmg > 0) { hud.feed(`Sir Isaac takes ${dmg}`, 'hurt'); S.popNumber(p, dmg, { color: '#f6b3a0', stroke: '#3a0f18', size: 1.5 }); S.burst(p.clone().add(new THREE.Vector3(0, -0.6, 0)), 'wood', 16); audio.play('hit_wood'); S.engine.shake(Math.min(0.55, 0.12 + dmg / 50)); S.engine.flash(0.12, 0xc8443a, 0.25); if (Math.random() < 0.35) S.bark('player', vpick(PLAYER_BARKS.hit), 1.3); }
         if (o.blocked) { S.popNumber(p.clone().add(new THREE.Vector3(0.8, 0.4, 0)), `-${o.blocked}`, { color: '#a8dcef', stroke: '#16304f', size: 1.0 }); audio.play('shield_block'); }
         await tweens.wait(0.22);
       },
@@ -378,7 +378,7 @@ export class BattleScene {
       async gaze(e) { S.engine.flash(0.3, 0x7dff8a, 0.5); audio.play('stone_grind'); await tweens.wait(0.3); },
       async steal(e, c) { audio.play('goblin_laugh'); S.bark(e, vpick(e.def.barks.special), 1.5); await tweens.wait(0.3); },
       async lootBack(e, c) { audio.play('coin_single'); S.bark('player', 'My card! You pickpocketing parenthesis.'); },
-      async flee(e) { const v = S.enemyViews.get(e.uid); if (v) { tweens.to(v.api.root.position, { x: v.api.root.position.x + 14 }, 0.9, { ease: 'inQuad' }); v.hud.group.visible = false; } S.bark('player', 'Thief! Come back with my... physics.'); await tweens.wait(0.6); },
+      async flee(e) { const v = S.enemyViews.get(e.uid); if (v) { tweens.to(v.api.root.position, { x: v.api.root.position.x + 14 }, 0.9, { ease: 'inQuad' }); v.hud.setVisible(false); hud.feed(`${e.def.name} flees!`, 'foe'); } S.bark('player', 'Thief! Come back with my... physics.'); await tweens.wait(0.6); },
       async flute(e) { audio.play('pan_flute'); for (let i = 0; i < 8; i++) S.glowParts.spawn({ pos: [S.enemyPos(e).x, S.enemyPos(e).y + 0.6, 0.5], vel: [vrange(-2, 2), vrange(1, 3), 0], life: 1.6, size: 40, color: '#ffe08a', sprite: 'note', wobble: 1 }); await tweens.wait(0.5); },
       async crash(e, obj) { audio.play('rock_crumble'); audio.play('hit_heavy'); S.engine.shake(0.8); S.engine.hitStop(120); S.burst(S.fieldViews.get(obj.uid)?.group.position.clone().add(new THREE.Vector3(0, 0.8, 0)) || S.enemyPos(e), 'stone', 50); await tweens.wait(0.5); },
       async coverHit(obj, n) { const fv = S.fieldViews.get(obj.uid); if (fv) { S.burst(fv.group.position.clone().add(new THREE.Vector3(0, 0.8, 0)), 'stone', 10); S.popNumber(fv.group.position.clone().add(new THREE.Vector3(0, 1.5, 0)), `-${n}`, { color: '#b8b2b4', stroke: '#211d24', size: 1.0 }); } audio.play('rock_impact'); },
@@ -398,7 +398,7 @@ export class BattleScene {
       async leyden() { audio.play('thunder'); S.engine.flash(0.35, 0xfff3b0, 0.4); },
       async pendulum(t) { audio.play('clockwork'); },
       async revive() { audio.play('apple_crunch'); S.bark('player', 'A golden apple a day keeps the reaper away!', 2.5); S.burst(S.prof.headWorld(new THREE.Vector3()), 'heal', 50); },
-      async endTurn(B) { S.syncHand(); S.hand.removeViews([...S.hand.views.keys()].filter((uid) => !B.hand.some((s) => s.cards.some((c) => c.uid === uid))), { x: W() - 2.4, y: -H() + 2.4, s: 0.4 }); audio.play('card_fan', { vol: 0.6 }); await tweens.wait(0.35); },
+      async endTurn(B) { S.syncHand(); S.hand.removeViews([...S.hand.views.keys()].filter((uid) => !B.hand.some((s) => s.cards.some((c) => c.uid === uid))), { x: W() - 7.4, y: -H() + 2.4, s: 0.4 }); audio.play('card_fan', { vol: 0.6 }); await tweens.wait(0.35); },
       async intents(B) { for (const e of B.enemies) S.refreshEnemy(e); },
       won() {}, lost() {},
       async bark(who, text) { S.bark(who, text); },
@@ -416,8 +416,7 @@ export class BattleScene {
     this.scene.add(fv.group); this.fieldViews.set(f.uid, fv); this.burst(fv.group.position.clone().add(new THREE.Vector3(0, 0.5, 0)), 'magic', 18);
   }
   addPowerToken(c) {
-    const n = this.powerRow.children.length; const t = textPlane([POWERS[c.id].short || POWERS[c.id].name], { w: 4.2, h: 0.75, font: 'Pixelify', size: 46, weight: 700, color: '#e8fbff', stroke: ['#22183f', 10], bg: (g, w, h) => { g.fillStyle = '#3e2b6b'; g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 18); g.fill(); g.strokeStyle = '#d9a64a'; g.lineWidth = 6; g.stroke(); } });
-    t.position.set(n * 4.5, 0, 0); this.powerRow.add(t);
+    this.hudB.addLaw(POWERS[c.id].short || POWERS[c.id].name, POWERS[c.id].flavor); hud.feed(`Law enacted: ${POWERS[c.id].name}`, 'arc');
   }
 
   async throwProjectile(mv, target) {
@@ -443,16 +442,14 @@ export class BattleScene {
 
   eureka(mv) {
     audio.play('eureka'); audio.duckMusic(0.3, 2.5); this.prof.act('cheer'); this.engine.flash(0.18, 0xffe08a, 0.4);
-    const t = textPlane([[['EUREKA!', '#ffe08a']], [[mv.name, '#fff6cf']], [['New entry in the Discovery Journal', '#cdb6f0']]], { w: 16, h: 4.2, font: 'Pixelify', size: 120, weight: 700, stroke: ['#22183f', 20], lineH: 0.95 });
-    t.position.set(0, 3, 14); t.scale.setScalar(0.2); this.ui.root.add(t);
-    tweens.to(t.scale, { x: 1, y: 1, z: 1 }, 0.5, { ease: 'outBack' }).then(() => tweens.wait(1.4)).then(() => tweens.to(t.position, { y: this.ui.H + 4 }, 0.5, { ease: 'inBack' })).then(() => this.ui.root.remove(t));
+    hud.banner('Eureka!', mv.name.toUpperCase(), 'arc', 1.4); hud.feed(`Discovered: ${mv.name} (written in the Journal)`, 'arc');
     this.bark('player', mv.special?.note || vpick(['EUREKA! ...I am writing that down.', 'Note to self: that was brilliant.', 'Peer review is for cowards.']), 3);
     for (let i = 0; i < 30; i++) this.glowParts.spawn({ pos: [this.prof.headWorld(new THREE.Vector3()).x, 3, 1], vel: [vrange(-4, 4), vrange(2, 7), vrange(-1, 1)], life: 1.5, size: 40, color: vpick(['#ffe08a', '#e8fbff', '#b48cff']), sprite: 'star4', grav: 4 });
   }
 
   dispose() {
     this.input.remove(this.handler); this.engine.remove(this);
-    this.ui.scene.remove(this.ui.root); for (const [, v] of this.enemyViews) this.ui.scene.remove(v.hud.group); for (const [, v] of this.hand.views) this.ui.scene.remove(v.group);
+    this.ui.scene.remove(this.ui.root); this.hudB.dispose(); hud.clear(); for (const [, v] of this.hand.views) this.ui.scene.remove(v.group);
     this.numbers.list.forEach((n) => this.ui.scene.remove(n.m)); this.battle = null;
   }
 }

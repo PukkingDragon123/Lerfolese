@@ -1,7 +1,10 @@
 # Apple of Discord — project rules for Claude
 
 ## Art direction (non-negotiable, from the user)
-- NEVER use simple/lazy shapes as visible art: no plain circles/spheres, cubes/boxes, cylinders, cones, blobs, or low-poly/faceted geometry.
+- NEVER use simple/lazy shapes as visible art: no plain circles/spheres, cubes/boxes, cylinders, cones or blobs stuck together.
+- LATEST (overrides older notes): 3D assets AND environment = STYLIZED COOL LOW-POLY, "blocky but cool, not Minecraft, not realistic": faceted flat-shaded forms with real structure (trees with branches + faceted leaf clusters), hue-shifted vertex colours, magical medieval dusk mood. No photoreal PBR/HDRI look.
+- UI = Backrooms (R.O.O.M.) HUD style made magical/medieval: DOM overlay, glowing VT323 + Jacquard blackletter, gold/amber glow, arcane cyan/violet accents, thin gilt panels with diamond studs (src/ui/hud.js). Lighting = warm practicals + GTAO + camcorder grade.
+- Card art for Laws/Powers, Rotation, Force: magical effects (sigils, vortices, arcs), NO hands.
 - Draw CUSTOM art yourself: detailed high-resolution pixel art (shading ramps, selective outlines, highlights, animation frames), like `src/gfx/critters.js` birds and the card illustrations, and/or detailed high-poly models with real structure (trees with branches and leaves).
 - Style: HD-2D. Detailed 3D world plus detailed 2D pixel-art life and objects.
 - Characters, monsters and the game look: PROJECT ZOMBOID style, but more realistic and detailed. Low-poly meshes with correct human/creature anatomy (a proper base mesh, never primitives stuck together), carrying detailed painted 2D textures (faces, clothes, skin, fur, scales). Sir Isaac is a wooden marionette in that style.
