@@ -1,5 +1,6 @@
 // Spoils: gold flies into the pouch, choose one of three cards (or skip), rare curios from elites/guardians.
 import * as THREE from 'three';
+import { domText } from '../ui/hud.js';
 import { UIScreen, Button3D, Panel, tabletopWorld } from '../ui3d/widgets.js';
 import { textPlane, Pouch, canvasTexture, UIF } from '../ui3d/kit.js';
 import { itemIcon } from '../models/items3d.js';
@@ -30,13 +31,13 @@ export class RewardScene extends UIScreen {
     this.engine.setFx({ bloom: [0.6, 0.6, 0.75], tilt: { focus: 0.5, width: 0.22, amount: 2.5 }, grade: { warmth: 0.6, vignette: 0.55 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('event');
     const W = this.W, H = this.H;
-    this.title = textPlane([[[enc.kind === 'guardian' ? 'THE WILDS FALL SILENT' : 'SPOILS OF SCIENCE', '#ffe08a']]], { w: 22, h: 2, font: 'Pixelify', size: 130, weight: 700, stroke: ['#3a2410', 20] }); this.title.position.set(0, H - 1.8, 3); this.root.add(this.title);
+    this.title = domText([[[enc.kind === 'guardian' ? 'THE WILDS FALL SILENT' : 'SPOILS OF SCIENCE', '#ffe08a']]], { w: 22, h: 2, font: 'Pixelify', size: 130, weight: 700, stroke: ['#3a2410', 20] }); this.title.position.set(0, H - 1.8, 3); this.root.add(this.title);
     this.pouch = new Pouch(); this.pouch.group.position.set(-W + 2.6, H - 2.2, 2); this.root.add(this.pouch.group); this.shownGold = run.gold - rewards.gold; this.pouch.set(this.shownGold);
-    const goldTag = textPlane([[[`+${rewards.gold} gold`, '#ffe08a']]], { w: 6, h: 1, font: 'Pixelify', size: 70, weight: 700, stroke: ['#3a2410', 12] }); goldTag.position.set(-W + 8, H - 2.2, 2); this.root.add(goldTag);
+    const goldTag = domText([[[`+${rewards.gold} gold`, '#ffe08a']]], { w: 6, h: 1, font: 'Pixelify', size: 70, weight: 700, stroke: ['#3a2410', 12] }); goldTag.position.set(-W + 8, H - 2.2, 2); this.root.add(goldTag);
     tweens.run(1.2, (e) => { this.pouch.set(Math.round(this.shownGold + rewards.gold * e)); }, { delay: 0.4 }); for (let i = 0; i < 8; i++) audio.play('coin_single', { delay: 0.4 + i * 0.12, vol: 0.6, minGap: 0 });
     this.picked = false;
     const cy = rewards.items.length ? 0.2 : -0.6;
-    this.lbl = textPlane([[['Choose a card for your deck', '#f3e6c4']]], { w: 16, h: 1, font: 'VT323', size: 70, stroke: ['#1a1220', 10] }); this.lbl.position.set(0, cy + 3.6, 3); this.root.add(this.lbl);
+    this.lbl = domText([[['Choose a card for your deck', '#f3e6c4']]], { w: 16, h: 1, font: 'VT323', size: 70, stroke: ['#1a1220', 10] }); this.lbl.position.set(0, cy + 3.6, 3); this.root.add(this.lbl);
     rewards.cards.forEach((c, i) => {
       const x = (i - 1) * 4.6;
       this.addCard(c, x, cy, { scale: 1.0, tip: cardTip(c), onClick: (v) => this.pickCard(v, c) });
@@ -44,7 +45,7 @@ export class RewardScene extends UIScreen {
     this.skip = this.addButton(new Button3D('Skip', () => this.pickCard(null), { w: 3.2, h: 1.1, size: 52, color: 'red' }), 0, cy - 3.4, 2);
     this.items = [];
     if (rewards.items.length) {
-      const one = rewards.items.length === 1; this.itemLbl = textPlane([[[one ? 'A rare curio!' : 'Choose ONE curio', '#cdb6f0']]], { w: 12, h: 1, font: 'VT323', size: 64, stroke: ['#1a1220', 10] }); this.itemLbl.position.set(W - 6, -H + 6.4, 3); this.root.add(this.itemLbl);
+      const one = rewards.items.length === 1; this.itemLbl = domText([[[one ? 'A rare curio!' : 'Choose ONE curio', '#cdb6f0']]], { w: 12, h: 1, font: 'VT323', size: 64, stroke: ['#1a1220', 10] }); this.itemLbl.position.set(W - 6, -H + 6.4, 3); this.root.add(this.itemLbl);
       rewards.items.forEach((id, i) => { const t = new ItemToken(id); t.group.position.set(W - 6 + (i - (rewards.items.length - 1) / 2) * 3, -H + 3.8, 3); this.root.add(t.group); this.items.push(t); });
       this.itemTaken = false;
     }

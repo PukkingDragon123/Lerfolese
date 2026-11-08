@@ -1,5 +1,6 @@
 // Boot + game flow: menu -> map -> nodes (battle / event / shop / lab) -> rewards -> ... -> death/victory.
 import { Engine } from './core/engine.js';
+import { hud } from './ui/hud.js';
 import { Input } from './core/input.js';
 import { audio } from './core/audio.js';
 import { save } from './core/save.js';
@@ -13,7 +14,7 @@ const bootMsg = (t, p) => { $('boot-msg').textContent = t; if (p != null) $('boo
 
 class Game {
   constructor() {
-    this.engine = new Engine($('game')); this.input = new Input($('game'));
+    this.engine = new Engine($('game')); this.input = new Input($('game')); hud.engine = this.engine;
     this.journal = save.journal; this.settings = save.settings; window.__settings = this.settings;
     audio.vol = { master: this.settings.master, sfx: this.settings.sfx, music: this.settings.music, amb: this.settings.amb };
     this.input.onFirstInteract = () => { audio.unlock(); };
@@ -36,6 +37,7 @@ class Game {
     const q = new URLSearchParams(location.search);
     $('boot').classList.add('gone');
     if (q.get('battle')) return this.debugBattle(q.get('battle').split(','), q.get('kind') || 'normal');
+    if (q.get('node')) { this.run = newRun(Number(q.get('seed')) || 1234); attachRun?.(this.run, this.journal); const n = Object.values(this.run.map.nodes).find((x) => x.type === q.get('node')); if (n) return this.enterNode(n.id); }
     return this.toMenu();
   }
 

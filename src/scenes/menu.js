@@ -1,6 +1,7 @@
 // Main menu: The One Above All toys with a miniature universe. Galaxies drift, Schrödinger's box is
 // both open and shut, Newton's apple can be flung into orbit, and Sir Isaac dangles, unimpressed.
 import * as THREE from 'three';
+import { domText } from '../ui/hud.js';
 import * as S from '../models/sculpt.js';
 import { UIScreen, Button3D } from '../ui3d/widgets.js';
 import { textPlane, Note } from '../ui3d/kit.js';
@@ -90,15 +91,15 @@ export class MenuScene extends UIScreen {
     this.engine.add(this); this.pushInput(); audio.playMusic('menu'); audio.setAmbSet(['cosmos']);
     // UI: title + buttons
     const W = this.W, H = this.H;
-    this.title = textPlane([[['APPLE OF DISCORD', '#ffe08a']]], { w: 26, h: 3, font: 'Pixelify', size: 190, weight: 700, stroke: ['#3e2b6b', 26] }); this.title.position.set(0, H - 2.6, 4); this.root.add(this.title);
-    this.sub = textPlane([[['Every action has an equal and opposite god.', '#cdb6f0']]], { w: 22, h: 1, font: 'VT323', size: 70, stroke: ['#140d26', 10] }); this.sub.position.set(0, H - 4.6, 4); this.root.add(this.sub);
+    this.title = domText([[['APPLE OF DISCORD', '#ffe08a']]], { w: 26, h: 3, font: 'Pixelify', size: 190, weight: 700, stroke: ['#3e2b6b', 26] }); this.title.position.set(0, H - 2.6, 4); this.root.add(this.title);
+    this.sub = domText([[['Every action has an equal and opposite god.', '#cdb6f0']]], { w: 22, h: 1, font: 'VT323', size: 70, stroke: ['#140d26', 10] }); this.sub.position.set(0, H - 4.6, 4); this.root.add(this.sub);
     const hasRun = !!save.loadRun(); let y = -1.0;
     if (hasRun) { this.addButton(new Button3D('Continue the Loop', () => this.go('continue'), { w: 7, h: 1.25, size: 58, color: 'purple' }), W - 6, y, 2); y -= 1.6; }
     this.addButton(new Button3D(hasRun ? 'New Loop' : 'Begin the Loop', () => this.go('new'), { w: 7, h: 1.25, size: 58 }), W - 6, y, 2); y -= 1.6;
     this.addButton(new Button3D('Discovery Journal', () => this.openJournal(), { w: 7, h: 1.25, size: 54, color: 'teal' }), W - 6, y, 2); y -= 1.6;
     this.addButton(new Button3D('Settings', () => this.settingsToggle(), { w: 7, h: 1.25, size: 54 }), W - 6, y, 2); y -= 1.6;
     this.addButton(new Button3D('Credits', () => this.credits(), { w: 7, h: 1.25, size: 54 }), W - 6, y, 2);
-    const j = this.game.journal; this.stats = textPlane([[[`Loops remembered: ${j.loops} · Combinations: ${Object.keys(j.combos).length} · Best hit: ${j.bestHit || 0}`, '#e8d4a2']]], { w: 22, h: 0.8, font: 'VT323', size: 54, stroke: ['#140d26', 8] }); this.stats.position.set(0, -H + 0.9, 3); this.root.add(this.stats);
+    const j = this.game.journal; this.stats = domText([[[`Loops remembered: ${j.loops} · Combinations: ${Object.keys(j.combos).length} · Best hit: ${j.bestHit || 0}`, '#e8d4a2']]], { w: 22, h: 0.8, font: 'VT323', size: 54, stroke: ['#140d26', 8] }); this.stats.position.set(0, -H + 0.9, 3); this.root.add(this.stats);
     this.note = new Note({ w: 8, h: 1.3, size: 44, tail: true }); this.root.add(this.note.group);
   }
   async openJournal() { const { Journal } = await import('./journal.js'); if (!this.journal) this.journal = new Journal(this.game, this.root); this.journal.open(); }

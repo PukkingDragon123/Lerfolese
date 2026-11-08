@@ -149,3 +149,23 @@ body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit
 @keyframes hud-banner-in { from { opacity: 0; letter-spacing: .4em; filter: blur(6px); } to { opacity: 1; letter-spacing: 0; filter: blur(0); } }
 @keyframes hud-banner-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-14px); filter: blur(4px); } }
 @media (max-width: 760px) { #hud { font-size: 18px; } #hud .vitals { width: 240px; } #hud .topright { min-width: 0; } #hud .feed { display: none; } #hud .banner .t { font-size: 56px; } #hud .banner .rule { width: 280px; } }
+
+/* anchored HUD type, gilt buttons and manuscript panels used by every non-battle screen */
+#hud .anchored { position: absolute; left: 0; top: 0; will-change: transform; box-sizing: border-box; }
+#hud .dtext { text-align: center; color: var(--g-hi); pointer-events: none; }
+#hud .dtext .bl { font-family: 'Jacquard', serif; color: var(--g-hi); letter-spacing: .01em; text-shadow: 0 0 .12em rgba(255, 196, 90, .85), 0 0 .45em rgba(255, 140, 40, .45), 0 .05em 0 #2a1406; }
+#hud .dtext.panel { padding: .25em .45em .3em; }
+#hud .gpanel { text-align: left; padding: .45em .6em .55em; }
+#hud .gpanel > div:first-child { font-family: 'Jacquard', serif; color: var(--g-hi); font-size: 1.05em !important; margin-bottom: .2em; text-shadow: 0 0 .12em rgba(255, 196, 90, .8), 0 0 .4em rgba(255, 140, 40, .4); }
+#hud .gbtn { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: .1em .35em .14em; cursor: pointer; pointer-events: auto; font-family: 'VT323', monospace; color: var(--g-hi); text-align: center; transition: filter .18s, box-shadow .18s, border-color .18s, opacity .25s; }
+#hud .gbtn .k { font-family: 'Jacquard', serif; line-height: 1; text-shadow: 0 0 .14em rgba(255, 196, 90, .85), 0 0 .5em rgba(255, 140, 40, .4), 0 .05em 0 #2a1406; }
+#hud .gbtn .s { margin-top: .12em; line-height: 1; color: var(--g); opacity: .75; text-shadow: none; }
+#hud .gbtn:hover { filter: brightness(1.28); border-color: rgba(255, 196, 90, .75); box-shadow: inset 0 0 0 3px rgba(8, 4, 2, .85), inset 0 0 .6em rgba(255, 196, 90, .18), 0 0 1em rgba(255, 160, 50, .4), 0 8px 30px rgba(0, 0, 0, .6); }
+#hud .gbtn.c-teal { border-color: rgba(143, 240, 255, .45); } #hud .gbtn.c-teal .k { color: #e6fdff; text-shadow: 0 0 .14em rgba(143, 240, 255, .9), 0 0 .5em rgba(80, 200, 255, .45), 0 .05em 0 #08202a; }
+#hud .gbtn.c-purple { border-color: rgba(199, 162, 255, .45); } #hud .gbtn.c-purple .k { color: #f1e6ff; text-shadow: 0 0 .14em rgba(199, 162, 255, .9), 0 0 .5em rgba(140, 90, 255, .45), 0 .05em 0 #160a2a; }
+#hud .gbtn.c-red { border-color: rgba(255, 106, 72, .45); } #hud .gbtn.c-red .k { color: #ffe2d6; text-shadow: 0 0 .14em rgba(255, 106, 72, .9), 0 0 .5em rgba(255, 60, 30, .45), 0 .05em 0 #2a0a06; }
+#hud .gbtn.off { opacity: .38; filter: saturate(.3); pointer-events: none; }
+#hud .gbtn.ring { animation: hud-flash .45s ease-out; }
+@keyframes hud-flash { 0% { filter: brightness(2.3); } }
+#hud .n { font-family: 'VT323', monospace; font-size: 1.12em; letter-spacing: .02em; }
+#hud .topright.map .obj { display: none; }

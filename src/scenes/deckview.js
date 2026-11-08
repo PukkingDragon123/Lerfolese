@@ -1,5 +1,6 @@
 // Deck overlay: a fan of physical cards you can browse (wheel to scroll). Pick mode for shop/lab/events.
 import * as THREE from 'three';
+import { domText } from '../ui/hud.js';
 import { Card3D } from '../ui3d/cards3d.js';
 import { Button3D } from '../ui3d/widgets.js';
 import { textPlane } from '../ui3d/kit.js';
@@ -14,7 +15,7 @@ export class DeckView {
     this.group = new THREE.Group(); this.group.position.z = 10; this.views = []; this.scroll = new Spring(0, 10, 0.8); this.isOpen = false;
     const E = game.engine; this.W = E.uiW; this.H = E.uiH;
     const dim = new THREE.Mesh(new THREE.PlaneGeometry(200, 120), new THREE.MeshBasicMaterial({ color: 0x0b0716, transparent: true, opacity: 0.82, depthWrite: false })); dim.position.z = -1; this.group.add(dim); this.dim = dim;
-    this.title = textPlane([[[pick ? pick.title : `Your deck (${cards.length} cards)`, '#ffe08a']]], { w: 24, h: 1.4, font: 'Pixelify', size: 90, weight: 700, stroke: ['#22183f', 14] }); this.title.position.set(0, this.H - 1.4, 1); this.group.add(this.title);
+    this.title = domText([[[pick ? pick.title : `Your deck (${cards.length} cards)`, '#ffe08a']]], { w: 24, h: 1.4, font: 'Pixelify', size: 90, weight: 700, stroke: ['#22183f', 14] }); this.title.position.set(0, this.H - 1.4, 1); this.group.add(this.title);
     this.btns = [];
     const close = new Button3D(pick ? 'Cancel' : 'Close', () => this.close(true), { w: 3.4, h: 1.1, size: 50, color: 'red' }); close.group.position.set(this.W - 2.6, -this.H + 1.4, 2); this.group.add(close.group); this.btns.push(close);
     if (pick && (pick.max || 1) > 1) { this.confirm = new Button3D('Confirm', () => this.done(), { w: 3.6, h: 1.1, size: 50, color: 'teal', disabled: true }); this.confirm.group.position.set(this.W - 6.6, -this.H + 1.4, 2); this.group.add(this.confirm.group); this.btns.push(this.confirm); }

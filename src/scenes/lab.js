@@ -1,5 +1,6 @@
 // Field Laboratory (rest site): Rest, Upgrade, Merge (fuse cards into a permanent Move) or Mutate.
 import * as THREE from 'three';
+import { domText } from '../ui/hud.js';
 import { UIScreen, Button3D, Panel, tabletopWorld } from '../ui3d/widgets.js';
 import { textPlane } from '../ui3d/kit.js';
 import * as P3 from '../models/props3d.js';
@@ -17,8 +18,8 @@ export default class LabScene extends UIScreen {
     this.engine.setFx({ bloom: [0.7, 0.6, 0.7], tilt: { focus: 0.5, width: 0.22, amount: 2.5 }, grade: { warmth: 0.7, vignette: 0.55 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('journal'); audio.setAmbSet(['campfire', 'night']);
     const W = this.W, H = this.H; const P = run.player; const heal = Math.round(P.maxHp * 0.3);
-    this.title = textPlane([[['FIELD LABORATORY', '#ffe08a']], [['Choose ONE experiment before moving on', '#e8d4a2']]], { w: 20, h: 2.4, font: 'Pixelify', size: 100, weight: 700, stroke: ['#3a2410', 16], lineH: 0.95 }); this.title.position.set(0, H - 1.9, 3); this.root.add(this.title);
-    this.status = textPlane([[[`Integrity ${P.hp}/${P.maxHp}`, '#f6b3a0']]], { w: 10, h: 1, font: 'Pixelify', size: 64, weight: 700, stroke: ['#1a1220', 12] }); this.status.position.set(0, H - 4.0, 3); this.root.add(this.status);
+    this.title = domText([[['FIELD LABORATORY', '#ffe08a']], [['Choose ONE experiment before moving on', '#e8d4a2']]], { w: 20, h: 2.4, font: 'Pixelify', size: 100, weight: 700, stroke: ['#3a2410', 16], lineH: 0.95 }); this.title.position.set(0, H - 1.9, 3); this.root.add(this.title);
+    this.status = domText([[[`Integrity ${P.hp}/${P.maxHp}`, '#f6b3a0']]], { w: 10, h: 1, font: 'Pixelify', size: 64, weight: 700, stroke: ['#1a1220', 12] }); this.status.position.set(0, H - 4.0, 3); this.root.add(this.status);
     const opts = [
       ['Rest', `Heal ${heal}. Varnish, nap, existential dread.`, 'wood', () => { P.hp = Math.min(P.maxHp, P.hp + heal); audio.play('heal'); this.finish(`Rested. Healed ${heal}.`); }],
       ['Upgrade', 'Improve one card (+).', 'teal', () => this.pickUp()],

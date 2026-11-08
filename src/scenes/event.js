@@ -1,5 +1,6 @@
 // Curiosity node: a little outdoor vignette, a parchment story, physical choice plaques, card offerings.
 import * as THREE from 'three';
+import { domText } from '../ui/hud.js';
 import * as S from '../models/sculpt.js';
 import { UIScreen, Button3D, Panel } from '../ui3d/widgets.js';
 import { textPlane } from '../ui3d/kit.js';
@@ -62,7 +63,7 @@ export default class EventScene extends UIScreen {
     this.choiceBtns = ev.choices.map((c, i) => { const ok = !c.if || c.if(run); const b = new Button3D(c.label, () => this.choose(c), { w: 14, h: 1.5, size: 64, sub: c.sub, color: c.slot ? 'purple' : 'wood', disabled: !ok }); return this.addButton(b, W - 8.4, H - 10.9 - i * 1.85, 2); });
     this.prof.setExpr('think'); this.say(vpick(['Fascinating. And probably lethal.', 'An experiment! Hold my strings.', 'Ah. The universe is being weird again.']));
   }
-  say(text) { const p = this.engine.worldToUI(this.prof.headWorld(new THREE.Vector3())); this.prof.talk(1.6); if (!this.bubble) { this.bubble = textPlane([''], { w: 9, h: 1.2, font: 'VT323', size: 44, bg: (g, w, h) => { g.fillStyle = '#f3e6c4'; g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 16); g.fill(); } }); this.root.add(this.bubble); } this.bubble.userData.setText([[[text, '#2a160c']]]); this.bubble.position.set(p.x + 3.4, p.y + 1.6, 6); audio.play('wood_knock', { vol: 0.35 }); }
+  say(text) { const p = this.engine.worldToUI(this.prof.headWorld(new THREE.Vector3())); this.prof.talk(1.6); if (!this.bubble) { this.bubble = domText([''], { w: 9, h: 1.2, font: 'VT323', size: 44, bg: (g, w, h) => { g.fillStyle = '#f3e6c4'; g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 16); g.fill(); } }); this.root.add(this.bubble); } this.bubble.userData.setText([[[text, '#2a160c']]]); this.bubble.position.set(p.x + 3.4, p.y + 1.6, 6); audio.play('wood_knock', { vol: 0.35 }); }
   ctx() {
     const run = this.game.run; const game = this.game; const P = run.player;
     const learnItem = (id) => { const j = game.journal; j.items[id] = (j.items[id] || 0) + 1; game.saveJournal(); };
@@ -105,7 +106,7 @@ export default class EventScene extends UIScreen {
       const g = new THREE.Group(); g.position.set(-2, 0, 8); this.root.add(g); let score = 0, beat = 0;
       const target = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.6, 8), new THREE.MeshBasicMaterial({ color: 0xffe08a, toneMapped: false })); g.add(target);
       const ring = new THREE.Mesh(new THREE.RingGeometry(1.4, 1.6, 8), new THREE.MeshBasicMaterial({ color: 0x8fe3ff, toneMapped: false, transparent: true })); g.add(ring);
-      const label = textPlane([[['Click on the beat!', '#fff6cf']]], { w: 10, h: 1, font: 'Pixelify', size: 70, weight: 700, stroke: ['#1a1220', 12] }); label.position.y = 2.6; g.add(label);
+      const label = domText([[['Click on the beat!', '#fff6cf']]], { w: 10, h: 1, font: 'Pixelify', size: 70, weight: 700, stroke: ['#1a1220', 12] }); label.position.y = 2.6; g.add(label);
       const st = { k: 0 }; this.rhythmHit = () => { const d = Math.abs(1 - ring.scale.x); if (d < 0.18) { score++; audio.play('pan_flute', { minGap: 0 }); label.userData.setText([[['Swing!', '#9cb84a']]]); } else { audio.play('ui_error'); label.userData.setText([[['Off-beat!', '#e8705a']]]); } };
       const next = () => { if (beat++ >= 4) { this.rhythmHit = null; this.root.remove(g); resolve(score); return; } st.k = 0; tweens.to(st, { k: 1 }, 0.9, { ease: 'linear', onUpdate: () => { const s = 3 - st.k * 2.4; ring.scale.setScalar(s); } }).then(() => { audio.play('wood_knock', { vol: 0.6 }); next(); }); };
       next();

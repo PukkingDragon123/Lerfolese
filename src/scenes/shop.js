@@ -1,5 +1,6 @@
 // Diogenes' Barrel: the cynic sells cards from a barrel and insults you for free. No curios, ever.
 import * as THREE from 'three';
+import { domText } from '../ui/hud.js';
 import * as S from '../models/sculpt.js';
 import { UIScreen, Button3D, tabletopWorld } from '../ui3d/widgets.js';
 import { textPlane, Pouch } from '../ui3d/kit.js';
@@ -21,9 +22,9 @@ export default class ShopScene extends UIScreen {
     this.engine.setFx({ bloom: [0.6, 0.6, 0.75], tilt: { focus: 0.5, width: 0.22, amount: 2.5 }, grade: { warmth: 0.6, vignette: 0.55 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('shop');
     const W = this.W, H = this.H;
-    this.title = textPlane([[["DIOGENES' BARREL", '#ffe08a']], [['Purveyor of cards. Hater of people.', '#e8d4a2']]], { w: 20, h: 2.4, font: 'Pixelify', size: 100, weight: 700, stroke: ['#3a2410', 16], lineH: 0.95 }); this.title.position.set(0, H - 1.9, 3); this.root.add(this.title);
+    this.title = domText([[["DIOGENES' BARREL", '#ffe08a']], [['Purveyor of cards. Hater of people.', '#e8d4a2']]], { w: 20, h: 2.4, font: 'Pixelify', size: 100, weight: 700, stroke: ['#3a2410', 16], lineH: 0.95 }); this.title.position.set(0, H - 1.9, 3); this.root.add(this.title);
     this.pouch = new Pouch(); this.pouch.group.position.set(-W + 2.6, H - 2.2, 2); this.root.add(this.pouch.group);
-    this.bubble = textPlane([[[vpick(QUIPS), '#2a160c']]], { w: 14, h: 1.1, font: 'VT323', size: 52, bg: (g, w, h) => { g.fillStyle = '#f3e6c4'; g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 18); g.fill(); } }); this.bubble.position.set(-W + 9, H - 4.6, 3); this.root.add(this.bubble);
+    this.bubble = domText([[[vpick(QUIPS), '#2a160c']]], { w: 14, h: 1.1, font: 'VT323', size: 52, bg: (g, w, h) => { g.fillStyle = '#f3e6c4'; g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 18); g.fill(); } }); this.bubble.position.set(-W + 9, H - 4.6, 3); this.root.add(this.bubble);
     const wares = cardChoices(run, 5, 0.5); this.removeCost = 60 + (run.flags.removals || 0) * 25; this.upCost = 80;
     wares.forEach((c, i) => { const price = c.type === 'power' ? 110 + run.rng.int(0, 30) : c.type === 'move' ? 80 + run.rng.int(0, 25) : (c.up ? 70 : 45) + run.rng.int(0, 20); const x = (i - 2) * 3.7; const v = this.addCard(c, x, 0.4, { scale: 0.86, tip: [...cardTip(c), [[`Price: ${price} gold`, '#7a4a14']]], onClick: (vv) => this.buy(vv, c, price) }); v.price = price; const tag = textPlane([[[`${price}g`, '#ffe08a']]], { w: 2.4, h: 0.8, font: 'Pixelify', size: 64, weight: 700, stroke: ['#3a2410', 12] }); tag.position.set(x, -2.4, 3); this.root.add(tag); v.tag = tag; });
     this.rem = this.addButton(new Button3D(`Remove a card · ${this.removeCost}g`, () => this.serviceRemove(), { w: 8, h: 1.2, size: 46, color: 'red' }), -5, -H + 3.2, 2);
