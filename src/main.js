@@ -18,7 +18,7 @@ class Game {
     audio.vol = { master: this.settings.master, sfx: this.settings.sfx, music: this.settings.music, amb: this.settings.amb };
     this.input.onFirstInteract = () => { audio.unlock(); };
     setForgeRenderer(this.engine.renderer);
-    this.engine.start((dt) => this.scene?.update?.(dt, this.engine.time));
+    this.engine.start(() => {});
     window.__game = this;
   }
   saveJournal() { save.saveJournal(); }
@@ -48,7 +48,8 @@ class Game {
 
   async toMenu() {
     const { MenuScene } = await import('./scenes/menu.js');
-    this.scene?.dispose?.(); this.scene = new MenuScene(this); await this.scene.enter();
+    if (this.scene) return this.swap(async () => { this.scene = new MenuScene(this); await this.scene.enter(); }, { color: 0x07050d });
+    this.scene = new MenuScene(this); await this.scene.enter();
   }
   async newRun() {
     save.clearRun(); this.run = newRun(); this.journal.loops++; this.saveJournal();

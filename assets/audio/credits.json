@@ -1,0 +1,858 @@
+[
+  {
+    "title": "Bossa Antigua",
+    "author": "Kevin MacLeod (incompetech.com)",
+    "url": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1700069",
+    "license": "CC BY 4.0",
+    "files": [
+      "music/map.mp3"
+    ]
+  },
+  {
+    "title": "Dispersion Relation",
+    "author": "Kevin MacLeod (incompetech.com)",
+    "url": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100258",
+    "license": "CC BY 4.0",
+    "files": [
+      "music/battle2.mp3"
+    ]
+  },
+  {
+    "title": "Hep Cats",
+    "author": "Kevin MacLeod (incompetech.com)",
+    "url": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500022",
+    "license": "CC BY 4.0",
+    "files": [
+      "music/battle.mp3"
+    ]
+  },
+  {
+    "title": "Lobby Time",
+    "author": "Kevin MacLeod (incompetech.com)",
+    "url": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1600054",
+    "license": "CC BY 4.0",
+    "files": [
+      "music/shop.mp3"
+    ]
+  },
+  {
+    "title": "Night on the Docks (Piano)",
+    "author": "Kevin MacLeod (incompetech.com)",
+    "url": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100135",
+    "license": "CC BY 4.0",
+    "files": [
+      "music/journal.mp3"
+    ]
+  },
+  {
+    "title": "Rocket Power",
+    "author": "Kevin MacLeod (incompetech.com)",
+    "url": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1600038",
+    "license": "CC BY 4.0",
+    "files": [
+      "music/elite.mp3"
+    ]
+  },
+  {
+    "title": "Tango de Manzana",
+    "author": "Kevin MacLeod (incompetech.com)",
+    "url": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100404",
+    "license": "CC BY 4.0",
+    "files": [
+      "music/boss.mp3"
+    ]
+  },
+  {
+    "title": "Ultralounge",
+    "author": "Kevin MacLeod (incompetech.com)",
+    "url": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500017",
+    "license": "CC BY 4.0",
+    "files": [
+      "music/menu.mp3"
+    ]
+  },
+  {
+    "title": "Zazie",
+    "author": "Kevin MacLeod (incompetech.com)",
+    "url": "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1700062",
+    "license": "CC BY 4.0",
+    "files": [
+      "music/event.mp3"
+    ]
+  },
+  {
+    "title": "Horse gallop on different surfaces",
+    "author": "congusbongus (edits of CC0 Freesound recordings by MrFizzywig #581834 and D4XX #564628)",
+    "url": "https://opengameart.org/content/horse-gallop-on-different-surfaces",
+    "license": "CC BY 4.0",
+    "files": [
+      "sfx/hoof_stomp_2.mp3",
+      "sfx/hoof_stomp_3.mp3"
+    ]
+  },
+  {
+    "title": "Cicada orni.ogg (Saint-Etienne d'Issensac, Herault, France)",
+    "author": "DavidDelon",
+    "url": "https://commons.wikimedia.org/wiki/File:Cicada_orni.ogg",
+    "license": "Public domain",
+    "files": [
+      "amb/wilderness.mp3"
+    ]
+  },
+  {
+    "title": "Thunder / Lightning Ambience - Field Recording",
+    "author": "Gregor Quendel",
+    "url": "https://opengameart.org/content/thunder-lightning-ambience-field-recording",
+    "license": "CC BY 4.0",
+    "files": [
+      "amb/olympus.mp3"
+    ]
+  },
+  {
+    "title": "Wiehern.ogg (neighing horse)",
+    "author": "Hü.",
+    "url": "https://commons.wikimedia.org/wiki/File:Wiehern.ogg",
+    "license": "Public domain",
+    "files": [
+      "sfx/horse_neigh_1.mp3"
+    ]
+  },
+  {
+    "title": "Thunder, Very Close, Rain, 01.wav",
+    "author": "InspectorJ (www.jshaw.co.uk)",
+    "url": "https://opengameart.org/content/thunder-very-close-rain-01",
+    "license": "CC BY 3.0",
+    "files": [
+      "sfx/thunder_2.mp3"
+    ]
+  },
+  {
+    "title": "Dreamscape Drone",
+    "author": "jdagenet",
+    "url": "https://opengameart.org/content/dreamscape-drone",
+    "license": "CC BY 3.0",
+    "files": [
+      "amb/cosmos.mp3"
+    ]
+  },
+  {
+    "title": "8 Heals and Buffs SFX",
+    "author": "leohpaz",
+    "url": "https://opengameart.org/content/8-heals-and-buffs-sfx",
+    "license": "CC BY 4.0",
+    "files": [
+      "sfx/buff_1.mp3",
+      "sfx/debuff_1.mp3"
+    ]
+  },
+  {
+    "title": "NPS Natural Sounds Gallery: Bighorn Sheep Ramming Heads",
+    "author": "National Park Service",
+    "url": "https://www.nps.gov/subjects/sound/sounds-bighorn-ram.htm",
+    "license": "Public domain (U.S. National Park Service; work of the U.S. Government)",
+    "files": [
+      "sfx/crit_1.mp3"
+    ]
+  },
+  {
+    "title": "NPS Natural Sounds Gallery: Bison",
+    "author": "National Park Service",
+    "url": "https://www.nps.gov/subjects/sound/sounds-bison.htm",
+    "license": "Public domain (U.S. National Park Service; work of the U.S. Government)",
+    "files": [
+      "sfx/bull_snort_1.mp3",
+      "sfx/bull_snort_2.mp3"
+    ]
+  },
+  {
+    "title": "NPS Natural Sounds Gallery: Rockfall",
+    "author": "National Park Service",
+    "url": "https://www.nps.gov/subjects/sound/rockfall.htm",
+    "license": "Public domain (U.S. National Park Service; work of the U.S. Government)",
+    "files": [
+      "sfx/boulder_roll_1.mp3"
+    ]
+  },
+  {
+    "title": "Yellowstone Sound Library: Bison (rut)",
+    "author": "National Park Service (Yellowstone National Park)",
+    "url": "https://www.nps.gov/yell/learn/photosmultimedia/sounds-bison.htm",
+    "license": "Public domain (U.S. National Park Service; work of the U.S. Government)",
+    "files": [
+      "sfx/bull_roar_1.mp3",
+      "sfx/bull_roar_2.mp3"
+    ]
+  },
+  {
+    "title": "Yellowstone Sound Library: Fumaroles",
+    "author": "National Park Service (Yellowstone National Park)",
+    "url": "https://www.nps.gov/yell/learn/photosmultimedia/sounds-fumaroles.htm",
+    "license": "Public domain (U.S. National Park Service; work of the U.S. Government)",
+    "files": [
+      "sfx/acid_sizzle_1.mp3"
+    ]
+  },
+  {
+    "title": "Yellowstone Sound Library: Soundscapes",
+    "author": "National Park Service (Yellowstone National Park)",
+    "url": "https://www.nps.gov/yell/learn/photosmultimedia/sounds-soundscapes.htm",
+    "license": "Public domain (U.S. National Park Service; work of the U.S. Government)",
+    "files": [
+      "amb/wind.mp3"
+    ]
+  },
+  {
+    "title": "Goblin Cackle",
+    "author": "spookymodem",
+    "url": "https://opengameart.org/content/goblin-cackle",
+    "license": "CC BY 3.0",
+    "files": [
+      "sfx/goblin_laugh_1.mp3",
+      "sfx/goblin_laugh_2.mp3"
+    ]
+  },
+  {
+    "title": "wind chimes - single 04.wav",
+    "author": "Anthousai (Freesound; licence-vetted copy reused from the owner's repo PukkingDragon123/effective-octo-train)",
+    "url": "https://freesound.org/people/Anthousai/sounds/398496/",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/chime_soft_1.mp3"
+    ]
+  },
+  {
+    "title": "Space Winds",
+    "author": "aquinn",
+    "url": "https://opengameart.org/content/space-winds",
+    "license": "CC0 1.0",
+    "files": [
+      "amb/cosmos.mp3"
+    ]
+  },
+  {
+    "title": "Goblins Sound Pack",
+    "author": "artisticdude",
+    "url": "https://opengameart.org/content/goblins-sound-pack",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/goblin_laugh_3.mp3"
+    ]
+  },
+  {
+    "title": "RPG Sound Pack",
+    "author": "artisticdude",
+    "url": "https://opengameart.org/content/rpg-sound-pack",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/coin_single_1.mp3",
+      "sfx/coin_single_2.mp3",
+      "sfx/coin_single_3.mp3",
+      "sfx/sword_swing_1.mp3",
+      "sfx/sword_swing_2.mp3",
+      "sfx/bottle_clink_1.mp3"
+    ]
+  },
+  {
+    "title": "Steam release sounds",
+    "author": "Bart Kelsey (bart)",
+    "url": "https://opengameart.org/content/steam-release-sounds",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/steam_hiss_1.mp3",
+      "sfx/snake_hiss_3.mp3"
+    ]
+  },
+  {
+    "title": "Ticking clock.",
+    "author": "Bart Kelsey (bart)",
+    "url": "https://opengameart.org/content/ticking-clock",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/clockwork_1.mp3"
+    ]
+  },
+  {
+    "title": "Low-frequency Drone, Deep Sub Bass Rumble, Slowly Shifting Metallic Resonance",
+    "author": "bassimat (Freesound; licence-vetted copy reused from the owner's repo PukkingDragon123/effective-octo-train)",
+    "url": "https://freesound.org/people/bassimat/sounds/853575/",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/boulder_roll_1.mp3",
+      "sfx/gravity_hum_1.mp3"
+    ]
+  },
+  {
+    "title": "General Household Sound Effects",
+    "author": "bretbernhoft",
+    "url": "https://opengameart.org/content/general-household-sound-effects",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/sizzle_1.mp3",
+      "sfx/acid_sizzle_1.mp3"
+    ]
+  },
+  {
+    "title": "Electricity Sound Effects (Tesla generator)",
+    "author": "Brian MacIntosh (bmaczero)",
+    "url": "https://opengameart.org/content/electricity-sound-effects-0",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/electric_zap_1.mp3"
+    ]
+  },
+  {
+    "title": "Mechanical Sounds",
+    "author": "Brian MacIntosh (bmaczero)",
+    "url": "https://opengameart.org/content/mechanical-sounds",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/lever_1.mp3"
+    ]
+  },
+  {
+    "title": "Pop sounds",
+    "author": "cogitollc",
+    "url": "https://opengameart.org/content/pop-sounds",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/pin_1.mp3",
+      "sfx/pop_2.mp3"
+    ]
+  },
+  {
+    "title": "Big scary troll sounds",
+    "author": "darsycho",
+    "url": "https://opengameart.org/content/big-scary-troll-sounds",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/monster_roar_1.mp3",
+      "sfx/monster_roar_2.mp3"
+    ]
+  },
+  {
+    "title": "Scops owl's call in night silence",
+    "author": "darthbaul (Freesound; licence-vetted copy reused from the owner's repo PukkingDragon123/effective-octo-train)",
+    "url": "https://freesound.org/people/darthbaul/sounds/266898/",
+    "license": "CC0 1.0",
+    "files": [
+      "amb/night.mp3"
+    ]
+  },
+  {
+    "title": "Spark",
+    "author": "elliott.klein (Freesound; licence-vetted copy reused from the owner's repo PukkingDragon123/effective-octo-train)",
+    "url": "https://freesound.org/people/elliott.klein/sounds/189630/",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/electric_zap_2.mp3"
+    ]
+  },
+  {
+    "title": "Magic Spell SFX",
+    "author": "jaggedstone",
+    "url": "https://opengameart.org/content/magic-spell-sfx",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/magic_sparkle_1.mp3",
+      "sfx/magic_sparkle_2.mp3"
+    ]
+  },
+  {
+    "title": "Fantasy Sound Effects (Tinysized SFX)",
+    "author": "Jan Schupke (vehicle, vehiclemusic.eu)",
+    "url": "https://opengameart.org/content/fantasy-sound-effects-tinysized-sfx",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/card_burn_1.mp3",
+      "sfx/page_turn_4.mp3",
+      "sfx/pouch_jingle_1.mp3",
+      "sfx/pouch_jingle_2.mp3",
+      "sfx/wood_knock_1.mp3",
+      "sfx/wood_knock_2.mp3",
+      "sfx/whoosh_heavy_2.mp3",
+      "sfx/pop_1.mp3",
+      "sfx/water_drip_1.mp3",
+      "sfx/spin_whoosh_1.mp3",
+      "sfx/spin_whoosh_2.mp3",
+      "sfx/metal_clang_1.mp3",
+      "sfx/metal_clang_2.mp3",
+      "sfx/metal_clang_3.mp3",
+      "sfx/liquid_slosh_1.mp3",
+      "sfx/crowd_war_1.mp3",
+      "amb/battlefield.mp3"
+    ]
+  },
+  {
+    "title": "Apple Bite (from freesound.org/s/333825)",
+    "author": "Jordan Irwin (AntumDeluge)",
+    "url": "https://opengameart.org/content/apple-bite",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/apple_crunch_1.mp3"
+    ]
+  },
+  {
+    "title": "Magic Words + Healing Sound Effect",
+    "author": "Julie Damsgaard (Spring Spring)",
+    "url": "https://opengameart.org/content/magic-words-healing-sound-effect",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/heal_1.mp3"
+    ]
+  },
+  {
+    "title": "Casino Audio (\"54 Casino sound effects (cards, dice, chips)\")",
+    "author": "Kenney (kenney.nl)",
+    "url": "https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/card_pick_1.mp3",
+      "sfx/card_pick_2.mp3",
+      "sfx/card_pick_3.mp3",
+      "sfx/card_pick_4.mp3",
+      "sfx/card_place_1.mp3",
+      "sfx/card_place_2.mp3",
+      "sfx/card_place_3.mp3",
+      "sfx/card_place_4.mp3",
+      "sfx/card_slide_1.mp3",
+      "sfx/card_slide_2.mp3",
+      "sfx/card_slide_3.mp3",
+      "sfx/card_slide_4.mp3",
+      "sfx/card_shuffle_1.mp3",
+      "sfx/card_shuffle_2.mp3",
+      "sfx/card_flip_2.mp3",
+      "sfx/card_fan_1.mp3",
+      "sfx/card_fan_2.mp3",
+      "sfx/card_snap_1.mp3",
+      "sfx/card_snap_2.mp3",
+      "sfx/card_snap_3.mp3",
+      "sfx/stamp_1.mp3"
+    ]
+  },
+  {
+    "title": "Impact Sounds (copy reused from the owner's repo PukkingDragon123/special-telegram)",
+    "author": "Kenney (kenney.nl)",
+    "url": "https://kenney.nl/assets/impact-sounds",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/ui_error_1.mp3",
+      "sfx/wood_knock_4.mp3",
+      "sfx/hit_heavy_1.mp3",
+      "sfx/hit_heavy_2.mp3",
+      "sfx/hit_heavy_3.mp3",
+      "sfx/rock_impact_2.mp3",
+      "sfx/implosion_1.mp3",
+      "sfx/shield_block_2.mp3",
+      "sfx/body_fall_1.mp3"
+    ]
+  },
+  {
+    "title": "Interface Sounds",
+    "author": "Kenney (kenney.nl)",
+    "url": "https://opengameart.org/content/interface-sounds",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/ui_click_3.mp3"
+    ]
+  },
+  {
+    "title": "Music Jingles (\"85 Short music jingles\")",
+    "author": "Kenney (kenney.nl)",
+    "url": "https://opengameart.org/content/85-short-music-jingles",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/string_pluck_1.mp3",
+      "sfx/string_pluck_2.mp3",
+      "sfx/string_pluck_3.mp3",
+      "sfx/string_pluck_4.mp3",
+      "sfx/eureka_1.mp3",
+      "sfx/eureka_2.mp3",
+      "music/sting_victory.mp3",
+      "music/sting_defeat.mp3",
+      "music/sting_reward.mp3",
+      "music/sting_eureka.mp3"
+    ]
+  },
+  {
+    "title": "RPG Audio (\"50 RPG sound effects\")",
+    "author": "Kenney (kenney.nl)",
+    "url": "https://opengameart.org/content/50-rpg-sound-effects",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/lever_1.mp3",
+      "sfx/book_open_1.mp3",
+      "sfx/book_close_1.mp3",
+      "sfx/page_turn_1.mp3",
+      "sfx/page_turn_2.mp3",
+      "sfx/page_turn_3.mp3",
+      "sfx/coins_handful_1.mp3",
+      "sfx/coins_handful_2.mp3",
+      "sfx/wood_creak_1.mp3",
+      "sfx/wood_creak_2.mp3",
+      "sfx/stamp_1.mp3",
+      "sfx/tiny_footsteps_1.mp3"
+    ]
+  },
+  {
+    "title": "UI Audio (\"51 UI sound effects (buttons, switches and clicks)\")",
+    "author": "Kenney (kenney.nl)",
+    "url": "https://opengameart.org/content/51-ui-sound-effects-buttons-switches-and-clicks",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/ui_hover_1.mp3",
+      "sfx/ui_hover_2.mp3",
+      "sfx/ui_hover_3.mp3",
+      "sfx/ui_click_1.mp3",
+      "sfx/ui_click_2.mp3",
+      "sfx/ui_back_1.mp3",
+      "sfx/pin_1.mp3"
+    ]
+  },
+  {
+    "title": "rustling paper.wav",
+    "author": "keweldog (Freesound; licence-vetted copy reused from the owner's repo PukkingDragon123/effective-octo-train)",
+    "url": "https://freesound.org/people/keweldog/sounds/181774/",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/paper_rustle_1.mp3"
+    ]
+  },
+  {
+    "title": "Low Rumble - loopable ambiance",
+    "author": "lennartgreen (Freesound; licence-vetted copy reused from the owner's repo PukkingDragon123/effective-octo-train)",
+    "url": "https://freesound.org/people/lennartgreen/sounds/638914/",
+    "license": "CC0 1.0",
+    "files": [
+      "amb/cosmos.mp3",
+      "amb/battlefield.mp3"
+    ]
+  },
+  {
+    "title": "Paper drawn with rustle",
+    "author": "Mafon2 (Freesound; licence-vetted copy reused from the owner's repo PukkingDragon123/effective-octo-train)",
+    "url": "https://freesound.org/people/Mafon2/sounds/360646/",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/paper_rustle_2.mp3"
+    ]
+  },
+  {
+    "title": "20190530_low_noise_rumble.wav",
+    "author": "majortonic (Freesound; licence-vetted copy reused from the owner's repo PukkingDragon123/effective-octo-train)",
+    "url": "https://freesound.org/people/majortonic/sounds/473725/",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/transition_whoosh_1.mp3"
+    ]
+  },
+  {
+    "title": "HiggsSound.ogg (\"Ein Higgs\", category Hiccup)",
+    "author": "Mario sandler",
+    "url": "https://commons.wikimedia.org/wiki/File:HiggsSound.ogg",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/hiccup_1.mp3",
+      "sfx/hiccup_2.mp3",
+      "sfx/hiccup_3.mp3"
+    ]
+  },
+  {
+    "title": "Sound Effects Pack",
+    "author": "Owlish Media",
+    "url": "https://opengameart.org/content/sound-effects-pack",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/card_flip_1.mp3",
+      "sfx/card_snap_1.mp3",
+      "sfx/card_snap_2.mp3",
+      "sfx/paper_crumple_1.mp3",
+      "sfx/pencil_scribble_1.mp3",
+      "sfx/pencil_scribble_2.mp3",
+      "sfx/pencil_scribble_3.mp3",
+      "sfx/apple_squish_1.mp3",
+      "sfx/snake_hiss_2.mp3",
+      "sfx/drunk_laugh_1.mp3"
+    ]
+  },
+  {
+    "title": "Sound Effects Pack (night-crickets-ambience-on-rural-property.wav)",
+    "author": "Owlish Media",
+    "url": "https://opengameart.org/content/sound-effects-pack",
+    "license": "CC0 1.0",
+    "files": [
+      "amb/night.mp3"
+    ]
+  },
+  {
+    "title": "Fireplace Sound loop",
+    "author": "pagdev",
+    "url": "https://opengameart.org/content/fireplace-sound-loop",
+    "license": "CC0 1.0",
+    "files": [
+      "amb/campfire.mp3"
+    ]
+  },
+  {
+    "title": "WIP Raw Pan Flute Audio",
+    "author": "pattingthestar",
+    "url": "https://opengameart.org/content/wip-raw-pan-flute-audio",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/pan_flute_1.mp3",
+      "sfx/pan_flute_2.mp3",
+      "sfx/pan_flute_3.mp3"
+    ]
+  },
+  {
+    "title": "Monster or beast sounds",
+    "author": "pauliuw",
+    "url": "https://opengameart.org/content/monster-or-beast-sounds",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/monster_growl_1.mp3",
+      "sfx/monster_growl_2.mp3"
+    ]
+  },
+  {
+    "title": "Bell dings/chimes",
+    "author": "pwl",
+    "url": "https://opengameart.org/content/bell-dingschimes",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/chime_soft_2.mp3"
+    ]
+  },
+  {
+    "title": "Swish - bamboo stick weapon swhoshes",
+    "author": "qubodup",
+    "url": "https://opengameart.org/content/swish-bamboo-stick-weapon-swhoshes",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/card_whoosh_1.mp3",
+      "sfx/card_whoosh_2.mp3",
+      "sfx/card_whoosh_3.mp3",
+      "sfx/whoosh_soft_1.mp3",
+      "sfx/whoosh_soft_2.mp3",
+      "sfx/whoosh_soft_3.mp3",
+      "sfx/whoosh_heavy_1.mp3",
+      "sfx/transition_whoosh_1.mp3",
+      "sfx/transition_whoosh_2.mp3",
+      "sfx/gravity_hum_1.mp3"
+    ]
+  },
+  {
+    "title": "37 hits/punches (independent.nu ljudbank)",
+    "author": "qubodup / independent.nu",
+    "url": "https://opengameart.org/content/37-hitspunches",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/hit_light_1.mp3",
+      "sfx/hit_light_2.mp3",
+      "sfx/hit_light_3.mp3",
+      "sfx/hit_medium_1.mp3",
+      "sfx/hit_medium_2.mp3",
+      "sfx/hit_medium_3.mp3",
+      "sfx/hit_heavy_1.mp3",
+      "sfx/hit_heavy_2.mp3",
+      "sfx/hit_heavy_3.mp3",
+      "sfx/crit_1.mp3"
+    ]
+  },
+  {
+    "title": "100 CC0 metal and wood SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/shield_block_1.mp3",
+      "sfx/shield_block_3.mp3",
+      "sfx/block_break_1.mp3"
+    ]
+  },
+  {
+    "title": "100 CC0 SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/content/100-cc0-sfx",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/bell_ding_1.mp3",
+      "sfx/paper_rustle_3.mp3",
+      "sfx/glass_clink_1.mp3",
+      "sfx/glass_clink_2.mp3"
+    ]
+  },
+  {
+    "title": "100 CC0 SFX #2",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/content/100-cc0-sfx-2",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/transition_whoosh_2.mp3",
+      "sfx/thunder_1.mp3"
+    ]
+  },
+  {
+    "title": "25 CC0 bang / firework SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/content/25-cc0-bang-firework-sfx",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/implosion_1.mp3"
+    ]
+  },
+  {
+    "title": "40 CC0 water / splash / slime SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/content/40-cc0-water-splash-slime-sfx",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/apple_squish_1.mp3",
+      "sfx/water_splash_1.mp3",
+      "sfx/water_splash_2.mp3"
+    ]
+  },
+  {
+    "title": "75 CC0 breaking / falling / hit sfx",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/hit_wood_1.mp3",
+      "sfx/hit_wood_2.mp3",
+      "sfx/hit_wood_3.mp3",
+      "sfx/rock_impact_2.mp3",
+      "sfx/rock_impact_3.mp3",
+      "sfx/rock_crumble_1.mp3",
+      "sfx/rock_crumble_2.mp3",
+      "sfx/shield_block_2.mp3",
+      "sfx/enemy_death_1.mp3",
+      "sfx/glass_shatter_1.mp3",
+      "amb/battlefield.mp3"
+    ]
+  },
+  {
+    "title": "80 CC0 creature SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/content/80-cc0-creature-sfx",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/burp_1.mp3",
+      "sfx/goblin_squeak_1.mp3",
+      "sfx/gurgle_1.mp3",
+      "sfx/grunt_hurt_1.mp3",
+      "sfx/grunt_hurt_2.mp3",
+      "sfx/grunt_hurt_3.mp3"
+    ]
+  },
+  {
+    "title": "80 CC0 creature SFX #2",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/content/80-cc0-creture-sfx-2",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/hoof_stomp_1.mp3"
+    ]
+  },
+  {
+    "title": "80 CC0 RPG SFX",
+    "author": "rubberduck",
+    "url": "https://opengameart.org/content/80-cc0-rpg-sfx",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/card_burn_1.mp3",
+      "sfx/wood_knock_3.mp3",
+      "sfx/rock_impact_1.mp3",
+      "sfx/fire_ignite_1.mp3",
+      "sfx/fire_whoosh_1.mp3",
+      "sfx/stone_grind_1.mp3",
+      "sfx/monster_hurt_1.mp3",
+      "sfx/monster_hurt_2.mp3"
+    ]
+  },
+  {
+    "title": "SCOPS OWL - 1",
+    "author": "SamuelGremaud (Freesound; licence-vetted copy reused from the owner's repo PukkingDragon123/effective-octo-train)",
+    "url": "https://freesound.org/people/SamuelGremaud/sounds/429185/",
+    "license": "CC0 1.0",
+    "files": [
+      "amb/night.mp3"
+    ]
+  },
+  {
+    "title": "windy ambient noise",
+    "author": "some-weirdo",
+    "url": "https://opengameart.org/content/windy-ambient-noise",
+    "license": "CC0 1.0",
+    "files": [
+      "amb/olympus.mp3"
+    ]
+  },
+  {
+    "title": "Crowd Shouting/Speaking Ambience",
+    "author": "starninjas",
+    "url": "https://opengameart.org/content/crowd-shoutingspeaking-ambience",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/crowd_war_1.mp3",
+      "amb/battlefield.mp3"
+    ]
+  },
+  {
+    "title": "Spark Electric SFX 200927_0054.wav",
+    "author": "szegvari (Freesound; licence-vetted copy reused from the owner's repo PukkingDragon123/effective-octo-train)",
+    "url": "https://freesound.org/people/szegvari/sounds/536793/",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/electric_zap_3.mp3"
+    ]
+  },
+  {
+    "title": "Park ambiences",
+    "author": "thimras",
+    "url": "https://opengameart.org/content/park-ambiences",
+    "license": "CC0 1.0",
+    "files": [
+      "amb/wilderness.mp3",
+      "amb/wind.mp3",
+      "amb/stream.mp3",
+      "amb/battlefield.mp3"
+    ]
+  },
+  {
+    "title": "CC0 Deep Monster Roar",
+    "author": "trazzz123",
+    "url": "https://opengameart.org/content/cc0-deep-monster-roar",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/monster_roar_3.mp3"
+    ]
+  },
+  {
+    "title": "Water Splash in Lake 05.wav",
+    "author": "vero.marengere (Freesound; licence-vetted copy reused from the owner's repo PukkingDragon123/effective-octo-train)",
+    "url": "https://freesound.org/people/vero.marengere/sounds/524524/",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/water_splash_3.mp3"
+    ]
+  },
+  {
+    "title": "Cat hissing - Zabuhailo.wav",
+    "author": "Zabuhailo",
+    "url": "https://commons.wikimedia.org/wiki/File:Cat_hissing_-_Zabuhailo.wav",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/snake_hiss_1.mp3"
+    ]
+  },
+  {
+    "title": "Theremin Sci-Fi Sparkles",
+    "author": "Zane Little",
+    "url": "https://opengameart.org/content/theremin-sci-fi-sparkles",
+    "license": "CC0 1.0",
+    "files": [
+      "sfx/magic_shimmer_1.mp3",
+      "sfx/magic_shimmer_2.mp3"
+    ]
+  }
+]

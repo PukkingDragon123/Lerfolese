@@ -1,0 +1,821 @@
+{
+  "sfx": {
+    "ui_hover": {
+      "files": [
+        "sfx/ui_hover_1.mp3",
+        "sfx/ui_hover_2.mp3",
+        "sfx/ui_hover_3.mp3"
+      ],
+      "vol": 0.33
+    },
+    "ui_click": {
+      "files": [
+        "sfx/ui_click_1.mp3",
+        "sfx/ui_click_2.mp3",
+        "sfx/ui_click_3.mp3"
+      ],
+      "vol": 0.74
+    },
+    "ui_back": {
+      "files": [
+        "sfx/ui_back_1.mp3"
+      ],
+      "vol": 0.34
+    },
+    "ui_error": {
+      "files": [
+        "sfx/ui_error_1.mp3"
+      ],
+      "vol": 0.28
+    },
+    "lever": {
+      "files": [
+        "sfx/lever_1.mp3"
+      ],
+      "vol": 0.48
+    },
+    "bell_ding": {
+      "files": [
+        "sfx/bell_ding_1.mp3"
+      ],
+      "vol": 0.4
+    },
+    "card_pick": {
+      "files": [
+        "sfx/card_pick_1.mp3",
+        "sfx/card_pick_2.mp3",
+        "sfx/card_pick_3.mp3",
+        "sfx/card_pick_4.mp3"
+      ],
+      "vol": 0.52
+    },
+    "card_place": {
+      "files": [
+        "sfx/card_place_1.mp3",
+        "sfx/card_place_2.mp3",
+        "sfx/card_place_3.mp3",
+        "sfx/card_place_4.mp3"
+      ],
+      "vol": 0.71
+    },
+    "card_slide": {
+      "files": [
+        "sfx/card_slide_1.mp3",
+        "sfx/card_slide_2.mp3",
+        "sfx/card_slide_3.mp3",
+        "sfx/card_slide_4.mp3"
+      ],
+      "vol": 0.54
+    },
+    "card_shuffle": {
+      "files": [
+        "sfx/card_shuffle_1.mp3",
+        "sfx/card_shuffle_2.mp3"
+      ],
+      "vol": 0.44
+    },
+    "card_flip": {
+      "files": [
+        "sfx/card_flip_1.mp3",
+        "sfx/card_flip_2.mp3"
+      ],
+      "vol": 0.35
+    },
+    "card_fan": {
+      "files": [
+        "sfx/card_fan_1.mp3",
+        "sfx/card_fan_2.mp3"
+      ],
+      "vol": 0.37
+    },
+    "card_snap": {
+      "files": [
+        "sfx/card_snap_1.mp3",
+        "sfx/card_snap_2.mp3",
+        "sfx/card_snap_3.mp3"
+      ],
+      "vol": 0.46
+    },
+    "card_burn": {
+      "files": [
+        "sfx/card_burn_1.mp3"
+      ],
+      "vol": 0.83
+    },
+    "card_whoosh": {
+      "files": [
+        "sfx/card_whoosh_1.mp3",
+        "sfx/card_whoosh_2.mp3",
+        "sfx/card_whoosh_3.mp3"
+      ],
+      "vol": 0.31
+    },
+    "paper_rustle": {
+      "files": [
+        "sfx/paper_rustle_1.mp3",
+        "sfx/paper_rustle_2.mp3",
+        "sfx/paper_rustle_3.mp3"
+      ],
+      "vol": 0.27
+    },
+    "paper_crumple": {
+      "files": [
+        "sfx/paper_crumple_1.mp3"
+      ],
+      "vol": 0.29
+    },
+    "book_open": {
+      "files": [
+        "sfx/book_open_1.mp3"
+      ],
+      "vol": 0.47
+    },
+    "book_close": {
+      "files": [
+        "sfx/book_close_1.mp3"
+      ],
+      "vol": 0.56
+    },
+    "page_turn": {
+      "files": [
+        "sfx/page_turn_1.mp3",
+        "sfx/page_turn_2.mp3",
+        "sfx/page_turn_3.mp3",
+        "sfx/page_turn_4.mp3"
+      ],
+      "vol": 0.42
+    },
+    "pencil_scribble": {
+      "files": [
+        "sfx/pencil_scribble_1.mp3",
+        "sfx/pencil_scribble_2.mp3",
+        "sfx/pencil_scribble_3.mp3"
+      ],
+      "vol": 0.23
+    },
+    "coin_single": {
+      "files": [
+        "sfx/coin_single_1.mp3",
+        "sfx/coin_single_2.mp3",
+        "sfx/coin_single_3.mp3"
+      ],
+      "vol": 0.36
+    },
+    "coins_handful": {
+      "files": [
+        "sfx/coins_handful_1.mp3",
+        "sfx/coins_handful_2.mp3"
+      ],
+      "vol": 0.5
+    },
+    "pouch_jingle": {
+      "files": [
+        "sfx/pouch_jingle_1.mp3",
+        "sfx/pouch_jingle_2.mp3"
+      ],
+      "vol": 0.47
+    },
+    "wood_knock": {
+      "files": [
+        "sfx/wood_knock_1.mp3",
+        "sfx/wood_knock_2.mp3",
+        "sfx/wood_knock_3.mp3",
+        "sfx/wood_knock_4.mp3"
+      ],
+      "vol": 0.54
+    },
+    "wood_creak": {
+      "files": [
+        "sfx/wood_creak_1.mp3",
+        "sfx/wood_creak_2.mp3"
+      ],
+      "vol": 0.28
+    },
+    "string_pluck": {
+      "files": [
+        "sfx/string_pluck_1.mp3",
+        "sfx/string_pluck_2.mp3",
+        "sfx/string_pluck_3.mp3",
+        "sfx/string_pluck_4.mp3"
+      ],
+      "vol": 0.36
+    },
+    "glass_clink": {
+      "files": [
+        "sfx/glass_clink_1.mp3",
+        "sfx/glass_clink_2.mp3"
+      ],
+      "vol": 0.39
+    },
+    "chime_soft": {
+      "files": [
+        "sfx/chime_soft_1.mp3",
+        "sfx/chime_soft_2.mp3"
+      ],
+      "vol": 0.29
+    },
+    "clockwork": {
+      "files": [
+        "sfx/clockwork_1.mp3"
+      ],
+      "vol": 0.22
+    },
+    "stamp": {
+      "files": [
+        "sfx/stamp_1.mp3"
+      ],
+      "vol": 0.53
+    },
+    "pin": {
+      "files": [
+        "sfx/pin_1.mp3"
+      ],
+      "vol": 0.39
+    },
+    "whoosh_soft": {
+      "files": [
+        "sfx/whoosh_soft_1.mp3",
+        "sfx/whoosh_soft_2.mp3",
+        "sfx/whoosh_soft_3.mp3"
+      ],
+      "vol": 0.35
+    },
+    "whoosh_heavy": {
+      "files": [
+        "sfx/whoosh_heavy_1.mp3",
+        "sfx/whoosh_heavy_2.mp3"
+      ],
+      "vol": 0.6
+    },
+    "transition_whoosh": {
+      "files": [
+        "sfx/transition_whoosh_1.mp3",
+        "sfx/transition_whoosh_2.mp3"
+      ],
+      "vol": 0.45
+    },
+    "pop": {
+      "files": [
+        "sfx/pop_1.mp3",
+        "sfx/pop_2.mp3"
+      ],
+      "vol": 0.37
+    },
+    "hit_light": {
+      "files": [
+        "sfx/hit_light_1.mp3",
+        "sfx/hit_light_2.mp3",
+        "sfx/hit_light_3.mp3"
+      ],
+      "vol": 0.56
+    },
+    "hit_medium": {
+      "files": [
+        "sfx/hit_medium_1.mp3",
+        "sfx/hit_medium_2.mp3",
+        "sfx/hit_medium_3.mp3"
+      ],
+      "vol": 0.63
+    },
+    "hit_heavy": {
+      "files": [
+        "sfx/hit_heavy_1.mp3",
+        "sfx/hit_heavy_2.mp3",
+        "sfx/hit_heavy_3.mp3"
+      ],
+      "vol": 0.79
+    },
+    "hit_wood": {
+      "files": [
+        "sfx/hit_wood_1.mp3",
+        "sfx/hit_wood_2.mp3",
+        "sfx/hit_wood_3.mp3"
+      ],
+      "vol": 0.86
+    },
+    "apple_crunch": {
+      "files": [
+        "sfx/apple_crunch_1.mp3"
+      ],
+      "vol": 0.69
+    },
+    "apple_squish": {
+      "files": [
+        "sfx/apple_squish_1.mp3"
+      ],
+      "vol": 0.54
+    },
+    "rock_impact": {
+      "files": [
+        "sfx/rock_impact_1.mp3",
+        "sfx/rock_impact_2.mp3",
+        "sfx/rock_impact_3.mp3"
+      ],
+      "vol": 0.92
+    },
+    "rock_crumble": {
+      "files": [
+        "sfx/rock_crumble_1.mp3",
+        "sfx/rock_crumble_2.mp3"
+      ],
+      "vol": 0.98
+    },
+    "boulder_roll": {
+      "files": [
+        "sfx/boulder_roll_1.mp3"
+      ],
+      "vol": 0.56
+    },
+    "water_splash": {
+      "files": [
+        "sfx/water_splash_1.mp3",
+        "sfx/water_splash_2.mp3",
+        "sfx/water_splash_3.mp3"
+      ],
+      "vol": 0.6
+    },
+    "water_drip": {
+      "files": [
+        "sfx/water_drip_1.mp3"
+      ],
+      "vol": 0.45
+    },
+    "steam_hiss": {
+      "files": [
+        "sfx/steam_hiss_1.mp3"
+      ],
+      "vol": 0.4
+    },
+    "fire_ignite": {
+      "files": [
+        "sfx/fire_ignite_1.mp3"
+      ],
+      "vol": 0.5
+    },
+    "fire_whoosh": {
+      "files": [
+        "sfx/fire_whoosh_1.mp3"
+      ],
+      "vol": 0.56
+    },
+    "sizzle": {
+      "files": [
+        "sfx/sizzle_1.mp3"
+      ],
+      "vol": 0.37
+    },
+    "electric_zap": {
+      "files": [
+        "sfx/electric_zap_1.mp3",
+        "sfx/electric_zap_2.mp3",
+        "sfx/electric_zap_3.mp3"
+      ],
+      "vol": 0.86
+    },
+    "thunder": {
+      "files": [
+        "sfx/thunder_1.mp3",
+        "sfx/thunder_2.mp3"
+      ],
+      "vol": 0.71
+    },
+    "magic_shimmer": {
+      "files": [
+        "sfx/magic_shimmer_1.mp3",
+        "sfx/magic_shimmer_2.mp3"
+      ],
+      "vol": 0.4
+    },
+    "magic_sparkle": {
+      "files": [
+        "sfx/magic_sparkle_1.mp3",
+        "sfx/magic_sparkle_2.mp3"
+      ],
+      "vol": 0.4
+    },
+    "gravity_hum": {
+      "files": [
+        "sfx/gravity_hum_1.mp3"
+      ],
+      "vol": 0.46
+    },
+    "implosion": {
+      "files": [
+        "sfx/implosion_1.mp3"
+      ],
+      "vol": 0.64
+    },
+    "spin_whoosh": {
+      "files": [
+        "sfx/spin_whoosh_1.mp3",
+        "sfx/spin_whoosh_2.mp3"
+      ],
+      "vol": 0.57
+    },
+    "shield_block": {
+      "files": [
+        "sfx/shield_block_1.mp3",
+        "sfx/shield_block_2.mp3",
+        "sfx/shield_block_3.mp3"
+      ],
+      "vol": 0.72
+    },
+    "block_break": {
+      "files": [
+        "sfx/block_break_1.mp3"
+      ],
+      "vol": 0.66
+    },
+    "heal": {
+      "files": [
+        "sfx/heal_1.mp3"
+      ],
+      "vol": 0.45
+    },
+    "buff": {
+      "files": [
+        "sfx/buff_1.mp3"
+      ],
+      "vol": 0.45
+    },
+    "debuff": {
+      "files": [
+        "sfx/debuff_1.mp3"
+      ],
+      "vol": 0.45
+    },
+    "metal_clang": {
+      "files": [
+        "sfx/metal_clang_1.mp3",
+        "sfx/metal_clang_2.mp3",
+        "sfx/metal_clang_3.mp3"
+      ],
+      "vol": 0.68
+    },
+    "sword_swing": {
+      "files": [
+        "sfx/sword_swing_1.mp3",
+        "sfx/sword_swing_2.mp3"
+      ],
+      "vol": 0.79
+    },
+    "crit": {
+      "files": [
+        "sfx/crit_1.mp3"
+      ],
+      "vol": 0.89
+    },
+    "enemy_death": {
+      "files": [
+        "sfx/enemy_death_1.mp3"
+      ],
+      "vol": 0.88
+    },
+    "body_fall": {
+      "files": [
+        "sfx/body_fall_1.mp3"
+      ],
+      "vol": 0.63
+    },
+    "glass_shatter": {
+      "files": [
+        "sfx/glass_shatter_1.mp3"
+      ],
+      "vol": 0.84
+    },
+    "eureka": {
+      "files": [
+        "sfx/eureka_1.mp3",
+        "sfx/eureka_2.mp3"
+      ],
+      "vol": 0.56
+    },
+    "snake_hiss": {
+      "files": [
+        "sfx/snake_hiss_1.mp3",
+        "sfx/snake_hiss_2.mp3",
+        "sfx/snake_hiss_3.mp3"
+      ],
+      "vol": 0.45
+    },
+    "stone_grind": {
+      "files": [
+        "sfx/stone_grind_1.mp3"
+      ],
+      "vol": 0.58
+    },
+    "hiccup": {
+      "files": [
+        "sfx/hiccup_1.mp3",
+        "sfx/hiccup_2.mp3",
+        "sfx/hiccup_3.mp3"
+      ],
+      "vol": 0.45
+    },
+    "burp": {
+      "files": [
+        "sfx/burp_1.mp3"
+      ],
+      "vol": 0.5
+    },
+    "drunk_laugh": {
+      "files": [
+        "sfx/drunk_laugh_1.mp3"
+      ],
+      "vol": 0.52
+    },
+    "pan_flute": {
+      "files": [
+        "sfx/pan_flute_1.mp3",
+        "sfx/pan_flute_2.mp3",
+        "sfx/pan_flute_3.mp3"
+      ],
+      "vol": 0.4
+    },
+    "bottle_clink": {
+      "files": [
+        "sfx/bottle_clink_1.mp3"
+      ],
+      "vol": 0.37
+    },
+    "liquid_slosh": {
+      "files": [
+        "sfx/liquid_slosh_1.mp3"
+      ],
+      "vol": 0.43
+    },
+    "goblin_laugh": {
+      "files": [
+        "sfx/goblin_laugh_1.mp3",
+        "sfx/goblin_laugh_2.mp3",
+        "sfx/goblin_laugh_3.mp3"
+      ],
+      "vol": 0.5
+    },
+    "goblin_squeak": {
+      "files": [
+        "sfx/goblin_squeak_1.mp3"
+      ],
+      "vol": 0.45
+    },
+    "tiny_footsteps": {
+      "files": [
+        "sfx/tiny_footsteps_1.mp3"
+      ],
+      "vol": 0.39
+    },
+    "bull_snort": {
+      "files": [
+        "sfx/bull_snort_1.mp3",
+        "sfx/bull_snort_2.mp3"
+      ],
+      "vol": 0.56
+    },
+    "bull_roar": {
+      "files": [
+        "sfx/bull_roar_1.mp3",
+        "sfx/bull_roar_2.mp3"
+      ],
+      "vol": 0.71
+    },
+    "hoof_stomp": {
+      "files": [
+        "sfx/hoof_stomp_1.mp3",
+        "sfx/hoof_stomp_2.mp3",
+        "sfx/hoof_stomp_3.mp3"
+      ],
+      "vol": 0.75
+    },
+    "monster_roar": {
+      "files": [
+        "sfx/monster_roar_1.mp3",
+        "sfx/monster_roar_2.mp3",
+        "sfx/monster_roar_3.mp3"
+      ],
+      "vol": 0.79
+    },
+    "monster_growl": {
+      "files": [
+        "sfx/monster_growl_1.mp3",
+        "sfx/monster_growl_2.mp3"
+      ],
+      "vol": 0.63
+    },
+    "gurgle": {
+      "files": [
+        "sfx/gurgle_1.mp3"
+      ],
+      "vol": 0.45
+    },
+    "acid_sizzle": {
+      "files": [
+        "sfx/acid_sizzle_1.mp3"
+      ],
+      "vol": 0.46
+    },
+    "grunt_hurt": {
+      "files": [
+        "sfx/grunt_hurt_1.mp3",
+        "sfx/grunt_hurt_2.mp3",
+        "sfx/grunt_hurt_3.mp3"
+      ],
+      "vol": 0.57
+    },
+    "monster_hurt": {
+      "files": [
+        "sfx/monster_hurt_1.mp3",
+        "sfx/monster_hurt_2.mp3"
+      ],
+      "vol": 0.64
+    },
+    "crowd_war": {
+      "files": [
+        "sfx/crowd_war_1.mp3"
+      ],
+      "vol": 0.5
+    },
+    "horse_neigh": {
+      "files": [
+        "sfx/horse_neigh_1.mp3"
+      ],
+      "vol": 0.56
+    }
+  },
+  "amb": {
+    "wilderness": {
+      "files": [
+        "amb/wilderness.mp3"
+      ],
+      "vol": 0.5,
+      "loop": true
+    },
+    "night": {
+      "files": [
+        "amb/night.mp3"
+      ],
+      "vol": 0.6,
+      "loop": true
+    },
+    "cosmos": {
+      "files": [
+        "amb/cosmos.mp3"
+      ],
+      "vol": 0.45,
+      "loop": true
+    },
+    "campfire": {
+      "files": [
+        "amb/campfire.mp3"
+      ],
+      "vol": 0.55,
+      "loop": true
+    },
+    "wind": {
+      "files": [
+        "amb/wind.mp3"
+      ],
+      "vol": 0.45,
+      "loop": true
+    },
+    "stream": {
+      "files": [
+        "amb/stream.mp3"
+      ],
+      "vol": 0.45,
+      "loop": true
+    },
+    "olympus": {
+      "files": [
+        "amb/olympus.mp3"
+      ],
+      "vol": 0.5,
+      "loop": true
+    },
+    "battlefield": {
+      "files": [
+        "amb/battlefield.mp3"
+      ],
+      "vol": 0.45,
+      "loop": true
+    }
+  },
+  "music": {
+    "menu": {
+      "files": [
+        "music/menu.mp3"
+      ],
+      "vol": 0.5,
+      "loop": true,
+      "title": "Ultralounge",
+      "artist": "Kevin MacLeod"
+    },
+    "map": {
+      "files": [
+        "music/map.mp3"
+      ],
+      "vol": 0.5,
+      "loop": true,
+      "title": "Bossa Antigua",
+      "artist": "Kevin MacLeod"
+    },
+    "battle": {
+      "files": [
+        "music/battle.mp3"
+      ],
+      "vol": 0.5,
+      "loop": true,
+      "title": "Hep Cats",
+      "artist": "Kevin MacLeod"
+    },
+    "battle2": {
+      "files": [
+        "music/battle2.mp3"
+      ],
+      "vol": 0.5,
+      "loop": true,
+      "title": "Dispersion Relation",
+      "artist": "Kevin MacLeod"
+    },
+    "elite": {
+      "files": [
+        "music/elite.mp3"
+      ],
+      "vol": 0.5,
+      "loop": true,
+      "title": "Rocket Power",
+      "artist": "Kevin MacLeod"
+    },
+    "boss": {
+      "files": [
+        "music/boss.mp3"
+      ],
+      "vol": 0.55,
+      "loop": true,
+      "title": "Tango de Manzana",
+      "artist": "Kevin MacLeod"
+    },
+    "event": {
+      "files": [
+        "music/event.mp3"
+      ],
+      "vol": 0.5,
+      "loop": true,
+      "title": "Zazie",
+      "artist": "Kevin MacLeod"
+    },
+    "shop": {
+      "files": [
+        "music/shop.mp3"
+      ],
+      "vol": 0.5,
+      "loop": true,
+      "title": "Lobby Time",
+      "artist": "Kevin MacLeod"
+    },
+    "journal": {
+      "files": [
+        "music/journal.mp3"
+      ],
+      "vol": 0.5,
+      "loop": true,
+      "title": "Night on the Docks (Piano)",
+      "artist": "Kevin MacLeod"
+    },
+    "sting_victory": {
+      "files": [
+        "music/sting_victory.mp3"
+      ],
+      "vol": 0.6,
+      "loop": false,
+      "title": "Sax jingle 02 (rising run)",
+      "artist": "Kenney"
+    },
+    "sting_defeat": {
+      "files": [
+        "music/sting_defeat.mp3"
+      ],
+      "vol": 0.6,
+      "loop": false,
+      "title": "Sax jingle 07 (sinking \"wah-wah\")",
+      "artist": "Kenney"
+    },
+    "sting_reward": {
+      "files": [
+        "music/sting_reward.mp3"
+      ],
+      "vol": 0.6,
+      "loop": false,
+      "title": "Pizzicato jingle 10 (rising)",
+      "artist": "Kenney"
+    },
+    "sting_eureka": {
+      "files": [
+        "music/sting_eureka.mp3"
+      ],
+      "vol": 0.6,
+      "loop": false,
+      "title": "Sax jingle 15 (ta-da)",
+      "artist": "Kenney"
+    }
+  }
+}
