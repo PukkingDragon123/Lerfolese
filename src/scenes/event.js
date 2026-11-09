@@ -21,6 +21,9 @@ import { tweens, Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
 import { vpick } from '../core/util.js';
 import { eventIntro } from './cinematic.js';
+import { eventCutscene, reactionCutscene } from './eventcine.js';
+import { stageCast } from '../models/npcs/index.js';
+import { Particles } from '../gfx/particles.js';
 
 const F = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.7, ...o });
 const mk = (g, m, p, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; p.add(o); return o; };
@@ -30,7 +33,7 @@ function propFor(k) {
   switch (k) {
     case 'tree': add(PROPS.oliveTree(5, 1.4)); for (let i = 0; i < 6; i++) add(P3.apple(), Math.cos(i) * 1.6, 2.6 + (i % 2) * 0.6, Math.sin(i) * 1.2 + 0.6, 0.3); add(signPost('DO NOT SHAKE'), 1.6, 0, 1.2); break;
     case 'oracle': add(PROPS.amphora(3, 1.6), -0.8, 0, 0); add(P3.brazier(), 0.8, 1.0, 0.3, 1.2); add(P3.steamEngine(), 0, 1.3, -0.6, 1.4); break;
-    case 'boulder': add(P3.stone({ seed: 12 }), 0, 0.6, 0, 1.8); add(PROPS.rock(3, 2.4), -2, 0, -1.4); break;
+    case 'boulder': add(PROPS.rock(3, 2.4), -2, 0, -1.4); break; // Sisyphus' own boulder is part of the cast
     case 'amphorae': for (let i = 0; i < 5; i++) add(PROPS.amphora(i, 0.7), -1.6 + i * 0.8, 0, -0.8 + (i % 2) * 0.4); break;
     case 'wings': add(ITEM_MODELS.wings(), 0, 1.6, 0, 1.6); add(PROPS.rock(5, 2.2), 0, 0, -0.6); break;
     case 'statue': add(PROPS.statue(4, 1.3), 0, 0, -0.4); add(PROPS.column(2, 3), -1.8, 0, -1); add(PROPS.column(3, 3, true), 1.8, 0, -1); break;
@@ -54,7 +57,7 @@ function signPost(text) { const g = new THREE.Group(); mk(S.limb(1.4, 0.05, 0.05
 export default class EventScene extends UIScreen {
   async enter(node) {
     const run = this.game.run; const seen = new Set(run.seenEvents);
-    const pool = EVENTS.filter((e) => !seen.has(e.id)); const ev = (this.ev = run.rng.pick(pool.length ? pool : EVENTS)); run.seenEvents.push(ev.id);
+    const pool = EVENTS.filter((e) => !seen.has(e.id)); const forced = EVENTS.find((e) => e.id === new URLSearchParams(location.search).get('event')); const ev = (this.ev = forced || run.rng.pick(pool.length ? pool : EVENTS)); run.seenEvents.push(ev.id);
     const j = this.game.journal; (j.events[ev.id] ||= 0); j.events[ev.id]++; this.game.saveJournal();
     // world
     const sc = (this.scene = new THREE.Scene()); let st; try { st = await realStage(ev.theme, 30 + ev.id.length, this.engine.renderer, { event: ev.id }); sc.environment = st.env; sc.environmentIntensity = 0.75; sc.background = st.background; } catch (e) { console.warn('event stage fallback', e); st = buildStage(ev.theme, 30 + ev.id.length); } sc.add(st.group); sc.fog = new THREE.Fog(0xe8c09a, 30, 95);
@@ -64,6 +67,13 @@ export default class EventScene extends UIScreen {
     const prop = propFor(ev.prop); prop.position.set(-0.6, 0, 0); sc.add(prop);
     this.npcs = []; if (ev.npc) for (let i = 0; i < (ev.npc === 'kobalos' ? 3 : ev.npc === 'satyr' ? 2 : 1); i++) { const c = createCreature(ev.npc); c.root.position.set(0.4 + i * 1.3, 0, -0.4 - (i % 2) * 0.6); c.root.rotation.y = -0.5; c.root.scale.setScalar(c.root.scale.x * (ev.npc === 'kobalos' ? 0.7 : 1)); sc.add(c.root); this.npcs.push(c); }
     this.measureProp = () => focusOf(prop, this.npcs); // measured when the camera turns to it (the models stream in)
+    // the cast: the event's characters on its set (built lazily, this event only), plus fine particles for the film
+    this.hAt = st.hAt || (() => 0); this.cast = { actors: {}, extras: [], names: {}, prop: {} };
+    try { this.cast = stageCast(sc, ev, this.hAt); } catch (e) { console.warn('event cast failed', e); }
+    if (ev.id === 'pan' && this.npcs[0]) { this.cast.actors.pan = this.npcs[0]; this.npcs[0].root.scale.multiplyScalar(1.12); }
+    if (ev.id === 'toll' && this.npcs.length) this.cast.actors.toll = this.npcs[1] || this.npcs[0];
+    if (ev.id === 'schrodinger') this.cast.prop.crate = prop;
+    this.parts = new Particles(900); sc.add(this.parts.points); this.glow = new Particles(500, { additive: true }); sc.add(this.glow.points);
     this.engine.setWorld(sc, this.camera); this.engine.setFx({ bloom: [0.5, 0.6, 0.8], tilt: { focus: 0.55, width: 0.2, amount: 2.2 }, grade: { warmth: 0.35, vignette: 0.45 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('event'); audio.setAmbSet(['wilderness']);
     // UI
@@ -72,7 +82,7 @@ export default class EventScene extends UIScreen {
     this.choiceBtns = ev.choices.map((c, i) => { const ok = !c.if || c.if(run); const b = new Button3D(c.label, () => this.choose(c), { w: 14, h: 1.5, size: 64, sub: c.sub, color: c.slot ? 'purple' : 'wood', disabled: !ok }); return this.addButton(b, W - 8.4, H - 10.9 - i * 1.85, 2); });
     // the vignette is staged as a cinematic (walk-in, dolly onto the curiosity); the story and the choices wait for it
     this.panel.group.visible = false; for (const b of this.choiceBtns) b.group.visible = false;
-    try { this.cine = eventIntro(this, { title: ev.title, text: ev.text, onReveal: () => this.revealStory() }); this.cine.done.then(() => { this.cine = null; }); }
+    try { this.cine = eventCutscene(this, ev, { onReveal: () => this.revealStory() }) || eventIntro(this, { title: ev.title, text: ev.text, onReveal: () => this.revealStory() }); this.cine.done.then(() => { this.cine = null; }); }
     catch (e) { console.warn('event intro skipped', e); this.cine = null; this.revealStory(); }
   }
   // the parchment unrolls, then each choice pops up in turn as a physical plaque
@@ -115,10 +125,16 @@ export default class EventScene extends UIScreen {
     this.chosen = true; audio.play('stamp'); this.reactT = performance.now(); // the camera leans in on Sir Isaac's reaction
     const text = c.run(this.ctx(), card, score);
     for (const b of this.choiceBtns) b.setDisabled(true);
-    this.panel.set(this.ev.title, [text], '#1e5a5a'); uiPos(this.panel.group, this.W - 8.75, this.H - 1.0 - this.panel.scroll.h / 2, 2);
-    this.prof.setExpr(/damage|bites|lose|terrible/i.test(text) ? 'annoyed' : 'delight'); this.prof.act(/damage/.test(text) ? 'hurt' : 'cheer');
-    this.say(vpick(['Noted. Filed. Mildly traumatised.', 'Science marches on. Limping.', 'Write that down. No, I will.']));
-    this.addButton(new Button3D('Continue', () => this.leave(), { w: 5, h: 1.3, size: 58, color: 'teal' }), this.W - 8.4, -this.H + 1.6, 2);
+    const after = () => {
+      if (!this.root.parent) return; this.cine = null; this.panel.group.visible = true; for (const b of this.choiceBtns) b.group.visible = true;
+      this.panel.set(this.ev.title, [text], '#1e5a5a'); uiPos(this.panel.group, this.W - 8.75, this.H - 1.0 - this.panel.scroll.h / 2, 2);
+      this.prof.setExpr(/damage|bites|lose|terrible/i.test(text) ? 'annoyed' : 'delight');
+      this.say(vpick(['Noted. Filed. Mildly traumatised.', 'Science marches on. Limping.', 'Write that down. No, I will.']));
+      this.addButton(new Button3D('Continue', () => this.leave(), { w: 5, h: 1.3, size: 58, color: 'teal' }), this.W - 8.4, -this.H + 1.6, 2);
+    };
+    // the consequence, filmed: the parchment and plaques step aside for a short reaction scene
+    const idx = this.ev.choices.indexOf(c); this.panel.group.visible = false; for (const b of this.choiceBtns) b.group.visible = false; this.bubble?.hide();
+    try { this.cine = reactionCutscene(this, this.ev, idx, text); this.cine.done.then(after); } catch (e) { console.warn('reaction skipped', e); after(); }
   }
   // Pan's jam: click when the ring meets the beat (4 beats)
   rhythm() {
@@ -136,7 +152,8 @@ export default class EventScene extends UIScreen {
   leave() { if (this.leaving) return; this.leaving = true; this.game.afterNode(); }
   dispose() { this.cine?.abort(); this.cine = null; super.dispose(); }
   update(dt, t) {
-    this.prof.update(dt); for (const n of this.npcs) n.update(dt);
+    this.prof.update(dt); for (const n of this.npcs) n.update(dt); for (const a of Object.values(this.cast?.actors || {})) if (a !== this.prof && !this.npcs.includes(a)) a.update(dt);
+    this.parts?.update(dt, t); this.glow?.update(dt, t);
     if (!this.cine && this.revealed) { // a slow breathing drift; after a choice, a short push-in on Sir Isaac and back
       const x = this.reactT ? (performance.now() - this.reactT) / 2600 : 1; const sm = (v) => { v = Math.max(0, Math.min(1, v)); return v * v * (3 - 2 * v); }; const k = x < 1 ? sm(x / 0.25) * (1 - sm((x - 0.6) / 0.4)) : 0;
       const head = this.prof.headWorld(new THREE.Vector3());

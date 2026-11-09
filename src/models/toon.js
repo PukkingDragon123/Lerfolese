@@ -134,6 +134,7 @@ export const SKY = {
   gully: { zen: '#3a4a90', hi: '#7a72b8', mid: '#e89a84', low: '#ffbc78', hor: '#ffdca0', gnd: '#c8946a', glow: '#fff0b0', cloud: ['#fff0dc', '#ffc890', '#c09ab8', '#8a74a8'], mtn: ['#9a7ea8', '#c09ab0', '#e2b8a8'] },
   labyrinth: { zen: '#2a2f78', hi: '#6460b0', mid: '#d88496', low: '#ffa878', hor: '#ffd29a', gnd: '#b07a6a', glow: '#ffe2b0', cloud: ['#ffe8d8', '#ffbc9c', '#b08ac0', '#7466a8'], mtn: ['#7a6aa8', '#a68ab8', '#d2a6b8'] },
   marsh: { zen: '#2e5a8a', hi: '#5a8ab8', mid: '#9ec0c4', low: '#e8d8b0', hor: '#f4ecc8', gnd: '#8aa092', glow: '#fffbe0', cloud: ['#f6fbf0', '#e2ead0', '#9ab4c4', '#7090a8'], mtn: ['#6e8ca8', '#90aab8', '#b8cac4'] },
+  orchard: { zen: '#141a44', hi: '#2c2e6a', mid: '#6a4a86', low: '#c8708a', hor: '#f0a080', gnd: '#2a2a3a', glow: '#e8ecff', cloud: ['#e4e2f6', '#b4acdc', '#7a6eae', '#463e7c'], mtn: ['#2c2c58', '#3c3a6a', '#524c80'] },
   guardian: { zen: '#241e66', hi: '#5a48a8', mid: '#d0708e', low: '#ff9a6a', hor: '#ffcc90', gnd: '#a87060', glow: '#ffd8a0', cloud: ['#ffe4d4', '#ffb08c', '#a87ab8', '#6a5aa0'], mtn: ['#6e5aa0', '#9a78b0', '#c894a8'] },
 };
 /** smooth gradient dome, warm glow around sunDir (the pixel sun billboard is drawn there by the VFX layer) */

@@ -52,17 +52,18 @@ export function mat(key, { bands = [0.5, 0.78, 1.0], color = '#ffffff', side = T
   const m = new THREE.MeshToonMaterial({ map: PAINT[key] ? paint(key, key === 'thatch' || key === 'canvas' ? 256 : 256, 256, PAINT[key]) : null, color: C(color), gradientMap: T.gradientMap(bands), side });
   MATS.set(k, m); return m;
 }
+const glow = (color) => { const k = 'glow:' + color; if (!MATS.has(k)) MATS.set(k, new THREE.MeshBasicMaterial({ color: C(color).multiplyScalar(1.6), toneMapped: false })); return MATS.get(k); };
 const plain = (color, bands = [0.5, 0.78, 1.0]) => { const k = 'plain:' + color; if (!MATS.has(k)) MATS.set(k, new THREE.MeshToonMaterial({ color: C(color), gradientMap: T.gradientMap(bands) })); return MATS.get(k); };
 
 // box-projected UVs at a constant world density (texture tile = 1 / s units)
-function worldUV(geo, s = 0.5) {
+export function worldUV(geo, s = 0.5) {
   const p = geo.attributes.position, n = geo.attributes.normal; const uv = new Float32Array(p.count * 2);
   for (let i = 0; i < p.count; i++) { const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i)); const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
     if (ay >= ax && ay >= az) { uv[i * 2] = x * s; uv[i * 2 + 1] = z * s; } else if (ax >= az) { uv[i * 2] = z * s; uv[i * 2 + 1] = y * s; } else { uv[i * 2] = x * s; uv[i * 2 + 1] = y * s; } }
   geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); return geo;
 }
 // a batch of bevelled pieces merged into one mesh per material (fewer draw calls, uniform texel density)
-class Kit {
+export class Kit {
   constructor() { this.parts = new Map(); }
   add(matKey, geo, pos, rot = null, scale = null) { const g = geo.clone(); const m4 = new THREE.Matrix4().compose(pos, rot ? new THREE.Quaternion().setFromEuler(rot instanceof THREE.Euler ? rot : new THREE.Euler(...rot)) : new THREE.Quaternion(), scale || V(1, 1, 1)); g.applyMatrix4(m4); if (!this.parts.has(matKey)) this.parts.set(matKey, []); this.parts.get(matKey).push(g); return g; }
   box(matKey, w, h, d, pos, rot = null, rad = 0.04) { return this.add(matKey, new RoundedBoxGeometry(w, h, d, 2, Math.min(rad, w / 2.2, h / 2.2, d / 2.2)), pos, rot); }
@@ -71,7 +72,8 @@ class Kit {
       const geos = list.map((g) => { const ng = g.index ? g.toNonIndexed() : g; for (const a of Object.keys(ng.attributes)) if (!['position', 'normal', 'uv'].includes(a)) ng.deleteAttribute(a); if (!ng.attributes.uv) ng.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(ng.attributes.position.count * 2), 2)); return ng; });
       const merged = mergeGeometries(geos, false); if (!merged) continue; const [mk, mode] = key.split('|');
       if (mode !== 'keepuv') worldUV(merged, uvScale[mk] ?? 0.9);
-      const m = new THREE.Mesh(merged, mk.startsWith('#') || mk.startsWith('plain:') ? plain(mk.replace('plain:', '')) : mat(mk, { side: mode === 'ds' ? THREE.DoubleSide : THREE.FrontSide }));
+      const m = new THREE.Mesh(merged, mk.startsWith('glow:') ? glow(mk.slice(5)) : mk.startsWith('#') || mk.startsWith('plain:') ? plain(mk.replace('plain:', '')) : mat(mk, { side: mode === 'ds' ? THREE.DoubleSide : THREE.FrontSide }));
+      if (mk.startsWith('glow:')) { m.castShadow = false; m.userData.noAO = true; }
       m.castShadow = cast; m.receiveShadow = true; m.name = 'kit:' + mk; group.add(m);
     }
     return group;
@@ -119,9 +121,9 @@ function door(K, x, y, z, ry, { w = 0.95, h = 1.95, paint = 'woodBlue', arch = f
   K.box('stone', w + 0.5, 0.12, 0.55, R(0, 0.02, 0.32), q, 0.04); // step
   void arch;
 }
-function windowSet(K, x, y, z, ry, { w = 0.72, h = 0.86, paint = 'woodBlue', open = 0.7 } = {}) {
+function windowSet(K, x, y, z, ry, { w = 0.72, h = 0.86, paint = 'woodBlue', open = 0.7, lit = false } = {}) {
   const q = new THREE.Euler(0, ry, 0); const R = (dx, dy, dz) => V(dx, dy, dz).applyEuler(q).add(V(x, y, z));
-  K.box('plain:#1e2430', w, h, 0.04, R(0, 0, -0.07), q, 0.01); // dark glass behind
+  K.box(lit ? 'glow:#ffb050' : 'plain:#1e2430', w, h, 0.04, R(0, 0, -0.07), q, 0.01); // glass behind: dark, or lamplit
   K.box(paint, 0.04, h, 0.05, R(0, 0, -0.04), q, 0.01); K.box(paint, w, 0.04, 0.05, R(0, h * 0.1, -0.04), q, 0.01); // muntins
   for (const s of [-1, 1]) K.box(paint, 0.07, h + 0.1, 0.1, R(s * (w / 2 + 0.035), 0, 0), q, 0.02); K.box(paint, w + 0.14, 0.07, 0.1, R(0, h / 2 + 0.035, 0), q, 0.02);
   K.box('marble', w + 0.34, 0.08, 0.3, R(0, -h / 2 - 0.05, 0.08), q, 0.03); // sill
@@ -134,22 +136,23 @@ function windowSet(K, x, y, z, ry, { w = 0.72, h = 0.86, paint = 'woodBlue', ope
 
 // ---------------------------------------------------------------- the cottage
 /** opts: w, d, h, roof 'gable'|'flat', paint, chimney, pergola, stairs. Origin = floor centre; front faces +z. Returns { group, smoke: [world-ish local points], flowers: [] } */
-export function cottage(seed = 1, { w = null, d = null, h = null, roof = null, paint = null, chimney = true, pergola = null, base = 0.5 } = {}) {
+export function cottage(seed = 1, { w = null, d = null, h = null, roof = null, paint = null, chimney = true, pergola = null, base = 0.5, walls = 'plaster', lit = false } = {}) {
   const r = mulberry32(seed * 97 + 11); w ??= 3.4 + r() * 1.4; d ??= 3.0 + r() * 0.9; h ??= 2.5 + r() * 0.5; roof ??= r() < 0.65 ? 'gable' : 'flat'; paint ??= r() < 0.6 ? 'woodBlue' : 'woodGreen'; pergola ??= r() < 0.4;
   const G = new THREE.Group(); G.name = 'cottage'; const K = new Kit(); const tiles = new Tiles(); const smoke = []; const greens = [];
   K.box('rubble', w + 0.22, 0.42 + base, d + 0.22, V(0, (0.42 - base) / 2 - 0.04, 0), null, 0.06); // rubble plinth
-  K.box('plaster', w, h, d, V(0, h / 2 + 0.17, 0), null, 0.09); // whitewashed walls
-  for (const s of [-1, 1]) for (const t of [-1, 1]) K.box('plaster', 0.18, h - 0.1, 0.18, V(s * (w / 2 - 0.02), h / 2 + 0.2, t * (d / 2 - 0.02)), null, 0.06); // softened corners
+  K.box(walls, w, h, d, V(0, h / 2 + 0.17, 0), null, 0.09); // whitewashed (or dressed-stone) walls
+  for (const s of [-1, 1]) for (const t of [-1, 1]) K.box(walls === 'plaster' ? 'plaster' : 'stone', 0.18, h - 0.1, 0.18, V(s * (w / 2 - 0.02), h / 2 + 0.2, t * (d / 2 - 0.02)), null, 0.06); // softened corners
   door(K, -w * 0.18 + (r() - 0.5) * 0.3, 0.17, d / 2 + 0.02, 0, { paint });
-  windowSet(K, w * 0.26, 0.17 + h * 0.55, d / 2 + 0.02, 0, { paint, open: 0.55 + r() * 0.4 });
-  windowSet(K, w / 2 + 0.02, 0.17 + h * 0.55, -d * 0.1, Math.PI / 2, { paint, open: 0.3 + r() * 0.6, w: 0.6, h: 0.72 });
-  windowSet(K, -w / 2 - 0.02, 0.17 + h * 0.55, d * 0.12, -Math.PI / 2, { paint, open: 0.8, w: 0.6, h: 0.72 });
+  windowSet(K, w * 0.26, 0.17 + h * 0.55, d / 2 + 0.02, 0, { paint, open: 0.55 + r() * 0.4, lit });
+  windowSet(K, w / 2 + 0.02, 0.17 + h * 0.55, -d * 0.1, Math.PI / 2, { paint, open: 0.3 + r() * 0.6, w: 0.6, h: 0.72, lit });
+  windowSet(K, -w / 2 - 0.02, 0.17 + h * 0.55, d * 0.12, -Math.PI / 2, { paint, open: 0.8, w: 0.6, h: 0.72, lit });
+  const lights = lit ? [V(w * 0.26, 0.17 + h * 0.55, d / 2 + 0.5), V(w / 2 + 0.5, 0.17 + h * 0.55, -d * 0.1)] : [];
   const top = h + 0.17;
   if (roof === 'gable') {
     const pitch = 0.42, over = 0.32, half = d / 2 + over; const rise = Math.tan(pitch) * half; const slopeLen = half / Math.cos(pitch);
     // gable ends: triangular plaster walls, then a dark underlay so no light leaks between the tiles
     const tri = new THREE.Shape([new THREE.Vector2(-d / 2, 0), new THREE.Vector2(d / 2, 0), new THREE.Vector2(0, Math.tan(pitch) * (d / 2))]); const tg = new THREE.ExtrudeGeometry(tri, { depth: w - 0.02, bevelEnabled: true, bevelSize: 0.04, bevelThickness: 0.04, bevelSegments: 2 }); tg.translate(0, 0, -(w - 0.02) / 2); tg.rotateY(Math.PI / 2);
-    K.add('plaster', tg, V(0, top - 0.02, 0));
+    K.add(walls, tg, V(0, top - 0.02, 0));
     for (const s of [-1, 1]) { const o = V(-w / 2 - over, top - 0.1, s * half); const up = V(0, rise, -s * half).normalize(); const along = V(1, 0, 0);
       K.box('plain:#6a3a26', w + over * 2, 0.06, slopeLen + 0.05, o.clone().add(V(w / 2 + over, rise / 2 + 0.02, -s * half / 2)), new THREE.Euler(s * pitch, 0, 0), 0.02);
       tiles.slope(o.clone(), along, up, w + over * 2, slopeLen, r);
@@ -174,7 +177,7 @@ export function cottage(seed = 1, { w = null, d = null, h = null, roof = null, p
     greens.push({ kind: 'vine', x: -w / 4, y: 2.25, z: pz - 0.35, s: 1.1 }, { kind: 'vine', x: w / 4, y: 2.3, z: pz - 0.6, s: 1.0 }); }
   greens.push({ kind: r() < 0.5 ? 'oleander' : 'myrtle', x: -w / 2 - 0.3, y: 0, z: d / 2 + 0.2, s: 1.0 + r() * 0.3 });
   K.build(G); G.add(tiles.build());
-  return { group: G, smoke, greens, size: [w + 0.6, d + 0.6] };
+  return { group: G, smoke, greens, lights, size: [w + 0.6, d + 0.6] };
 }
 
 // ---------------------------------------------------------------- windmill (Mykonos style)

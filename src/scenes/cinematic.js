@@ -117,6 +117,7 @@ export class Director {
     const eat = () => true;
     this.handler = input.push({ modal: true, click: () => { this.skip(); return true; }, key: (e) => { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape') this.skip(); return true; }, down: eat, move: eat, dragstart: eat, drag: eat, dragend: eat, wheel: eat });
     this.done = new Promise((r) => (this._res = r)); engine.add(this); window.__cine = this; this.bars?.show();
+    if (/[?&]cinehold\b/.test(location.search)) this.speed = 0; // debug / capture: start paused, driven by seek()
   }
   get W() { return this.engine.uiW; } get H() { return this.engine.uiH; } get band() { return this.H * BAND; }
   at(t, fn) { this.cues.push({ t, fn }); this.cues.sort((a, b) => a.t - b.t); return this; }
@@ -172,7 +173,7 @@ function crane(rig, p0, l0, p1, l1, u, fov0, fov1) {
 export class PuppetGait {
   constructor(prof) {
     this.prof = prof; this.phase = 0; this.k = 0; this.spd = 0; this.lastStep = 0; this.off = {}; this.patched = [];
-    const L = prof.legs, A = prof.arms;
+    const L = prof.legs || [], A = prof.arms || [];
     const wrap = (key, target) => { if (!target?.set) return; const orig = target.set; const off = this.off; target.set = function (x, y, z, w) { const d = off[key]; return d ? orig.call(this, x + d[0], y + d[1], z + d[2], w) : orig.call(this, x, y, z, w); }; this.patched.push(target); };
     wrap('hipL', L[1]?.hip.rotation); wrap('hipR', L[0]?.hip.rotation); wrap('knL', L[1]?.kn.rotation); wrap('knR', L[0]?.kn.rotation); wrap('anL', L[1]?.an.rotation); wrap('anR', L[0]?.an.rotation);
     wrap('shL', A[1]?.sh.rotation); wrap('elL', A[1] && A[1].el !== A[1].sh ? A[1].el.rotation : null); wrap('shR', A[0]?.sh.rotation);

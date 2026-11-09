@@ -60,7 +60,7 @@ export const PLACES = {
       ctx.add(fence([[-36, 14], [-31, 13.2], [-26, 13.6], [-21.5, 12.4]], ctx.hAt, 8), 0, 0, { abs: true }); ctx.add(shrine(5), -14.8, 14.6, { ry: 2.4, foot: 0.6 });
       for (let i = 0; i < 6; i++) ctx.model(['rock_moss_set_01', 'rock_moss_set_02'][i % 2], -18 + r() * 34, -4 - r() * 5, { s: 0.55 + r() * 0.5, y: -0.1 });
       ctx.model('wine_barrel_01', 8.4, -3.4, { s: 1.4 }); ctx.model('antique_ceramic_vase_01', -7.8, -3.3, { s: 2.4 });
-      ctx.drifts(['poppy', 'poppy', 'daisy', 'cornflower', 'lavender', 'clover'], 26);
+      ctx.drifts(['poppy', 'poppy', 'daisy', 'buttercup', 'cornflower', 'lavender', 'clover'], 30);
       ctx.pasture = { x: [-16, -9.6], z: [-8.8, -5] };
     },
   },
@@ -82,7 +82,7 @@ export const PLACES = {
       woods(ctx, 26, box(0, -44, 60, 8), { mix: MIX.garden, gap: 3 }); farBelt(ctx, 50, MIX.garden, { z0: -48, z1: -64 }); roadside(ctx, MIX.garden);
       woods(ctx, 10, box(-22, -10, 10, 6), { mix: MIX.garden, gap: 3 }); woods(ctx, 8, box(20, -9, 8, 6), { mix: MIX.garden, gap: 3 });
       ctx.house(77, -30, 21.5, 2.3, { roof: 'flat' }); ctx.add(shrine(7), -13.5, 14.4, { ry: 2.4, foot: 0.6 });
-      ctx.drifts(['daisy', 'poppy', 'lavender', 'narcissus', 'clover'], 22);
+      ctx.drifts(['daisy', 'poppy', 'buttercup', 'lavender', 'narcissus', 'clover'], 24);
     },
   },
   // a clearing deep in a pine and oak forest, a stream under a plank bridge, boulders and a cliff behind

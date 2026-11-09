@@ -32,9 +32,14 @@ class Game {
   async boot() {
     bootMsg('Loading fonts…', 10);
     await Promise.all(['16px "Alagard"', '32px "Alagard"', '700 40px "Pixelify"', '32px "VT323"', '700 22px "Silkscreen"', '400 22px "Silkscreen"', '40px "Caveat"', '700 18px "Caveat"', '40px "HomemadeApple"', '40px "Jacquard"', '24px "Jacquard"', '8px "Tiny5"', '400 8px "Silkscreen"'].map((f) => document.fonts.load(f).catch(() => {})));
+    const q = new URLSearchParams(location.search);
+    if (!q.get('battle') && !q.get('node')) { // the orchard loading screen: Newton sleeps while everything else preloads behind him
+      bootMsg('Waking the orchard…', 60); const pre = this.preload();
+      await this.toMenu({ intro: true, preload: pre });
+      requestAnimationFrame(() => setTimeout(() => $('boot').classList.add('gone'), 200)); return;
+    }
     bootMsg('Tuning gravity strings…', 40); await audio.init();
     bootMsg('Convincing the gods…', 80);
-    const q = new URLSearchParams(location.search);
     $('boot').classList.add('gone');
     if (q.get('battle')) return this.debugBattle(q.get('battle').split(','), q.get('kind') || 'normal');
     if (q.get('node')) { this.run = newRun(Number(q.get('seed')) || 1234); attachRun?.(this.run, this.journal); const n = Object.values(this.run.map.nodes).find((x) => x.type === q.get('node')); if (n) return this.enterNode(n.id); }
@@ -49,10 +54,22 @@ class Game {
     console.info('battle result', res);
   }
 
-  async toMenu() {
+  // background preload behind the loading screen: audio, scene modules, the stages' models / ground sets / skies (paced, with progress)
+  preload() {
+    let done = 0, total = 1; const self = this;
+    const promise = (async () => {
+      const { preloadTasks } = await import('./models/realworld.js');
+      const tasks = [() => audio.init(), () => import('./scenes/mapscene.js'), () => import('./scenes/event.js'), () => import('./scenes/journal.js'), ...preloadTasks(self.engine.renderer)];
+      total = tasks.length; let i = 0;
+      const worker = async () => { while (i < tasks.length) { const t = tasks[i++]; try { await t(); } catch (e) { console.warn('preload', e); } done++; } };
+      await Promise.all([worker(), worker(), worker()]);
+    })().catch((e) => console.warn('preload failed', e));
+    return { promise, progress: () => done / total };
+  }
+  async toMenu(opts = {}) {
     const { MenuScene } = await import('./scenes/menu.js');
-    if (this.scene) return this.swap(async () => { this.scene = new MenuScene(this); await this.scene.enter(); }, { color: 0x07050d });
-    this.scene = new MenuScene(this); await this.scene.enter();
+    if (this.scene) return this.swap(async () => { this.scene = new MenuScene(this); await this.scene.enter(opts); }, { color: 0x07050d });
+    this.scene = new MenuScene(this); await this.scene.enter(opts);
   }
   async newRun() {
     save.clearRun(); this.run = newRun(); this.journal.loops++; this.saveJournal();

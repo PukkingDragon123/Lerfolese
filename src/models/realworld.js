@@ -6,7 +6,7 @@
 // A polished winding road (ruts, worn cobbles, edge stones, sky puddles, wildflowers) comes from far behind the
 // battle camera into the arena (stage.road, for the intro cinematics). Wind moves every leaf, blade and sheet.
 import * as THREE from 'three';
-import { loadModel, loadPBR, loadHDRI, variantCount, hdriSunDirection } from '../gfx/assets.js';
+import { loadModel, loadGLTF, loadPBR, loadHDRI, variantCount, hdriSunDirection } from '../gfx/assets.js';
 import { mulberry32 } from '../core/util.js';
 import { makeNoise } from '../gfx/pixel.js';
 import { Particles } from '../gfx/particles.js';
@@ -86,7 +86,7 @@ function windMotes(theme, hAt) {
 }
 
 // layered distant ridges fading into the haze (smooth silhouettes, vertex-colour aerial perspective)
-function ridges(sunDir, haze, cols) {
+export function ridges(sunDir, haze, cols) {
   const g = new THREE.Group(); const sunAz = Math.atan2(sunDir.x, -sunDir.z); const cx = -6, cz = 6;
   [[118, 3.6, 8, 0.5], [150, 5.5, 12, 0.32], [176, 7.5, 15, 0.16]].reverse().forEach(([R, h0, h1, k], li) => {
     const n = makeNoise(31 + li); const seg = 360; const pos = [], col = [], idx = []; const top = new THREE.Color(cols[li]), hz = new THREE.Color(haze);
@@ -167,7 +167,8 @@ function dragonflies(n, area, hY) {
 // ---------------------------------------------------------------- battle / event / travel stage
 const GRASS = { meadow: 'meadow', garden: 'lush', gully: 'meadow', labyrinth: 'dry', marsh: 'marsh', guardian: 'dusk' };
 const FIELD = { meadow: '#6a9a3a', garden: '#5a9a3e', gully: '#5e8a3a', labyrinth: '#a49656', marsh: '#5a7a46', guardian: '#8a7c4a' };
-const FLOWER_SIZE = { poppy: [0.42, 0.62], daisy: [0.28, 0.42], cornflower: [0.4, 0.56], lavender: [0.55, 0.8], narcissus: [0.34, 0.46], clover: [0.18, 0.26] };
+const FLOWER_SIZE = { poppy: [0.42, 0.62], daisy: [0.28, 0.42], cornflower: [0.4, 0.56], lavender: [0.55, 0.8], narcissus: [0.34, 0.46], clover: [0.18, 0.26], buttercup: [0.26, 0.4] };
+const WILD = { meadow: ['poppy', 'daisy', 'buttercup', 'cornflower', 'lavender', 'clover'], garden: ['daisy', 'buttercup', 'poppy', 'lavender', 'narcissus'], gully: ['daisy', 'buttercup', 'cornflower', 'clover'], labyrinth: ['lavender', 'cornflower', 'poppy'], marsh: ['buttercup', 'daisy', 'clover'], guardian: ['lavender', 'poppy', 'buttercup'] };
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const ARENA_C = [0.3, 0.8], ARENA_R = [9.2, 3.0];
 const arenaD = (x, z) => Math.hypot((x - ARENA_C[0]) / ARENA_R[0], (z - ARENA_C[1]) / ARENA_R[1]);
@@ -219,8 +220,8 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   // ---- the living layer: woods, bushes, reeds, lilies, flowers and the cel grass
   g.add(ctx.grove.build()); for (const p of ctx.grove.perches(10)) { g.add(p); trees.push(p); }
   if (ctx.padSpots.length) g.add(F.lilyPads(ctx.padSpots)); if (ctx.reedSpots.length) g.add(F.reeds(ctx.reedSpots));
+  const grass = grassField(ctx, theme, L); g.add(grass);
   for (const [kind, spots] of Object.entries(ctx.flowerSpots)) if (spots.length) g.add(F.celFlowers(kind, spots));
-  g.add(grassField(ctx, theme, L));
   g.add(windMotes(theme, hAt));
   await Promise.all(jobs);
   // vertex AO on the ground: darker under trees, rocks, houses and ruins
@@ -286,7 +287,17 @@ function grassField(ctx, theme, L) {
     const fore = z > 3 ? 0.62 : 1; const h = (rim ? 0.24 + r() * 0.14 : (0.42 + r() * 0.38) * (0.75 + patch * 0.5)) * fore * hk; spots.push([x, hAt(x, z) - 0.03, z, h, r() < dry * (0.4 + patch) ? 0.5 + r() * 0.5 : r() * 0.15, rim ? 0.9 : 1.15]); };
   for (let gz = -24; gz < 7 && spots.length < MAX * 0.72; gz += 0.42) for (let gx = -24; gx < 24; gx += 0.42) { const x = gx + (r() - 0.5) * 0.42, z = gz + (r() - 0.5) * 0.42; const far = z < -12 ? (z < -18 ? 0.35 : 0.6) : 1; if (r() > far) continue; add(x, z, z < -14 ? 1.3 : 1); }
   for (let i = 0; i < 9000 && spots.length < MAX; i++) { const q = ctx.roadPts[Math.floor(r() * ctx.roadPts.length)]; if (!q) break; const x = q.x + (r() - 0.5) * 22, z = q.z + (r() - 0.5) * 22; if (z < 7) continue; add(x, z, 1.1); }
-  void theme; return F.celGrass(spots, { pal: F.GRASS_PAL[GRASS[theme] || 'meadow'], seed: ctx.seed });
+  // wildflowers sprinkled through the grass in loose patches
+  const nF = makeNoise(ctx.seed + 19); const wild = WILD[theme] || WILD.meadow; for (const [x, , z] of spots) { const f = nF.fbm(x * 0.18 + 5, z * 0.18, 3); if (f > 0.58 && r() < 0.16 * (f - 0.5) * 6) ctx.flower(wild[Math.floor(nF.fbm(x * 0.05, z * 0.05 + 9, 2) * wild.length * 1.6) % wild.length], x + (r() - 0.5) * 0.3, z + (r() - 0.5) * 0.3); }
+  return F.celGrass(spots, { pal: F.GRASS_PAL[GRASS[theme] || 'meadow'], seed: ctx.seed, sun: SUN_SKY, lodAt: (x, z) => Math.hypot(x - CAM.x, z - CAM.z) < 19 || (z > 6 && ctx.roadD(x, z) < 7) });
+}
+
+// ---------------------------------------------------------------- background preload (loading screen): the CC0 models, ground sets and
+// skies the stages use, as a list of tasks so the loader can pace them and report progress
+export function preloadTasks(renderer) {
+  const models = ['rock_moss_set_01', 'rock_moss_set_02', 'namaqualand_boulder_05', 'greek_column', 'marble_bust_01', 'horse_statue_01', 'lion_head', 'antique_ceramic_vase_01', 'ceramic_vase_04', 'wine_barrel_01', 'stone_fire_pit', 'fern_02', 'nettle_plant', 'tree_stump_01', 'dead_tree_trunk_02', 'rock_face_02', 'stone_wall_kit', 'bull_head', 'dry_branches_medium_01', 'wicker_basket_01', 'wooden_crate_01', 'round_wooden_table_01', 'brass_goblets', 'wine_bottles_01'];
+  const sets = [['ground_meadow', 44], ['ground_dry_grass', 8], ['ground_rocky_trail', 44], ['ground_dry_dirt', 44], ['ground_dry_grass', 44], ['mud_mossy', 44], ['mud_wet', 8]];
+  return [...models.map((m) => () => loadGLTF(m)), ...sets.map(([n, r]) => () => loadPBR(n, { repeat: r })), ...(renderer ? ['sunset_dry_plain', 'golden_dry_valley'].map((h) => () => loadHDRI(h, renderer)) : [])];
 }
 
 // ---------------------------------------------------------------- fire pit: the detailed stone ring with soft living flames

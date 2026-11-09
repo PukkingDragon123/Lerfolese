@@ -203,9 +203,9 @@ export const woodMat = (kind, sway = 1) => swayMat('wood:' + kind, { map: barkTe
 
 // ---------------------------------------------------------------- species
 const TREE = {
-  olive(r, lod) { // gnarled, twisting trunk splitting into leaders; a wide, broken silver-green crown
+  olive(r, lod, { trunk = 1, leaf = 'olive', card = 1 } = {}) { // gnarled, twisting trunk splitting into leaders; a wide, broken silver-green crown
     const W = new Acc(), F = new Acc(); const sd = lod ? 5 : 9; const tips = [];
-    const tr = grow(W, r, V(), V((r() - 0.5) * 0.5, 1, (r() - 0.5) * 0.5), 1.3 + r() * 0.6, 0.32, 0.2, 6, { bend: 0.22, sides: sd, gnarl: 0.3, flare: 0.5 });
+    const tr = grow(W, r, V(), V((r() - 0.5) * 0.5 / trunk, 1, (r() - 0.5) * 0.5 / trunk), (1.3 + r() * 0.6) * trunk, 0.32, 0.2, 6, { bend: 0.22 / trunk, sides: sd, gnarl: 0.3, flare: 0.5 });
     const nL = 2 + (r() < 0.6 ? 1 : 0);
     for (let i = 0; i < nL; i++) {
       const a = at(tr, 0.78 + r() * 0.22); const L = grow(W, r, a.p, spread(a.d, 0.5 + r() * 0.35, r, (i / nL) * 6.28 + r()), 1.4 + r() * 0.8, a.r * 0.78, 0.06, 5, { bend: 0.28, up: 0.06, sides: sd - 2, gnarl: 0.18 });
@@ -213,8 +213,8 @@ const TREE = {
       tips.push(L.pts.at(-1));
     }
     const cc = tips.reduce((s, p) => s.add(p), V()).multiplyScalar(1 / tips.length); cc.y -= 0.4;
-    for (const t of tips) clump(F, t, V(1.05, 0.72, 1.05).multiplyScalar(0.85 + r() * 0.35), lod ? 13 : 32, lod ? 1.8 : 1.25, cc, r);
-    return { wood: W.geo(), leaves: F.geo(), leaf: 'olive', bark: 'olive' };
+    for (const t of tips) clump(F, t, V(1.05, 0.72, 1.05).multiplyScalar(0.85 + r() * 0.35), Math.round((lod ? 13 : 32) / Math.min(1, card)), (lod ? 1.8 : 1.25) * card, cc, r);
+    return { wood: W.geo(), leaves: F.geo(), leaf, bark: 'olive' };
   },
   oak(r, lod, leaf = 'oak') { // stout buttressed trunk, spreading limbs, a big rounded crown of lobed leaves
     const W = new Acc(), F = new Acc(); const sd = lod ? 5 : 10; const tips = [];
@@ -270,8 +270,8 @@ const TREE = {
     return { wood: W.geo(), leaves: F.geo(), leaf: 'cypress', bark: 'cypress' };
   },
   laurel(r, lod) { return { ...TREE.oak(r, lod, 'laurel'), leaf: 'laurel' }; },
-  apple(r, lod) { const t = TREE.olive(r, lod); return { ...t, leaf: 'apple', bark: 'oak' }; },
-  golden(r, lod) { const t = TREE.olive(r, lod); return { ...t, leaf: 'golden', bark: 'olive' }; },
+  apple(r, lod) { return { ...TREE.olive(r, lod, { trunk: 1.45, leaf: 'apple', card: 0.8 }), bark: 'oak' }; },
+  golden(r, lod) { return TREE.olive(r, lod, { trunk: 1.3, leaf: 'golden', card: 0.85 }); },
 };
 const BUSH = { // low mounds of clumps on short stems; flowering kinds carry blossoms in their atlas
   bush(r, lod, leaf = 'bush', size = 1) {
@@ -334,64 +334,89 @@ export const GRASS_PAL = {
   meadow: ['#24501f', '#3c842c', '#86c046', '#e8f2a0'], lush: ['#1f4a26', '#33803a', '#78c050', '#e2f4a8'], dry: ['#5a6a2a', '#97a046', '#e0d27a', '#fff2c0'],
   marsh: ['#2a4a30', '#4a7a40', '#9ab860', '#eef0c0'], reed: ['#3a5a2a', '#6a8a3a', '#c8c070', '#fff4c8'], dusk: ['#3a4a2a', '#6a7a36', '#c4b25a', '#ffe0a8'],
 };
-function tuftGeometry(blades = 7, segs = 4, { width = 0.05, lean = 0.32, seed = 3 } = {}) {
-  const r = mulberry32(seed); const A = new Acc(); const white = C('#ffffff');
+// a tuft: fine blades growing from 2-3 sub-clumps, varied heights, leaning outwards; per-blade attributes drive their
+// own flutter and stiffness. uv.y = position along the blade, uv.x = a per-blade seed.
+function tuftGeometry(blades = 11, segs = 5, { width = 0.032, lean = 0.32, seed = 3 } = {}) {
+  const r = mulberry32(seed); const P = [], N = [], U = [], B = [], I = [];
+  const clumps = Array.from({ length: 2 + (r() < 0.5 ? 1 : 0) }, () => [(r() - 0.5) * 0.2, (r() - 0.5) * 0.2]);
   for (let b = 0; b < blades; b++) {
-    const az = (b / blades) * 6.28 + r() * 0.6; const h = 0.55 + r() * 0.45; const ln = lean * (0.4 + r() * 0.8); const ox = Math.cos(az) * 0.06 * r(), oz = Math.sin(az) * 0.06 * r(); const w = width * (0.75 + r() * 0.5); const fold = (r() - 0.5) * 0.8; const seedU = r();
-    const dir = V(Math.cos(az), 0, Math.sin(az)); const side = V(-dir.z, 0, dir.x).applyAxisAngle(dir, 0).applyAxisAngle(V(0, 1, 0), fold);
-    const b0 = A.count;
+    const [cx, cz] = clumps[b % clumps.length]; const ox = cx + (r() - 0.5) * 0.05, oz = cz + (r() - 0.5) * 0.05;
+    const az = Math.atan2(oz, ox) + (r() - 0.5) * 1.6; const h = 0.45 + Math.pow(r(), 0.7) * 0.55; const ln = lean * (0.3 + r() * 0.9); const w = width * (0.7 + r() * 0.6); const fold = (r() - 0.5) * 0.9; const sd = r(), ph = r(), stiff = 0.7 + r() * 0.7;
+    const dir = V(Math.cos(az), 0, Math.sin(az)); const side = V(-dir.z, 0, dir.x).applyAxisAngle(V(0, 1, 0), fold); const b0 = P.length / 3;
     for (let i = 0; i <= segs; i++) {
-      const t = i / segs; const ww = w * Math.pow(1 - t, 0.85) + 0.002; const y = h * t; const off = ln * t * t * h;
-      const c = V(ox, y, oz).addScaledVector(dir, off); const n = V(0, 1, 0);
-      A.vert(c.clone().addScaledVector(side, -ww), n, seedU, t, white, 0); A.vert(c.clone().addScaledVector(side, ww), n, seedU, t, white, 0);
-      if (i < segs) { const a = b0 + i * 2; A.i.push(a, a + 1, a + 3, a, a + 3, a + 2); }
+      const t = i / segs; const ww = w * Math.pow(1 - t, 0.75) + 0.0015; const y = h * t; const off = ln * t * t * h; const c = V(ox, y, oz).addScaledVector(dir, off);
+      for (const sgn of [-1, 1]) { const q = c.clone().addScaledVector(side, sgn * ww); P.push(q.x, q.y, q.z); N.push(0, 1, 0); U.push(sd, t); B.push(ph, stiff, h, sgn); }
+      if (i < segs) { const a = b0 + i * 2; I.push(a, a + 1, a + 3, a, a + 3, a + 2); }
     }
   }
-  return A.geo();
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.setAttribute('aBlade', new THREE.Float32BufferAttribute(B, 4)); g.setIndex(I); g.computeBoundingSphere(); return g;
 }
-const GRASS_VERT = `
+// wind field shared by grass and flowers: travelling waves + gusts; each blade adds its own flutter (aBlade), and the
+// pointer and up to 6 characters (scene.userData.grassPushers, or the professor / creatures found in the scene) part it
+const PUSH = Array.from({ length: 6 }, () => new THREE.Vector4(0, 0, 0, 0));
+const WIND_FIELD = `
   mat4 gIM = instanceMatrix;
   vec4 groot = modelMatrix * gIM * vec4(0.0, 0.0, 0.0, 1.0);
   vec4 gw = modelMatrix * gIM * vec4(transformed, 1.0);
-  float gk = uv.y * uv.y; float gh = max(0.0, gw.y - groot.y);
+  float gh = max(0.0, gw.y - groot.y);
   float gph = dot(groot.xz, uWindDir); vec2 gperp = vec2(-uWindDir.y, uWindDir.x);
   float gwave = 0.5 + 0.5 * sin(gph * 0.42 - uTime * 1.9 + sin(dot(groot.xz, gperp) * 0.13 + uTime * 0.3) * 1.6);
   gwave = gwave * gwave * (0.75 + 0.25 * sin(dot(groot.xz, gperp) * 0.31 - uTime * 0.5));
   float ggust = pow(0.5 + 0.5 * sin(gph * 0.09 - uTime * 0.55), 3.0);
-  vec2 goff = uWindDir * (0.12 + gwave * 0.62 + ggust * 0.4) * uWindAmp * uFlex + vec2(sin(uTime * 3.1 + dot(groot.xz, vec2(1.7, 2.3))), cos(uTime * 2.7 + groot.x * 3.1)) * 0.06 * uFlex;
-  vec2 gd = groot.xz - uPtr.xz; float gr = length(gd); goff += (gr > 0.001 ? gd / gr : vec2(0.0)) * smoothstep(uPtrR, 0.0, gr) * uPtrK;
-  gw.xz += goff * gk * gh; gw.y -= dot(goff, goff) * gk * gh * 0.42;
-  vGH = uv.y; vGSeed = uv.x; vGWave = gwave; vGW = gw.xyz;
+  vec2 goff = uWindDir * (0.12 + gwave * 0.62 + ggust * 0.4) * uWindAmp * uFlex;
+  vec2 gpd = groot.xz - uPtr.xz; float gpr = length(gpd); goff += (gpr > 0.001 ? gpd / gpr : vec2(0.0)) * smoothstep(uPtrR, 0.0, gpr) * uPtrK;
+  for (int i = 0; i < 6; i++) { vec4 PP = uPush[i]; if (PP.w <= 0.0) continue; vec2 pd = groot.xz - PP.xz; float pr = length(pd); goff += (pr > 0.001 ? pd / pr : vec2(0.0)) * smoothstep(PP.w, PP.w * 0.2, pr) * 1.5; }`;
+const GRASS_VERT = WIND_FIELD + `
+  float gst = 1.0 / aBlade.y; float gk = uv.y * uv.y;
+  vec2 gb = goff * gst + vec2(sin(uTime * (2.4 + aBlade.y) + aBlade.x * 6.283 + gph * 0.7), cos(uTime * (2.0 + aBlade.y * 0.7) + aBlade.x * 9.0)) * 0.08 * uFlex * gst * (0.5 + gwave);
+  gw.xz += gb * gk * gh; gw.y -= dot(gb, gb) * gk * gh * 0.42;
+  vGH = uv.y; vGSeed = uv.x; vGWave = gwave; vGW = gw.xyz; vGStreak = sin(dot(groot.xz, gperp) * 1.9 + gph * 0.6 - uTime * 1.2 + aBlade.x * 0.8);
   vec4 mvPosition = viewMatrix * gw; gl_Position = projectionMatrix * mvPosition;`;
 const GRASS_FRAG = `
-  float gb1 = smoothstep(0.26, 0.31, vGH + (vGSeed - 0.5) * 0.08), gb2 = smoothstep(0.6, 0.65, vGH + (vGSeed - 0.5) * 0.1);
-  vec3 gcol = mix(mix(uRoot, uMid, gb1), uTip, gb2);
+  float gh2 = vGH + (vGSeed - 0.5) * 0.08;
+  vec3 gcol = mix(mix(uRoot, uMid, smoothstep(0.24, 0.31, gh2)), uTip, smoothstep(0.58, 0.65, gh2));
+  gcol *= mix(0.9, 1.06, gh2);
   float gp = sin(vGW.x * 0.11 + sin(vGW.z * 0.07) * 2.0) * sin(vGW.z * 0.13 + vGW.x * 0.05) * 0.5 + 0.5;
   gcol = mix(gcol, gcol * vec3(1.08, 1.05, 0.84), smoothstep(0.55, 0.8, gp) * uPatch);
   gcol *= vColor;
-  gcol = mix(gcol, uSheen, smoothstep(0.55, 0.92, vGWave) * smoothstep(0.45, 0.95, vGH) * uSheenK);
+  vec3 gV = normalize(cameraPosition - vGW); float gback = pow(max(0.0, dot(-gV, uSunDir)), 6.0) * smoothstep(0.3, 1.0, gh2) * (0.6 + 0.4 * vGWave);
+  gcol = mix(gcol, uTrans, step(0.3, gback) * uTransK + smoothstep(0.05, 0.3, gback) * uTransK * 0.35); // backlit tips glow through
+  float gstr = smoothstep(0.55, 0.9, vGWave) * smoothstep(0.1, 0.6, vGStreak) * smoothstep(0.4, 0.95, gh2);
+  gcol = mix(gcol, uSheen, step(0.3, gstr) * uSheenK); // sheen streaks riding the wind waves
   diffuseColor.rgb = gcol;`;
-/** spots: [x, y, z, height, tint(0..1 dry mix), width] */
-export function celGrass(spots, { pal = GRASS_PAL.meadow, blades = 7, flex = 1, sheenK = 0.26, patch = 1, dry = GRASS_PAL.dry, width = 0.05, lean = 0.32, name = 'celGrass', seed = 3 } = {}) {
-  const geo = tuftGeometry(blades, 4, { width, lean, seed });
+const GRASS_HEAD = 'uniform float uTime; uniform vec2 uWindDir; uniform float uWindAmp; uniform vec3 uPtr; uniform float uPtrR; uniform float uPtrK; uniform float uFlex; uniform vec4 uPush[6];\n';
+const PUSHER_RX = /^(professor|satyr|kobalos|medusa|minotaur|hydra|centaur|harpy|cyclops|wolf|chimera|talos|spartoi)/;
+let pushScan = 0, pushList = [];
+function updatePushers(scene) {
+  const now = performance.now(); if (now - pushScan > 1000) { pushScan = now; pushList = scene?.userData.grassPushers || (scene ? scene.children.filter((o) => o.userData.grassPush || PUSHER_RX.test(o.name || '')) : []); }
+  const p = new THREE.Vector3(); for (let i = 0; i < 6; i++) { const o = pushList[i]; if (o && o.visible) { o.getWorldPosition(p); PUSH[i].set(p.x, p.y, p.z, o.userData.grassPushR || 0.9); } else PUSH[i].w = 0; }
+}
+/** spots: [x, y, z, height, tint(0..1 dry mix), width]. Returns a Group (near tufts of fine blades, far tufts of fewer). */
+export function celGrass(spots, { pal = GRASS_PAL.meadow, blades = 11, flex = 1, sheenK = 0.3, patch = 1, dry = GRASS_PAL.dry, width = 0.032, lean = 0.32, name = 'celGrass', seed = 3, sun = new THREE.Vector3(0.3, 0.12, -1), transK = 0.45, lodAt = null, lodNear = 16 } = {}) {
+  const U = { uTime: T.WIND.time, uWindDir: T.WIND.dir, uWindAmp: T.WIND.amp, uPtr: T.WIND.ptr, uPtrR: T.WIND.ptrR, uPtrK: T.WIND.ptrK, uPush: { value: PUSH }, uFlex: { value: flex }, uRoot: { value: C(pal[0]) }, uMid: { value: C(pal[1]) }, uTip: { value: C(pal[2]) }, uSheen: { value: C(pal[3]) }, uSheenK: { value: sheenK }, uPatch: { value: patch }, uTrans: { value: C(pal[2]).lerp(C('#f4f070'), 0.35).multiplyScalar(1.1) }, uTransK: { value: transK }, uSunDir: { value: sun.clone().normalize() } };
   const mat = new THREE.MeshToonMaterial({ side: THREE.DoubleSide, gradientMap: T.gradientMap([0.55, 0.8, 1.0]) });
-  const U = { uTime: T.WIND.time, uWindDir: T.WIND.dir, uWindAmp: T.WIND.amp, uPtr: T.WIND.ptr, uPtrR: T.WIND.ptrR, uPtrK: T.WIND.ptrK, uFlex: { value: flex }, uRoot: { value: C(pal[0]) }, uMid: { value: C(pal[1]) }, uTip: { value: C(pal[2]) }, uSheen: { value: C(pal[3]) }, uSheenK: { value: sheenK }, uPatch: { value: patch } };
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, U);
-    sh.vertexShader = 'uniform float uTime; uniform vec2 uWindDir; uniform float uWindAmp; uniform vec3 uPtr; uniform float uPtrR; uniform float uPtrK; uniform float uFlex;\nvarying float vGH; varying float vGSeed; varying float vGWave; varying vec3 vGW;\n' + sh.vertexShader.replace('#include <project_vertex>', GRASS_VERT);
-    sh.fragmentShader = 'uniform vec3 uRoot, uMid, uTip, uSheen; uniform float uSheenK, uPatch;\nvarying float vGH; varying float vGSeed; varying float vGWave; varying vec3 vGW;\n' + sh.fragmentShader
+    sh.vertexShader = GRASS_HEAD + 'attribute vec4 aBlade;\nvarying float vGH; varying float vGSeed; varying float vGWave; varying vec3 vGW; varying float vGStreak;\n' + sh.vertexShader.replace('#include <project_vertex>', GRASS_VERT);
+    sh.fragmentShader = 'uniform vec3 uRoot, uMid, uTip, uSheen, uTrans, uSunDir; uniform float uSheenK, uPatch, uTransK;\nvarying float vGH; varying float vGSeed; varying float vGWave; varying vec3 vGW; varying float vGStreak;\n' + sh.fragmentShader
       .replace('#include <color_fragment>', GRASS_FRAG)
       .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize((viewMatrix * vec4(0.12, 1.0, 0.1, 0.0)).xyz);');
   };
-  mat.customProgramCacheKey = () => 'celGrass';
-  const mesh = new THREE.InstancedMesh(geo, mat, Math.max(1, spots.length)); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = V(), p = V(), c = new THREE.Color(); const dryC = C(dry[2]).multiply(C(pal[2]).clone().addScalar(1e-3).setRGB(1 / Math.max(0.05, C(pal[2]).r), 1 / Math.max(0.05, C(pal[2]).g), 1 / Math.max(0.05, C(pal[2]).b)));
-  const r = mulberry32(seed * 13 + spots.length);
-  spots.forEach(([x, y, z, h, j = 0, w = 1], i) => {
-    q.setFromEuler(e.set((r() - 0.5) * 0.25, r() * 6.28, (r() - 0.5) * 0.25)); m4.compose(p.set(x, y, z), q, s.set(w * (0.8 + r() * 0.5), h, w * (0.8 + r() * 0.5))); mesh.setMatrixAt(i, m4);
-    c.setRGB(1, 1, 1).lerp(dryC, clamp(j, 0, 1) * 0.8).offsetHSL((r() - 0.5) * 0.03, 0, (r() - 0.5) * 0.08); mesh.setColorAt(i, c);
-  });
-  if (!spots.length) { mesh.setColorAt(0, c.setRGB(1, 1, 1)); mesh.count = 0; }
-  mesh.instanceMatrix.needsUpdate = true; mesh.receiveShadow = true; mesh.castShadow = false; mesh.frustumCulled = false; mesh.userData.noInk = true; mesh.userData.noAO = true; mesh.onBeforeRender = T.tickWind; mesh.name = name; return mesh;
+  mat.customProgramCacheKey = () => 'celGrass2';
+  const dryC = C(dry[2]); const tipC = C(pal[2]); dryC.setRGB(dryC.r / Math.max(0.05, tipC.r), dryC.g / Math.max(0.05, tipC.g), dryC.b / Math.max(0.05, tipC.b));
+  const isNear = typeof lodAt === 'function' ? lodAt : lodAt ? (x, z) => Math.hypot(x - lodAt.x, z - lodAt.z) <= lodNear : () => true;
+  const near = [], far = []; for (const sp of spots) (isNear(sp[0], sp[2]) ? near : far).push(sp);
+  const group = new THREE.Group(); group.name = name; const r = mulberry32(seed * 13 + spots.length);
+  const build = (list, geo, tag) => {
+    const mesh = new THREE.InstancedMesh(geo, mat, Math.max(1, list.length)); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), s = V(), p = V(), c = new THREE.Color();
+    list.forEach(([x, y, z, h, j = 0, w = 1], i) => { q.setFromEuler(e.set((r() - 0.5) * 0.2, r() * 6.28, (r() - 0.5) * 0.2)); const k = tag === 'far' ? 1.35 : 1; m4.compose(p.set(x, y, z), q, s.set(w * (0.8 + r() * 0.5) * k, h, w * (0.8 + r() * 0.5) * k)); mesh.setMatrixAt(i, m4); c.setRGB(1, 1, 1).lerp(dryC, clamp(j, 0, 1) * 0.8).offsetHSL((r() - 0.5) * 0.03, 0, (r() - 0.5) * 0.08); mesh.setColorAt(i, c); });
+    if (!list.length) { mesh.setColorAt(0, c.setRGB(1, 1, 1)); mesh.count = 0; }
+    mesh.instanceMatrix.needsUpdate = true; mesh.receiveShadow = true; mesh.castShadow = false; mesh.frustumCulled = false; mesh.userData.noInk = true; mesh.userData.noAO = true; mesh.name = name + ':' + tag;
+    mesh.onBeforeRender = (rd, scene) => { T.tickWind(); if (mesh.userData.frame !== rd.info.render.frame) { mesh.userData.frame = rd.info.render.frame; updatePushers(scene); } };
+    group.add(mesh);
+  };
+  build(near, tuftGeometry(blades, 5, { width, lean, seed }), 'near'); if (far.length) build(far, tuftGeometry(Math.max(4, Math.round(blades * 0.45)), 3, { width: width * 1.5, lean, seed: seed + 1 }), 'far');
+  return group;
 }
 
 // ---------------------------------------------------------------- 3D cel flowers (instanced; they bend with the same wind as the grass)
@@ -422,18 +447,24 @@ const FLOWER = {
   narcissus(seed) { const A = new Acc(); const top = stem(A, 1, '#5a8a40', { seed, r0: 0.02 }); blade(A, V(0, 0, 0), V(0.3, 1, 0.1).normalize(), 0.7, 0.035, '#3e6e30', '#6aa048', 4, 0.1);
     const fwd = V(0.15, 0.25, 1).normalize(); const up = fwd; for (let k = 0; k < 6; k++) { const a = (k / 6) * 6.28; const out = V().crossVectors(fwd, V(0, 1, 0)).normalize().applyAxisAngle(fwd, a); petal(A, top, out, up, 0.16, 0.07, 0.01, ['#e8e4c8', '#fffef0', '#ffffff'], { rows: 2, rings: 2 }); }
     for (let k = 0; k < 8; k++) { const a = (k / 8) * 6.28; const out = V().crossVectors(fwd, V(0, 1, 0)).normalize().applyAxisAngle(fwd, a).multiplyScalar(0.25).addScaledVector(fwd, 1).normalize(); petal(A, top, out, fwd, 0.08, 0.035, 0.0, ['#e07810', '#f8b020', '#ffd860'], { rows: 1, rings: 2 }); } return A.geo(); },
+  buttercup(seed) { const A = new Acc(); const top = stem(A, 1, '#5a8a34', { seed, r0: 0.016, bend: 0.1 }); for (let k = 0; k < 3; k++) blade(A, V(0, 0.04 + k * 0.03, 0), V(Math.cos(k * 2.1), 0.35, Math.sin(k * 2.1)).normalize(), 0.2, 0.06, '#3e7a2a', '#68a83e', 2, 0.15);
+    const up = V(0.1, 1, 0.2).normalize(); for (let k = 0; k < 5; k++) { const a = (k / 5) * 6.28; const out = V(Math.cos(a), 0, Math.sin(a)).addScaledVector(up, 0.75).normalize(); petal(A, top, out, up, 0.13, 0.085, 0.05, ['#b07a08', '#f8cc18', '#fff27a'], { rows: 2, rings: 3 }); } knob(A, top.clone().add(V(0, 0.015, 0)), 0.035, 0.035, ['#7a9a20', '#c8d040'], 6); return A.geo(); },
   clover(seed) { const A = new Acc(); const top = stem(A, 1, '#5a8a40', { seed, r0: 0.016 }); for (let k = 0; k < 3; k++) { const a = k * 2.09; blade(A, V(0, 0.35, 0), V(Math.cos(a), 0.3, Math.sin(a)).normalize(), 0.2, 0.07, '#3e7a2c', '#6aac44', 2, 0.1); } for (let k = 0; k < 12; k++) { const a = (k / 12) * 6.28; petal(A, top, V(Math.cos(a), 0.6, Math.sin(a)).normalize(), V(0, 1, 0), 0.06, 0.025, 0.02, ['#b04a7a', '#e88ab8', '#ffd0e4'], { rows: 1, rings: 1 }); } return A.geo(); },
 };
 export const FLOWER_KINDS = Object.keys(FLOWER);
 const FGEO = new Map();
-const FLOWER_VERT = GRASS_VERT.replace('float gk = uv.y * uv.y;', 'float gk = clamp(position.y, 0.0, 1.2); gk *= gk;').replace('vGH = uv.y; vGSeed = uv.x; vGWave = gwave; vGW = gw.xyz;', '');
+const FLOWER_VERT = WIND_FIELD + `
+  float gk = clamp(position.y, 0.0, 1.2); gk *= gk; float nod = dot(groot.xz, vec2(3.1, 2.3));
+  vec2 gb = goff * 0.8 + vec2(sin(uTime * 1.7 + nod), cos(uTime * 1.3 + nod * 1.7)) * 0.07 * uFlex;
+  gw.xz += gb * gk * gh; gw.y -= dot(gb, gb) * gk * gh * 0.42;
+  vec4 mvPosition = viewMatrix * gw; gl_Position = projectionMatrix * mvPosition;`;
 /** spots: [x, y, z, size] -- one InstancedMesh per kind */
 export function celFlowers(kind, spots, { flex = 0.8 } = {}) {
   if (!FGEO.has(kind)) FGEO.set(kind, (FLOWER[kind] || FLOWER.daisy)(kind.length * 7 + 3));
   const mat = new THREE.MeshToonMaterial({ vertexColors: true, side: THREE.DoubleSide, gradientMap: T.gradientMap([0.6, 0.84, 1.0]) });
   mat.onBeforeCompile = (sh) => {
-    Object.assign(sh.uniforms, { uTime: T.WIND.time, uWindDir: T.WIND.dir, uWindAmp: T.WIND.amp, uPtr: T.WIND.ptr, uPtrR: T.WIND.ptrR, uPtrK: T.WIND.ptrK, uFlex: { value: flex } });
-    sh.vertexShader = 'uniform float uTime; uniform vec2 uWindDir; uniform float uWindAmp; uniform vec3 uPtr; uniform float uPtrR; uniform float uPtrK; uniform float uFlex;\n' + sh.vertexShader.replace('#include <project_vertex>', FLOWER_VERT);
+    Object.assign(sh.uniforms, { uTime: T.WIND.time, uWindDir: T.WIND.dir, uWindAmp: T.WIND.amp, uPtr: T.WIND.ptr, uPtrR: T.WIND.ptrR, uPtrK: T.WIND.ptrK, uPush: { value: PUSH }, uFlex: { value: flex } });
+    sh.vertexShader = GRASS_HEAD + sh.vertexShader.replace('#include <project_vertex>', FLOWER_VERT);
     sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(normalize(vNormal) * 0.45 + (viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);');
   };
   mat.customProgramCacheKey = () => 'celFlower';
