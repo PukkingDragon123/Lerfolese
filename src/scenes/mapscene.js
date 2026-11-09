@@ -34,7 +34,7 @@ export class MapScene extends UIScreen {
     this.refreshNodes();
   }
   story() {
-    const lines = ['In 1687 a man published the laws of motion.', 'In 1688 the gods read them. They did not care for them.', 'Humanity had found the source code of the universe,', 'so the gods turned it off and on again. Forever.', 'One mind remembers every loop: Sir Isaac Plumb,', 'natural philosopher, deceased, still taking notes.', 'His body is gone. His marionette is not.'];
+    const lines = ['In 1687 a man published the laws of motion.', 'In 1688 the gods read them. They did not care for them.', 'Humanity had found the source code of the universe,', 'so the gods turned it off and on again. Forever.', 'One mind remembers every loop: young Isaac Newton,', 'natural philosopher, floating, still taking notes.', 'He has an apple. The gods should be worried.'];
     const st = (this.storyPanel = new Panel('The Loop', lines, { w: Math.min(17, this.W * 1.7), h: 9, titleColor: '#5a1a22' })); uiPos(st.group, 0, 0.6, 9); this.root.add(st.group); audio.play('paper_rustle');
     st.ty = st.group.position.y; st.seal = new Strip(['click to roll it up'], { font: 'handS', tone: 3, tacks: 0, maxW: 8 }); st.seal.group.position.set(0, -st.scroll.h / 2 - 0.75, 0.2); st.group.add(st.seal.group);
     clearTimeout(this._storyT); this._storyT = setTimeout(() => this.dismissStory(), 9000); // real time, not game time

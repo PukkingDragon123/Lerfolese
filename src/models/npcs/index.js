@@ -56,7 +56,7 @@ export function stageCast(scene, ev, hAt = () => 0) {
     case 'oracle': { const t = add(tripod(), 1.3, hAt(1.3, -0.9), -0.9, 0.3); t.scale.setScalar(1.15); put('pythia', BUILD.pythia(), 1.3, -0.9, -0.55, t.position.y + 0.56); break; }
     case 'sisyphus': { put('sisyphus', BUILD.sisyphus(), -0.75, 1.2, Math.PI - 0.25); const b = add(P3.stone({ seed: 12 }), -0.2, hAt(-0.2, 0.4) + 0.42, 0.4); b.scale.multiplyScalar(1.5); prop.boulder = b; break; }
     case 'pan': break; // the satyr band is spawned by the event itself (ev.npc)
-    case 'sphinx': put('sphinx', createSphinx(), 0.6, -1.2, -0.75); break;
+    case 'sphinx': { const sp = put('sphinx', createSphinx(), 1.5, 0.9, -1.25); sp.root.scale.setScalar(1.45); break; } // across the road, in front of the gate
     case 'narcissus': put('narcissus', BUILD.narcissus(), 2.0, 1.2, Math.PI + 0.9); break;
     case 'prometheus': { const p = put('prometheus', BUILD.prometheus(), 1.3, -4.0, -0.15); for (const s of [-1, 1]) add(chain(2.0), 1.3 + s * 1.15, hAt(1.3, -4.3) + 4.2, -4.3, 0); put('eagle', createEagle(), 5.4, -4.0, -1.2, hAt(5.6, -4.2) + 2.9); void p; break; }
     case 'archimedes': put('archimedes', BUILD.archimedes(), -0.6, 0.05, 0.4, 0.1); break;

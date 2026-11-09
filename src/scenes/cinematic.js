@@ -275,7 +275,7 @@ export function battleIntro(S, { onReveal = () => {} } = {}) {
   const settleProf = () => { walk.gait.dispose(); prof.root.position.copy(home); prof.root.rotation.y = homeRy; if (spiritOff) S.spirit.position.copy(home).add(spiritOff); };
   // chronicle lines
   const kind = S.encounter?.kind;
-  D.at(0.45, () => D.say(`And so the puppet philosopher came upon ${ROADS[S.theme] || ROADS.meadow}…`));
+  D.at(0.45, () => D.say(`And so the floating philosopher came upon ${ROADS[S.theme] || ROADS.meadow}…`));
   D.at(Math.max(2.4, walk.t1 - 1.3), () => D.say(kind === 'guardian' ? '…where the master of the Wilds awaited him.' : kind === 'elite' ? '…and there a most perilous foe barred his way.' : '…and found that he did not walk it alone.'));
   D.at(R0 - 0.1, () => { D.narr.clear(); audio.play('whoosh_soft', { vol: 0.6 }); });
   foes.forEach((f, i) => {

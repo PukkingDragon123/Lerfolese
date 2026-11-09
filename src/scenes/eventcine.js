@@ -28,7 +28,7 @@ class Film {
   at(t, fn) { this.D.at(t, fn); this.end = Math.max(this.end, t); return this; }
   track(t0, t1, fn) { const tr = { t0, t1, fn, done: false }; this.tracks.push(tr); this.end = Math.max(this.end, t1); return tr; }
   shot(t0, t1, cam, { cut = false, rp = 3.2, rl = 5 } = {}) { this.shots.push({ t0, t1, cam, cut, rp, rl }); this.end = Math.max(this.end, t1); return this; }
-  say(t, text) { return this.at(t, () => this.D.say(text)); }
+  say(t, text) { this.at(t, () => { this.curSay = t; this.D.say(text); }); return this.at(t + 4.6, () => { if (this.curSay === t) this.D.narr.clear(); }); } // a line stays ~4.5 s
   hush(t) { return this.at(t, () => this.D.narr.clear()); }
   speak(t, who, text, life = 2.6) {
     return this.at(t, () => {
@@ -60,17 +60,17 @@ class Film {
   puff(pos, kind = 'dust', n = 14) {
     const P = this.E.parts, G = this.E.glow; if (!P) return; const p = typeof pos === 'function' ? pos() : pos; const R = (a, b) => a + Math.random() * (b - a);
     const K = {
-      dust: () => P.burst(n, () => ({ pos: [p.x + R(-0.4, 0.4), p.y + 0.1, p.z + R(-0.3, 0.3)], vel: [R(-1.6, 1.6), R(0.3, 1.2), R(-0.8, 0.8)], life: R(0.5, 0.9), size: R(10, 18), size1: 4, color: '#c8b8a0', sprite: 'dot', grav: 2.5, drag: 1.4 })),
-      drip: () => P.burst(n, () => ({ pos: [p.x + R(-0.5, 0.5), p.y + R(-0.2, 0.3), p.z + R(-0.3, 0.3)], vel: [R(-0.3, 0.3), R(-1, 0), R(-0.3, 0.3)], life: R(0.8, 1.4), size: R(18, 26), color: '#f0c040', sprite: 'drop', grav: 9 })),
-      feather: () => P.burst(n, () => ({ pos: [p.x + R(-0.4, 0.4), p.y + R(0, 0.5), p.z], vel: [R(-1, 1), R(-0.2, 0.8), R(-0.5, 0.5)], life: R(1.6, 2.6), size: R(20, 30), color: '#f2e6c8', sprite: 'leaf', wobble: 1.4, spin: R(-3, 3), grav: 0.6 })),
-      steam: () => P.burst(n, () => ({ pos: [p.x + R(-0.3, 0.3), p.y, p.z + R(-0.3, 0.3)], vel: [R(-0.2, 0.2), R(0.6, 1.4), R(-0.2, 0.2)], life: R(1.4, 2.4), size: R(14, 22), size1: 30, color: '#ece4f4', alpha: 0.45, sprite: 'dot', wobble: 0.8, drag: 0.6 })),
-      fire: () => G?.burst(n, () => ({ pos: [p.x + R(-0.2, 0.2), p.y, p.z + R(-0.2, 0.2)], vel: [R(-0.5, 0.5), R(1.2, 2.6), R(-0.5, 0.5)], life: R(0.5, 1.0), size: R(28, 46), size1: 6, color: ['#ff9a3a', '#ffc45a', '#ff6a2a'][(Math.random() * 3) | 0], sprite: 'ember', grav: -1 })),
-      sparkle: () => G?.burst(n, () => ({ pos: [p.x + R(-0.4, 0.4), p.y + R(-0.3, 0.4), p.z + R(-0.3, 0.3)], vel: [R(-1, 1), R(0, 1.5), R(-0.5, 0.5)], life: R(0.6, 1.2), size: R(22, 36), color: ['#ffe08a', '#e8fbff', '#b48cff'][(Math.random() * 3) | 0], sprite: 'star4', drag: 1 })),
-      zap: () => G?.burst(n, () => ({ pos: [p.x, p.y, p.z], vel: [R(-4, 4), R(-2, 4), R(-2, 2)], life: R(0.2, 0.45), size: R(26, 40), color: ['#fff3b0', '#8fe3ff'][(Math.random() * 2) | 0], sprite: 'spark', drag: 3 })),
-      notes: () => P.burst(n, () => ({ pos: [p.x + R(-0.4, 0.4), p.y + R(0, 0.4), p.z], vel: [R(-0.6, 0.6), R(0.6, 1.4), 0], life: R(1.2, 2), size: R(26, 34), color: '#3a2410', sprite: 'note_p', wobble: 1.2 })),
-      splash: () => P.burst(n, () => ({ pos: [p.x + R(-0.4, 0.4), p.y, p.z + R(-0.3, 0.3)], vel: [R(-1.5, 1.5), R(2, 4.5), R(-1, 1)], life: R(0.6, 1.1), size: R(20, 30), color: '#9ad8f0', sprite: 'drop', grav: 12, floor: p.y - 0.05 })),
-      bubbles: () => P.burst(n, () => ({ pos: [p.x + R(-0.6, 0.6), p.y, p.z + R(-0.4, 0.4)], vel: [R(-0.1, 0.1), R(0.4, 0.9), 0], life: R(0.8, 1.6), size: R(16, 26), color: '#e8f8ff', sprite: 'bubble' })),
-      gold: () => G?.burst(n, () => ({ pos: [p.x, p.y, p.z], vel: [R(-1.5, 1.5), R(0.5, 2.5), R(-1, 1)], life: R(0.8, 1.4), size: R(24, 36), color: '#ffd23a', sprite: 'star4', drag: 1.2 })),
+      dust: () => P.burst(n, () => ({ pos: [p.x + R(-0.4, 0.4), p.y + 0.1, p.z + R(-0.3, 0.3)], vel: [R(-1.6, 1.6), R(0.3, 1.2), R(-0.8, 0.8)], life: R(0.5, 0.9), size: R(6, 10), size1: 4, color: '#c8b8a0', sprite: 'dot', grav: 2.5, drag: 1.4 })),
+      drip: () => P.burst(n, () => ({ pos: [p.x + R(-0.5, 0.5), p.y + R(-0.2, 0.3), p.z + R(-0.3, 0.3)], vel: [R(-0.3, 0.3), R(-1, 0), R(-0.3, 0.3)], life: R(0.8, 1.4), size: R(10, 14), color: '#f0c040', sprite: 'drop', grav: 9 })),
+      feather: () => P.burst(n, () => ({ pos: [p.x + R(-0.4, 0.4), p.y + R(0, 0.5), p.z], vel: [R(-1, 1), R(-0.2, 0.8), R(-0.5, 0.5)], life: R(1.6, 2.6), size: R(11, 16), color: '#f2e6c8', sprite: 'leaf', wobble: 1.4, spin: R(-3, 3), grav: 0.6 })),
+      steam: () => P.burst(n, () => ({ pos: [p.x + R(-0.3, 0.3), p.y, p.z + R(-0.3, 0.3)], vel: [R(-0.2, 0.2), R(0.6, 1.4), R(-0.2, 0.2)], life: R(1.4, 2.4), size: R(8, 12), size1: 30, color: '#ece4f4', alpha: 0.45, sprite: 'dot', wobble: 0.8, drag: 0.6 })),
+      fire: () => G?.burst(n, () => ({ pos: [p.x + R(-0.2, 0.2), p.y, p.z + R(-0.2, 0.2)], vel: [R(-0.5, 0.5), R(1.2, 2.6), R(-0.5, 0.5)], life: R(0.5, 1.0), size: R(15, 25), size1: 6, color: ['#ff9a3a', '#ffc45a', '#ff6a2a'][(Math.random() * 3) | 0], sprite: 'ember', grav: -1 })),
+      sparkle: () => G?.burst(n, () => ({ pos: [p.x + R(-0.4, 0.4), p.y + R(-0.3, 0.4), p.z + R(-0.3, 0.3)], vel: [R(-1, 1), R(0, 1.5), R(-0.5, 0.5)], life: R(0.6, 1.2), size: R(12, 20), color: ['#ffe08a', '#e8fbff', '#b48cff'][(Math.random() * 3) | 0], sprite: 'star4', drag: 1 })),
+      zap: () => G?.burst(n, () => ({ pos: [p.x, p.y, p.z], vel: [R(-4, 4), R(-2, 4), R(-2, 2)], life: R(0.2, 0.45), size: R(14, 22), color: ['#fff3b0', '#8fe3ff'][(Math.random() * 2) | 0], sprite: 'spark', drag: 3 })),
+      notes: () => P.burst(n, () => ({ pos: [p.x + R(-0.4, 0.4), p.y + R(0, 0.4), p.z], vel: [R(-0.6, 0.6), R(0.6, 1.4), 0], life: R(1.2, 2), size: R(14, 19), color: '#3a2410', sprite: 'note_p', wobble: 1.2 })),
+      splash: () => P.burst(n, () => ({ pos: [p.x + R(-0.4, 0.4), p.y, p.z + R(-0.3, 0.3)], vel: [R(-1.5, 1.5), R(2, 4.5), R(-1, 1)], life: R(0.6, 1.1), size: R(11, 16), color: '#9ad8f0', sprite: 'drop', grav: 12, floor: p.y - 0.05 })),
+      bubbles: () => P.burst(n, () => ({ pos: [p.x + R(-0.6, 0.6), p.y, p.z + R(-0.4, 0.4)], vel: [R(-0.1, 0.1), R(0.4, 0.9), 0], life: R(0.8, 1.6), size: R(9, 14), color: '#e8f8ff', sprite: 'bubble' })),
+      gold: () => G?.burst(n, () => ({ pos: [p.x, p.y, p.z], vel: [R(-1.5, 1.5), R(0.5, 2.5), R(-1, 1)], life: R(0.8, 1.4), size: R(13, 20), color: '#ffd23a', sprite: 'star4', drag: 1.2 })),
     };
     (K[kind] || K.dust)();
   }
@@ -78,7 +78,7 @@ class Film {
   // ---- camera framings
   toCam(p, side = 0) { const R = this.E.camBase; _a.set(R.x - p.x, 0, R.z - p.z).normalize(); return _a.applyAxisAngle(_b.set(0, 1, 0), side).clone(); }
   close(who, { d = 2.6, side = 0.35, up = 0.12, fov = 30, dy = 0 } = {}) { return () => { const h = this.head(who); const dir = this.toCam(h, side); return { p: h.clone().addScaledVector(dir, d).add(V(0, up, 0)), l: h.clone().add(V(0, dy, 0)), fov }; }; }
-  two(a, b, { d = 2.2, side = 0, up = 0.35, fov = 32, bias = 0.5 } = {}) { return () => { const ha = this.head(a), hb = this.head(b); const m = ha.clone().lerp(hb, bias); const span2 = ha.distanceTo(hb); const dir = this.toCam(m, side); return { p: m.clone().addScaledVector(dir, d + span2 * 1.15).add(V(0, up, 0)), l: m.clone().add(V(0, -0.1, 0)), fov }; }; }
+  two(a, b, { d = 2.2, side = 0, up = 0.35, fov = 32, bias = 0.5 } = {}) { return () => { const ha = this.head(a), hb = this.head(b); const m = ha.clone().lerp(hb, bias); const span2 = ha.distanceTo(hb); const dir = this.toCam(m, side); return { p: m.clone().addScaledVector(dir, d + span2 * 0.8).add(V(0, up, 0)), l: m.clone().add(V(0, -0.1, 0)), fov }; }; }
   fixed(p, l, fov = 34) { return () => ({ p, l, fov }); }
   // keep an actor in frame from an offset (it may fly anywhere): optionally look part-way towards another
   chase(who, off, { fov = 38, dy = 1.0, toward = null, k = 0.3 } = {}) { return () => { const r = this.actors[who]?.root; const p = r ? r.position.clone() : V(); const l = p.clone().add(V(0, dy, 0)); if (toward) l.lerp(this.head(toward), k); return { p: p.clone().add(off), l, fov }; }; }
@@ -139,7 +139,7 @@ const SCRIPTS = {
   },
   oracle: (F) => {
     const T = opening(F, 'And the road climbed to Delphi, where the god once spoke through smoke…');
-    F.shot(T, T + 2.8, F.close('pythia', { d: 4.2, side: -0.3, up: -0.4, fov: 34 }), { cut: true }); F.card(T + 0.4, 'pythia');
+    F.shot(T, T + 2.8, F.close('pythia', { d: 3.6, side: 0.6, up: -0.3, fov: 34 }), { cut: true }); F.card(T + 0.4, 'pythia');
     F.track(T, T + 6.5, (u, dt) => { if (Math.random() < dt * 8) F.puff(H(F, 1.3, -0.9, 1.1), 'steam', 2); });
     F.act(T + 0.6, 'pythia', 'cast'); F.speak(T + 0.9, 'pythia', 'Hear the word of Apollo: E… R… ROR.', 2.8); F.sfx(T + 1.2, 'steam_hiss');
     F.shot(T + 2.8, T + 5.4, F.close('pythia', { d: 2.2, side: 0.4, fov: 28 }), { cut: true }); F.act(T + 3.0, 'pythia', 'hurt'); F.puffAt(T + 3.0, H(F, 1.6, -1.5, 1.4), 'zap', 10); F.sfx(T + 3.0, 'electric_zap');
@@ -154,7 +154,7 @@ const SCRIPTS = {
       F.track(T + 3.9, T + 5.0, (u) => { const p = b.clone().lerp(a, ease.in(u)); rock.position.copy(p).add(V(0, 0.42 + Math.abs(Math.sin(u * 9)) * 0.15, 0)); rock.rotation.x += 0.12; if (u >= 1) { s.pose = 'stand'; } });
       F.at(T + 3.9, () => { s.act('hurt'); audio.play('boulder_roll'); });
     }
-    F.shot(T, T + 3.6, F.close('sisyphus', { d: 4.4, side: 0.9, up: 0.4, fov: 34 }), { cut: true }); F.card(T + 0.4, 'sisyphus');
+    F.shot(T, T + 3.6, F.close('sisyphus', { d: 4.4, side: -0.55, up: 0.3, fov: 34 }), { cut: true }); F.card(T + 0.4, 'sisyphus');
     F.speak(T + 1.2, 'sisyphus', 'Hnnngh… almost… ALMOST…', 2.2);
     F.shot(T + 3.6, T + 5.4, F.fixed(H(F, -3.0, 2.6, 1.4), H(F, 0.4, -1.4, 0.6), 36), { cut: true }); F.say(T + 3.7, 'And down it rolled, as it always had.');
     F.shot(T + 5.4, T + 7.8, F.two('newton', 'sisyphus', { d: 2.4 }), { cut: true }); F.faceTo(T + 5.4, 'sisyphus', 'newton');
@@ -175,15 +175,15 @@ const SCRIPTS = {
     const ic = F.actor('icarus'); if (!ic) return; const crag = ic.root.position.clone(); const sun = F.E.stage?.sunPos ? F.E.stage.sunPos.clone() : V(40, 30, -150);
     const toSun = sun.clone().sub(crag).normalize(); const apex = crag.clone().addScaledVector(toSun, 16); apex.y = Math.max(apex.y, crag.y + 9); const land = H(F, -2.7, 0.5, 0);
     F.pose(0, 'icarus', 'stretch');
-    F.shot(T, T + 2.2, () => ({ p: crag.clone().add(V(-2.2, 0.6, 4.4)), l: crag.clone().add(V(0, 1.3, 0)), fov: 32 }), { cut: true }); F.card(T + 0.3, 'icarus');
+    F.shot(T, T + 2.2, () => ({ p: crag.clone().add(V(1.4, 2.6, 5.0)), l: crag.clone().add(V(0, 1.2, 0)), fov: 32 }), { cut: true }); F.card(T + 0.3, 'icarus'); // from above the ramp's rails
     F.speak(T + 0.4, 'icarus', 'Dad says not to fly near the sun. Dad says a LOT of things.', 2.4);
     F.pose(T + 2.0, 'icarus', 'fly'); F.sfx(T + 2.1, 'whoosh_heavy'); F.puffAt(T + 2.1, crag.clone().add(V(0, 0.2, 0)), 'dust', 12);
     F.fly(T + 2.1, T + 5.0, 'icarus', crag.clone().add(V(0, 0.4, 0)), crag.clone().lerp(apex, 0.5).add(V(0, 4, 0)), apex, { e: ease.out });
-    F.shot(T + 2.2, T + 5.0, F.chase('icarus', V(-3.6, -1.4, 5.6), { fov: 40, dy: 1.2 }), { cut: true, rp: 2.6, rl: 9 }); F.say(T + 2.4, 'Up he went, higher and higher, until the Sun himself took notice…');
+    F.shot(T + 2.2, T + 5.0, F.chase('icarus', V(-3.6, -1.4, 5.6), { fov: 40, dy: 1.2 }), { cut: true, rp: 6, rl: 16 }); F.say(T + 2.4, 'Up he went, higher and higher, until the Sun himself took notice…');
     F.track(T + 3.8, T + 6.6, (u, dt) => { if (Math.random() < dt * 22) F.puff(ic.root.position.clone().add(V(0, 1.3, 0)), 'drip', 2); if (Math.random() < dt * 6) F.puff(ic.root.position.clone().add(V(0, 1.4, 0)), 'feather', 1); });
     F.sfx(T + 4.6, 'sizzle'); F.pose(T + 5.0, 'icarus', 'fall'); F.speak(T + 5.0, 'icarus', 'Uh-oh.', 1.4); F.say(T + 5.1, '…and his wax began to weep.');
     F.fly(T + 5.0, T + 6.6, 'icarus', apex, apex.clone().lerp(land, 0.4).add(V(0, 3, 0)), land, { e: ease.in, spin: [Math.PI * 2, 0.6], face: false });
-    F.shot(T + 5.0, T + 6.6, F.chase('icarus', V(2.6, -1.8, 6.4), { fov: 42, dy: 1.0, toward: 'newton', k: 0.15 }), { cut: true, rl: 10, rp: 3.4 });
+    F.shot(T + 5.0, T + 6.6, F.chase('icarus', V(2.6, -1.2, 7.0), { fov: 44, dy: 1.0 }), { cut: true, rl: 22, rp: 9 });
     F.state(T + 6.6, () => { ic.root.rotation.x = 0; ic.root.rotation.z = 0; ic.root.position.copy(land); ic.pose = 'sprawl'; }); F.at(T + 6.6, () => { F.puff(land, 'dust', 26); F.puff(land.clone().add(V(0, 0.6, 0)), 'feather', 10); audio.play('body_fall'); audio.play('hit_heavy', { vol: 0.6 }); F.E.engine.shake(0.45); F.actor('newton').act('hurt'); });
     F.act(T + 6.8, 'newton', 'think'); F.speak(T + 7.0, 'newton', '…Gravity. Undefeated.', 1.8);
     F.shot(T + 6.6, T + 9.6, F.two('newton', 'icarus', { d: 2.0, up: 0.2, fov: 32 }), { cut: true });
@@ -197,7 +197,7 @@ const SCRIPTS = {
     F.shot(T + 2.4, T + 5.0, F.close('sphinx', { d: 2.8, side: -0.2, up: 0.1, fov: 30 }), { cut: true }); F.card(T + 2.6, 'sphinx');
     if (sp) F.track(T + 3.0, T + 4.2, (u) => { sp.wingsOpen = ease.io(u); }); F.sfx(T + 3.0, 'whoosh_soft'); F.act(T + 3.0, 'sphinx', 'cast');
     F.speak(T + 3.4, 'sphinx', 'Answer correctly and pass. Answer wrongly and I eat you.', 2.8);
-    F.shot(T + 5.0, T + 7.6, F.two('newton', 'sphinx', { d: 3.0, bias: 0.55 }), { cut: true }); F.act(T + 5.2, 'sphinx', 'laugh'); F.sfx(T + 5.2, 'drunk_laugh', { vol: 0.4 });
+    F.shot(T + 5.0, T + 7.6, F.two('newton', 'sphinx', { d: 3.0, bias: 0.55, side: 0.55, up: 0.6 }), { cut: true }); F.act(T + 5.2, 'sphinx', 'laugh'); F.sfx(T + 5.2, 'drunk_laugh', { vol: 0.4 });
     F.speak(T + 5.4, 'sphinx', 'It is a VERY competitive programme.', 2.2); F.act(T + 6.2, 'newton', 'think');
   },
   narcissus: (F) => {
@@ -205,7 +205,7 @@ const SCRIPTS = {
     F.actor('narcissus') && (F.actor('narcissus').pose = 'kneel');
     F.shot(T, T + 3.0, () => { const h = F.head('narcissus'); return { p: h.clone().add(V(-0.9, 0.7, 1.1)), l: h.clone().add(V(-0.3, -1.1, -1.4)), fov: 34 }; }, { cut: true });
     F.say(T + 0.2, 'He had been gazing so long that moss had grown upon his sandals.'); F.card(T + 0.8, 'narcissus');
-    F.shot(T + 3.0, T + 5.6, F.close('narcissus', { d: 2.2, side: 0.5, up: -0.1, fov: 28 }), { cut: true });
+    F.shot(T + 3.0, T + 5.6, F.close('narcissus', { d: 2.0, side: -1.55, up: -0.25, fov: 30, dy: -0.1 }), { cut: true }); // from across the pool, into his face
     F.speak(T + 3.2, 'narcissus', 'Do not interrupt. I am in a relationship.', 2.6);
     F.shot(T + 5.6, T + 7.6, F.two('newton', 'narcissus', { d: 2.6 }), { cut: true }); F.speak(T + 5.8, 'newton', 'With… the pond?', 1.8); F.speak(T + 6.8, 'narcissus', 'With the face IN the pond.', 1.8);
   },
@@ -254,7 +254,7 @@ const SCRIPTS = {
     const T = opening(F, 'And in the garden of the Hesperides, golden apples hung like lamps…');
     const er = F.actor('eris'); const land = er ? er.root.position.clone() : H(F, 1.6, -1.6, 0); const sky = land.clone().add(V(0.6, 7, -2));
     if (er) { er.root.visible = false; F.show(T + 1.4, 'eris', true); F.at(T + 1.4, () => { F.puff(sky, 'sparkle', 14); audio.play('magic_shimmer'); }); F.fly(T + 1.4, T + 3.6, 'eris', sky, sky.clone().lerp(land, 0.5).add(V(1.5, 1, 0)), land, { e: ease.out }); }
-    F.shot(T, T + 3.8, () => ({ p: H(F, -2.8, 3.4, 1.0), l: (er ? er.root.position : land).clone().add(V(0, 1.4, 0)), fov: 38 }), { cut: true, rl: 8 }); F.say(T + 0.2, 'Then, out of a clear sky, the goddess of strife came calling.');
+    F.shot(T, T + 3.8, () => ({ p: H(F, 4.2, 3.0, 1.2), l: (er ? er.root.position : land).clone().add(V(0, 1.4, 0)), fov: 38 }), { cut: true, rl: 8 }); // from beside the apple's stump, not behind it F.say(T + 0.2, 'Then, out of a clear sky, the goddess of strife came calling.');
     F.shot(T + 3.8, T + 6.2, F.close('eris', { d: 2.6, side: -0.25, fov: 30 }), { cut: true }); F.card(T + 3.9, 'eris'); F.act(T + 4.0, 'eris', 'laugh'); F.puffAt(T + 4.1, () => F.head('eris').add(V(0.3, -0.5, 0.3)), 'gold', 12);
     F.speak(T + 4.3, 'eris', 'TO THE FAIREST. Do choose. Everyone ELSE will be furious.', 2.8);
     F.shot(T + 6.2, T + 8.4, F.two('newton', 'eris', { d: 2.6 }), { cut: true }); F.speak(T + 6.4, 'newton', 'I recognise the title of my own story.', 2.2);

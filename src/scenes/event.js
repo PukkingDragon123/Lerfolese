@@ -90,7 +90,7 @@ export default class EventScene extends UIScreen {
     if (this.revealed) return; this.revealed = true;
     this.panel.group.visible = true; this.panel.scroll.open.value = 0.02; this.panel.scroll.kick?.(0.6); audio.play('paper_rustle');
     this.choiceBtns.forEach((b, i) => setTimeout(() => { if (!this.root.parent) return; b.group.visible = true; b.pop.value = 0.05; b.pop.vel = 0; b.rz.kick((i % 2 ? 1 : -1) * 9); audio.play('card_place', { vol: 0.5 }); }, 380 + i * 150));
-    this.prof.setExpr('think'); this.say(vpick(['Fascinating. And probably lethal.', 'An experiment! Hold my strings.', 'Ah. The universe is being weird again.']));
+    this.prof.setExpr('think'); this.say(vpick(['Fascinating. And probably lethal.', 'An experiment! Hold my apple.', 'Ah. The universe is being weird again.']));
   }
   say(text) { this.prof.talk(1.6); if (!this.bubble) { this.bubble = new Paper({ font: 'hand', maxW: 9, tail: true, pin: false, kind: 'scrap' }); this.root.add(this.bubble.group); } this.bubble.show([[[text, '#2a160c']]], 0, 0, 6); this.placeBubble(); audio.play('wood_knock', { vol: 0.35 }); }
   placeBubble() { const p = this.engine.worldToUI(this.prof.headWorld(new THREE.Vector3())); const b = this.bubble; b.group.position.set(p.x + b.w / 2 - 0.3, p.y + 0.9 + b.h - 0.22, 6); }

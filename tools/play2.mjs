@@ -12,7 +12,7 @@ for (const a of actions.split('@@').filter(Boolean)) {
   if (cmd === 'move') await p.mouse.move(+args[0], +args[1]);
   if (cmd === 'wait') await p.waitForTimeout(+args[0]);
   if (cmd === 'key') await p.keyboard.press(args[0]);
-  if (cmd === 'shot') await p.screenshot({ path: args[0] });
+  if (cmd === 'shot') await p.screenshot({ path: args[0], timeout: 300000 }); // SwiftShader can take minutes on a heavy frame
   if (cmd === 'eval') { const r = await p.evaluate(args.join(':')); if (r !== undefined) console.log('eval:', JSON.stringify(r).slice(0, 400)); }
 }
 await p.screenshot({ path: out, timeout: 400000 });

@@ -119,5 +119,5 @@ const CAT = {
   idle(P, t, st, ctx) { const sw = Math.sin(t * 2.2); add(P, 'tail2', 0, sw * 0.5); add(P, 'tail3', 0, sw * 0.4); add(P, 'tail4', 0, sw * 0.5); add(P, 'head', 0, Math.sin(t * 0.8) * 0.4); add(P, 'jaw', st.talk > 0 ? Math.abs(Math.sin(t * 12)) * 0.3 : 0);
     if (ctx.api.pose === 'sit') { add(P, '_pos', 0, -0.06, 0); add(P, 'pelvis', -0.6); for (const L of ['_L', '_R']) { add(P, 'thigh' + L, 0.9); add(P, 'shin' + L, -1.5); } } },
 };
-export const createCat = (seed = 1) => { const a = createGeneric(CAT, seed); a.pose = 'sit'; return a; };
+export const createCat = (seed = 1) => { const a = createGeneric(CAT, seed); a.pose = 'stand'; return a; };
 export { THREE };

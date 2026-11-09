@@ -28,8 +28,8 @@ import { battleIntro } from './cinematic.js';
 const THEME = { satyr: 'meadow', medusa: 'garden', kobalos: 'gully', minotaur: 'labyrinth', minotaur_king: 'labyrinth', hydra: 'marsh', hydra_elder: 'marsh' };
 const PLAYER_BARKS = {
   start: ['Ah. Violence. The least elegant of the sciences.', 'Hypothesis: you lose. Let us test it.', 'I have died before. Dreadfully overrated.', 'Stand still. I need you for an experiment.'],
-  hit: ['Ow. Metaphorically.', 'Mind the varnish!', 'My finest oak!', 'That was load-bearing!'], kill: ['Q.E.D.', 'Gravity: one. You: zero.', 'Equal and opposite, darling.', 'Noted. Filed. Defeated.'],
-  low: ['My strings are fraying. So is my patience.', 'Structural integrity: theoretical.'], win: ['Write that down. No, I will. I always do.', 'Science! Mildly violent science!'],
+  hit: ['Ow. Metaphorically.', 'Mind the coat!', 'Rude. And unscientific.', 'That was load-bearing!'], kill: ['Q.E.D.', 'Gravity: one. You: zero.', 'Equal and opposite, darling.', 'Noted. Filed. Defeated.'],
+  low: ['I am running low on composure. And blood.', 'Structural integrity: theoretical.'], win: ['Write that down. No, I will. I always do.', 'Science! Mildly violent science!'],
 };
 
 export class BattleScene {

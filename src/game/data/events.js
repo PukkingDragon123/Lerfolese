@@ -39,7 +39,7 @@ export const EVENTS = [
   },
   {
     id: 'pan', title: "Pan's Jam Session", theme: 'meadow', npc: 'satyr', prop: 'amphorae',
-    text: 'Three satyrs are improvising jazz in a time signature that does not exist. The bandleader, Pan, points his flute at you. "Puppet! You look like a man who understands polyrhythm. Sit in."',
+    text: 'Three satyrs are improvising jazz in a time signature that does not exist. The bandleader, Pan, points his flute at you. "Floaty! You look like a man who understands polyrhythm. Sit in."',
     choices: [
       { label: 'Sit in (rhythm test)', sub: 'Hit the beats', minigame: 'rhythm', run: (x, c, score) => (score >= 3 ? (x.addItem('pan_flute') ? 'You swing. They swing. Pan, moved to tears, gives you his flute. "Keep it. I have nine."' : 'You swing. Pan pays you 50 gold.') : (x.mutate() ? `You miss the downbeat. The wine is strong. Something in your deck feels... different. (A card mutated.)` : 'You miss everything. They let you play triangle.')) },
       { label: 'Request a song', sub: '"Something by Steely Dan?"', run: (x) => { x.heal(10); return '"Who?" They play something smooth anyway. You feel inexplicably sophisticated. Heal 10.'; } },
@@ -114,7 +114,7 @@ export const EVENTS = [
     text: 'A golden apple sits on a stump, inscribed TO THE FAIREST. Three goddesses argue over it in the distance; the trees have started taking sides. You recognise the title of your own story.',
     choices: [
       { label: 'Give it to Athena', sub: 'Wisdom', run: (x) => (x.addItem('owl') ? 'Athena nods, which is enormous praise. Her Owl decides to follow you around and judge you.' : 'Athena nods and gives you 60 gold.') },
-      { label: 'Give it to Aphrodite', sub: 'Beauty', run: (x) => { x.heal(99); return 'Aphrodite kisses your wooden cheek. Your varnish glows. Fully healed.'; } },
+      { label: 'Give it to Aphrodite', sub: 'Beauty', run: (x) => { x.heal(99); return 'Aphrodite kisses your cheek. You glow like a sunrise. Fully healed.'; } },
       { label: 'Keep it', sub: 'Chaos', run: (x) => (x.addItem('golden_apple') ? (x.maxhp(-6), 'You pocket it. Three goddesses glare at you in perfect unison. -6 max Integrity. You now own the Golden Apple.') : (x.gold(100), 'You sell it to a passing hero for 100 gold. That will not cause any wars.')) },
     ],
   },
