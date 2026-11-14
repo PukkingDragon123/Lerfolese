@@ -33,7 +33,7 @@ class IntentView {
     if (!sc) { this.st.target = 0; this.num.hide(); this.hint.hide(); this.label.hide(); return; }
     this.icon.material.map = iconOf(sc.icon); this.icon.material.needsUpdate = true; this.kind = sc.kind;
     const col = sc.who === 'you' ? '#ff7a62' : sc.kind === 'block' ? '#8ac8ff' : '#ffd060'; this.num.set([[sc.num || (sc.kind === 'block' ? '' : '!'), col]]); this.num.show();
-    this.hint.set([[sc.hint || '', sc.who === 'you' ? '#ffc8b8' : '#c8e0ff']]); if (sc.hint && !this.small) this.hint.show(); else this.hint.hide();
+    this.hint.set([[sc.hint || '', sc.who === 'you' ? '#ffc8b8' : '#c8e0ff']]); this.hint.hide(); // (essentials only: the number and a short label)
     this.label.set([[(sc.label || '').toUpperCase(), '#e8dcc8']]); if (sc.label && !this.small) this.label.show(); else this.label.hide();
     this.group.visible = true; this.st.target = 1; if (this.st.value < 0.2) this.st.value = 0.2; this.st.kick(4);
   }

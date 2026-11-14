@@ -58,24 +58,24 @@ export function tutorialBattle(game) {
         upd = { update: (dt) => { if (S.done && !teacher) return; teacher?.update(dt); } }; S.engine.add(upd);
         const kid = S.prof; kid.root.rotation.y = 0.75;
         two(S, V(-1.2, 1.1, 5.4), V(1.6, 0.6, 0), 30); await wait(0.6);
-        await say(S, 'Oh dear. Our lunch has been claimed by a bandit. A very... round bandit.', { act: 'point' });
+        await say(S, 'A bandit. A very round one.', { act: 'point' });
         two(S, V(-6.4, 1.5, 2.6), V(-4.2, 1.1, -0.2), 24);
-        await say(S, 'Well. No better teacher than a hungry raccoon. Your cards, Isaac. Let us see what forces can do.');
+        await say(S, 'Your cards, Isaac. Show me forces.', { show: false });
         rel(S); return;
       }
       if (ev === 'battleStart') return;
       if (ev === 'playerTurn') {
         const t = B.turn; const mv = (ids) => { try { return computeMove(flatten(ids.map(card))).attack; } catch (e) { return null; } };
-        if (t === 1 && once('t1')) { const a = mv(['apple', 'force']); two(S, V(-5.6, 1.3, 3.0), V(-3.8, 1.0, 0.2), 26); await say(S, `First: merge FORCE into the APPLE. Matter, plus force, is a blow: ${a ? `${a.m} kilo times ${a.v} metres a second` : 'mass times velocity'}.`); await say(S, 'Then aim it at him, and End your Turn. Nothing moves until you do: the thinking is the magic, not the throwing.', { act: 'present' }); rel(S); }
-        else if (t === 2 && once('t2')) { const a = mv(['apple', 'force', 'rotation']); two(S, V(-5.6, 1.3, 3.0), V(-3.8, 1.0, 0.2), 26); await say(S, `Now add SPIN. A spinning apple strikes twice: ${a ? `${a.hits} hits of ${a.perHit}` : 'two hits'}. Combinations multiply, Isaac. They do not merely add.`); rel(S); }
-        else if (t === 3 && once('t3')) { two(S, V(-5.6, 1.3, 3.0), V(-3.8, 1.0, 0.2), 26); await say(S, 'When he lunges at you, click just as the blow lands. A good dodge takes the sting out of it.', { act: 'point' }); rel(S); }
-        else if (t === 4 && once('t4')) await say(S, 'Every push is pushed back, child. Remember that. It will matter more than you know.');
+        if (t === 1 && once('t1')) { const a = mv(['apple', 'force']); two(S, V(-5.6, 1.3, 3.0), V(-3.8, 1.0, 0.2), 26); await say(S, `Merge FORCE into APPLE: ${a ? `${a.m} × ${a.v}` : 'mass × velocity'}.`); await say(S, 'Aim. Then End Turn.', { act: 'present' }); rel(S); }
+        else if (t === 2 && once('t2')) { const a = mv(['apple', 'force', 'rotation']); two(S, V(-5.6, 1.3, 3.0), V(-3.8, 1.0, 0.2), 26); await say(S, `Add SPIN: ${a ? `${a.hits} × ${a.perHit}` : 'two strikes'}. Laws multiply.`); rel(S); }
+        else if (t === 3 && once('t3')) { two(S, V(-5.6, 1.3, 3.0), V(-3.8, 1.0, 0.2), 26); await say(S, 'When he lunges, click as the blow lands.', { act: 'point' }); rel(S); }
+        else if (t === 4 && once('t4')) await say(S, 'Every push is pushed back, child. Remember that.', { show: false });
         return;
       }
-      if (ev === 'steal' && once('steal')) { await say(S, 'Ha! He took an apple card. Greedy things. Strike him and the rest of your hand is still yours.', { act: 'alarm', wait: false }); return; }
+      if (ev === 'steal' && once('steal')) { await say(S, 'He stole a card! Hit him!', { act: 'alarm', wait: false }); return; }
       if (ev === 'finish') {
         const won = a[0]; fstop();
-        if (teacher) { two(S, V(-5.2, 1.2, 3.4), V(-3.9, 1.0, 0.0), 26); await say(S, won ? 'Well thrown, my boy. Mass, motion, spin... forces, all of it. Now help an old man back to his books.' : 'Ah. The raccoon wins this round. Never mind. Even Newton... ahem. Even scholars lose to raccoons.', { act: won ? 'nod' : 'shrug' }); rel(S); }
+        if (teacher) { two(S, V(-5.2, 1.2, 3.4), V(-3.9, 1.0, 0.0), 26); await say(S, won ? 'Well thrown, my boy.' : 'The raccoon wins. Never mind.', { act: won ? 'nod' : 'shrug' }); rel(S); }
         audio.play('page_turn');
         S.engine.remove(upd); return;
       }

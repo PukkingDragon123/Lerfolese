@@ -1,5 +1,5 @@
 // Story post effects and set pieces for the prologue:
-//  - shockPass(engine): the TIME-STOP SHOCKWAVE: a refracting wavefront sweeps out from a screen point; behind it the world
+//  - shockPass(engine): the TIME-STOP SHOCKWAVE: a faceted, refracting wavefront (like breaking glass, never a circle) sweeps out; behind it the world
 //    is drained to a cold black-and-white photograph (time has stopped); .set({ r, k, white }) drives it; white = flash.
 //  - paintPass(engine): a FRESCO painter over the rendered frame: a Kuwahara brush filter (flat painted strokes), a fresco
 //    palette (warm umber shadows, chalky lights, softened saturation), directional brush texture, plaster grain, giornata
@@ -20,13 +20,16 @@ const ShockShader = {
   fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 uC; uniform float uR, uK, uWhite, uAspect, uTime, uGray; varying vec2 vUv;
   float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
   void main(){
-    vec2 d = vUv - uC; d.x *= uAspect; float r = length(d); vec2 dir = r > 1e-4 ? d / r : vec2(0.0);
+    vec2 d = vUv - uC; d.x *= uAspect; float rr = length(d); vec2 dir = rr > 1e-4 ? d / rr : vec2(0.0);
+    // a faceted front like breaking glass: the distance is measured to a jagged 11-sided polygon, never a circle
+    float a = atan(d.y, d.x); float seg = 6.2831853 / 11.0; float ia = floor(a / seg); float ca = (ia + 0.5) * seg;
+    float r = rr * cos(a - ca) / cos(seg * 0.5) * (1.0 + (h(vec2(ia, 3.0)) - 0.5) * 0.18);
     float w = 0.05 + uR * 0.04; float ring = exp(-pow((r - uR) / w, 2.0)) * uK;
     vec2 off = dir * ring * 0.045; off.x /= uAspect;
     vec3 c; c.r = texture2D(tDiffuse, vUv - off * 1.15).r; c.g = texture2D(tDiffuse, vUv - off).g; c.b = texture2D(tDiffuse, vUv - off * 0.85).b;
     float inside = max(uGray, smoothstep(uR + 0.01, uR - 0.06, r) * uK);
     float l = dot(c, vec3(0.299, 0.587, 0.114)); vec3 bw = vec3(clamp((pow(l, 1.1) - 0.5) * 1.35 + 0.5, 0.0, 1.0)); bw *= vec3(0.97, 0.99, 1.04);
-    bw += (h(floor(vUv * 900.0) + floor(uTime * 24.0)) - 0.5) * 0.035; // the stillness has a grain
+    bw += (h(gl_FragCoord.xy + fract(uTime) * 61.0) - 0.5) * 0.02; // a fine full-resolution grain
     c = mix(c, bw, inside);
     c += vec3(1.0, 0.96, 0.88) * ring * 0.55; // the bright front
     c = mix(c, vec3(1.0, 0.995, 0.97), clamp(uWhite, 0.0, 1.0));
@@ -75,18 +78,18 @@ const PaintShader = {
     // directional brush texture and plaster grain
     float stroke = n2(vec2(dot(q, flow) * 140.0, dot(q, vec2(-flow.y, flow.x)) * 22.0));
     c *= 0.95 + stroke * 0.09;
-    c *= 0.965 + h(floor(vUv * uRes / 2.0)) * 0.05;
+    c *= 0.965 + h(gl_FragCoord.xy) * 0.05;
     c = mix(c, c * vec3(1.02, 0.99, 0.95), fbm(q * 7.0));
     // giornata seams (the day-patches of wet plaster) and craquelure cracks
     vec2 v1 = vor(q * 3.2 + vec2(fbm(q * 5.0) * 0.6)); float seam = smoothstep(0.035, 0.0, v1.y - v1.x);
     vec2 v2 = vor(q * 11.0 + fbm(q * 9.0)); float crack = smoothstep(0.03, 0.0, v2.y - v2.x) * smoothstep(0.42, 0.62, fbm(q * 2.4 + 3.0));
     float bigc = smoothstep(0.012, 0.0, abs(fbm(q * vec2(2.0, 5.0) + 7.0) - 0.5) - 0.0) * smoothstep(0.55, 0.7, fbm(q * 1.3));
     c *= 1.0 - seam * 0.12 - crack * 0.4 - bigc * 0.5;
-    c += (crack + bigc) * 0.06 * vec3(1.0, 0.95, 0.85) * step(0.5, h(floor(vUv * uRes / 2.0) + 3.0)); // the lit lip of a crack
+    c += (crack + bigc) * 0.05 * vec3(1.0, 0.95, 0.85) * n2(q * 400.0); // the lit lip of a crack
     // flaking: a few patches where the paint is gone to bare plaster
-    float flake = smoothstep(0.74, 0.78, fbm(q * 4.0 + 19.0)); c = mix(c, vec3(0.86, 0.82, 0.74) * (0.95 + h(floor(vUv * uRes / 3.0)) * 0.08), flake * 0.85);
+    float flake = smoothstep(0.74, 0.78, fbm(q * 4.0 + 19.0)); c = mix(c, vec3(0.86, 0.82, 0.74) * (0.95 + n2(q * 300.0) * 0.08), flake * 0.85);
     // an aged, warm, darkened edge
-    vec2 e = vUv - 0.5; c *= 1.0 - dot(e, e) * 0.55; c = mix(c, c * vec3(0.95, 0.86, 0.72), smoothstep(0.18, 0.5, dot(e, e)));
+    vec2 e = abs(vUv - 0.5) * 2.0; float edge = max(pow(e.x, 6.0), pow(e.y, 6.0)); c *= 1.0 - edge * 0.25; c = mix(c, c * vec3(0.95, 0.86, 0.72), edge); // an aged edge along the frame
     gl_FragColor = vec4(mix(src, c, uK), 1.0);
   }`,
 };

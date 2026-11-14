@@ -50,11 +50,12 @@ export function buildCreation() {
   const cloak = new THREE.Mesh(cg, new THREE.MeshStandardMaterial({ map: cloakT, side: THREE.DoubleSide, roughness: 0.85, flatShading: true })); cloak.scale.set(2.5, 1.7, 1.6); cloak.position.set(3.5, 1.55, -1.0); cloak.rotation.set(0.2, -0.5, -0.25); cloak.castShadow = cloak.receiveShadow = true; scene.add(cloak);
   const tail = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 0.9, 16, 2), cloak.material); const tbase = tail.geometry.attributes.position.array.slice(); tail.position.set(4.6, 0.3, -0.2); tail.rotation.set(-0.4, 0.2, -0.35); scene.add(tail);
   const scarf = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.35, 14, 1), new THREE.MeshStandardMaterial({ color: 0x7aa88a, side: THREE.DoubleSide, roughness: 0.8, flatShading: true })); const sbase = scarf.geometry.attributes.position.array.slice(); scarf.position.set(3.4, 0.25, 0.6); scarf.rotation.set(0.3, -0.3, -0.45); scene.add(scarf);
-  // the radiance round the god (a soft additive halo, kept out of the ink pass)
-  const glowT = canvasTex(64, 64, (x, y) => { const d = Math.hypot(x - 31.5, y - 31.5) / 32; const a = Math.max(0, 1 - d) ** 2; return [255, 248, 232, a * 255]; }); glowT.magFilter = glowT.minFilter = THREE.LinearFilter;
-  const halo = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshBasicMaterial({ map: glowT, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55, toneMapped: false })); halo.position.set(2.6, 1.6, -1.4); halo.userData.noInk = true; scene.add(halo);
-  // the spark between the fingertips
-  const spark = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), new THREE.MeshBasicMaterial({ map: glowT, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0, toneMapped: false })); spark.userData.noInk = true; scene.add(spark);
+  // the radiance of the god: a fan of thin, sharp light shafts (triangles, never a round glow), turning very slowly
+  const rayGeo = new THREE.BufferGeometry(); { const P = [], C = []; for (let i = 0; i < 26; i++) { const a = (i / 26) * Math.PI * 2 + h2(i, 1) * 0.2, w = 0.025 + h2(i, 2) * 0.04, L = 2.2 + h2(i, 3) * 2.6; P.push(0, 0, 0, Math.cos(a - w) * L, Math.sin(a - w) * L, 0, Math.cos(a + w) * L, Math.sin(a + w) * L, 0); const k = 0.5 + h2(i, 4) * 0.5; C.push(k, k * 0.97, k * 0.9, 0, 0, 0, 0, 0, 0); } rayGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); rayGeo.setAttribute('color', new THREE.Float32BufferAttribute(C, 3)); }
+  const halo = new THREE.Mesh(rayGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.35, side: THREE.DoubleSide, toneMapped: false })); halo.position.set(2.5, 1.7, -1.6); halo.userData.noInk = true; scene.add(halo);
+  // the spark between the fingertips: a sharp four-pointed star of light
+  const starGeo = new THREE.BufferGeometry(); { const P = []; for (let i = 0; i < 4; i++) { const a = (i / 4) * Math.PI * 2, L = 0.5, w = 0.05; P.push(0, 0, 0, Math.cos(a - Math.PI / 2) * w, Math.sin(a - Math.PI / 2) * w, 0, Math.cos(a) * L, Math.sin(a) * L, 0, 0, 0, 0, Math.cos(a) * L, Math.sin(a) * L, 0, Math.cos(a + Math.PI / 2) * w, Math.sin(a + Math.PI / 2) * w, 0); } starGeo.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); }
+  const spark = new THREE.Mesh(starGeo, new THREE.MeshBasicMaterial({ color: 0xfff6e0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0, side: THREE.DoubleSide, toneMapped: false })); spark.userData.noInk = true; scene.add(spark);
   const api = {
     scene, kid, god, halo, spark, kpitch, gpitch,
     spots: { hands: V(0.0, 1.35, 0), kidHead: V(-3.0, 1.2, 0.4), godHead: V(2.2, 2.0, -0.2) },
@@ -68,8 +69,8 @@ export function buildCreation() {
       gyaw.position.x = 2.7 - api.gap * 0.55 + Math.sin(t * 0.4) * 0.03; gyaw.position.y = 1.5 + Math.sin(t * 0.55) * 0.05; kyaw.position.y = 0.12 + Math.sin(t * 0.5) * 0.008;
       const P = cp.array; for (let i = 0; i < P.length; i += 3) { const w = Math.sin(t * 0.8 + base[i] * 2.5 + base[i + 1] * 1.7) * 0.035; P[i] = base[i] * (1 + w); P[i + 1] = base[i + 1] * (1 + w * 0.6); P[i + 2] = base[i + 2] * (1 + w); } cp.needsUpdate = true;
       for (const [m, b, a] of [[tail, tbase, 0.18], [scarf, sbase, 0.12]]) { const Q = m.geometry.attributes.position.array; for (let i = 0; i < Q.length; i += 3) { const x = b[i]; Q[i + 2] = Math.sin(t * 1.4 - x * 1.6) * a * (x + 2) * 0.4; Q[i + 1] = b[i + 1] + Math.sin(t * 1.1 - x * 2) * a * 0.3; } m.geometry.attributes.position.needsUpdate = true; }
-      halo.material.opacity = 0.5 + Math.sin(t * 1.3) * 0.06;
-      const hp = api.handsWorld(); spark.position.copy(hp).add(V(0, 0, 0.3)); spark.material.opacity = Math.max(0, api.gap - 0.6) * 2.4 * (0.8 + Math.sin(t * 9) * 0.2); spark.scale.setScalar(0.6 + api.gap * 1.2);
+      halo.material.opacity = 0.3 + Math.sin(t * 1.3) * 0.05; halo.rotation.z = t * 0.03;
+      const hp = api.handsWorld(); spark.position.copy(hp).add(V(0, 0, 0.3)); spark.material.opacity = Math.min(1, Math.max(0, api.gap - 0.6) * 2.4) * (0.8 + Math.sin(t * 9) * 0.2); spark.scale.setScalar(0.3 + api.gap * 1.4); spark.rotation.z = t * 0.4;
     },
   };
   api.update(0.016);

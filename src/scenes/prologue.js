@@ -1,6 +1,5 @@
 // THE PROLOGUE of LERFOLESE (first New Game; replayable from the gallery: game.playPrologue({ replay: true })).
-//  title     black -> a crane down over the old apple garden at golden hour; the title LERFOLESE drops in, letter by
-//            letter, as big gilt 3D pixel lettering, glints, and lifts away as the camera sinks into the garden
+//  title     black -> a slow establishing crane down over the old apple garden at golden hour, music, two narrated lines
 //  garden    KID ISAAC runs in (a real run, tracked low) to his OLD TEACHER under the tree; questions; a choice
 //  cards     the teacher deals three big cards (APPLE, FORCE, SPIN): drag to MERGE them; a brass-and-glass construct in
 //            the garden takes on each law; multipliers; how to use them
@@ -11,7 +10,8 @@
 //  shock     a GIANT SHOCKWAVE: time stops, the world drains to black and white behind the wave; a WHITE FLASH
 //  painting  a painted fresco cutscene (Creation of Adam): the white god-entity speaks; their fingers touch
 //  sky       a sky reveal; then the tower-top menu (game.toMenu({ from: 'prologue' }))
-// The narrator and every character are VOICED (Web Speech) with FLOATING 3D TEXT (src/story/floattext.js), no paper.
+// The narrator and every character are VOICED (Web Speech); only short, essential lines float as crisp 3D text
+// (src/story/floattext.js, no paper); the rest is voice and pictures.
 // Esc skips; click / Space advance a line. Debug: ?prologue=1&beat=title|garden|cards|throw|fight|snake|grab|painting|sky
 // &fastlines=3. window.__prologue: { skip(), pick(i), drop('force'|'rotation'), takeApple(), beat, scene }.
 import * as THREE from 'three';
@@ -22,7 +22,7 @@ import { audio } from '../core/audio.js';
 import { fsay, fnarrate, fchoice, fadvance, fstop, fcaption } from '../story/floattext.js';
 import { ensureFonts } from '../story/dialogue.js';
 import { createKidIsaac, createTeacher, book, THROW_RELEASE } from '../models/npcs/story.js';
-import { shockPass, paintPass, pixelTitle } from '../story/fx.js';
+import { shockPass, paintPass } from '../story/fx.js';
 import * as P3 from '../models/props3d.js';
 import { Particles } from '../gfx/particles.js';
 import { computeMove, flatten } from '../game/combos.js';
@@ -131,33 +131,18 @@ export class PrologueScene extends UIScreen {
     try { this.game.journal.seenPrologue = true; this.game.saveJournal(); } catch (e) { /* */ }
   }
 
-  // TITLE: the establishing shot and LERFOLESE in gilt 3D pixel letters
+  // OPENING: black, then a slow establishing crane down over the old apple garden at golden hour (no title card)
   async b_title() {
-    const sc = this.gardenScene; audio.playMusic('menu');
-    const T = pixelTitle('Lerfolese', { px: 0.085, depth: 0.34, bevel: 0.03 }); T.group.position.set(-0.6, 6.4, -1.0); T.group.rotation.y = 0.22; sc.add(T.group); this.title = T;
-    const glint = new THREE.PointLight(0xfff0c0, 0, 6, 1.5); sc.add(glint);
-    for (const L of T.letters) { L.g.visible = false; L.y0 = 0; }
-    this.engine.flash(1, 0x000000, 2.4);
-    this.shot(V(-15, 12, 27), V(-0.4, 4.6, 0), 40); const crane = this.shot(V(-6.2, 7.2, 13.5), V(-0.5, 5.6, -0.5), 34, 7.5);
-    await this.wait(1.2);
-    T.letters.forEach((L, i) => setTimeout(() => { if (this.skipped) return; L.g.visible = true; let vy = 0, y = 5.5, b = 0; L.g.position.y = y; L.g.rotation.z = (Math.random() - 0.5) * 0.6;
-      this.ups.push({ t: 0, d: 2.2, real: false, res: () => {}, fn: () => { const dt = 1 / 60; vy -= 22 * dt; y += vy * dt; if (y < 0) { y = 0; if (b < 2) { if (b === 0) { audio.play('stamp', { vol: 0.55, rate: 0.7 + i * 0.03 }); audio.play('metal_clang', { vol: 0.18, rate: 1.6 }); this.burst(L.g.getWorldPosition(V()), '#ffd88a', 10); } vy = -vy * 0.32; b++; } else vy = 0; } L.g.position.y = y; L.g.rotation.z *= 0.9; } });
-    }, (i * 230) / fast()));
-    await this.wait(0.6 + T.letters.length * 0.23 + 0.8);
-    // a glint sweeps the gilt; the narrator names the world
-    audio.play('magic_sparkle', { vol: 0.5 }); this.tween(1.6, (u) => { glint.intensity = Math.sin(u * Math.PI) * 9; glint.position.set(-0.6 - T.width / 2 + T.width * u, 6.9, 0.2); });
-    await this.narr('Lerfolese.', { sz: 2, hold: 0.4 });
-    await crane;
-    this.shot(V(-3.2, 2.2, 10.8), V(-0.4, 1.2, 2.6), 34, 6.5);
-    this.tween(4.5, (u) => { for (const [i, L] of T.letters.entries()) { L.g.position.y = ease(u * 1.4 - i * 0.04) * 6; L.g.rotation.y = ease(u - i * 0.03) * 1.2; } if (u > 0.5) T.group.visible = u < 0.98; });
-    await this.narr('Long ago, at the edge of the world, there was an old apple garden.');
-    await this.narr('And in it lived a boy who asked far too many questions.');
-    sc.remove(T.group); sc.remove(glint);
+    audio.playMusic('menu'); this.engine.flash(1, 0x000000, 3.0);
+    this.shot(V(-15, 12, 27), V(-0.4, 3.6, 0), 40); const crane = this.shot(V(-5.4, 4.6, 14.5), V(-0.6, 1.8, 1.5), 36, 9);
+    await this.wait(2.2); await this.narr('Long ago, there was an old apple garden.');
+    await this.narr('And a boy who asked too many questions.'); await crane;
+    this.shot(V(-3.2, 2.2, 10.8), V(-0.4, 1.2, 2.6), 34, 4);
   }
 
   // GARDEN: Isaac runs in to his old teacher
   async b_garden() {
-    const k = this.kid, m = this.teacher; if (this.title) this.gardenScene.remove(this.title.group);
+    const k = this.kid, m = this.teacher; 
     this.placeAt(k, SPOT.kidStart, 2.0); m.lookAtWorld(null); m.root.rotation.y = 0.2;
     // a low tracking shot beside the running boy, then a low front angle as he runs at the camera past the old man
     const dir = SPOT.kid.clone().sub(SPOT.kidStart).setY(0).normalize(), side = V(-dir.z, 0, dir.x); if (side.z < 0) side.negate();
@@ -169,57 +154,57 @@ export class PrologueScene extends UIScreen {
     m.st.faceYaw = Math.atan2(SPOT.kid.x - SPOT.teacher.x, SPOT.kid.z - SPOT.teacher.z); await this.w(run);
     k.lookAtWorld(() => m.headWorld(V())); k.st.faceYaw = Math.atan2(SPOT.teacher.x - SPOT.kid.x, SPOT.teacher.z - SPOT.kid.z); await this.wait(0.5);
     this.face(m, { d: 1.8, side: 0.7, fov: 30, dy: -0.06 }); this.face(m, { d: 1.4, side: 0.5, fov: 27, dy: -0.06, t: 5 }); // a slow push-in
-    m.act('nod'); await this.say('teacher', 'Isaac. Slowly, child. My heart is older than this tree.', m);
+    m.act('nod'); await this.say('teacher', 'Slowly, child. Slowly.', m);
     this.face(k, { d: 1.5, side: -0.6, up: 0.18, fov: 30 }); k.act('point');
-    await this.say('isaac_kid', 'Why do apples fall DOWN? Why never up? Or sideways? I counted forty today. All down!', k);
+    await this.say('isaac_kid', 'Why do apples fall DOWN? Never up?', k);
     this.shot(V(-3.6, 1.35, 6.6), SPOT.teacher.clone().lerp(SPOT.kid, 0.5).add(V(0, 1.0, 0)), 30, 0); this.shot(V(-3.2, 1.3, 6.0), SPOT.teacher.clone().lerp(SPOT.kid, 0.5).add(V(0, 1.0, 0)), 28, 8); m.act('think');
-    await this.say('teacher', 'Ahh. The oldest question in the garden. And what do you think, Isaac?', m);
-    const c = await this.choose([{ label: 'The ground wants them.' }, { label: 'They are heavy.' }, { label: 'The tree gets tired of holding them.' }], { prompt: 'Young Isaac thinks...' });
+    await this.say('teacher', 'The oldest question. What do you think?', m);
+    const c = await this.choose([{ label: 'The ground wants them.' }, { label: 'They are heavy.' }, { label: 'The tree gets tired of holding them.' }], {});
     this.flavour = ['poet', 'scholar', 'jester'][c];
-    await this.say('isaac_kid', ['The ground wants them.', 'Because they are heavy.', 'The tree gets tired of holding them!'][c], k);
+    await this.say('isaac_kid', ['The ground wants them.', 'They are heavy.', 'The tree gets tired!'][c], k, { show: false });
     this.face(m, { d: 1.6, side: 0.55, fov: 28 }); if (c === 2) m.setExpr('happy', 2);
-    await this.say('teacher', ['Wants. A poet\'s answer. Hold on to it; it is closer to the truth than you know.', 'Heavy, yes. But heavy toward what? Remember that question. It will remember you.', 'Heh. Trees do not tire, Isaac. But you have made an old man laugh, and that is a kind of magic too.'][c], m);
-    m.act('present'); await this.say('teacher', 'Come. Let me show you how the world keeps its laws.', m);
+    await this.say('teacher', ['A poet\'s answer. Keep it.', 'Heavy toward what? Remember that.', 'Heh. You made an old man laugh.'][c], m);
+    m.act('present'); await this.say('teacher', 'Come. Let me show you something.', m, { show: false });
   }
 
   // CARDS: the first three cards, merging, multipliers
   async b_cards() {
     const k = this.kid, m = this.teacher; this.placeAt(k, SPOT.kid, Math.atan2(SPOT.teacher.x - SPOT.kid.x, SPOT.teacher.z - SPOT.kid.z)); k.lookAtWorld(() => m.headWorld(V())); m.lookAtWorld(() => k.headWorld(V()));
     this.shot(V(-3.3, 1.45, 6.3), V(-0.62, 1.0, 3.2), 32, 0); this.shot(V(-3.0, 1.4, 5.9), V(-0.62, 1.0, 3.2), 30, 9); m.act('present'); audio.play('paper_rustle', { vol: 0.5 });
-    await this.say('teacher', 'Every law of the world can be written on a card. Here. Your first three.', m);
+    await this.say('teacher', 'Every law fits on a card. Your first three.', m);
     // the construct: a brass stand in the air between them, holding whatever the cards make
     this.makeConstruct();
     const ids = ['apple', 'force', 'rotation']; const from = this.engine.worldToUI(m.handWorld(0, V()));
     this.lesson = ids.map((id, i) => { const v = new Card3D({ uid: 'pro-' + id, id, type: 'basic', up: 0 }); this.root.add(v.group); v.pos.snap(from.x, from.y, 3); v.sc.value = 0.15; v.flip.value = 1; v.id = id; v.home = { x: (i - 1) * 5.9, y: -this.H + 6.1, s: 1.62 }; v.target = { x: from.x, y: from.y, z: 3, rz: 0, s: 0.2 }; return v; });
     for (const [i, v] of this.lesson.entries()) { await this.wait(0.28); v.target = { x: v.home.x, y: v.home.y, z: 3, rz: (i - 1) * -0.06, s: v.home.s }; v.flip.target = 0; audio.play('card_flip', { vol: 0.8 }); audio.play('card_slide', { delay: 0.05 }); }
-    this.cardsLive = true; k.setExpr('happy', 2); await this.say('isaac_kid', 'Cards! Real ones!', k, { wait: false });
+    this.cardsLive = true; k.setExpr('happy', 2); this.say('isaac_kid', 'Cards!', k, { wait: false, show: false });
     const lift = (id) => { for (const v of this.lesson) v.focus = v.id === id; };
     this.shot(V(-2.6, 1.35, 5.4), SPOT.con.clone().add(V(0, -0.1, 0)), 30, 1.2);
-    lift('apple'); this.conSet('apple'); await this.say('teacher', 'APPLE. Matter: a thing with weight. Eat it to mend yourself, or hold it to throw.', m);
-    lift('force'); await this.say('teacher', 'FORCE. On its own, a push with nothing to push. Merged with matter, it is a blow.', m);
-    lift('rotation'); await this.say('teacher', 'SPIN. It makes a thing strike, and strike again.', m); lift(null);
+    lift('apple'); this.conSet('apple'); await this.say('teacher', 'Apple. Eat it, or throw it.', m);
+    lift('force'); await this.say('teacher', 'Force. With matter, a blow.', m);
+    lift('rotation'); await this.say('teacher', 'Spin. Strike, and strike again.', m); lift(null);
     // MERGE: drag Force onto the Apple
     this.mergeStep = 'force'; this.cap = fcaption('Drag FORCE onto the APPLE', { x: 0, y: -this.H + 10.7, style: 'gold' });
-    await this.say('teacher', 'Now. Take FORCE, and lay it on the APPLE. That is a merge.', m, { wait: false });
+    this.say('teacher', 'Lay Force on the Apple. That is a merge.', m, { wait: false, show: false });
     await this.w(new Promise((r) => (this.onMerged = r))); this.cap?.remove();
     const a1 = computeMove(flatten(['apple', 'force'].map((id) => ({ id, type: 'basic', up: 0 })))).attack;
     this.conSet('force'); k.setExpr('surprised', 1.5);
-    await this.say('teacher', `Matter and force: a thrown thing. ${a1.m} kilo, ${a1.v} metres a second: ${a1.m * a1.v} damage. Mass times velocity, always.`, m);
+    await this.say('teacher', `${a1.m} kg × ${a1.v} m/s = ${a1.m * a1.v}. Mass times velocity.`, m);
     this.mergeStep = 'rotation'; this.cap = fcaption('Drag SPIN onto them', { x: 0, y: -this.H + 10.7, style: 'gold' });
-    await this.say('teacher', 'And SPIN on top. Watch the numbers.', m, { wait: false });
+    this.say('teacher', 'Now Spin on top. Watch.', m, { wait: false, show: false });
     await this.w(new Promise((r) => (this.onMerged = r))); this.cap?.remove(); this.mergeStep = null;
     const a2 = computeMove(flatten(['apple', 'force', 'rotation'].map((id) => ({ id, type: 'basic', up: 0 })))).attack;
     this.conSet('rotation'); this.shot(V(-2.0, 1.3, 4.8), SPOT.con, 28, 1.6);
-    await this.say('teacher', `${a2.hits} strikes of ${a2.perHit}. Laws do not add, child: they MULTIPLY. Some boost each other, some quarrel. Finding the best combination is the whole art.`, m);
+    await this.say('teacher', `${a2.hits} strikes of ${a2.perHit}. Laws multiply.`, m);
     this.face(m, { d: 1.6, side: 0.5, fov: 28 });
-    await this.say('teacher', 'Prepare your merges, aim them, and only when you end your turn does any of it move. Think first. Throw last.', m);
+    await this.say('teacher', 'Think first. Throw last.', m);
   }
 
   // THROW: no magic: he just grabs an apple and throws it
   async b_throw() {
     const k = this.kid, m = this.teacher; this.placeAt(k, SPOT.kid, 0); for (const v of this.lesson) v.target = { x: v.target.x, y: -this.H - 6, z: 3, rz: 0.5, s: 0.6 }; this.cardsLive = false; this.dropConstruct();
     this.face(k, { d: 1.6, side: -0.5, up: 0.12, fov: 30 }); k.setExpr('angry', 1.4);
-    await this.say('isaac_kid', 'Cards, cards, cards. An apple is for THROWING!', k);
+    await this.say('isaac_kid', 'An apple is for THROWING!', k);
     const ap = this.windfall[0]; const at = ap.position.clone(); at.y = this.hAt(at.x, at.z);
     this.shot(V(2.2, 0.7, 6.4), at.clone().add(V(-0.2, 0.6, -0.4)), 32, 0); await this.w(k.walkTo(at.clone().add(V(-0.3, 0, -0.25)), 1.6));
     k.act('grab'); audio.play('wood_creak', { vol: 0.2, rate: 1.6 }); await this.wait(0.42); ap.parent.remove(ap); ap.scale.setScalar(0.085 / k.sc * 0 + 0.085); k.hand(1).add(ap); ap.position.set(0, -0.02, 0.03); await this.wait(0.55);
@@ -236,10 +221,10 @@ export class PrologueScene extends UIScreen {
     this.shot(SPOT.basket.clone().add(V(-0.9, 0.35, 2.0)), SPOT.basket.clone().add(V(0.1, 0.35, 0.2)), 30, 0); await this.wait(0.9);
     rc.root.rotation.y = Math.atan2(k.root.position.x - rc.root.position.x, k.root.position.z - rc.root.position.z); rc.act?.('cast'); audio.play('monster_growl', { vol: 0.6, rate: 1.9 }); await this.wait(1.1);
     this.face(m, { d: 1.7, side: 0.6, fov: 29 }); m.act('alarm');
-    await this.say('teacher', 'Oh dear. Our lunch had a guest. A very... round guest.', m);
+    await this.say('teacher', 'Oh dear. A guest.', m);
     this.face(k, { d: 1.4, side: -0.5, up: 0.12, fov: 28 }); k.act('alarm');
-    await this.say('isaac_kid', 'It\'s coming at me! Teacher?!', k);
-    await this.say('teacher', 'Then this is your first lesson in forces. Your cards, Isaac. Quickly now.', m);
+    await this.say('isaac_kid', 'Teacher?!', k);
+    await this.say('teacher', 'Your cards, Isaac. Quickly.', m);
   }
 
   // FIGHT: the real battle system, a forced three-card deck, the teacher between turns
@@ -266,8 +251,8 @@ export class PrologueScene extends UIScreen {
     const bp = this.benchPos(); this.placeAt(m, bp.seat, bp.yaw); m.sit(0.47); m.read(true); m.caneFree = { top: bp.caneTop, tip: bp.caneTip }; if (!this.readBook) { const b = book({ open: true, seed: 5 }); b.rotation.set(-0.9, 0, 0); b.position.set(0.06, 0.02, 0.1); m.hand(1).add(b); this.readBook = b; } m.lookAtWorld(null);
     this.placeAt(k, V(0.35, 0, 3.55), 2.2); k.lookAtWorld(() => V(-6, 4, -8)); k.act('think');
     this.shot(V(-0.4, 1.6, 7.6), V(-1.0, 0.8, 2.5), 32, 0); this.shot(V(-0.9, 1.3, 6.4), V(-1.4, 0.75, 2.3), 30, 6);
-    await this.narr('Later. The old man read, and read, and the boy grew very bored.');
-    this.say('teacher', '...and so the third law... mm... every push is pushed back...', m, { wait: false, hold: 0.4 });
+    await this.narr('Later. The old man read. The boy grew bored.');
+    this.say('teacher', 'and so the third law... every push is pushed back...', m, { wait: false, show: false });
     // a SNAKE, low in the grass, carrying something golden
     const { createSnake } = await import('../models/npcs/snake.js'); const S = createSnake({ hAt: this.hAt }); this.gardenScene.add(S.root); this.snake = S; S.place(SPOT.snake, Math.atan2(SPOT.drop.x - SPOT.snake.x, SPOT.drop.z - SPOT.snake.z));
     const ga = this.goldApple(); S.mouth.add(ga); ga.position.set(0, 0.0, 0.03); S.jawOpen(0.65); this.gold = ga;
@@ -278,9 +263,9 @@ export class PrologueScene extends UIScreen {
     this.shot(SPOT.drop.clone().add(V(0.8, 0.35, 1.2)), SPOT.drop.clone().add(V(0, 0.1, 0)), 30, 0); await this.wait(1.1);
     S.lift(0.05); S.slitherTo(SPOT.snakeOut, 0.7); setTimeout(() => { if (this.snake === S) { this.gardenScene.remove(S.root); this.snake = null; } }, 9000);
     k.lookAtWorld(() => this.gold.getWorldPosition(V())); k.setExpr('surprised', 3); this.face(k, { d: 1.4, side: -0.6, up: 0.1, fov: 28 });
-    await this.say('isaac_kid', 'Teacher...? There\'s an apple. A GOLD one.', k);
+    await this.say('isaac_kid', 'Teacher... a GOLD apple.', k);
     this.shot(V(-1.5, 1.0, 4.3), V(-2.0, 1.0, 2.0), 28, 0);
-    await this.say('teacher', 'Mm-hm. Very nice, Isaac. Apples are... mm...', m);
+    await this.say('teacher', 'Mm-hm. Very nice, Isaac.', m, { show: false });
   }
   // GRAB: the player must pick it up; slow motion; the teacher screams; the shockwave; white
   async b_grab() {
@@ -309,7 +294,7 @@ export class PrologueScene extends UIScreen {
     this.shot(V(-0.6, 2.4, 9.6), V(-0.4, 0.9, 2.6), 40, 2.4);
     await this.tween(2.6, (u) => { S.set({ r: ease(u) * 2.4, k: 1, c, gray: u > 0.92 ? (u - 0.92) / 0.08 : 0 }); this.timeK = Math.max(0, 0.16 * (1 - u * 1.6)); });
     this.timeK = 0; this.frozen = true; S.set({ gray: 1, k: 0 });
-    await this.narr('And time... stopped.');
+    await this.narr('And time stopped.', { show: false });
     await this.wait(0.8); audio.play('magic_sparkle', { vol: 0.8 }); audio.play('eureka', { vol: 0.6 });
     await this.tween(0.9, (u) => S.set({ white: ease(u) }));
   }
@@ -323,15 +308,15 @@ export class PrologueScene extends UIScreen {
     this.shot(V(-0.4, 1.55, 10.6), V(-0.3, 1.35, 0), 38, 0); this.shot(V(-0.3, 1.5, 8.6), V(-0.2, 1.35, 0), 36, 22);
     await this.tween(2.4, (u) => this.shock.set({ white: 1 - ease(u), gray: 0, k: 0 }));
     this.shock.dispose(); this.shock = null;
-    await this.narr('And the boy woke inside a painting.');
+    await this.narr('And the boy woke inside a painting.', { show: false });
     const g = P.god, kd = P.kid;
-    await this.say('god', 'Isaac. Child of the garden. You have taken what was never yours to take.', g);
-    await this.say('god', 'The golden apple keeps the rules that keep the world. You broke them. For that, you are bound to the realm of the gods. Forever.', g);
-    await this.say('isaac_kid', 'I... I only wanted to know why things fall.', kd);
+    await this.say('god', 'You took what was never yours.', g);
+    await this.say('god', 'For that, you are bound to the realm of the gods. Forever.', g);
+    await this.say('isaac_kid', 'I only wanted to know why things fall.', kd);
     await this.say('god', 'I know. That is why I pity you.', g);
     this.shot(V(-0.1, 1.45, 5.2), P.handsWorld(V()), 30, 9);
-    await this.say('god', 'So keep it. The apple is yours. It will bend what is real for you: the pull of the earth, the laws of motion... even time itself.', g);
-    await this.say('god', 'Learn its rules before it learns yours. Welcome to Lerfolese.', g);
+    await this.say('god', 'Keep the apple. It bends what is real: gravity, motion... even time.', g);
+    await this.say('god', 'Learn its rules, before it learns yours.', g, { show: false });
     audio.play('magic_shimmer', { vol: 0.7 }); await this.tween(2.6, (u) => P.touch(ease(u)));
     audio.play('eureka', { vol: 0.8 }); this.engine.flash(1, 0xfff8ee, 1.6); await this.wait(0.25);
     this.paintFx.dispose(); this.paintFx = null;
@@ -347,8 +332,8 @@ export class PrologueScene extends UIScreen {
     audio.playMusic('menu'); audio.setAmbSet(['wind']);
     this.shot(V(0, -2, 6), V(0, 9, -30), 50, 0); this.shot(V(0, 1.2, -6), V(0, 2.5, -60), 44, 9);
     this.engine.flash(1, 0xfff8ee, 2.2);
-    await this.narr('When he opened his eyes, the garden was gone. Below him lay a sea of cloud, and the lands of Lerfolese, where every story is alive.');
-    await this.narr('And high above the clouds, a tower was waiting.');
+    await this.narr('He woke above the clouds.');
+    await this.narr('A tower was waiting.', { show: false });
     await this.wait(0.6);
   }
 
@@ -361,7 +346,7 @@ export class PrologueScene extends UIScreen {
   makeConstruct() { // a turned brass stand with a glass collar, floating in the air between them; the cards' laws gather on it
     const g = new THREE.Group(); g.position.copy(SPOT.con); g.position.y += this.hAt(SPOT.con.x, SPOT.con.z); this.gardenScene.add(g); g.scale.setScalar(0.001);
     const brass = new THREE.MeshStandardMaterial({ color: 0xc8963c, metalness: 0.85, roughness: 0.35, flatShading: true });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.014, 5, 16), brass); ring.rotation.x = Math.PI / 2; ring.position.y = -0.22; g.add(ring);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.014, 4, 8), brass); ring.rotation.x = Math.PI / 2; ring.position.y = -0.22; g.add(ring);
     for (let i = 0; i < 3; i++) { const s = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.24, 4), brass); const a = (i / 3) * Math.PI * 2; s.position.set(Math.cos(a) * 0.16, -0.12, Math.sin(a) * 0.16); s.rotation.set(Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5); g.add(s); }
     const hold = new THREE.Group(); g.add(hold); this.con = { g, hold, apple: null, arrow: null, swirl: null, spin: 0, pop: 0, hover: 0 };
     this.tween(0.8, (u) => g.scale.setScalar(Math.max(0.001, ease(u) * (1 + Math.sin(u * Math.PI) * 0.2)))); audio.play('clockwork', { vol: 0.4 });
@@ -370,15 +355,16 @@ export class PrologueScene extends UIScreen {
     const C = this.con; if (!C) return; C.pop = 1; audio.play('glass_clink', { vol: 0.6 }); this.burst(C.g.position, '#ffe8a0', 14);
     if (what === 'apple' && !C.apple) { const a = P3.apple({ kind: 'red' }); a.scale.setScalar(0.12); C.hold.add(a); C.apple = a; }
     if (what === 'force' && !C.arrow) { const ar = P3.arrow(0xd8a040, 0.5); ar.scale.setScalar(0.32); ar.rotation.z = Math.PI / 2; ar.position.set(-0.24, 0, 0); C.hold.add(ar); C.arrow = ar; audio.play('whoosh_soft'); }
-    if (what === 'rotation' && !C.swirl) { const sw = P3.swirl(0.3, 0xf0e0b0); sw.scale.setScalar(0.5); sw.rotation.x = Math.PI / 2; C.hold.add(sw); C.swirl = sw; audio.play('spin_whoosh'); }
+    if (what === 'rotation' && !C.swirl) { const sw = new THREE.Group(); for (const [rx, rz] of [[0, 0], [Math.PI / 2, 0], [Math.PI / 2, Math.PI / 2]]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.008, 3, 6), new THREE.MeshStandardMaterial({ color: 0xd8b060, metalness: 0.8, roughness: 0.35, flatShading: true })); r.rotation.set(rx, 0, rz); sw.add(r); } C.hold.add(sw); C.swirl = sw; audio.play('spin_whoosh'); }
   }
   dropConstruct() { const C = this.con; if (!C) return; this.tween(0.6, (u) => C.g.scale.setScalar(Math.max(0.001, 1 - ease(u)))).then(() => { this.gardenScene.remove(C.g); }); this.con = null; }
-  cloudBank(sc) { // soft cel cloud billboards under the camera's path (warm tops, violet undersides)
-    const c = document.createElement('canvas'); c.width = 64; c.height = 32; const g = c.getContext('2d');
-    for (let y = 0; y < 32; y++) for (let x = 0; x < 64; x++) { let d = 9; for (const [cx, cy, r] of [[18, 20, 11], [32, 15, 13], [46, 20, 11], [28, 23, 9], [40, 24, 9]]) d = Math.min(d, Math.hypot((x - cx) / r, (y - cy) / r)); if (d > 1 || y > 27) continue; const top = y < 17 - (d * 4); g.fillStyle = top ? '#fff0e0' : d > 0.8 ? '#c4a8d0' : y > 22 ? '#b090c0' : '#ffd0b8'; g.fillRect(x, y, 1, 1); }
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter;
-    const mat = new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.5, fog: false, toneMapped: false, depthWrite: false }); const list = [];
-    for (let i = 0; i < 40; i++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.5), mat); const s = 8 + Math.random() * 14; m.scale.setScalar(s); m.position.set((Math.random() - 0.5) * 120, -6 - Math.random() * 10, -10 - Math.random() * 140); m.userData.noInk = true; sc.add(m); list.push(m); }
+  cloudBank(sc) { // faceted low-poly cloud banks under the camera's path: flat-bottomed, angular, warm-lit tops and violet undersides
+    const top = new THREE.MeshStandardMaterial({ color: 0xffe2c8, emissive: 0x6a4a40, emissiveIntensity: 0.35, roughness: 1, flatShading: true, fog: false }); const list = [];
+    for (let i = 0; i < 26; i++) {
+      const g = new THREE.Group(); const n = 3 + Math.floor(Math.random() * 4);
+      for (let k = 0; k < n; k++) { const geo = new THREE.IcosahedronGeometry(1, 0); const p = geo.attributes.position; for (let v = 0; v < p.count; v++) { if (p.getY(v) < -0.2) p.setY(v, -0.35); } geo.computeVertexNormals(); const m = new THREE.Mesh(geo, top); m.scale.set(2.4 + Math.random() * 2, 1.0 + Math.random() * 0.9, 1.6 + Math.random()); m.position.set(k * 2.4 - n * 1.1, Math.random() * 0.5, (Math.random() - 0.5) * 1.5); m.rotation.y = Math.random() * 3; g.add(m); }
+      const s = 2 + Math.random() * 3; g.scale.setScalar(s); g.position.set((Math.random() - 0.5) * 150, -10 - Math.random() * 12, -20 - Math.random() * 150); g.traverse((o) => { o.userData.noInk = true; }); sc.add(g); list.push(g);
+    }
     return list;
   }
   // ------------------------------------------------------------------ input: lesson cards (hover, drag, merge), the golden apple
@@ -419,7 +405,7 @@ export class PrologueScene extends UIScreen {
       if (this.gold) { this.gold.rotation.y += sdt * 1.2; const l = this.gold.userData.light; if (l) l.intensity = (this.goldHover ? 1.6 : 0.7) + Math.sin(c.t * 3) * 0.15; if (this.goldGround && Math.random() < sdt * 6) { const p = this.gold.getWorldPosition(V()); this.parts.burst(1, { pos: [p.x + (Math.random() - 0.5) * 0.2, p.y + Math.random() * 0.15, p.z + (Math.random() - 0.5) * 0.2], vel: [0, 0.25, 0], life: 1.2, size: 6, color: '#ffd860', sprite: 'star4', drag: 0.5 }); } }
       if (this.con) { const C = this.con; C.pop = Math.max(0, C.pop - sdt * 3); C.spin *= Math.exp(-sdt * 1.5); C.hold.rotation.y += sdt * (0.6 + C.spin + C.hover * 2 + (C.swirl ? 3 : 0)); C.hold.position.y = Math.sin(c.t * 1.6) * 0.04 + C.hover * 0.05; C.hold.scale.setScalar(1 + Math.sin(C.pop * Math.PI) * 0.2); if (C.arrow) C.arrow.position.x = -0.24 - Math.sin(c.t * 4) * 0.03; }
     } else if (this.sc === this.paint?.scene) this.paint.update(rdt);
-    if (this.clouds) for (const m of this.clouds) { m.quaternion.copy(this.cam.quaternion); m.position.x += rdt * 0.4; }
+    if (this.clouds) for (const m of this.clouds) m.position.x += rdt * 0.4;
     for (const v of this.lesson) { if (!v.gone && v.home && this.cardsLive) { const hv = v.hover || v.focus; v.target = this.dragging === v ? v.target : { x: v.home.x, y: v.home.y + (hv ? 0.7 : 0) + (v.glowK ? 0.3 : 0), z: hv ? 4.2 : 3, rz: v.target.rz * 0.9, s: v.home.s * (hv ? 1.12 : v.focus === false && this.lesson.some((x) => x.focus) ? 0.94 : 1) }; if (v.hover) { const p = this.ptr(3); v.tilt.x = -(p.y - v.home.y) * 0.05; v.tilt.y = (p.x - v.home.x) * 0.05; } else { v.tilt.x = 0; v.tilt.y = 0; } } v.update(rdt, c.t); }
     this.bars?.update(rdt, this.H);
   }

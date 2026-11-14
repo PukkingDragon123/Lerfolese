@@ -58,6 +58,7 @@ export const CHALLENGES = [
   { id: 'combos30', name: 'Principia', text: 'Discover 30 combinations.', shards: 8, hard: true, reward: ['artifact:pandora', 'tower:banners_royal'], scene: 'alchemy', test: (j) => count(j.combos) >= 30 },
   { id: 'raccoon', name: 'Masked Bandit', text: 'Win a fight in 2 turns or fewer.', shards: 5, hard: true, reward: 'event:halley', scene: 'raccoon', test: (j) => hist(j).some((h) => h.fastest != null && h.fastest <= 2) },
 ];
+export const REWARD_NAME = { 'tower:lanterns': 'Blazing Lanterns', 'tower:banners_royal': 'Royal Banners', 'tower:crystals_lit': 'Burning Crystals', 'tower:orrery_gold': 'A Golden World', 'tower:gears_gilded': 'Gilded Gears' };
 export const REWARD_TEXT = {
   'tower:lanterns': 'The tower windows blaze with lamplight.', 'tower:banners_royal': 'Royal blue banners fly from the tower.', 'tower:crystals_lit': 'The buttress crystals burn with violet fire.',
   'tower:orrery_gold': 'A golden world joins the orrery crown.', 'tower:gears_gilded': 'The tower gears are gilded.',

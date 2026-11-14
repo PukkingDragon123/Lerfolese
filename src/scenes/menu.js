@@ -2,14 +2,13 @@
 // deep space, driven by the preload: it ripens, bruises, rots and wrinkles (spores, growing mould, fruit flies, juice
 // drips, dust puffs as it slumps), collapses, worms wriggle out, then it shrinks back into one glossy seed that sprouts
 // when loading completes, and the camera dives at the seedling into the tower-top menu. The index.html boot canvas
-// (the same space, a pixel apple, forged "Lerfolese") covers the frames before this scene exists.
+// (the same space and an apple, no text) covers the frames before this scene exists.
 // MENU: re-exported from scenes/tower.js (Isaac on the clockwork tower at sunset, cloud buttons, the Hall of Memories).
 import * as THREE from 'three';
 import { UIScreen } from '../ui3d/widgets.js';
 import { appleTimelapse } from '../models/orchard.js';
 import { spaceBackdrop } from '../gfx/spacebg.js';
 import { Motes } from '../gfx/motes.js';
-import { forgedText } from '../ui3d/text3d.js';
 import { audio } from '../core/audio.js';
 import { mulberry32 } from '../core/util.js';
 
@@ -35,7 +34,6 @@ export class LoadingScene extends UIScreen {
     const fill = new THREE.DirectionalLight(0x4cc8c0, 1.0); fill.position.set(-3, 0.3, 0.4); fill.target.position.set(0, 0.85, 0);
     sc.add(star, star.target, key, key.target, fill, fill.target, new THREE.HemisphereLight(0x6a4aa8, 0x081420, 0.55));
     this.motes = new Motes(1100, { px: 3 }); sc.add(this.motes.points); this.rnd = mulberry32(1642);
-    this.title = forgedText('Lerfolese', { font: 'title', unit: 0.0068, depth: 4, style: 'gold', glow: 0.18 }); this.title.position.set(0, 0.33, 0.35); sc.add(this.title); // continues the boot canvas's title
     this.camera = new THREE.PerspectiveCamera(30, this.engine.aspect, 0.05, 60); this.camera.position.set(0, 1.05, 2.55); this.camera.lookAt(0, 0.86, 0);
     this.engine.setWorld(sc, this.camera); this.engine.setFx({ bloom: [0.95, 0.5, 0.62], tilt: false, exposure: 1.1, grade: { sat: 1.12, contrast: 1.06, vignette: 0.5, lift: [0.01, 0.006, 0.022] }, ink: { fade: [6, 20] } });
     for (let i = 0; i < 170; i++) this.dust(true);
@@ -94,7 +92,7 @@ export class LoadingScene extends UIScreen {
       if (this.sproutT > 2.3 && !this.leaving) this.leave();
     }
     // camera: a slow orbit-drift; dive at the seedling when leaving
-    A.group.rotation.y = t * 0.25; this.title.position.y = 0.33 + Math.sin(t * 1.1) * 0.006; this.title.rotation.y = Math.sin(t * 0.35) * 0.08; const zin = ease(this.age > 0.86 ? (this.age - 0.86) / 0.14 : 0); const lv = this.leaving ? ease5((performance.now() - this.leaving) / 1500) : 0;
+    A.group.rotation.y = t * 0.25; const zin = ease(this.age > 0.86 ? (this.age - 0.86) / 0.14 : 0); const lv = this.leaving ? ease5((performance.now() - this.leaving) / 1500) : 0;
     const tip = A.sproutTip(); const cp = V(Math.sin(t * 0.2) * 0.12, 1.05 - zin * 0.18, 2.75 - zin * 1.1); const look = V(0, 0.86 - zin * 0.12, 0);
     if (lv > 0) { cp.lerp(tip.clone().add(V(0.02, 0.05, 0.42)), lv * 0.85); look.lerp(tip, lv); this.bg.U.uFlare.value = Math.max(this.bg.U.uFlare.value, lv * 0.8); }
     this.camera.position.copy(cp); this.camera.lookAt(look);

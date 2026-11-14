@@ -19,65 +19,49 @@
 </head>
 <body>
 <canvas id="game" tabindex="0" aria-label="Lerfolese game canvas"></canvas>
-<div id="boot"><canvas id="boot-cv"></canvas><span id="boot-msg" hidden></span></div>
+<div id="boot"><canvas id="boot-cv"></canvas></div>
 <script>
-// First frame: deep space as pixel art (the same ramps, grid and star as src/gfx/spacebg.js), a small pixel apple where
-// the 3D time-lapse apple will appear, forged Alagard "Lerfolese" and a row of seed pips for progress. The module scene
-// fades this out once its first frame (the same space, the real apple) is drawn, so the hand-off is seamless.
+// First frame, at full native resolution: deep space (soft nebula veils in the violet / teal / gold of src/gfx/spacebg.js,
+// fine twinkling stars, the near star with breathing diffraction spikes), a glossy apple where the 3D time-lapse apple
+// will appear, and a thin line of golden light for progress. No text. The module scene fades this out once its own
+// first frame (the same space, the real apple) is drawn, so the hand-off is seamless.
 (function () {
-  var cv = document.getElementById('boot-cv'), g = cv.getContext('2d'), st = { msg: 'Waking the stars', p: 0.04, shown: 0.04 }, k = 3, W = 0, H = 0, bg = null, t0 = performance.now();
-  window.__boot = function (m, p) { if (m) st.msg = m.replace(/…/g, '...'); if (p != null) st.p = Math.max(st.p, p / 100); };
+  var cv = document.getElementById('boot-cv'), g = cv.getContext('2d'), st = { p: 0.04, shown: 0.04 }, W = 0, H = 0, dpr = 1, neb = null, stars = [], t0 = performance.now();
+  window.__boot = function (m, p) { if (p != null) st.p = Math.max(st.p, p / 100); };
   function h(x, y) { var n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n); }
-  function vn(x, y) { var i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j; fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy);
-    var a = h(i, j), b = h(i + 1, j), c = h(i, j + 1), d = h(i + 1, j + 1); return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; }
+  function vn(x, y) { var i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j; fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy); var a = h(i, j), b = h(i + 1, j), c = h(i, j + 1), d = h(i + 1, j + 1); return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; }
   function fbm(x, y) { var s = 0, a = 0.5; for (var o = 0; o < 5; o++) { s += a * vn(x, y); x = x * 2.03 + 1.7; y = y * 2.03 + 9.2; a *= 0.5; } return s; }
-  var B = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-  var VIO = ['#0a0618', '#1a0e36', '#2e1658', '#4c2478', '#74389a', '#a866b8'], TEA = ['#04121a', '#082a36', '#0e4852', '#16706e', '#2a9c8e', '#74d0b4'], GOL = ['#140a08', '#3a1c10', '#6e3a14', '#b0661e', '#e6a43a', '#ffe08a'];
-  function lv(d, th) { return Math.max(0, Math.min(5, Math.floor(Math.max(0, Math.min(1, d)) * 5 + th))); }
-  function paintSpace() { // the static nebula, painted once per size into an offscreen grid canvas
-    var c = document.createElement('canvas'); c.width = W; c.height = H; var x2 = c.getContext('2d'), im = x2.createImageData(W, H), D = im.data, asp = W / H;
-    var rgb = function (hx) { return [parseInt(hx.substr(1, 2), 16), parseInt(hx.substr(3, 2), 16), parseInt(hx.substr(5, 2), 16)]; };
-    var R = [VIO, TEA, GOL].map(function (r) { return r.map(rgb); });
-    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
-      var u = x / W * asp * 2.2, v = y / H * 2.2, th = (B[(y & 3) * 4 + (x & 3)] + 0.5) / 16, col = [1, 1, 3];
-      var wx = fbm(u * 1.3 + 3.1, v * 1.3), wy = fbm(u * 1.3 - 5.2, v * 1.3 + 2.4);
-      var vi = fbm(u + wx * 1.6, v + wy * 1.6), te = fbm(u * 1.6 - wy * 1.2 + 7.0, v * 1.6 + wx * 1.2), dust = fbm(u * 3.1 + 11.0, v * 3.1);
-      var band = Math.exp(-Math.pow((y / H - 0.55 + (x / W - 0.5) * 0.35) * 2.6, 2));
-      var dv = Math.max(0, vi - 0.47) * 2.1 * (0.3 + band), dt = Math.max(0, te - 0.55) * 2.3 * band, lane = Math.max(0, dust - 0.5) * 2.4;
-      var sx = x / W - 0.77, sy = (1 - y / H) - 0.78, sd = Math.sqrt(sx * sx * asp * asp + sy * sy), dg = Math.max(0, vi - 0.42) * Math.max(0, 0.34 - sd) * 4.2;
-      if (dv > 0.03) col = R[0][lv(dv * (1 - lane * 0.7), th)]; if (dt > 0.05) col = R[1][lv(dt * (1 - lane * 0.6), th)]; if (dg > 0.06) col = R[2][lv(dg * (1 - lane * 0.4), th)];
-      var hs = h(x * 1.13 + 3.1, y * 0.97); if (hs > 0.9955) { var b = hs > 0.9985 ? 170 : 110; col = [b * 0.7, b * 0.72, b]; }
-      var i = (y * W + x) * 4; D[i] = col[0]; D[i + 1] = col[1]; D[i + 2] = col[2]; D[i + 3] = 255; }
+  function sm(a, b, x) { var t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+  function paintNebula() { // computed on a coarse grid, then drawn smoothly (bilinear) at full size: soft gas, no visible cells
+    var nw = 360, nh = Math.round(360 * H / W), c = document.createElement('canvas'); c.width = nw; c.height = nh; var x2 = c.getContext('2d'), im = x2.createImageData(nw, nh), D = im.data, asp = nw / nh;
+    for (var y = 0; y < nh; y++) for (var x = 0; x < nw; x++) { var u = x / nw * asp * 2.2, v = y / nh * 2.2; var wx = fbm(u * 1.3 + 3.1, v * 1.3), wy = fbm(u * 1.3 - 5.2, v * 1.3 + 2.4);
+      var vi = fbm(u + wx * 1.6, v + wy * 1.6), te = fbm(u * 1.6 - wy * 1.2 + 7.0, v * 1.6 + wx * 1.2), dust = fbm(u * 3.1 + 11.0, v * 3.1); var band = Math.exp(-Math.pow((y / nh - 0.55 + (x / nw - 0.5) * 0.35) * 2.6, 2));
+      var dv = sm(0.45, 0.85, vi) * (0.3 + band) * (1 - sm(0.5, 0.8, dust) * 0.7), dt = sm(0.55, 0.9, te) * band * (1 - sm(0.5, 0.8, dust) * 0.6);
+      var sx = x / nw - 0.77, sy = (1 - y / nh) - 0.78, sd = Math.sqrt(sx * sx * asp * asp + sy * sy), dg = sm(0.4, 0.8, vi) * Math.max(0, 0.36 - sd) * 2.6;
+      var r = 2 + dv * 120 + dt * 18 + dg * 230, gg = 1 + dv * 50 + dt * 110 + dg * 130, b = 6 + dv * 160 + dt * 105 + dg * 40; var i = (y * nw + x) * 4; D[i] = Math.min(255, r * 0.8); D[i + 1] = Math.min(255, gg * 0.8); D[i + 2] = Math.min(255, b * 0.8); D[i + 3] = 255; }
     x2.putImageData(im, 0, 0); return c; }
-  var stars = [];
-  function resize() { var dpr = Math.min(2, window.devicePixelRatio || 1), bw = Math.round(innerWidth * dpr), bh = Math.round(innerHeight * dpr); k = Math.max(2, Math.round(bh / 240)); W = Math.floor(bw / k); H = Math.floor(bh / k);
-    cv.width = W; cv.height = H; bg = paintSpace(); stars = []; for (var i = 0; i < 70; i++) stars.push([h(i, 7) * W | 0, h(i, 13) * H | 0, h(i, 29), h(i, 31) < 0.2]); }
-  // the apple: 16 x 16 hand-placed pixels (k = outline, r ramp red, g leaf, s stem, w glint)
-  var APPLE = ['.......ss.......', '.......s.gg.....', '......s.gGGg....', '...kkkskkgg.....', '..kRrrrrrrrk....', '.kRWrrrrrrrrk...', '.kRWrrrrrrrrdk..', 'kRrrrrrrrrrrrdk.', 'kRrrrrrrrrrrrdk.', 'kRrrrrrrrrrrddk.', 'kRrrrrrrrrrrddk.', '.krrrrrrrrrddk..', '.kdrrrrrrrdddk..', '..kddrrrdddkk...', '...kkddddkk.....', '.....kkkk.......'];
-  var PAL = { k: '#12060a', R: '#f0705a', r: '#c8302c', d: '#7a1420', W: '#ffe6d0', s: '#5a3418', g: '#5f8a3a', G: '#9cc860' };
-  var title = null; function makeTitle() { if (title) return; var f = document.createElement('canvas'), c = f.getContext('2d'); c.font = '16px "Alagard"'; var tw = Math.ceil(c.measureText('Lerfolese').width) + 6; f.width = tw; f.height = 22; c.font = '16px "Alagard"'; c.textBaseline = 'alphabetic'; c.fillStyle = '#fff'; c.fillText('Lerfolese', 3, 16);
-    var d = c.getImageData(0, 0, tw, 22).data, m = []; for (var y = 0; y < 22; y++) { m[y] = []; for (var x = 0; x < tw; x++) m[y][x] = d[(y * tw + x) * 4 + 3] > 110; } title = { m: m, w: tw, h: 22 }; }
-  if (document.fonts && document.fonts.load) document.fonts.load('16px "Alagard"').then(makeTitle, makeTitle); else makeTitle();
-  function px(x, y, c) { g.fillStyle = c; g.fillRect(x, y, 1, 1); }
-  function frame() { if (!document.getElementById('boot') || document.getElementById('boot').classList.contains('done')) return; requestAnimationFrame(frame);
-    var t = (performance.now() - t0) / 1000; g.drawImage(bg, 0, 0);
-    for (var i = 0; i < stars.length; i++) { var s = stars[i], tw = Math.sin(t * (0.8 + s[2] * 3) + s[2] * 40); if (tw < -0.2) continue; var c = s[3] ? '#ffe8c0' : '#c8d4ff'; px(s[0], s[1], c); if (s[3] && tw > 0.6) { px(s[0] - 1, s[1], '#6a6a9a'); px(s[0] + 1, s[1], '#6a6a9a'); px(s[0], s[1] - 1, '#6a6a9a'); px(s[0], s[1] + 1, '#6a6a9a'); } }
-    // the nearby star: white core, stepped corona, breathing spikes
-    var sx = Math.round(W * 0.77), sy = Math.round(H * 0.22), br = 3 + Math.round(Math.sin(t * 1.3) * 1.2);
-    for (var r = 5; r >= 1; r--) { g.fillStyle = ['#ffffff', '#fff4c8', '#ffd890', '#e6a43a', '#6e3a14'][r - 1]; g.fillRect(sx - r + 1, sy - r + 1, r * 2 - 1, r * 2 - 1); }
-    for (var q = 3; q < 9 + br; q++) { var c2 = q < 6 ? '#ffe8b0' : q < 9 ? '#e6a43a' : '#6e3a14'; px(sx + q, sy, c2); px(sx - q, sy, c2); px(sx, sy + q, c2); px(sx, sy - q, c2); }
-    // the apple, bobbing a whole art pixel at a time
-    var ax = Math.round(W / 2 - 8), ay = Math.round(H * 0.5 - 15 + Math.round(Math.sin(t * 1.6))); for (var y = 0; y < 16; y++) for (var x = 0; x < 16; x++) { var ch = APPLE[y][x]; if (ch !== '.') px(ax + x, ay + y, PAL[ch]); }
-    if (Math.floor(t * 1.5) % 3 === 0) px(ax + 3, ay + 5, '#ffffff');
-    // title: forged Alagard (dark extrusion, ink outline, gold ramp with a lit top band)
-    if (title) { var T = title, tx = Math.round(W / 2 - T.w / 2), ty = Math.round(H * 0.5 + 8);
-      for (var pass = 0; pass < 3; pass++) for (var y2 = 0; y2 < T.h; y2++) for (var x2 = 0; x2 < T.w; x2++) { if (!T.m[y2][x2]) continue;
-        if (pass === 0) { for (var dy = -1; dy <= 2; dy++) for (var dx = -1; dx <= 1; dx++) px(tx + x2 + dx, ty + y2 + dy, dy === 2 ? '#2a1206' : '#0c0608'); }
-        else if (pass === 1) px(tx + x2, ty + y2 + 1, '#6e3a14');
-        else px(tx + x2, ty + y2, y2 < 8 ? '#ffe08a' : y2 < 12 ? '#e6a43a' : y2 < 15 ? '#c27c3e' : '#8a4a26'); } }
-    // progress: twelve seed pips, filling gold one by one
-    st.shown += (st.p - st.shown) * 0.08; var n = 12, gx = Math.round(W / 2 - n * 2), gy = Math.round(H * 0.5 + 34); for (var j = 0; j < n; j++) { var on = (j + 0.5) / n < st.shown; px(gx + j * 4, gy, on ? '#ffe08a' : '#74389a'); px(gx + j * 4 + 1, gy, on ? '#e6a43a' : '#4c2478'); px(gx + j * 4, gy + 1, on ? '#b0661e' : '#2e1658'); if (on && (Math.floor(t * 6) + j) % 9 === 0) px(gx + j * 4, gy - 1, '#ffffff'); }
-  }
+  function resize() { dpr = Math.min(2, window.devicePixelRatio || 1); W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr); cv.width = W; cv.height = H; neb = paintNebula(); stars = [];
+    for (var i = 0; i < 420; i++) stars.push([h(i, 7) * W, h(i, 13) * H, h(i, 29), h(i, 31), h(i, 37)]); }
+  function apple(cx, cy, R, t) { // a glossy red apple: two lobed bezier halves, a warm key from upper right, a cool rim, a stem and a leaf
+    g.save(); g.translate(cx, cy);
+    g.beginPath(); g.moveTo(0, -R * 0.62); g.bezierCurveTo(R * 0.55, -R * 1.05, R * 1.18, -R * 0.55, R * 1.02, R * 0.2); g.bezierCurveTo(R * 0.9, R * 0.85, R * 0.42, R * 1.05, 0, R * 0.86); g.bezierCurveTo(-R * 0.42, R * 1.05, -R * 0.9, R * 0.85, -R * 1.02, R * 0.2); g.bezierCurveTo(-R * 1.18, -R * 0.55, -R * 0.55, -R * 1.05, 0, -R * 0.62); g.closePath();
+    var gr = g.createLinearGradient(-R, -R, R * 0.9, R); gr.addColorStop(0, '#5a0e14'); gr.addColorStop(0.45, '#a8222a'); gr.addColorStop(0.75, '#d8423a'); gr.addColorStop(1, '#f07a52'); g.fillStyle = gr; g.fill();
+    g.save(); g.clip(); var sh = g.createLinearGradient(-R, 0, R * 0.2, 0); sh.addColorStop(0, 'rgba(8,4,20,0.75)'); sh.addColorStop(1, 'rgba(8,4,20,0)'); g.fillStyle = sh; g.fillRect(-R * 1.3, -R * 1.3, R * 2.6, R * 2.6);
+    g.strokeStyle = 'rgba(255,214,150,0.85)'; g.lineWidth = R * 0.07; g.beginPath(); g.moveTo(R * 0.35, -R * 0.75); g.bezierCurveTo(R * 0.95, -R * 0.55, R * 1.05, 0, R * 0.92, R * 0.42); g.stroke(); // the star's rim light
+    g.fillStyle = 'rgba(255,240,225,' + (0.55 + 0.1 * Math.sin(t * 2)) + ')'; g.beginPath(); g.moveTo(R * 0.28, -R * 0.42); g.quadraticCurveTo(R * 0.62, -R * 0.38, R * 0.58, -R * 0.08); g.quadraticCurveTo(R * 0.42, -R * 0.3, R * 0.28, -R * 0.42); g.fill(); g.restore();
+    g.strokeStyle = '#4a2a14'; g.lineWidth = R * 0.08; g.lineCap = 'round'; g.beginPath(); g.moveTo(0, -R * 0.6); g.quadraticCurveTo(R * 0.05, -R * 0.95, R * 0.18, -R * 1.12); g.stroke();
+    g.fillStyle = '#5f8a3a'; g.beginPath(); g.moveTo(R * 0.12, -R * 0.95); g.bezierCurveTo(R * 0.4, -R * 1.35, R * 0.85, -R * 1.2, R * 0.95, -R * 1.05); g.bezierCurveTo(R * 0.7, -R * 0.85, R * 0.35, -R * 0.82, R * 0.12, -R * 0.95); g.fill();
+    g.strokeStyle = 'rgba(200,240,150,0.6)'; g.lineWidth = R * 0.02; g.beginPath(); g.moveTo(R * 0.14, -R * 0.95); g.quadraticCurveTo(R * 0.55, -R * 1.05, R * 0.9, -R * 1.06); g.stroke(); g.restore(); }
+  function frame() { var el = document.getElementById('boot'); if (!el || el.classList.contains('done')) return; requestAnimationFrame(frame);
+    var t = (performance.now() - t0) / 1000; g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(neb, 0, 0, W, H);
+    for (var i = 0; i < stars.length; i++) { var s = stars[i], tw = 0.55 + 0.45 * Math.sin(t * (0.7 + s[2] * 3) + s[2] * 40), sz = (0.5 + s[3] * s[3] * 1.6) * dpr; g.globalAlpha = tw * (0.35 + s[4] * 0.65); g.fillStyle = s[3] > 0.85 ? '#ffe8c8' : '#c8d4ff'; g.fillRect(s[0], s[1], sz, sz); }
+    g.globalAlpha = 1; var sx = W * 0.77, sy = H * 0.22, sp = (60 + Math.sin(t * 1.3) * 12) * dpr; // the near star: core and breathing spikes
+    g.globalCompositeOperation = 'lighter'; for (var k = 0; k < 2; k++) { var gr = k ? g.createLinearGradient(sx, sy - sp, sx, sy + sp) : g.createLinearGradient(sx - sp, sy, sx + sp, sy); gr.addColorStop(0, 'rgba(255,200,120,0)'); gr.addColorStop(0.5, 'rgba(255,240,210,0.95)'); gr.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = gr; if (k) g.fillRect(sx - dpr, sy - sp, 2 * dpr, sp * 2); else g.fillRect(sx - sp, sy - dpr, sp * 2, 2 * dpr); }
+    g.fillStyle = '#fff6e6'; g.fillRect(sx - 2 * dpr, sy - 2 * dpr, 4 * dpr, 4 * dpr); g.globalCompositeOperation = 'source-over';
+    apple(W / 2, H * 0.5 + Math.sin(t * 1.6) * 3 * dpr, Math.min(W, H) * 0.045, t);
+    st.shown += (st.p - st.shown) * 0.08; var lw = Math.min(W, H) * 0.22, lx = W / 2 - lw / 2, ly = H * 0.5 + Math.min(W, H) * 0.11; // progress: a thin line of golden light
+    g.fillStyle = 'rgba(120,90,160,0.35)'; g.fillRect(lx, ly, lw, Math.max(1, dpr)); var pw = lw * st.shown, gl = g.createLinearGradient(lx, 0, lx + pw, 0); gl.addColorStop(0, 'rgba(230,164,58,0.2)'); gl.addColorStop(1, 'rgba(255,224,150,1)'); g.fillStyle = gl; g.fillRect(lx, ly - dpr * 0.5, pw, Math.max(1, dpr * 2));
+    g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,230,170,0.9)'; g.fillRect(lx + pw - 2 * dpr, ly - 3 * dpr, 2 * dpr, 7 * dpr); g.globalCompositeOperation = 'source-over'; }
   resize(); addEventListener('resize', resize); frame();
 })();
 </script>

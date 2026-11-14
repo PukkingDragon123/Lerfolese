@@ -2,7 +2,8 @@
 import * as THREE from 'three';
 import { Signboard, Strip } from '../ui3d/objects.js';
 import { uiPos } from '../ui3d/craft.js';
-import { UIScreen, Button3D, Panel, tabletopWorld } from '../ui3d/widgets.js';
+import { UIScreen, Panel, tabletopWorld } from '../ui3d/widgets.js';
+import { CloudButton as Button3D } from '../ui3d/instruments.js'; // buttons are soft clouds
 import { CoinJar as Pouch } from '../ui3d/instruments.js'; // the gold jar (coins drop in as they are counted)
 import { CurioDisplay, rarityOf, RARITY } from '../models/items3d.js';
 import { ITEMS } from '../game/data/items.js';

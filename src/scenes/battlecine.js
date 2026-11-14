@@ -6,6 +6,8 @@
 // physically does what you chose), the discard chooser (Recycle / Scratchpad) and a small tutorial hook.
 import * as THREE from 'three';
 import { FloatText, FloatSpeech } from '../ui3d/floatlabel.js';
+import { CloudButton } from '../ui3d/instruments.js';
+import { uiPos } from '../ui3d/craft.js';
 import { WIND } from '../models/toon.js';
 import { audio } from '../core/audio.js';
 import { tweens } from '../core/tween.js';
@@ -113,11 +115,11 @@ export class Vignette {
     else if (st === 'gravity') { const raise = t < 0.5; P = raise ? { lean: -0.05, ra: Math.PI - 0.05, rf: 0, la: 0.5 } : { lean: 0.2, ra: -0.5, rf: 0.5, la: 0.7, lt: -0.4, ls: 0.8, rt: -0.3, rs: 0.6 }; this.isaac(g, hx, hy + (raise ? 0 : 1), P);
       if (raise) ball = [foe[0], 4 + t * 4]; else if (t < 0.72) { const u = (t - 0.5) / 0.22; ball = [foe[0], 6 + (foe[1] - 10) * u * u]; for (let k = 1; k < 5; k++) { g.fillStyle = '#c8d0ff'; g.fillRect(foe[0] - 3 + k * 2, Math.round(ball[1] - 4 - k * 2), 1, 2); } } else hit = true; }
     else { frozen = t < 0.62; P = { lean: 0.05, la: -1.55, lf: 0, ra: 0.6, rf: 1.2, lt: -0.3, rt: 0.3 }; this.isaac(g, hx, hy, P);
-      if (frozen) { ball = [36, VH - 22]; g.fillStyle = '#9ad8ff'; for (let a = 0; a < 16; a++) { const r = 6 + Math.sin(f) * 0.5; g.fillRect(Math.round(ball[0] + Math.cos(a / 16 * Math.PI * 2) * r), Math.round(ball[1] + Math.sin(a / 16 * Math.PI * 2) * r), 1, 1); } g.fillStyle = '#ffffff'; g.fillRect(ball[0], ball[1] - 5, 1, 4); g.fillRect(ball[0] + 1, ball[1], 3, 1); }
+      if (frozen) { ball = [36, VH - 22]; g.fillStyle = '#9ad8ff'; for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1]]) for (let r = 4; r <= 7; r++) { g.fillRect(ball[0] + dx * r, ball[1] + dy * r, 1, 1); g.fillRect(ball[0] - dx * r, ball[1] - dy * r, 1, 1); } } // ice-sharp spikes: time frozen round it
       else if (t < 0.85) { const u = (t - 0.62) / 0.23; ball = [36 + (foe[0] - 36) * u, VH - 22 + (foe[1] - 6 - (VH - 22)) * u]; trail = [36, VH - 22]; } else hit = true; }
     if (trail && ball) this.streak(g, trail[0], trail[1], ball[0], ball[1]);
     if (ball) this.ball(g, ball[0], ball[1], this.art.heavy ? 2.2 : 1.6, f);
-    if (hit) { const k = Math.floor((t - 0.8) * 30); g.fillStyle = '#fff6cf'; for (let a = 0; a < 8; a++) { const r = 3 + k; g.fillRect(Math.round(foe[0] + Math.cos(a * 0.785) * r), Math.round(foe[1] - 6 + Math.sin(a * 0.785) * r), 1, 1); } }
+    if (hit) { const k = Math.floor((t - 0.8) * 30); g.fillStyle = '#fff6cf'; for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [1, -1], [-1, 0], [0, -1], [-1, -1], [-1, 1]]) for (let r = 2 + k; r <= 4 + k; r++) g.fillRect(foe[0] + dx * r, foe[1] - 6 + dy * r, 1, 1); } // straight impact rays
     if (frozen) { const id = g.getImageData(0, 0, VW, VH); const d = id.data; for (let i = 0; i < d.length; i += 4) { const l = d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11; d[i] = l * 0.8; d[i + 1] = l * 0.9; d[i + 2] = Math.min(255, l * 1.25); } g.putImageData(id, 0, 0); }
     // a brass frame
     g.fillStyle = '#e8b848'; g.fillRect(0, 0, VW, 1); g.fillRect(0, 0, 1, VH); g.fillStyle = '#7a4a14'; g.fillRect(0, VH - 1, VW, 1); g.fillRect(VW - 1, 0, 1, VH); g.fillStyle = '#0c0810'; g.fillRect(1, 1, VW - 2, 1); g.fillRect(1, 1, 1, VH - 2);
@@ -136,7 +138,7 @@ export async function dilemmaScene(S, d, e) {
   const mid = pp.clone().lerp(foeP, 0.5); cam.shot(V(pp.x - 1.6, 2.3, pp.z + 3.2), V(foeP.x, foeP.y + 0.2, foeP.z), { speed: 2.4, fov: 30 });
   const title = new FloatText([[d.title, '#ffe6a8']], { font: 'title', align: 'center', lighten: false }); S.ui.scene.add(title.group); title.place(0, S.ui.H - 1.6, 9); title.show();
   const sub = new FloatText([[d.riddle ? 'A RIDDLE' : 'A DILEMMA', '#c8b494']], { font: 'head', align: 'center', lighten: false }); S.ui.scene.add(sub.group); sub.place(0, S.ui.H - 3.1, 9); sub.show();
-  const tick = { on: true }; const loop = { update: (dt) => { title.update(dt); sub.update(dt); for (const o of opts) o.T.update(dt, S.ui.pointerPlane(9)); speech?.update(dt); if (speech) { const p = S.engine.worldToUI(S.enemyPos(e, 1.0).add(V(0, 0.5, 0))); speech.at(p.x, p.y); } } };
+  const loop = { update: (dt) => { title.update(dt); sub.update(dt); const pp9 = S.ui.pointerPlane(9); for (const o of opts) o.B.update(dt, pp9); speech?.update(dt); if (speech) { const p = S.engine.worldToUI(S.enemyPos(e, 1.0).add(V(0, 0.5, 0))); speech.at(p.x, p.y); } } };
   let speech = null; const opts = []; S.engine.add(loop);
   await tweens.wait(0.9); fv?.api.act?.('cast');
   // 2. the foe speaks (voiced), close on it
@@ -146,24 +148,24 @@ export async function dilemmaScene(S, d, e) {
   // 3. back on Newton; the options float beside him as 3D letters (hover tilts them, click to choose, or 1-3)
   cam.shot(V(pp.x + 1.4, 2.0, pp.z + 4.2), V(pp.x + 0.9, 1.55, pp.z), { speed: 3, fov: 30 }); prof.act('think'); prof.lookAt(0.4, 0.1);
   const W = S.ui.W, H = S.ui.H;
-  d.options.forEach((o, i) => { const T = new FloatText([[`${i + 1}. ${o.label}`, '#ffe6a8'], ...(o.sub ? [] : [])], { font: 'head', align: 'left', anchor: 'left', lighten: false }); const L = o.sub ? [[[`${i + 1}  ${o.label}`, '#ffe6a8']], [[o.sub, '#d8ccb4']]] : [[[`${i + 1}  ${o.label}`, '#ffe6a8']]];
-    T.set(L, { fonts: ['head', 'body'] }); S.ui.scene.add(T.group); const y = H * 0.35 - i * 2.3; T.place(W * 0.02, y, 9); T.base = { x: W * 0.02, y }; setTimeout(() => { T.show(); audio.play('page_turn', { vol: 0.25 }); }, 120 * i); opts.push({ T, o, i }); });
+  // the options: soft clouds beside Newton (hover swells and tilts them; click, or press 1-3)
+  d.options.forEach((o, i) => { const B = new CloudButton(`${i + 1}  ${o.label}`, null, { w: 7.5, h: 1.5, sub: o.sub, color: i === 0 ? 'teal' : i === 1 ? 'purple' : 'wood' }); S.ui.scene.add(B.group); const y = H * 0.38 - i * 2.6, x = W * 0.28; uiPos(B.group, x, y, 9); B.group.scale.setScalar((40 - 9) / 40); B.pop.value = 0.05; setTimeout(() => { B.pop.target = 1; B.pop.kick(4); audio.play('whoosh_soft', { vol: 0.25 }); }, 130 * i); opts.push({ B, o, i }); });
   const pick = await new Promise((resolve) => {
     const ray = new THREE.Raycaster(); let hover = null;
-    const hitOf = () => { ray.setFromCamera(S.input.ndc, S.engine.ui.camera); const hs = ray.intersectObjects(opts.map((x) => x.T.faceM), false); return hs.length ? opts.find((x) => x.T.faceM === hs[0].object) : null; };
+    const hitOf = () => { ray.setFromCamera(S.input.ndc, S.engine.ui.camera); const hs = ray.intersectObjects(opts.flatMap((x) => [x.B.hit, x.B.hitFace].filter(Boolean)), false); return hs.length ? opts.find((x) => x.B.hit === hs[0].object || x.B.hitFace === hs[0].object) : null; };
     const h = S.input.push({ modal: true,
-      move() { const x = hitOf(); if (x !== hover) { if (hover) { hover.T.hover = false; hover.T.place(hover.T.base.x, hover.T.base.y, 9); } hover = x; if (x) { x.T.hover = true; x.T.pop.kick(3); x.T.place(x.T.base.x + 0.4, x.T.base.y, 9.5); audio.play('ui_hover', { vol: 0.4 }); } } return true; },
-      click() { const x = hitOf(); if (x) { S.input.remove(h); resolve(x.i); } return true; },
-      key(ev) { const n = parseInt(ev.key, 10); if (n >= 1 && n <= opts.length) { S.input.remove(h); resolve(n - 1); } return true; },
+      move() { const x = hitOf(); if (x !== hover) { if (hover) hover.B.hover = false; hover = x; if (x) { x.B.hover = true; audio.play('ui_hover', { vol: 0.4 }); } } return true; },
+      click() { const x = hitOf(); if (x) { x.B.press(); S.input.remove(h); resolve(x.i); } return true; },
+      key(ev) { const n = parseInt(ev.key, 10); if (n >= 1 && n <= opts.length) { opts[n - 1].B.press(); S.input.remove(h); resolve(n - 1); } return true; },
       dragstart: () => true, drag: () => true, dragend: () => true, down: () => true, wheel: () => true });
   });
   audio.play('stamp'); audio.play('chime_soft', { vol: 0.5 }); speech?.drop(); speech = null;
-  for (const x of opts) { if (x.i === pick) { x.T.pop.kick(6); x.T.place(x.T.base.x + 0.6, x.T.base.y, 10); } else x.T.hide(); }
-  await tweens.wait(0.45); for (const x of opts) x.T.hide();
+  for (const x of opts) if (x.i !== pick) { x.B.pop.target = 0; } else x.B.pop.kick(5);
+  await tweens.wait(0.45); for (const x of opts) x.B.pop.target = 0;
   // 4. Isaac does it: walks up to the foe for a give / grab, drinks, answers with a raised finger, braces or refuses
   const what = ACT_FOR(d.options[pick]); await perform(S, what, e, cam);
   title.hide(); sub.hide(); S.dilemmaPickAct = what;
-  setTimeout(() => { S.engine.remove(loop); for (const x of [...opts.map((y) => y.T), title, sub]) x.dispose(); }, 900);
+  setTimeout(() => { S.engine.remove(loop); for (const x of opts) { x.B.group.parent?.remove(x.B.group); x.B.text.dispose(); } title.dispose(); sub.dispose(); }, 900);
   return pick;
 }
 // the reply / outcome after the battle applied the option (called from fx.dilemmaResult)
@@ -196,14 +198,14 @@ export function chooseCards(S, pool, { min = 0, max = 99, title = 'Discard', rec
   return new Promise((resolve) => {
     const sel = new Set(); const H = S.ui.H; S.hand.selected = sel; S.hand.layout();
     const head = new FloatText([[title, '#ffe6a8']], { font: 'title', align: 'center', lighten: false }); S.ui.scene.add(head.group); head.place(0, -H + 9.2, 9); head.show();
-    const btn = new FloatText([['CONFIRM', '#bff4a0']], { font: 'head', align: 'center', lighten: false }); S.ui.scene.add(btn.group); btn.place(0, -H + 7.6, 9); if (min === 0 || recycle) btn.show();
+    const btn = new CloudButton('Confirm', null, { w: 4.2, h: 1.3, color: 'teal' }); S.ui.scene.add(btn.group); uiPos(btn.group, 0, -H + 7.4, 9); btn.group.scale.setScalar((40 - 9) / 40); btn.on = min === 0 || recycle; btn.group.visible = btn.on; btn.show = () => { btn.on = true; btn.group.visible = true; };
     const loop = { update: (dt) => { head.update(dt); btn.update(dt, S.ui.pointerPlane(9)); } }; S.engine.add(loop); audio.play('page_turn', { vol: 0.4 });
-    const ray = new THREE.Raycaster(); const overBtn = () => { ray.setFromCamera(S.input.ndc, S.engine.ui.camera); return btn.on && ray.intersectObject(btn.faceM, false).length > 0; };
-    const done = () => { S.input.remove(h); S.hand.selected = null; S.hand.layout(); head.hide(); btn.hide(); setTimeout(() => { S.engine.remove(loop); head.dispose(); btn.dispose(); }, 600); resolve([...sel]); };
+    const ray = new THREE.Raycaster(); const overBtn = () => { ray.setFromCamera(S.input.ndc, S.engine.ui.camera); return btn.on && ray.intersectObjects([btn.hit, btn.hitFace].filter(Boolean), false).length > 0; };
+    const done = () => { S.input.remove(h); S.hand.selected = null; S.hand.layout(); head.hide(); btn.pop.target = 0; setTimeout(() => { S.engine.remove(loop); head.dispose(); btn.group.parent?.remove(btn.group); btn.text.dispose(); }, 600); resolve([...sel]); };
     const h = S.input.push({ modal: true,
       move() { const s = S.hand.pick(S.rayUI(S.cardMeshes())); if (s !== S.hand.hover) { S.hand.hover = s; S.hand.layout(); } btn.hover = overBtn(); return true; },
       click() {
-        if (overBtn() && sel.size >= min) { audio.play('ui_click'); return done(), true; }
+        if (overBtn() && sel.size >= min) { btn.press(); return done(), true; }
         const s = S.hand.pick(S.rayUI(S.cardMeshes())); if (!s || !pool.some((p) => p.uid === s.uid)) return true;
         if (sel.has(s.uid)) sel.delete(s.uid); else if (sel.size < max) sel.add(s.uid); audio.play(sel.has(s.uid) ? 'paper_crumple' : 'card_place', { vol: 0.6 }); S.hand.layout();
         if (!recycle && sel.size >= max) setTimeout(done, 250); else if (sel.size >= min) btn.show(); return true;

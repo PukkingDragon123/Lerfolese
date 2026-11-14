@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { Signboard, Paper, Tag } from '../ui3d/objects.js';
 import { uiPos } from '../ui3d/craft.js';
 import { prop } from '../models/lowprops.js';
-import { UIScreen, Button3D, tabletopWorld } from '../ui3d/widgets.js';
+import { UIScreen, tabletopWorld } from '../ui3d/widgets.js';
+import { CloudButton as Button3D } from '../ui3d/instruments.js'; // buttons are soft clouds
 import { textPlane, Pouch } from '../ui3d/kit.js';
 import { cardChoices, mkCard, upgradeCard } from '../game/run.js';
 import { DeckView } from './deckview.js';

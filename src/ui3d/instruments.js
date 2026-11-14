@@ -4,7 +4,7 @@
 // by one with a clink, slosh and settle, fly out when spent, and rattle when you shake it. Both are faceted low-poly
 // (8 - 12 sided turnings), pixel-art textured (nearest), lit by the UI rig, tilt toward the pointer, squash when pressed.
 import * as THREE from 'three';
-import { Surf, SurfTex, RAMP, pxTex, wood, brass, leather, inscribe, measure, Body, inkHull } from './craft.js';
+import { Surf, SurfTex, RAMP, pxTex, wood, brass, leather, inscribe, measure, Body, inkHull, uiPos } from './craft.js';
 import { WardShield } from './hudparts.js';
 import { Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
@@ -158,3 +158,91 @@ export class CoinJar extends Body {
     this.coins.instanceMatrix.needsUpdate = true; this.tag.rotation.z = -0.1 + this.slosh.value * 0.06 + Math.sin(t * 1.2) * 0.02;
   }
 }
+
+// ================================================================ CLOUDS: the soft sculpted UI (buttons, tooltip backs, choice panels)
+// A low-poly cumulus sized to its content: faceted puffs (subdivided icosahedra, flattened toward the camera) along a
+// rounded bar, flat-shaded, sunlit cream on top, cool lilac-grey underneath (vertex colours). They breathe, swell and
+// tilt toward the pointer, squash when pressed. Text sits on them in dark ink, short.
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { FloatText } from './floatlabel.js';
+const CLOUD_M = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 0, flatShading: true, toneMapped: false, emissive: 0x2a2436, emissiveIntensity: 0.35 });
+export function cloudGeo(w, h, seed = 1) {
+  let s = (seed * 9301 + 49297) % 233280; const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  const parts = []; const n = Math.max(3, Math.round(w / (h * 0.62)));
+  const puff = (x, y, r, flat = 0.42) => { const g = new THREE.IcosahedronGeometry(r, 1); g.scale(1, 0.88, flat); g.rotateZ(rnd() * 3); g.translate(x, y, 0); parts.push(g.toNonIndexed()); };
+  for (let i = 0; i < n; i++) { const x = -w / 2 + (i + 0.5) * (w / n); puff(x, h * 0.16 + rnd() * h * 0.08, h * (0.42 + rnd() * 0.16)); puff(x + (rnd() - 0.5) * 0.2, -h * 0.2, h * (0.34 + rnd() * 0.06), 0.36); }
+  for (let i = 0; i < Math.max(1, n - 1); i++) puff(-w / 2 + (i + 1) * (w / n), 0, h * 0.5, 0.5);
+  puff(-w / 2 - h * 0.12, -h * 0.02, h * 0.36); puff(w / 2 + h * 0.12, -h * 0.04, h * 0.34);
+  const geo = mergeGeometries(parts.map((g) => { for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k); return g; }));
+  const p = geo.attributes.position; const col = new Float32Array(p.count * 3); const top = new THREE.Color(0xfff8ec), mid = new THREE.Color(0xe8e0e8), bot = new THREE.Color(0xa49cb8), c = new THREE.Color();
+  for (let i = 0; i < p.count; i++) { const v = (p.getY(i) / h) + 0.5; if (v > 0.5) c.copy(mid).lerp(top, Math.min(1, (v - 0.5) * 2)); else c.copy(bot).lerp(mid, Math.max(0, v * 2)); col.set([c.r, c.g, c.b], i * 3); }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.computeVertexNormals(); return geo;
+}
+export class Cloud3D extends Body {
+  constructor(w = 4, h = 1.4, { seed = Math.random() * 99 } = {}) { super(); this.tiltK = 0.06; this.hoverLift = 0.35; this.w = w; this.h = h; this.seed = seed; this.mesh = new THREE.Mesh(cloudGeo(w, h, seed), CLOUD_M.clone()); this.mesh.castShadow = true; this.pivot.add(this.mesh); this.breath = Math.random() * 9; this.swell = new Spring(1, 10, 0.4); }
+  resize(w, h) { if (Math.abs(w - this.w) < 0.05 && Math.abs(h - this.h) < 0.05) return; this.w = w; this.h = h; this.mesh.geometry.dispose(); this.mesh.geometry = cloudGeo(w, h, this.seed); }
+  update(dt, p) { this.updateBody(dt, p); this.breath += dt; this.swell.target = this.hover ? 1.07 : 1; this.swell.update(dt); const b = 1 + Math.sin(this.breath * 1.3) * 0.012; this.mesh.scale.set(this.swell.value * b, this.swell.value / b, 1); }
+}
+/** a cloud button with the Plaque / Button3D api (label, onClick, { w, h, sub, disabled, color }) */
+export class CloudButton extends Cloud3D {
+  constructor(label, onClick, { w = 5, h = 1.3, sub = null, disabled = false, color = 'wood' } = {}) {
+    super(w, h); this.onClick = onClick; this.label = label; this.sub = sub; this.accent = color === 'purple' ? '#5a2a7a' : color === 'teal' ? '#1e5a5a' : '#3a2410';
+    this.text = new FloatText(null, { font: 'head', align: 'center', lighten: false, depth: 0.03 }); this.text.group.position.z = h * 0.48; this.pivot.add(this.text.group); this.paint();
+    this.mesh.userData.button = this; this.text.faceM.userData.button = this; this.hit = this.mesh; this.hitFace = this.text.faceM; this.disabled = false; this.setDisabled(disabled);
+  }
+  paint() { const subs = this.sub ? wrapSub(this.sub) : []; this.text.set([[[this.label, this.accent]], ...subs.map((l) => [[l, '#5a4a5a']])], { fonts: ['head', ...subs.map(() => 'tiny')] }); this.text.show(); this.text.place(0, 0, 0); this.text.group.position.set(0, 0, this.h * 0.48); this.text.group.scale.setScalar(1);
+    const need = this.text.w + this.h * 0.6; if (need > this.w || this.text.h + 0.3 > this.h) this.resize(Math.max(this.w, need), Math.max(this.h, this.text.h + 0.35)); if (this.text.faceM) { this.text.faceM.userData.button = this; this.hitFace = this.text.faceM; } }
+  setLabel(label, sub = this.sub) { if (label === this.label && sub === this.sub) return; this.label = label; this.sub = sub; this.paint(); }
+  setDisabled(d) { d = !!d; this.disabled = d; this.mesh.material.color.setScalar(d ? 0.6 : 1); this.restRz = d ? 0.25 : 0; }
+  update(dt, p) { super.update(dt, this.disabled ? null : p); this.text.update(dt); }
+  press() { if (this.disabled) { audio.play('ui_error'); this.rz.kick(5); return; } this.squash(1.2); this.swell.kick(-3); audio.play('ui_click'); audio.play('whoosh_soft', { vol: 0.3 }); this.onClick?.(); }
+}
+function wrapSub(t) { const w = String(t).split(' '); const out = []; let cur = ''; for (const x of w) { if ((cur + ' ' + x).length > 34 && cur) { out.push(cur); cur = x; } else cur = cur ? cur + ' ' + x : x; } if (cur) out.push(cur); return out.slice(0, 2); }
+
+// ================================================================ THE GOLDEN APPLE: End Turn (time is stopped while you plan; it lets time go)
+// A faceted golden apple on a little brass clockwork stand: a ring of hour ticks turns round it while time is stopped,
+// it glows and lifts on hover, squashes when pressed, chimes, and the world ripples back into motion from it.
+export class TimeApple extends Body {
+  constructor() {
+    super(); const p = this.pivot; this.tiltK = 0.05; this.hoverLift = 0.35;
+    const prof = []; for (let i = 0; i <= 12; i++) { const t = i / 12; const r = 0.95 * Math.sin(Math.PI * Math.min(1, 0.04 + t * 0.92)) * (1 + 0.1 * Math.sin(t * Math.PI * 1.15)); prof.push([r, (t - 0.5) * 1.75 - (t > 0.9 ? (t - 0.9) * 1.6 : 0) + (t < 0.1 ? (0.1 - t) * 1.2 : 0)]); }
+    this.goldM = new THREE.MeshStandardMaterial({ color: 0xffc848, metalness: 0.75, roughness: 0.28, flatShading: true, toneMapped: false, emissive: 0xc07a10, emissiveIntensity: 0.25 });
+    this.apple = M(lathe(prof, 10), this.goldM, p, 0.035);
+    const stem = M(lathe([[0.06, 0], [0.05, 0.25], [0.035, 0.42]], 6), mats().wood, this.apple); stem.position.y = 0.72; stem.rotation.z = -0.2;
+    const ls = new THREE.Shape(); ls.moveTo(0, 0); ls.quadraticCurveTo(0.3, 0.2, 0.62, 0.05); ls.quadraticCurveTo(0.3, -0.16, 0, 0); const leaf = M(new THREE.ShapeGeometry(ls, 4), new THREE.MeshStandardMaterial({ color: 0xd8b040, metalness: 0.6, roughness: 0.35, side: THREE.DoubleSide, flatShading: true, toneMapped: false }), this.apple); leaf.position.set(0.05, 0.86, 0); leaf.rotation.set(0.4, 0.3, 0.5);
+    // the clockwork: a brass ring of twelve hour ticks, and a tiny hand
+    this.ring = new THREE.Group(); p.add(this.ring); const rm = mats().brass;
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; const tk = M(new THREE.BoxGeometry(i % 3 ? 0.08 : 0.14, 0.26, 0.06), rm, this.ring); tk.position.set(Math.cos(a) * 1.45, Math.sin(a) * 1.45, 0); tk.rotation.z = a + Math.PI / 2; }
+    this.hand = M(new THREE.BoxGeometry(0.07, 0.62, 0.05), rm, p); this.hand.geometry.translate(0, 0.31, 0); this.hand.position.z = 1.0;
+    const stand = M(lathe([[0.001, 0], [0.9, 0], [0.95, 0.1], [0.6, 0.2], [0.25, 0.26], [0.2, 0.55], [0.001, 0.58]], 8), mats().wood, p, 0.03); stand.position.y = -1.95;
+    this.label = new FloatText(null, { font: 'head', align: 'center', lighten: false }); this.label.group.position.set(0, -2.55, 0.4); p.add(this.label.group);
+    this.press = new Spring(0, 26, 0.3); this.glow = new Spring(0.25, 8, 0.6); this.enabled = true; this.lbl = ''; this.spin = 0;
+    this.hit = []; p.traverse((o) => { if (o.isMesh) { o.userData.bell = this; this.hit.push(o); } }); this.setLabel('End Turn', 'SPACE');
+  }
+  setLabel(t, sub) { const k = t + '|' + sub; if (k === this.lbl) return; this.lbl = k; this.label.set([[t.toUpperCase(), this.enabled ? '#ffe2a0' : '#b8a888']]); this.label.show(); }
+  setEnabled(on) { if (on === this.enabled) return; this.enabled = on; this.goldM.color.set(on ? 0xffc848 : 0x9a8a60); this.restRz = 0; }
+  ring() { this.press.kick(-14); this.squash(1.1); audio.play('chime_soft', { vol: 0.8 }); audio.play('magic_shimmer', { vol: 0.6 }); }
+  update(dt, p, t = performance.now() / 1000) {
+    this.press.update(dt); this.glow.target = this.enabled ? (this.hover ? 1.4 : 0.45 + Math.sin(t * 2.2) * 0.15) : 0.05; this.glow.update(dt); this.updateBody(dt, this.enabled ? p : null); this.label.update(dt);
+    this.goldM.emissiveIntensity = Math.max(0, this.glow.value); this.apple.scale.set(1 - this.press.value * 0.01, 1 + this.press.value * 0.012, 1); this.apple.rotation.y += dt * (this.hover ? 1.6 : 0.4);
+    // the clock: ticks while time is stopped (one step a second), races while it flows
+    this.spin += dt * (this.enabled ? 0 : 6); const step = this.enabled ? Math.floor(t) * (Math.PI / 6) : this.spin; this.ring.rotation.z = -step * 0.2; this.hand.rotation.z = -step;
+  }
+}
+
+/** tooltip on a small cloud (the HudTip api: show(lines, x, y, z, { maxW }) / hide() / update() / dispose()): short dark-ink lines */
+export class CloudTip {
+  constructor(opts = {}) { const E = window.__game?.engine; this.E = E; this.opts = opts; this.C = new Cloud3D(4, 1.5); this.C.hoverLift = 0; this.T = new FloatText(null, { font: 'body', lighten: false, align: 'left', depth: 0.03 }); this.C.pivot.add(this.T.group); this.C.group.visible = false; E?.ui.scene.add(this.C.group); E?.add(this); this.on = false; this.st = new Spring(0, 13, 0.5); }
+  get group() { return this.C.group; }
+  show(lines, x, y, z = 9, o = {}) {
+    const maxW = Math.round((o.maxW || this.opts.maxW || 13) * 20); const out = [];
+    for (const l of (Array.isArray(lines) ? lines : [lines])) { const runs = typeof l === 'string' ? [[l, '#2a160c']] : l; const txt = runs.map((r) => String(r[0] ?? '')).join(''); if (measure(txt, 'body') <= maxW) { out.push(runs); continue; } for (const w of wrapLines(txt, maxW)) out.push([[w, runs[runs.length - 1][1]]]); }
+    this.T.set(out.slice(0, 9), { fonts: out.slice(0, 9).map((_, i) => (i === 0 ? 'head' : 'body')) }); this.T.show(); this.T.group.position.set(0, 0, 0.42); this.T.group.scale.setScalar(1);
+    this.C.resize(this.T.w + 0.9, this.T.h + 0.55); const W = this.E?.uiW ?? 20, H = this.E?.uiH ?? 11; const cx = Math.max(-W + this.C.w / 2 + 0.4, Math.min(W - this.C.w / 2 - 0.4, x)), cy = Math.max(-H + this.C.h / 2 + 0.4, Math.min(H - this.C.h / 2 - 0.4, y));
+    uiPos(this.C.group, cx, cy, z); this.C.group.scale.setScalar((40 - z) / 40); if (!this.on) { this.st.value = 0.2; audio.play('whoosh_soft', { vol: 0.15, minGap: 120 }); } this.on = true; this.st.target = 1; this.C.group.visible = true;
+  }
+  hide() { this.on = false; this.st.target = 0; this.T.hide(); }
+  update(dt) { this.st.update(dt); this.C.update(dt, null); this.T.update(dt); const s = Math.max(0.001, this.st.value); this.C.pivot.scale.multiplyScalar(1); this.C.mesh.scale.multiplyScalar(s); this.T.group.scale.setScalar(Math.min(1, s * 1.1)); if (!this.on && s < 0.05) this.C.group.visible = false; }
+  dispose() { this.E?.remove(this); this.T.dispose(); this.C.group.parent?.remove(this.C.group); this.C.mesh.geometry.dispose(); }
+}
+function wrapLines(t, maxW) { const ws = String(t).split(' '); const out = []; let cur = ''; for (const w of ws) { const n = cur ? cur + ' ' + w : w; if (measure(n, 'body') > maxW && cur) { out.push(cur); cur = w; } else cur = n; } if (cur) out.push(cur); return out; }

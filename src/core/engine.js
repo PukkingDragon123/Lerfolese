@@ -109,14 +109,13 @@ const RaysShader = {
 };
 
 // Scene-change transitions (engine.wipe): one smooth full-resolution pass (no pixel grid, no dithering).
-//   style 'cloud'  : two parallax layers of soft volumetric cumulus roll in from the sides and below and fill the
-//                    screen. Each pixel's density comes from domain-warped fbm; light is marched a few steps toward a
-//                    low warm sun (Beer-Lambert self-shadowing), so tops glow cream and gold, bellies sink into violet
-//                    shade, and thin edges catch a bright silver lining. On the way out the clouds part from the middle
-//                    and drift away outward and upward, revealing the new scene.
+//   style 'cloud'  : five painted cumulus banks (sculpted silhouettes, never blobs: flat bases, billowing towering tops
+//                    from domain-warped ridged noise, torn wisps, sunlit rims, cool undersides) sweep across from
+//                    alternate sides with parallax until the sky is full; on the way out they sail on across and away.
 //   style 'galaxy' : the screen is swallowed from the edges by a turning spiral galaxy: fine stars stream down the arms
 //                    into the vortex, violet / teal / rose nebula blooms, a golden apple-light core with soft glints, a
-//                    glowing gold rim on the advancing edge. On the way out it unfurls from the centre outward.
+//                    glowing gold rim on the advancing edge (no radial blobs: the core is a turning bar of light).
+//                    On the way out it unfurls from the centre outward.
 // uT: 0 = clear .. 1 = fully covered; uPhase: 0 closing, 1 opening (the motion differs, the coverage is symmetric).
 const WipeShader = {
   uniforms: { uT: { value: 0 }, uPhase: { value: 0 }, uStyle: { value: 0 }, uCenter: { value: new THREE.Vector2(0.5, 0.5) }, uAspect: { value: 1.7 }, uRes: { value: new THREE.Vector2(1280, 720) }, uColor: { value: new THREE.Color(0x120d1c) }, uTime: { value: 0 }, uMode: { value: 0 } },
@@ -126,30 +125,44 @@ const WipeShader = {
   float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
   float fbm5(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++){ s += a * vn(p); p = mat2(1.6, 1.2, -1.2, 1.6) * p + vec2(1.7, 9.2); a *= 0.5; } return s; }
   float fbm3(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 3; i++){ s += a * vn(p); p = mat2(1.6, 1.2, -1.2, 1.6) * p + vec2(1.7, 9.2); a *= 0.5; } return s / 0.875; }
-  // one cloud layer: density at q (0 = clear) given the coverage field cov (how far T has advanced past this point)
-  float cloud(vec2 q, float sc, float seed, float cov, out float base){ vec2 w = vec2(fbm3(q * sc * 0.6 + seed), fbm3(q * sc * 0.6 + seed + 5.2)); base = fbm5(q * sc + w * 0.9 + seed); return clamp((base - 0.62 + cov) * 2.6, 0.0, 1.0); }
-  float cloudL(vec2 q, float sc, float seed, float cov){ vec2 w = vec2(fbm3(q * sc * 0.6 + seed), fbm3(q * sc * 0.6 + seed + 5.2)); return clamp((fbm3(q * sc + w * 0.9 + seed) - 0.62 + cov) * 2.6, 0.0, 1.0); }
+  float bankTop(float u, float seed){ float r1 = 1.0 - abs(vn(vec2(u * 3.2 + seed, seed)) * 2.0 - 1.0), r2 = 1.0 - abs(vn(vec2(u * 7.5 + seed * 2.0, seed)) * 2.0 - 1.0); return 0.78 + 0.6 * r1 * r1 + 0.2 * r2; } // billows: ridged noise -> towering heads
   void main(){
     vec2 uv = vUv; float T = clamp(uT, 0.0, 1.0); vec2 q = vec2((uv.x - 0.5) * uAspect, uv.y - 0.5);
     if (uStyle < 0.5) {
-      // ================= CLOUDS
-      float ex = abs(q.x) / (0.5 * uAspect); float edge = max(ex * 0.9, (0.5 - q.y) * 0.55); // 1 at the sides / bottom, 0 in the middle
-      vec3 acc = vec3(0.0); float alpha = 0.0; vec2 sun = normalize(vec2(-0.55, 0.85));
-      for (int li = 0; li < 2; li++) { float fl = float(li); // 0 = back, 1 = front (drawn over)
-        float zoom = 1.0 + (1.0 - T) * (0.55 + fl * 0.45); vec2 drift = vec2(uTime * (0.025 + fl * 0.02), 0.0) + (uPhase < 0.5 ? vec2(0.0, -0.22) : vec2(0.0, 0.35)) * (1.0 - T) * (0.7 + fl * 0.5);
-        vec2 qq = q * zoom + drift + vec2(fl * 4.1, fl * 2.3); float sc = 2.1 - fl * 0.5; float seed = 3.0 + fl * 11.0;
-        float cov = T * 1.45 + edge * 0.55 - 0.95 + fl * 0.04;
-        float base; float d = cloud(qq, sc, seed, cov, base); if (d <= 0.001) continue;
-        // light: march toward the sun through the layer (self-shadowing), plus a little ambient from the sky above
-        float sh = 0.0; for (int k = 1; k <= 4; k++) sh += cloudL(qq + vec2(sun.x, sun.y) * 0.035 * float(k), sc, seed, cov);
-        float light = exp(-sh * 0.85); float thin = 1.0 - smoothstep(0.0, 0.55, d);
-        vec3 shade = mix(vec3(0.24, 0.19, 0.34), vec3(0.42, 0.36, 0.55), clamp(uv.y + 0.2, 0.0, 1.0)); vec3 lit = vec3(1.0, 0.93, 0.84);
-        vec3 c = mix(shade, lit, light) + vec3(1.0, 0.72, 0.42) * pow(light, 3.0) * thin * 0.9; // the gold silver-lining on thin sunlit edges
-        c *= 0.86 + 0.14 * fl; float a = smoothstep(0.0, 0.35, d);
-        acc = mix(acc, c, a); alpha = a + alpha * (1.0 - a); }
-      if (T > 0.985) { acc = mix(vec3(0.3, 0.25, 0.4), acc, alpha); alpha = 1.0; }
+      // ================= CLOUDS: painted cumulus BANKS (no blobs). Each bank is a sculpted silhouette: a flat base,
+      // a billowing top profile (domain-warped ridged noise -> towering heads, shoulders and dips), a torn leading edge
+      // and wisps. Shading follows the silhouette: the top's slope gives a normal (sunlit rims on the sun side), inner
+      // billow folds come from warped noise, the underside cools to blue-violet above the flat base. Edges are crisp
+      // (about a pixel of antialiasing), wisps are soft. Higher banks sit in front, so their flat bases overlap the
+      // billowing tops below. Closing: banks sweep in from alternate sides; opening: they sail on across and away.
+      float px = 1.5 / uRes.y; vec3 col = vec3(0.0); float alpha = 0.0; float hw = 0.5 * uAspect;
+      for (int bi = 0; bi < 5; bi++) { float fb = float(bi); float dir = mod(fb, 2.0) < 0.5 ? 1.0 : -1.0; // banks enter from the left (+1) or right (-1)
+        float base = -0.62 + fb * 0.255; float amp = 0.34 + 0.05 * sin(fb * 2.3); float seed = fb * 7.31 + 1.7; float par = 1.0 + fb * 0.12;
+        float Ti = clamp(T * 1.35 - fb * 0.07, 0.0, 1.0); float e = Ti * Ti * (3.0 - 2.0 * Ti);
+        float xs = q.x * dir + uTime * 0.01 * par; // bank space: x grows in the direction of travel
+        float span = hw + 0.75; float lead = uPhase < 0.5 ? -span + 2.0 * span * e : 1e3; float trail = uPhase < 0.5 ? -1e3 : -span + 2.0 * span * (1.0 - e);
+        vec2 wq = vec2(xs * 1.6 + seed, q.y * 1.6); vec2 warp = vec2(fbm3(wq * 1.3 + 3.0), fbm3(wq * 1.3 + 8.0)) - 0.5;
+        float u = xs + warp.x * 0.12 - uTime * 0.012 * par; // the silhouette drifts slowly
+        float top = base + amp * bankTop(u, seed) + warp.y * 0.05;
+        float y = q.y; float dTop = top - y; float dBase = y - base;
+        float frontE = lead - xs + (fbm3(vec2(y * 5.0 + seed, uTime * 0.2)) - 0.5) * 0.16; float backE = xs - trail + (fbm3(vec2(y * 5.0 - seed, uTime * 0.2)) - 0.5) * 0.16;
+        float inside = min(min(dTop, dBase * 3.0), min(frontE, backE) * 0.6);
+        // torn wisps beyond the top and the leading edge: stretched noise, soft
+        float wisp = smoothstep(0.55, 0.85, fbm5(vec2(u * 9.0, y * 26.0) + seed)) * smoothstep(0.06, 0.0, -dTop) * step(dBase, 1.0) * smoothstep(-0.02, 0.05, min(frontE, backE));
+        float a = smoothstep(0.0, px, inside); a = max(a, wisp * 0.55); if (a <= 0.002) continue;
+        // shading: the top's slope gives a normal near the rim; inner billow folds deeper in; cool underside near the base
+        float slope = amp * (bankTop(u + 0.01, seed) - bankTop(u - 0.01, seed)) / 0.02 * dir;
+        vec3 nTop = normalize(vec3(-slope * 0.6, 1.0, 0.35)); float fold = fbm5(vec2(u * 4.0, y * 5.5) + warp * 2.0 + seed); vec3 nIn = normalize(vec3((fold - 0.5) * 1.4, 0.55 - smoothstep(0.0, 0.2, dTop) * 0.2, 0.8));
+        vec3 n = normalize(mix(nTop, nIn, smoothstep(0.0, 0.07, dTop))); vec3 L = normalize(vec3(-0.55, 0.7, 0.45)); float dif = clamp(dot(n, L) * 0.5 + 0.5, 0.0, 1.0);
+        float under = 1.0 - smoothstep(0.0, 0.16, dBase); float hgt = clamp((y - base) / max(0.05, amp), 0.0, 1.0);
+        vec3 shadow = mix(vec3(0.27, 0.25, 0.42), vec3(0.47, 0.39, 0.55), hgt); vec3 litC = mix(vec3(0.95, 0.82, 0.8), vec3(1.0, 0.94, 0.86), hgt);
+        vec3 c = mix(shadow, litC, smoothstep(0.25, 0.85, dif)); c = mix(c, vec3(0.3, 0.32, 0.52), under * 0.75); // cool flat underside
+        c += vec3(1.0, 0.72, 0.4) * smoothstep(0.02, 0.0, dTop) * smoothstep(0.55, 0.9, dif) * 0.8; // the sunlit rim
+        c *= 0.82 + 0.18 * (fb / 4.0); c = mix(c, vec3(0.5, 0.42, 0.6), (1.0 - fb / 4.0) * 0.12); // aerial perspective: lower banks a touch hazier
+        col = mix(col, c, a); alpha = a + alpha * (1.0 - a); }
+      if (T > 0.985) { col = mix(vec3(0.34, 0.3, 0.46), col, alpha); alpha = 1.0; }
       if (alpha < 0.003) discard;
-      gl_FragColor = vec4(acc, alpha);
+      gl_FragColor = vec4(col, alpha);
     } else {
       // ================= GALAXY
       vec2 c = vec2((uCenter.x - 0.5) * uAspect, uCenter.y - 0.5); vec2 p = q - c; float r = length(p) + 1e-4; float a = atan(p.y, p.x); float R = r / (0.5 * length(vec2(uAspect, 1.0)));
@@ -162,14 +175,16 @@ const WipeShader = {
       col += vec3(0.42, 0.18, 0.62) * smoothstep(0.35, 0.9, n1) * (0.45 + arms * 0.75);
       col += vec3(0.08, 0.5, 0.48) * smoothstep(0.5, 0.95, n2) * arms * 0.9;
       col += vec3(0.85, 0.3, 0.45) * smoothstep(0.6, 0.95, n3) * arms * 0.55;
-      col *= 0.5 + 0.7 * smoothstep(1.2, 0.0, R);
+      col *= 0.55 + 0.6 * arms;
       // fine stars: a static field plus streaks streaming down the arms into the vortex (log-polar cells)
       vec2 sp = gl_FragCoord.xy; vec2 sc = floor(sp / 3.0); float hs = h21(sc + floor(uTime * 0.5) * 0.0); vec2 sf = fract(sp / 3.0) - 0.5;
       if (hs > 0.992) col += vec3(0.85, 0.9, 1.0) * smoothstep(0.5, 0.0, length(sf)) * (0.6 + 0.4 * sin(uTime * 4.0 + hs * 90.0));
       vec2 lp = vec2(log(r) * 12.0 + uTime * 2.4, (a + uTime * 0.6 / max(0.15, r)) * 14.0); vec2 cell = floor(lp); float h = h21(cell); vec2 f = fract(lp);
       if (h > 0.9) { float tail = smoothstep(0.0, 1.0, f.x) * smoothstep(0.09, 0.0, abs(f.y - 0.5)); col += mix(vec3(0.7, 0.8, 1.0), vec3(1.0, 0.9, 0.65), step(0.97, h)) * tail * 0.9; }
       // the golden apple-light core and soft glints
-      col += vec3(1.0, 0.72, 0.32) * (exp(-r * r * 90.0) * 1.6 + exp(-r * r * 14.0) * 0.45) * (0.8 + 0.2 * arms);
+      vec2 bar = vec2(cos(spin * 0.8), sin(spin * 0.8)); float along = dot(p, bar), across = dot(p, vec2(-bar.y, bar.x)); // the core: a turning bar of golden light feeding the arms
+      col += vec3(1.0, 0.72, 0.32) * exp(-across * across * 900.0 - along * along * 40.0) * 1.4 * (0.6 + 0.6 * fbm3(vec2(along * 20.0, uTime)));
+      col += vec3(1.0, 0.62, 0.3) * exp(-r * 6.0) * pow(arms, 3.0) * 0.6;
       vec2 gl = floor(q * 14.0); float gh = h21(gl + 7.0); float tw = sin(uTime * 2.5 + gh * 40.0); if (gh > 0.975 && tw > 0.0) { vec2 fp = (fract(q * 14.0) - 0.5) * 2.0; float fl2 = exp(-abs(fp.x) * 22.0) * exp(-fp.y * fp.y * 3.0) + exp(-abs(fp.y) * 22.0) * exp(-fp.x * fp.x * 3.0) + exp(-dot(fp, fp) * 30.0); col += vec3(1.0, 0.82, 0.48) * fl2 * tw; }
       // the glowing gold rim on the advancing edge
       col += vec3(1.0, 0.75, 0.38) * exp(-rim * rim * 4000.0) * 1.6 + vec3(1.0, 0.55, 0.2) * exp(-rim * 30.0) * 0.25;

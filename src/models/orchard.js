@@ -252,7 +252,7 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
     const FS = { daisy: 'daisy', clover: 'clover', poppy: 'poppy', lavender: 'lavender', cornflower: 'cornflower', buttercup: 'buttercup' };
     for (const [x, y, z, h] of sp) { const k = r3(); plantItems.push({ kind: h > 0.5 ? (k < 0.5 ? 'tall' : k < 0.8 ? 'wide' : 'wispy') : h > 0.36 ? (k < 0.6 ? 'wide' : 'short') : k < 0.8 ? 'short' : 'clover', x, y, z, s: 0.75 + h * 0.4, v: r3() }); }
     for (const [k, list] of Object.entries(fl)) for (const [x, y, z] of list) plantItems.push({ kind: FS[k] || 'daisy', x, y, z, s: 0.9, v: r3() });
-    g.add(plantField(plantItems, { wind: T.WIND, tick: T.tickWind, push: { value: F.GRASS_PUSH }, onScene: F.updatePushers, cam: V(0.6, 2.4, 10.8), tint: '#8e9ccc', texel: 0.022 })); }
+    g.add(plantField(plantItems, { wind: T.WIND, tick: T.tickWind, push: { value: F.GRASS_PUSH }, onScene: F.updatePushers, cam: V(0.6, 2.4, 10.8), tint: '#ffffff', texel: 0.022, ground: { map: gtex, rep: 2.5 / 6 }, hue: 0.62, rootH: 0.45 })); } // lit like the ground, the soil's hue, rooted in its colour
   // vertex AO on the ground
   { const pp = geo.attributes.position; const cc = new Float32Array(pp.count * 3); for (let i = 0; i < pp.count; i++) { const x = pp.getX(i), z = pp.getZ(i); let k = 1; for (const [ax, az, r] of ao) { const d = Math.hypot(x - ax, z - az); if (d < r) k -= (1 - d / r) * 0.35; } k = Math.max(0.5, k); cc.set([k, k, k * 1.02], i * 3); } geo.setAttribute('color', new THREE.BufferAttribute(cc, 3)); }
   // sky, ridges, moonlit clouds, the moon, stars

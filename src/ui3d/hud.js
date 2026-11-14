@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { uiRig, uiPos, disposeTree } from './craft.js';
 import { Paper, NoteTip, Pennant, ChapterCard } from './objects.js';
 import { Bell, LawTag, EnemyBoard, roman } from './hudparts.js';
-import { Hourglass, CoinJar } from './instruments.js';
+import { Hourglass, CoinJar, TimeApple, CloudTip } from './instruments.js';
 import { FloatTip, FloatText } from './floatlabel.js';
 import { audio } from '../core/audio.js';
 
@@ -78,8 +78,8 @@ export class BattleHUD {
     this.gauge = new Hourglass(); this.pouch = new CoinJar(); this.root.add(this.gauge.group, this.pouch.group); // Integrity sand-glass (Block shield on its pillar), gold jar
     this.note = new FloatText(null, { font: 'body', align: 'right', anchor: 'right', anchorY: 'top' }); this.root.add(this.note.group); this.note.show(); // the chapter heading, in floating letters
     if (mode !== 'map') {
-      this.bell = new Bell(); this.root.add(this.bell.group);
-      this.laws = []; this.lawTip = new FloatTip({ maxW: 12 });
+      this.bell = new TimeApple(); this.root.add(this.bell.group); // End Turn: the golden apple that lets time go
+      this.laws = []; this.lawTip = new CloudTip({ maxW: 12 });
     }
     this.handler = window.__game.input.push({ move: () => this.move(), click: () => this.click() });
     this.plates = new Set(); this.v = {}; this.writeNote(); this.layout(); this.engine.add(this);
@@ -91,23 +91,23 @@ export class BattleHUD {
     uiPos(this.pouch.group, -W + 6.2 * k, H - 2.5 * k, 1.2); this.pouch.group.scale.setScalar(0.9 * k);
     this.note.place(W - 0.5 * k, H - 0.45 * k, 1.5);
     if (this.mode === 'map') return;
-    uiPos(this.bell.group, W - 1.9 * k, -H + 1.95 * k, 1.2); this.bell.group.scale.setScalar(0.9 * k);
+    uiPos(this.bell.group, W - 2.0 * k, -H + 3.0 * k, 1.2); this.bell.group.scale.setScalar(0.85 * k);
     this.layoutLaws();
   }
   layoutLaws() { const W = this.engine.uiW, H = this.engine.uiH, k = this.k; let x = -W + 0.6 * k; for (const l of this.laws) { l.group.scale.setScalar(k); uiPos(l.group, x + (l.w / 2) * k, H - 7.1 * k, 1.4); x += (l.w + 0.25) * k; } }
   onResize() { this.layout(); }
   writeNote() {
-    const head = this.mode === 'map' ? this.area : this.area; const L = [[[head, '#3a2410']]];
+    const L = [];
     const sub = this.sub || `Floor ${roman(this.floor)} · Turn ${roman(this.turn)}${this.kind !== 'battle' && this.kind !== 'normal' ? ` · ${this.kind === 'guardian' ? 'Guardian' : 'Elite'}` : ''}`;
-    L.push([[sub, this.kind === 'elite' || this.kind === 'guardian' ? '#8f2a2e' : '#5a3622']]); if (this.objective && this.mode !== 'map') L.push([['Defeat ', '#2a160c'], [this.objective.replace(/^Defeat /, ''), '#8f2a2e']]);
-    this.note.set(L, { fonts: ['head', 'body', 'body'] }); this.note.pop.kick(3); if (this._W != null) this.layout();
+    L.push([[sub, this.kind === 'elite' || this.kind === 'guardian' ? '#8f2a2e' : '#5a3622']]); // a short label only (floor, turn); no paragraphs
+    this.note.set(L, { fonts: ['head'] }); this.note.pop.kick(3); if (this._W != null) this.layout();
   }
   _set(k, v, fn) { if (this.v[k] !== v) { this.v[k] = v; fn(v); } }
   setVitals(hp, max, block, gold) { this.gauge.set(hp, max, this.mode === 'map' ? 0 : block); this.pouch.set(gold); }
   setObjective(text) { this._set('obj', text, () => { this.objective = plain(text); this.writeNote(); }); }
   setTurn(n) { this._set('turn', n, () => { this.turn = n; this.writeNote(); }); }
   setRedraws() {} // (Second Thoughts were removed)
-  setEnd(on, label) { if (!this.bell) return; this._set('end', on + (label || ''), () => { this.bell.setEnabled(on); this.bell.setLabel(on ? 'End Turn' : label && label !== 'End Turn' ? label : 'Wait', on ? 'SPACE' : ''); }); }
+  setEnd(on, label) { if (!this.bell) return; this._set('end', on + (label || ''), () => { this.bell.setEnabled(on); this.bell.setLabel(on ? 'End Turn' : label && label !== 'End Turn' ? label : 'Time flows', on ? 'SPACE' : ''); }); }
   ringEnd() { this.bell?.ring(); }
   // hit tests: screen px (bin drop) or the current pointer ray (bell / bin / law hover)
   ray(objs) { const r = new THREE.Raycaster(); r.setFromCamera(hud.input.ndc, this.engine.ui.camera); return r.intersectObjects(objs, true)[0]; }

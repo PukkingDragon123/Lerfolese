@@ -8,7 +8,8 @@ import { Strip } from '../ui3d/objects.js';
 import { Panel } from '../ui3d/widgets.js';
 import { uiPos } from '../ui3d/craft.js';
 import { roman } from '../core/util.js';
-import { UIScreen, Button3D } from '../ui3d/widgets.js';
+import { UIScreen } from '../ui3d/widgets.js';
+import { CloudButton as Button3D } from '../ui3d/instruments.js'; // buttons are soft clouds
 import { MapSheet } from './mapsheet.js';
 import { DIO } from '../models/diorama.js';
 import { reachable } from '../game/run.js';

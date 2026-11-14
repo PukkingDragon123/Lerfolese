@@ -134,7 +134,7 @@ export function renderCardBack() {
   s.grid(['..a..', '.aba.', 'abbba', '.aba.', '..a..'], { a: TRIM.brass[2], b: TRIM.brass[6] }, CW / 2 - 3, 156);
   windowCorners(s, TRIM.brass);
   const out = toCanvas(s, CS); const g = out.getContext('2d');
-  drawPixelText(g, 'LERFOLESE', CW / 2 * CS, 11.75 * CS + 11, 'title', { color: '#fff6cf', outline: '#2a1008', shadow: '#12060a', align: 'center' });
+  // (no game name on screen)
   ['Every action has an', 'equal and opposite', 'god.'].forEach((l, i) => drawPixelText(g, l, CW / 2 * CS, (112 + i * 12) * CS + 11, 'body', { color: '#d8c6ff', shadow: '#1a1030', align: 'center', k: 3 }));
   backCanvas = out; return out;
 }

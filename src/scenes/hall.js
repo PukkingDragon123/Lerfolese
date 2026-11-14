@@ -15,13 +15,14 @@
 import * as THREE from 'three';
 import { UIScreen } from '../ui3d/widgets.js';
 import { forgedText } from '../ui3d/text3d.js';
+import { CloudButton } from '../ui3d/cloudbtn.js';
 import { Kit } from '../models/village.js';
 import { lmat, cbox, prop, extrude, shape } from '../models/lowprops.js';
 import { gearGeo } from '../models/tower.js';
 import { makeApple } from '../models/orchard.js';
 import { vignette, vignetteMaterial } from '../gfx/vignettes.js';
 import { Motes } from '../gfx/motes.js';
-import { save, ACHIEVEMENTS, CHALLENGES, STAR_UNLOCKS, REWARD_TEXT, rewardsOf } from '../core/save.js';
+import { save, ACHIEVEMENTS, CHALLENGES, STAR_UNLOCKS, REWARD_TEXT, REWARD_NAME, rewardsOf } from '../core/save.js';
 import { Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
 import { mulberry32 } from '../core/util.js';
@@ -30,8 +31,7 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const TAU = Math.PI * 2;
 const ease5 = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * x * (x * (x * 6 - 15) + 10); };
 const CAM = { pos: V(0, 2.5, 9.4), look: V(0, 2.35, 0), fov: 46 };
-const rewardName = (id) => STAR_UNLOCKS.find((u) => u.id === id)?.name || REWARD_TEXT[id] || id;
-const rewardLine = (id) => { const u = STAR_UNLOCKS.find((x) => x.id === id); return u ? `${u.name}: ${u.text}` : REWARD_TEXT[id] || id; };
+const rewardName = (id) => STAR_UNLOCKS.find((u) => u.id === id)?.name || REWARD_NAME[id] || REWARD_TEXT[id] || id;
 
 /** a jagged crystal outline: an elongated diamond with broken facets */
 function shardOutline(w, h, seed) {
@@ -48,6 +48,10 @@ export class HallScene extends UIScreen {
     this.camera = new THREE.PerspectiveCamera(CAM.fov, this.engine.aspect, 0.05, 120); this.camera.position.copy(CAM.pos); this.look = CAM.look.clone();
     this.buildHall(sc); this.buildApple(sc); this.buildShards(sc); this.buildSigns(sc);
     this.motes = new Motes(900, { px: 2 }); sc.add(this.motes.points); this.rnd = mulberry32(8); this.acc = 0; this.debris = [];
+    try { const pm = new THREE.PMREMGenerator(this.engine.renderer); const es = new THREE.Scene(); es.background = new THREE.Color(0x0a0608); // a dark room lit by the apple: warm low glow, cold windows high up
+      const glow = (c, w, h, p, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })); m.position.copy(p); m.rotation.y = ry; es.add(m); };
+      glow(new THREE.Color(3.0, 1.9, 0.8), 3, 3, V(0, 0, -6), 0); glow(new THREE.Color(1.6, 1.0, 0.45), 6, 2, V(0, -3, 0), 0); glow(new THREE.Color(0.25, 0.22, 0.5), 2, 8, V(-8, 3, 0), Math.PI / 2); glow(new THREE.Color(0.5, 0.25, 0.3), 2, 8, V(8, 3, 2), -Math.PI / 2);
+      this._env = pm.fromScene(es, 0.06, 0.1, 50); sc.environment = this._env.texture; sc.environmentIntensity = 0.5; pm.dispose(); } catch (e) { console.warn('env map', e); }
     this.engine.setWorld(sc, this.camera);
     this.engine.setFx({ bloom: [0.7, 0.6, 0.78], ao: 0.9, exposure: 0.95, grade: { sat: 1.1, vib: 0.25, contrast: 1.14, vignette: 0.6, warmth: 0.06, lift: [0.006, 0.004, 0.014], gain: [1.04, 0.98, 0.92], toe: 0.05 }, ink: { fade: [12, 40], strength: 0.7 } });
     this.engine.add(this); this.pushInput(); audio.setAmbSet(['wind']); audio.playMusic(audio.manifest?.music?.hall ? 'hall' : 'journal');
@@ -119,25 +123,15 @@ export class HallScene extends UIScreen {
     }
     this.count = this.shards.filter((s) => s.claimed).length;
   }
-  buildSigns(sc) {
-    const title = forgedText('Hall of Memories', { font: 'title', unit: 0.0115, depth: 4, style: 'gold', glow: 0.22 }); title.position.copy(this.camPt(0, 0.8, 6.5)); title.lookAt(CAM.pos); sc.add(title); this.title = title; this.titleY = title.position.y;
-    this.progress = this.makeProgress(); sc.add(this.progress);
-    const back = (this.backSign = forgedText('Tower Top >', { font: 'head', unit: 0.0085, depth: 2, style: 'silver', glow: 0.15 })); back.position.copy(this.camPt(0.8, -0.05, 4)); back.lookAt(CAM.pos); sc.add(back); this.backBase = back.position.clone();
-    this.backHit = new THREE.Mesh(new THREE.BoxGeometry(back.userData.size[0] * 1.15, 0.3, 0.1), new THREE.MeshBasicMaterial({ visible: false })); back.add(this.backHit); this.backHov = new Spring(0, 8, 0.55);
+  buildSigns(sc) { // no titles: the way back up is a small cloud carrying a golden arrow (it names itself only on hover)
+    const arrow = new THREE.Mesh(extrude(shape([[-0.09, -0.3], [0.09, -0.3], [0.09, 0.02], [0.22, 0.02], [0, 0.32], [-0.22, 0.02], [-0.09, 0.02]]), 0.06, 0.015), new THREE.MeshStandardMaterial({ color: 0xffc860, metalness: 0.85, roughness: 0.3, emissive: 0x6a3a08, emissiveIntensity: 0.6, flatShading: true }));
+    const back = (this.backCloud = new CloudButton('Tower', { seed: 77, w: 1.3, icon: arrow, labelOnHover: true, unit: 0.0075, h: 0.75 })); back.setBase(this.camPt(0.82, -0.02, 4.2)); sc.add(back.group);
   }
-  makeProgress() { const n = this.shards.filter((s) => s.claimed).length; const p = forgedText(`${n} / ${this.shards.length} memories restored`, { font: 'body', unit: 0.0085, depth: 2, style: 'ivory', glow: 0.2 }); p.position.copy(this.camPt(0, 0.68, 6.5)); p.lookAt(CAM.pos); return p; }
   camPt(nx, ny, d) { const c = new THREE.PerspectiveCamera(CAM.fov, this.engine.aspect, 0.1, 100); c.position.copy(CAM.pos); c.lookAt(CAM.look); c.updateMatrixWorld(); return V(nx, ny, 0.5).unproject(c).sub(c.position).normalize().multiplyScalar(d).add(c.position); }
   // ---------------------------------------------------------------- hover info (forged lettering under the shard)
-  info(S) {
+  info(S) { // on hover only: the condition in one short line (essential for challenges); nothing else floats
     if (this.infoFor === S) return; this.infoFor = S; if (this.infoG) this.scene.remove(this.infoG); if (!S) { this.infoG = null; return; }
-    const g = new THREE.Group(); const a = S.a; const lines = [];
-    lines.push(forgedText(a.name, { font: 'head', unit: 0.0115, depth: 2, style: S.claimed ? 'gold' : S.earned ? 'gold' : 'silver', glow: 0.2 }));
-    if (S.hard) lines.push(forgedText('CHALLENGE', { font: 'body', unit: 0.009, depth: 2, style: 'crystal', glow: 0.4 }));
-    lines.push(forgedText(a.text, { font: 'body', unit: 0.0095, depth: 2, style: 'ivory', glow: 0.18 }));
-    const rw = rewardsOf(a); if (rw.length) lines.push(forgedText((S.claimed ? 'Unlocked: ' : 'Unlocks: ') + rw.map(rewardName).join(', '), { font: 'body', unit: 0.0085, depth: 2, style: S.claimed ? 'gold' : 'bronze', glow: 0.18 }));
-    lines.push(forgedText(S.claimed ? 'restored' : S.earned ? 'click to shatter the crust' : 'not yet earned', { font: 'body', unit: 0.008, depth: 1, style: S.earned && !S.claimed ? 'gold' : 'stone', glow: 0.25 }));
-    let y = 0; for (const L of lines) { L.position.y = y; y -= L.userData.size[1] + 0.05; g.add(L); }
-    g.userData.h = -y; this.infoG = g; this.scene.add(g);
+    const g = new THREE.Group(); const L = forgedText(S.a.text.replace(/\.$/, ''), { font: 'body', unit: 0.0095, depth: 2, style: S.claimed ? 'gold' : S.hard ? 'crystal' : 'ivory', glow: 0.22 }); g.add(L); g.userData.h = L.userData.size[1]; this.infoG = g; this.scene.add(g);
   }
   // ---------------------------------------------------------------- claim: shatter the crust, fanfare, reveal the reward
   claim(S) {
@@ -149,19 +143,17 @@ export class HallScene extends UIScreen {
     const r = this.rnd; for (let i = 0; i < 90; i++) { const d = V(r() * 2 - 1, r() * 2 - 1, r() * 2 - 1).normalize().multiplyScalar(0.6 + r() * 2.4).addScaledVector(toCam, 0.8); this.motes.spawn({ pos: wp, vel: d, drag: 2.2, grav: 0.4, life: 0.8 + r() * 1.2, seq: r() < 0.6 ? 'twinkle' : 'glint', fps: 8 + r() * 5, color: r() < 0.5 ? '#ffe8a0' : '#' + S.tint.getHexString(), bright: 1.6, k: r() < 0.2 ? 2 : 1, fadeIn: 0.02 }); }
     for (let i = 0; i < 40; i++) { const d = V(r() * 2 - 1, r() * 2 - 1, r() * 2 - 1).normalize().multiplyScalar(1 + r() * 2); this.motes.spawn({ pos: wp, vel: d.addScaledVector(toCam, 1), drag: 1.5, grav: 2.2, life: 1 + r(), sprite: 'dust', color: '#6a5a4a', bright: 0.8, fadeIn: 0.02 }); }
     // the reveal: forged lettering rising in front of the shard
-    const rev = new THREE.Group(); const head = forgedText('Memory restored', { font: 'title', unit: 0.0105, depth: 4, style: 'gold', glow: 0.35 }); rev.add(head); let y = -head.userData.size[1] - 0.08;
-    const nm = forgedText(S.a.name, { font: 'head', unit: 0.011, depth: 2, style: 'ivory', glow: 0.25 }); nm.position.y = y; rev.add(nm); y -= nm.userData.size[1] + 0.12;
-    for (const id of got.length ? got : rewardsOf(S.a)) { const L = forgedText(rewardLine(id), { font: 'body', unit: 0.0085, depth: 2, style: id.startsWith('tower:') ? 'crystal' : 'gold', glow: 0.35 }); L.position.y = y; rev.add(L); y -= L.userData.size[1] + 0.06; }
-    rev.position.copy(wp).addScaledVector(toCam, 1.6).add(V(0, 0.9, 0)); rev.lookAt(this.camera.position); rev.scale.setScalar(0.01); this.scene.add(rev); this.reveal = { g: rev, t: 0, S, base: rev.position.clone() };
-    this.scene.remove(this.progress); this.progress = this.makeProgress(); this.scene.add(this.progress); this.infoFor = null; this.info(null);
+    const rev = new THREE.Group(); let y = 0; for (const id of got.length ? got : rewardsOf(S.a)) { const L = forgedText(rewardName(id), { font: 'head', unit: 0.012, depth: 3, style: id.startsWith('tower:') ? 'crystal' : 'gold', glow: 0.4 }); L.position.y = y; rev.add(L); y -= L.userData.size[1] + 0.08; }
+    rev.position.copy(wp).addScaledVector(toCam, 1.6).add(V(0, 0.55, 0)); rev.lookAt(this.camera.position); rev.scale.setScalar(0.01); this.scene.add(rev); this.reveal = { g: rev, t: 0, S, base: rev.position.clone() };
+    this.infoFor = null; this.info(null);
   }
   // ---------------------------------------------------------------- input
   rc() { const r = new THREE.Raycaster(); r.setFromCamera(this.input.ndc, this.camera); return r; }
-  pick() { if (this.leaving || this.reveal) return null; const h = this.rc().intersectObjects([...this.shards.map((s) => s.hit), this.backHit], false)[0]; if (!h) return null; if (h.object === this.backHit) return { back: true }; return { shard: h.object.userData.shard }; }
+  pick() { if (this.leaving || this.reveal) return null; const h = this.rc().intersectObjects([...this.shards.map((s) => s.hit), this.backCloud.hit], false)[0]; if (!h) return null; if (h.object === this.backCloud.hit) return { back: true }; return { shard: h.object.userData.shard }; }
   onMove() { const p = this.pick(); const k = p ? (p.back ? 'back' : p.shard.a.id) : null; if (k !== this.hovKey) { this.hovKey = k; this.hov = p; if (p) audio.play(p.shard ? 'glass_clink' : 'ui_hover', { vol: 0.3 }); this.engine.renderer.domElement.style.cursor = p ? 'pointer' : ''; this.info(p?.shard || null); } }
   onClick() {
     if (this.reveal) { if (this.reveal.t > 0.8) this.reveal.t = Math.max(this.reveal.t, 3.6); return true; }
-    const p = this.pick(); if (!p) return; if (p.back) { this.goBack(); return true; }
+    const p = this.pick(); if (!p) return; if (p.back) { this.backCloud.press(this.motes); this.goBack(); return true; }
     const S = p.shard; if (S.claimed) { S.pulse = 1; audio.play('magic_sparkle', { vol: 0.5 }); return true; }
     if (S.earned) { this.claim(S); return true; }
     S.shake = 0.5; audio.play('ui_error', { vol: 0.5 }); audio.play('stone_grind', { vol: 0.3 }); return true;
@@ -192,7 +184,7 @@ export class HallScene extends UIScreen {
       if (unc && Math.random() < dt * 3) { const r = this.rnd; this.motes.spawn({ pos: wp.clone().add(V((r() - 0.5) * 0.6, (r() - 0.5) * 1.0, 0)), vel: [(r() - 0.5) * 0.1, 0.25 + r() * 0.2, (r() - 0.5) * 0.1], drag: 0.6, life: 1.4 + r(), seq: 'glint', fps: 6, color: '#ffe08a', bright: 1.5, fadeIn: 0.1 }); } }
     // hover light and info
     const hs = hovS || this.reveal?.S; if (hs) { const wp = hs.holder.getWorldPosition(V()); this.hoverLight.position.copy(wp).addScaledVector(cam.position.clone().sub(wp).normalize(), 0.9); this.hoverLight.color.copy(hs.tint); this.hoverLight.intensity += (5 - this.hoverLight.intensity) * Math.min(1, dt * 5); } else this.hoverLight.intensity *= Math.exp(-dt * 4);
-    if (this.infoG && this.infoFor) { const wp = this.infoFor.holder.getWorldPosition(V()); const toCam = cam.position.clone().sub(wp).normalize(); this.infoG.position.copy(wp).addScaledVector(toCam, 0.6).add(V(0, -(this.infoFor.hard ? 1.2 : 1.0), 0)); this.infoG.quaternion.copy(cam.quaternion); }
+    if (this.infoG) this.infoG.visible = !this.reveal; if (this.infoG && this.infoFor) { const wp = this.infoFor.holder.getWorldPosition(V()); const toCam = cam.position.clone().sub(wp).normalize(); this.infoG.position.copy(wp).addScaledVector(toCam, 0.6).add(V(0, -(this.infoFor.hard ? 1.15 : 0.95), 0)); this.infoG.quaternion.copy(cam.quaternion); }
     // debris from a shattered crust
     for (const d of this.debris) { d.t += dt; d.v.y -= 9.8 * dt; d.f.position.addScaledVector(d.v, dt); d.f.rotation.x += d.w.x * dt; d.f.rotation.y += d.w.y * dt; d.f.rotation.z += d.w.z * dt; if (d.f.position.y < 0.05) { d.f.position.y = 0.05; d.v.y = Math.abs(d.v.y) * 0.3; d.v.x *= 0.6; d.v.z *= 0.6; d.w.multiplyScalar(0.6); if (!d.thud) { d.thud = true; audio.play('rock_impact', { vol: 0.15 }); } } if (d.t > 2.4) d.f.scale.multiplyScalar(Math.exp(-dt * 4)); }
     this.debris = this.debris.filter((d) => { if (d.t < 3.5) return true; d.f.removeFromParent(); return false; });
@@ -205,11 +197,10 @@ export class HallScene extends UIScreen {
     if (this.leaving) { this.leaving.t += dt; const u = ease5(this.leaving.t / 1.3); pos.lerp(V(0, 2.2, 13), u); look.lerp(V(0, 2.4, 20), u * 0.6); if (this.leaving.t > 1.0 && !this.leaving.gone) { this.leaving.gone = true; this.game.toMenu({ from: 'hall', wipe: { color: 0x0a0604, dur: 0.45 } }); } }
     if (this.intro && this.intro.t < 1.4) { this.intro.t += dt; cam.position.lerp(pos, Math.min(1, dt * 2.2)); } else cam.position.lerp(pos, Math.min(1, dt * 3)); this.look.lerp(look, Math.min(1, dt * 3)); cam.lookAt(this.look);
     // signs
-    this.backHov.target = this.hov?.back ? 1 : 0; this.backHov.update(dt); const bk = this.backHov.value; this.backSign.position.copy(this.backBase).add(V(Math.abs(Math.sin(t * 2.2)) * 0.03 + bk * 0.05, bk * 0.04, 0)); this.backSign.scale.setScalar(1 + bk * 0.12); this.backSign.userData.face.emissiveIntensity = 0.15 + bk * 0.4;
-    this.title.position.y = this.titleY + Math.sin(t * 0.5) * 0.03;
+    this.backCloud.update(dt, t, cam, !!this.hov?.back);
     // dust drifting in the apple light
     this.acc += dt * 10; const r = this.rnd; while (this.acc > 1) { this.acc--; const a = r() * TAU, d = 0.5 + r() * 6; this.motes.spawn({ pos: [Math.cos(a) * d, 0.3 + r() * 6, Math.sin(a) * d], vel: [(r() - 0.5) * 0.05, 0.02 + r() * 0.04, (r() - 0.5) * 0.05], wobble: 0.15, life: 4 + r() * 4, sprite: r() < 0.8 ? 'm1' : 'dust', color: r() < 0.7 ? '#ffd890' : '#c8b0ff', bright: 0.7 + r() * 0.6, twinkle: 1 + r() * 2, fadeIn: 0.4 }); }
     this.motes.px = Math.max(2, Math.round(this.engine.renderer.getDrawingBufferSize(this._bs || (this._bs = new THREE.Vector2())).y / 320)); this.motes.update(dt, t, this.engine.renderer); this.updateUI(dt);
   }
-  dispose() { this.engine.renderer.domElement.style.cursor = ''; this.motes?.dispose(); super.dispose(); }
+  dispose() { this.engine.renderer.domElement.style.cursor = ''; this._env?.dispose(); this.motes?.dispose(); super.dispose(); }
 }

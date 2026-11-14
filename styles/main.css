@@ -21,7 +21,7 @@ body { touch-action: none; -webkit-user-select: none; user-select: none; -webkit
 
 #boot { position: fixed; inset: 0; background: #020106; transition: opacity .9s ease; z-index: 10; }
 #boot.gone { opacity: 0; pointer-events: none; }
-#boot-cv { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+#boot-cv { position: absolute; inset: 0; width: 100%; height: 100%; }
 .pendulum { position: relative; width: 120px; height: 110px; margin: 0 auto; transform-origin: 50% 0; animation: swing 1.6s ease-in-out infinite alternate; }
 .pendulum .string { position: absolute; left: 59px; top: 0; width: 2px; height: 84px; background: #8a6a44; }
 .pendulum .bob { position: absolute; left: 48px; top: 80px; width: 24px; height: 24px; background: #c8443a; border: 3px solid #1a1220; border-radius: 40% 40% 50% 50%; box-shadow: inset -5px -4px 0 #8f2a2e, inset 4px 4px 0 #f6b3a0; }

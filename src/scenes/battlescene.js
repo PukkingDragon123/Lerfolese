@@ -17,7 +17,9 @@ import { FX3D } from '../gfx/fx3d.js';
 import { HandView, cardBackTex } from '../ui3d/cards3d.js';
 import { Pile } from '../ui3d/kit.js';
 import { hud, BattleHUD, chapterTitle } from '../ui3d/hud.js';
-import { FloatTip, FloatNumbers, FloatSpeech, FloatText } from '../ui3d/floatlabel.js';
+import { FloatNumbers, FloatSpeech, FloatText } from '../ui3d/floatlabel.js';
+import { CloudTip } from '../ui3d/instruments.js';
+import { Flex } from '../gfx/ragdoll.js';
 import { ShotCam, Prepare, dilemmaScene, dilemmaReply, chooseCards, Tutorial } from './battlecine.js';
 import { uiRig } from '../ui3d/craft.js';
 import { fieldView, projectileModel } from './fieldviews.js';
@@ -134,7 +136,7 @@ export class BattleScene {
     const h = api.height * s; const hit = new THREE.Mesh(new THREE.BoxGeometry(e.def.isHead ? 1.2 : 1.6 * s, e.def.isHead ? 1.2 : h, 1.4), new THREE.MeshBasicMaterial({ visible: false }));
     hit.position.copy(p).add(new THREE.Vector3(0, e.def.isHead ? 0 : h / 2, 0)); hit.userData.target = { type: 'enemy', uid: e.uid }; this.scene.add(hit);
     if (e.def.isHead) { const body = this.enemyViews.get(e.parent); if (body) { api.anchorPos = new THREE.Vector3(); api.anchorIdx = this.battle.enemies.filter((x) => x.parent === e.parent).indexOf(e); this.scene.add(api.neckGroup); } }
-    const v = { e, api, hit, hud: this.hudB.plate(e.def.name), h, flash: 0, spawnT: 0 }; this.enemyViews.set(e.uid, v); this.refreshEnemy(e);
+    const v = { e, api, hit, hud: this.hudB.plate(e.def.name), h, flash: 0, spawnT: 0, flex: e.def.isHead ? null : new Flex(api, { ground: e.def.flying ? 0 : p.y }) }; this.enemyViews.set(e.uid, v); this.refreshEnemy(e); // procedural reactions + ragdoll
     if (this.battle.phase !== 'start') { api.root.scale.setScalar(0.01); tweens.to(api.root.scale, { x: s, y: s, z: s }, 0.6, { ease: 'outBack' }); }
     return v;
   }
@@ -151,7 +153,7 @@ export class BattleScene {
     this.drawPile = new Pile('DRAW', cardBackTex()); this.discardPile = new Pile('USED', cardBackTex()); ui.root.add(this.drawPile.group, this.discardPile.group);
     hud.attach(this.engine, this.input); hud.clear();
     const enc = this.encounter; this.hudB = new BattleHUD({ floor: (this.runData.stats.floors || 0) + 1, kind: enc.kind, onEnd: () => this.endTurn() });
-    this.tooltip = new FloatTip({ maxW: 15 }); this.preview = new FloatTip({ maxW: 14 });
+    this.tooltip = new CloudTip({ maxW: 13 }); this.preview = new CloudTip({ maxW: 12 });
     this.barks = []; this.numbers = new FloatNumbers(ui.scene);
     this.layoutUI(); this.onResize = () => this.layoutUI();
   }
@@ -170,7 +172,7 @@ export class BattleScene {
     const ws = this.prepT.update(rdt, prep); dt = rdt * ws; this.wt += dt; t = this.wt;
     this.prof.update(rdt); this.wear?.update(rdt);
     for (const [, v] of this.enemyViews) {
-      v.api.update(dt);
+      v.api.update(dt); v.flex?.update(dt);
       if (v.api.anchorPos) { const body = this.enemyViews.get(v.e.parent); if (body?.api.anchor) body.api.anchor(v.api.anchorIdx ?? 0, v.api.anchorPos); if (!body?.e.alive) v.api.anchorPos = null; }
       const top = new THREE.Vector3().copy(v.api.root.position); top.y += v.e.def.isHead ? 1.0 : v.h + 0.45; const bot = v.api.root.position.clone(); bot.y += v.e.def.isHead ? -0.9 : -0.1;
       const pt = this.engine.worldToUI(top), pb = this.engine.worldToUI(bot);
@@ -323,7 +325,7 @@ export class BattleScene {
     else lines = [[[mv.name, '#3a2410']], [['Stack cards to combine. m × v = damage.', '#2a160c']], [[(c.petrified ? 'PETRIFIED: acts as Stone this battle.' : '') || flavorOf(c), '#8a6a44']]];
     // the card itself shows the big rules; the tip explains its keywords (Slay-the-Spire style): the skill, launcher, flavour
     const d = BASICS[c.id]; if (s.slot.cards.length === 1 && d?.desc && !c.petrified) lines = [[[d.name + (c.up ? '+' : ''), '#ffe6a8']], [['SKILL ', '#ff9a7a'], [d.desc.skill, '#f2ead8']], ...(d.launch ? [[['LAUNCHER ', '#ff9a7a'], ['launches the object it is merged into', '#f2ead8']]] : []), [[d.flavor || '', '#c8b494']]];
-    const b = s.base; this.tooltip.show(lines, clamp(b.x + 5.2 + 3.4, -this.ui.W + 4, this.ui.W - 4), b.y + 4.6, 10, { maxW: 11 });
+    void lines; this.tooltip.hide(); // the zoomed card is the reading (big rules, icons); no extra paragraph
   }
   // hovering something held in the air: its Move, its target, how to aim and release it
   // hovering a foe: its nature (what it resists, what breaks it), so the merge can be planned against it
@@ -351,7 +353,10 @@ export class BattleScene {
   }
   async endTurn() {
     if (this.battle.phase !== 'player' || this.busy) return;
-    this.busy = true; this.hudB.ringEnd(); audio.play('bell_ding'); this.tooltip.hide();
+    this.busy = true; this.hudB.ringEnd(); this.tooltip.hide(); this.preview.hide();
+    // time flows again: a ripple races out from the golden apple, colour returns, the hanging dust drifts on; then it all plays out
+    const ap = new THREE.Vector3(); this.hudB.bell.group.getWorldPosition(ap); ap.project(this.engine.ui.camera); this.engine.ripple([ap.x * 0.5 + 0.5, ap.y * 0.5 + 0.5], 1.2, 1);
+    audio.play('clockwork', { vol: 0.6 }); audio.play('whoosh_heavy', { vol: 0.4, delay: 0.1 }); await tweens.wait(0.4);
     await this.battle.endTurn(); this.busy = false; this.afterAction();
   }
   afterAction() {
@@ -382,8 +387,8 @@ export class BattleScene {
     const up = { update: (dt) => { T.update(dt); U?.update(dt); } }; this.engine.add(up);
     await tweens.wait(0.45 + hold); T.hide(); U?.hide(); setTimeout(() => { this.engine.remove(up); T.dispose(); U?.dispose(); }, 500);
   }
-  bark(who, text, life = 2.4) {
-    if (!text) return;
+  bark(who, text, life = 2.4, important = false) {
+    if (!text) return; if (!important && (this.barks.some((b) => !b.note.dropped) || Math.random() < 0.45)) return; // spoken lines kept rare and short
     for (const o of this.barks) if (o.who === who) o.note.drop(); // one line per speaker
     const note = new FloatSpeech(this.ui.scene, text, { who: who === 'player' ? 'Isaac' : who.def?.name || 'Foe', color: who === 'player' ? '#9ad8ff' : '#ff9a7a', life });
     const anchor = who === 'player' ? () => this.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, 0.45, 0)) : () => { const v = this.enemyViews.get(who.uid); return v ? v.api.root.position.clone().add(new THREE.Vector3(0, v.h + 0.15, 0)) : new THREE.Vector3(); };
@@ -449,7 +454,7 @@ export class BattleScene {
       async cloned(copy, src) { audio.play('string_pluck', { vol: 0.6 }); S.bark('player', `An echo of ${BASICS[src.cards[0].id]?.name || 'that'}. Again!`, 1.6); await tweens.wait(0.15); },
       artifact(id) { S.wear?.trigger(id); const t = S.artTags?.[id]; if (t) { t.kick?.(1.6); t.pop?.kick?.(3); } if (!String(id).startsWith('law:')) audio.play('chime_soft', { vol: 0.35, minGap: 0.2 }); },
       async battleStart(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); await S.chapterCard(B); await tweens.wait(0.25); const lead = B.enemies.find((e) => !e.def.isHead); if (lead) S.bark(lead, vpick(lead.def.barks.start), 2.6); await tweens.wait(0.8); S.bark('player', vpick(PLAYER_BARKS.start), 2.4); await S.tutorialHook('battleStart', B); },
-      async playerTurn(B) { S.shotCam.release(2.2); S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); S.hudB.setTurn(B.turn); S.showBanner('Your Turn', `TURN ${roman(B.turn)} · TIME SLOWS`); audio.play('clockwork', { vol: 0.35 }); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); await S.tutorialHook('playerTurn', B); },
+      async playerTurn(B) { S.shotCam.release(2.2); S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); S.hudB.setTurn(B.turn); S.showBanner('Time Stops', `TURN ${roman(B.turn)}`); audio.play('clockwork', { vol: 0.35 }); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); await S.tutorialHook('playerTurn', B); },
       async drew(slots) { S.syncHand(); audio.play('card_slide', { vol: 0.8 }); for (let i = 0; i < Math.min(slots.length, 6); i++) audio.play('card_slide', { delay: i * 0.07, vol: 0.6 }); await tweens.wait(0.12); },
       async reshuffle() { audio.play('card_shuffle'); },
       async petrified(cards) { audio.play('stone_grind'); S.syncHand(); S.bark('player', 'My cards! They are... gravel now.'); await tweens.wait(0.4); },
@@ -466,7 +471,7 @@ export class BattleScene {
       eureka(mv) { S.eureka(mv); },
       async enemyHit(e, dmg, o) {
         const v = S.enemyViews.get(e.uid); const p = S.enemyPos(e);
-        if (v) v.api.act('hurt');
+        if (v) { v.api.act('hurt'); v.lastDmg = dmg; if (dmg > 0 && v.flex) { const dir = p.clone().sub(S.prof.root.position).setY(0).normalize(); v.flex.hit(o.fall ? new THREE.Vector3(0, -1, 0).add(dir.multiplyScalar(0.3)) : dir, Math.min(2, 0.35 + dmg / 18)); } }
         const big = dmg >= 25; const col = o.kind === 'zap' ? '#fff3b0' : o.kind === 'burn' ? '#f08a2a' : o.kind === 'venom' ? '#9cb84a' : '#fff6cf';
         if (dmg > 0) { S.popNumber(p.clone().add(new THREE.Vector3(0, 0.6, 0)), dmg, { color: col, size: big ? 2.0 : 1.4, stroke: '#5a1a22' }); hud.feed(`${e.def.name} takes ${dmg}${o.kind && o.kind !== 'hit' ? ' ' + o.kind : ''}${big ? '!' : ''}`); }
         if (o.blocked) S.popNumber(p.clone().add(new THREE.Vector3(-0.6, 1.2, 0)), `-${o.blocked}`, { color: '#a8dcef', stroke: '#16304f', size: 1.0 });
@@ -481,7 +486,9 @@ export class BattleScene {
         S.refreshEnemy(e); await tweens.wait(dmg > 0 ? 0.16 : 0.05);
       },
       async miss(t, src, why) { if (why === 'wings') S.wear?.trigger('wings'); const p = t === 'player' ? S.prof.headWorld(new THREE.Vector3()) : S.enemyPos(t); S.popNumber(p, why === 'wings' ? 'FLAP!' : 'MISS', { color: '#cdb6f0', stroke: '#22183f', size: 1.2 }); audio.play('whoosh_soft'); await tweens.wait(0.25); },
-      async enemyDie(e) { const v = S.enemyViews.get(e.uid); if (!v) return; v.api.act('die'); S.fx3d.death(e, v.api.root); S.burst(S.enemyPos(e), 'smoke', 30); S.burst(S.enemyPos(e), 'magic', 24); audio.play('enemy_death'); if (!e.def.isHead) S.bark('player', vpick(PLAYER_BARKS.kill), 1.6); const j = S.game.journal; if (j.enemies[e.id]) j.enemies[e.id].killed++; v.hud.setVisible(false); hud.feed(`${e.def.name} falls.`, 'kill'); setTimeout(() => { tweens.to(v.api.root.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.5, { ease: 'inBack' }); }, 900); await tweens.wait(0.3); },
+      async enemyDie(e) { const v = S.enemyViews.get(e.uid); if (!v) return; v.api.act('die'); S.fx3d.death(e, v.api.root);
+        // the ragdoll: the killing blow's knockback, a topple, slack limbs; dust, grit and a thud where it lands
+        if (v.flex) { const dir = v.api.root.position.clone().sub(S.prof.root.position).setY(0).normalize(); v.flex.die(dir, Math.min(2, 0.4 + (v.lastDmg || 10) / 20), (pos) => { S.burst(pos.clone().add(new THREE.Vector3(0, 0.15, 0)), 'smoke', 22); S.burst(pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 'stone', 10); S.engine.shake(0.2 + Math.min(0.3, v.h * 0.06)); audio.play('body_fall', { vol: 0.8 }); }); v.corpse = true; } S.burst(S.enemyPos(e), 'smoke', 30); S.burst(S.enemyPos(e), 'magic', 24); audio.play('enemy_death'); if (!e.def.isHead) S.bark('player', vpick(PLAYER_BARKS.kill), 1.6); const j = S.game.journal; if (j.enemies[e.id]) j.enemies[e.id].killed++; v.hud.setVisible(false); hud.feed(`${e.def.name} falls.`, 'kill'); if (!v.flex) setTimeout(() => { tweens.to(v.api.root.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.5, { ease: 'inBack' }); }, 900); else setTimeout(() => { if (S.battle && v.flex) { v.flex.sinking = true; tweens.to(v.api.root.position, { y: v.api.root.position.y - 1.6 }, 2.5, { ease: 'inQuad' }); } }, 5000); await tweens.wait(0.3); },
       async enemySpawn(e) { S.addEnemyView(e); audio.play('monster_roar', { vol: 0.6 }); S.burst(S.enemyPos(e), 'smoke', 14); await tweens.wait(0.3); },
       status(t, k, n) { if (t === S.battle.player) return; S.refreshEnemy(t); },
       async heal(who, n) { if (!n) return; const p = who === 'player' ? S.prof.headWorld(new THREE.Vector3()) : S.enemyPos(who); S.popNumber(p, `+${n}`, { color: '#cfe07a', stroke: '#1e3320', size: 1.3, vy: 5 }); S.burst(p, 'heal', 16); audio.play('heal'); if (who !== 'player') S.refreshEnemy(who); await tweens.wait(0.2); },

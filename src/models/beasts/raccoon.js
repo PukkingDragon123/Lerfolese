@@ -5,7 +5,7 @@
 // torn ear, a scruffy belly). Oddworld-style character: the belly and the hands are pushed; the face is a real raccoon's.
 // Attacks: 'attack' = rear up and SNATCH (both hand-paws grab forward, then clutch the loot to his chest),
 // 'cast' = sit up and stuff his cheeks (chewing), plus hurt and a weighted belly-flop death. Waddle gait.
-import { K, hex, quadRows, sculptQuad, asset, createGeneric, add, fallSide } from './kit.js';
+import { K, hex, quadRows, sculptQuad, asset, createGeneric, add } from './kit.js';
 
 const O = { Lb: 0.48, Hw: 0.34, W: 0.1, Ln: 0.1, Lh: 0.2, Hd: -0.01, tail: 5, tailDir: [0, 0.12, -1], tailLen: 0.5 };
 const BONES = quadRows(O);
@@ -87,7 +87,29 @@ const SPEC = {
   },
   props(ctx) { ctx.B.map.head.scale.setScalar(1.28); }, // a big round bandit face on the fat body
   hover: (t, st) => 0,
-  death: (T, m, ctx) => fallSide(T, m, ctx, { drop: 0.1, rot: 1.45, lift: 0.08, slide: 0.06, t0: 0.32, t1: 0.66 }),
+  death: (T, m, ctx) => ragdollFall(T, m, ctx),
 };
+// a procedural RAGDOLL fall: the fat body rolls over its side edge under gravity (a real pivot on the ground contact),
+// slams, bounces twice, the belly jiggles on impact, the limbs and the tail flop and settle with lagging springs
+function ragdollFall(T, model, ctx) {
+  const V0 = ctx.vars; const sc = ctx.sc, H = ctx.spec_h * sc; const B = ctx.B.map;
+  if (!V0.rd || T < V0.rd.T - 1e-3) V0.rd = { T: 0, th: 0, w: 0.6, slide: 0, vs: 0.9, hits: 0, jig: 0, jv: 0, limb: 0, lv: 0, side: Math.random() < 0.5 ? 1 : -1 };
+  const R = V0.rd; const half = 0.26 * H, rest = Math.PI / 2 - 0.08;
+  while (R.T < T) { // fixed-step integration
+    const dt = Math.min(1 / 120, T - R.T); R.T += dt;
+    const alpha = 13 * Math.sin(R.th + 0.35); R.w += alpha * dt; R.w *= Math.exp(-dt * 0.4); R.th += R.w * dt;
+    if (R.th > rest) { R.th = rest; if (R.w > 0.4) { R.hits++; R.jv += -R.w * 2.6; R.lv += R.w * 3; R.w = -R.w * (R.hits < 3 ? 0.32 : 0); } else R.w = 0; }
+    if (R.th < 0) { R.th = 0; R.w = Math.abs(R.w) * 0.3; }
+    R.slide += R.vs * dt; R.vs *= Math.exp(-dt * (R.th > 1 ? 6 : 2));
+    R.jv += (-R.jig * 180 - R.jv * 9) * dt; R.jig += R.jv * dt; R.lv += (-R.limb * 60 - R.lv * 5) * dt; R.limb += R.lv * dt;
+  }
+  const th = R.th; model.rotation.z = -th * R.side; model.rotation.x = 0.05 * Math.min(1, th); // pivot on the side edge: the origin moves so the contact stays put
+  model.position.x = R.side * half * (1 - Math.cos(th)) * 0.9 - R.slide * 0.25 * sc; model.position.y = half * Math.sin(th) * 0.92;
+  if (B.spine2) { const j = 1 + R.jig * 0.5; B.spine2.scale.set(1 / Math.sqrt(Math.max(0.6, j)), j, 1 / Math.sqrt(Math.max(0.6, j))); }
+  const flop = R.limb, k = Math.min(1, th / rest);
+  for (const [n, a, z] of [['farm_L', 0.6, 0.5], ['farm_R', 0.4, -0.6], ['thigh_L', -0.5, 0.4], ['thigh_R', -0.3, -0.5]]) if (B[n]) { B[n].rotation.x += (a * k + flop * 0.5) ; B[n].rotation.z += z * k * R.side + flop * 0.3; }
+  for (let i = 1; i <= 5; i++) if (B['tail' + i]) B['tail' + i].rotation.z += (0.25 * k + flop * 0.35) * R.side * (i / 5);
+  if (B.head) B.head.rotation.z += flop * 0.4 * R.side; if (B.jaw) B.jaw.rotation.x = Math.max(B.jaw.rotation.x, 0.35 * k);
+}
 export const createRaccoon = (seed) => createGeneric(SPEC, seed);
 export const warmRaccoon = () => void A();

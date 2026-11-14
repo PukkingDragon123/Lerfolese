@@ -1,8 +1,7 @@
 // FLOATING 3D TEXT for the prologue (no paper): every line is crisp pixel lettering that floats in the air beside its
 // speaker (the narrator's lines hang low in the frame), made like cut-out letters: a 2-texel extruded side, an ink
 // outline, a lit face with a highlight band on top and a shade band below. Letters rise into place as they are SPOKEN
-// (Web Speech word boundaries, or the reading clock), the line breathes a texel up and down, then dissolves (ordered
-// dither, so it stays pixel art). Always HIGH RESOLUTION: the font is drawn at native size and every font pixel covers
+// (Web Speech word boundaries, or the reading clock), the line breathes a texel up and down, then fades out. Always HIGH RESOLUTION: the font is drawn at native size and every font pixel covers
 // an integer number of device pixels (about 2 at 1080p), snapped to the pixel grid. Fonts: Alagard 16 for names,
 // PixelSans 11 for speech, RuneMono for the god.
 // API: fsay(speaker, text, { anchor, wait, hold }) / fnarrate(text, o) -> Promise; fchoice(options, { prompt }) -> Promise<index>;
@@ -31,9 +30,6 @@ registerVoice('teacher', { g: 'm', lang: 'en-GB', pitch: 0.5, rate: 0.76, prefer
 registerVoice('god', { g: 'm', lang: 'en-US', pitch: 0.26, rate: 0.68, prefer: [/Bruce/, /Ralph/, /Fred/, /Grandpa/, /Daniel/], echo: true });
 const who = (id) => WHO[id] || { name: String(id).replace(/^\w/, (c) => c.toUpperCase()), color: '#e0d0b0', style: 'ivory' };
 
-const DITHER = `float ft_bayer(vec2 p){ p = mod(floor(p), 4.0); int x = int(p.x), y = int(p.y); float b;
-  if (y == 0) b = x == 0 ? 0.0 : x == 1 ? 8.0 : x == 2 ? 2.0 : 10.0; else if (y == 1) b = x == 0 ? 12.0 : x == 1 ? 4.0 : x == 2 ? 14.0 : 6.0;
-  else if (y == 2) b = x == 0 ? 3.0 : x == 1 ? 11.0 : x == 2 ? 1.0 : 9.0; else b = x == 0 ? 15.0 : x == 1 ? 7.0 : x == 2 ? 13.0 : 5.0; return (b + 0.5) / 16.0; }\n`;
 const Z = 6, KZ = (40 - Z) / 40; const eng = () => window.__game?.engine;
 const lines = new Set(); let mgr = null, ui = null;
 function ensureMgr() { const E = eng(); if (!E) return null; if (mgr && mgr.E === E) return mgr; ui = new THREE.Group(); ui.name = 'floattext'; ui.renderOrder = 20; E.ui.scene.add(ui); mgr = { E, update: (dt, t) => step(dt, t) }; E.add(mgr); return mgr; }
@@ -54,10 +50,9 @@ class Block {
     this.pos = []; let gi = 0; this.lines.forEach((l, li) => { const x0 = center ? Math.round((this.W - measure(l, F)) / 2) : pad; for (let c = 0; c < l.length; c++) this.pos.push({ ch: l[c], x: x0 + measure(l.slice(0, c), F), li, gi: gi++ }); gi++; });
     this.canvas = document.createElement('canvas'); this.canvas.width = this.W; this.canvas.height = this.H; this.g = this.canvas.getContext('2d');
     this.tex = new THREE.CanvasTexture(this.canvas); this.tex.colorSpace = THREE.SRGBColorSpace; this.tex.magFilter = this.tex.minFilter = THREE.NearestFilter; this.tex.generateMipmaps = false;
-    this.U = { uFade: { value: 1 } };
-    const mat = new THREE.MeshBasicMaterial({ map: this.tex, transparent: false, alphaTest: 0.5, depthTest: false, depthWrite: false, toneMapped: false });
-    mat.onBeforeCompile = (sh) => { sh.uniforms.uFade = this.U.uFade; sh.fragmentShader = 'uniform float uFade;\n' + DITHER + sh.fragmentShader.replace('#include <alphatest_fragment>', '#include <alphatest_fragment>\n if (ft_bayer(gl_FragCoord.xy / 2.0) > uFade) discard;'); };
-    mat.customProgramCacheKey = () => 'floattext';
+    this.U = { uFade: {} };
+    const mat = new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, opacity: 0, depthTest: false, depthWrite: false, toneMapped: false }); // full-resolution fade (no dither screen pattern)
+    Object.defineProperty(this.U.uFade, 'value', { get: () => mat.opacity, set: (v) => { mat.opacity = v; } });
     this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat); this.mesh.renderOrder = 30; this.mesh.frustumCulled = false; this.dirty = true; this.t = 0;
   }
   /** reveal n characters (as spoken); new letters rise 2 texels into place */
@@ -128,21 +123,29 @@ function run(speaker, text, block, { anchor = null, wait = true, hold = null, ki
 }
 /** a character speaks: voiced, floating crisp text above their head (anchor: actor api / Object3D / Vector3 / () => Vector3 / {ui:[x,y]}) */
 export function fsay(speaker, text, opts = {}) {
+  if (opts.show === false) return voiceLine(speaker, text, opts);
   if (!ensureMgr()) return Promise.resolve(); const w = who(speaker);
   for (const L of lines) if (L.speaker === speaker && !L.out && L.kind === 'say') L.skip();
   const E = eng(); const a0 = anchorUI(opts.anchor, new THREE.Vector3()); const side = opts.side || (a0 && a0.x > E.uiW * 0.2 ? 'right' : 'left');
   const b = new Block(text, { name: opts.name ?? w.name, nameColor: w.color, style: w.style, font: w.font || 'body', maxW: opts.maxW || 210 });
   return run(speaker, text, b, { ...opts, side });
 }
+/** voice only, no text (the visuals carry the scene); resolves when spoken plus a beat */
+function voiceLine(speaker, text, { hold = 0.35, wait = true } = {}) {
+  const p = new Promise((res) => { const h = speak(speaker === 'master' ? 'teacher' : speaker, text, { onEnd: () => setTimeout(res, hold * 1000) }); voiceLines.add(h); h.done.then(() => voiceLines.delete(h)); });
+  return wait ? p : Promise.resolve();
+}
+const voiceLines = new Set();
 /** the narrator: gold floating lines low in the frame, centred, a size up */
 export function fnarrate(text, opts = {}) {
+  if (opts.show === false) return voiceLine('narrator', text, opts);
   if (!ensureMgr()) return Promise.resolve();
   for (const L of lines) if (L.kind === 'narr' && !L.out) L.skip();
   const b = new Block(text, { style: 'gold', font: 'body', maxW: opts.maxW || 300, center: true, sz: opts.sz || 1 });
   return run('narrator', text, b, { ...opts, kind: 'narr' });
 }
 /** finish the current lines (reveal all) or drop finished ones */
-export function fadvance() { let any = false; for (const L of [...lines]) if (!L.out && L.kind !== 'choice') { L.skip(); any = true; } return any; }
+export function fadvance() { let any = false; for (const h of [...voiceLines]) { h.cancel(); any = true; } for (const L of [...lines]) if (!L.out && L.kind !== 'choice') { L.skip(); any = true; } return any; }
 export function fstop() { for (const L of [...lines]) { L.h?.cancel(); if (!L.finished) { L.finished = true; } L.out = true; } cancelAll(); }
 export const fbusy = () => [...lines].some((L) => !L.finished && L.kind !== 'choice');
 
