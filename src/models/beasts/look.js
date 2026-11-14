@@ -46,7 +46,7 @@ export const skinnedLoft = (rings, sides, ...rest) => CK.skinnedLoft(Math.max(3,
 /** charkit with the realistic low-poly pixel-art parts swapped in */
 export const K = { ...CK, tone, band, paintedMat, paintUV, uvMat, fur3, fur2, Loft, skinnedLoft };
 /** flat-shaded realistic material for a Limbo body page (nearest-filtered pixel art) */
-export function limboMat(tex) { tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.needsUpdate = true; return new THREE.MeshStandardMaterial({ map: tex, flatShading: true, roughness: 0.85, metalness: 0, envMapIntensity: 0.35 }); }
+export function limboMat(tex) { tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.needsUpdate = true; const m = new THREE.MeshStandardMaterial({ map: tex, flatShading: true, roughness: 0.85, metalness: 0, envMapIntensity: 0.35 }); m.userData.tint = new THREE.Color(0.74, 0.72, 0.72); m.color.copy(m.userData.tint); return m; } // the engine page is painted bright for toon light; settle it for physical light
 
 // ---------------------------------------------------------------- weathering: lived-in surfaces (scars, wrinkles, warts,
 // mottling, patchy fur, chips) as painted pixel detail. All are functions of the bind-pose point, so they stay put on
