@@ -150,8 +150,8 @@ export class MenuScene extends UIScreen {
   cinematic(sc) { // foreground framing (apple boughs overhead, grass and flowers at the lens), moon rim light, warm practicals, light shafts
     const O = this.O; const r = mulberry32(77);
     for (const [x, z, s, v] of [[-2.7, 8.3, 1.2, 2], [3.9, 7.9, 1.1, 3]]) { const tr = F.tree('apple', { v, s }); tr.position.set(x, O.hAt(x, z), z); tr.rotation.y = x * 1.3; sc.add(tr); }
-    const gs = []; for (let i = 0; i < 1400; i++) { const x = -3.2 + r() * 7.6, z = 7.4 + r() * 4.2; gs.push([x, O.hAt(x, z), z, 0.7 + r() * 0.6]); } const gr = F.celGrass(gs, { seed: 9, lodAt: null }); if (gr) sc.add(gr);
-    for (const k of ['poppy', 'daisy', 'cornflower']) { const fs = []; for (let i = 0; i < 26; i++) { const x = -3 + r() * 7, z = 8 + r() * 3.4; fs.push([x, O.hAt(x, z), z, 0.8 + r() * 0.5]); } try { const f = F.celFlowers(k, fs); if (f) sc.add(f); } catch (e) { /* kind missing */ } }
+    const gs = []; for (let i = 0; i < 1100; i++) { const x = -3.2 + r() * 7.6, z = 6.8 + r() * 3.6; gs.push([x, O.hAt(x, z), z, 0.28 + r() * 0.16]); } const gr = F.celGrass(gs, { seed: 9, lodAt: null }); if (gr) sc.add(gr);
+    for (const k of ['poppy', 'daisy', 'cornflower']) { const fs = []; for (let i = 0; i < 14; i++) { const x = -3 + r() * 7, z = 7.2 + r() * 2.8; fs.push([x, O.hAt(x, z), z, 0.13 + r() * 0.07]); } try { const f = F.celFlowers(k, fs); if (f) sc.add(f); } catch (e) { /* kind missing */ } }
     const rim = new THREE.DirectionalLight(0xb4c8ff, 2.6); rim.position.set(-4, 7, -12); sc.add(rim); // a cool moon rim from behind: Newton, Halley and the tree catch silver edges
     const lp = SPOTS.settings.clone().setY(O.hAt(SPOTS.settings.x, SPOTS.settings.z) + 1.7); const lan = new THREE.PointLight(0xffa048, 5, 6, 1.7); lan.position.copy(lp); sc.add(lan);
     for (const [x, z] of [[-1.3, 5.2], [2.4, 4.8], [0.4, 7.2]]) { const l = new THREE.PointLight(0xffd068, 1.1, 2.6, 1.8); l.position.set(x, O.hAt(x, z) + 0.45, z); sc.add(l); this.flyLights = (this.flyLights || []).concat(l); }

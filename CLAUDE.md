@@ -13,6 +13,7 @@
 - CREATURES (all animals/monsters): borrow ODDWORLD's creature-MODELLING approach (believable anatomy and weight, one or two traits pushed for character, weathered lived-in surfaces, expressive realistic faces) but themed to our Greek-myth science storybook; original designs, never their look.
 - Monsters: Greek mythology, custom rigs (src/models/beasts), weighted physical animations. Gore welcome (blood droplets, splatter, severed hydra heads).
 - Combat feel: physical, minimal VFX (real attack animations, knockback, 3D debris and dust), magic as tasteful 3D shader effects plus a few fine polished pixel particles. No big low-res sprite FX.
+- LEAVES = many 2D pixel-art leaf-spray cards around real branch structure (never blocky faceted chunks). Halley's coat = pixel-art cord cards. Menu: floating crisp pixel text; mouse-wheel scroll glides garden -> star-watcher tower -> into the library; loading = apple time-lapse in pixel-art deep space with fine pixel particles, auto-enters the garden.
 - World: big detailed places (forest, pond, lake, village), wind, little animals, beautiful painted anime sky. Events are full cinematic cutscenes with visible characters.
 - Map: big miniature diorama (enemy figurines, miniature trees, rivers, paths, fog, chests). Not chess pieces.
 - Cards: hand-pixelled illustrations; backdrops are nature or space scenes; Laws/Force/Rotation art is magic effects, no hands.
