@@ -376,7 +376,7 @@ export class BattleScene {
   // a banner in big floating letters (Alagard 32), springing up mid-screen, then folding away
   async showBanner(title, sub = '', kind = '', hold = 0.7) {
     audio.play('transition_whoosh', { vol: 0.5 }); const col = kind === 'dread' ? '#ff8a7a' : kind === 'arc' ? '#d8b8ff' : '#ffe6a8';
-    const T = new FloatText([[title, col]], { font: 'title', align: 'center', lighten: false }); if (T.w > this.ui.W * 1.8) T.set([[title, col]], { font: 'head' }); // long chapter titles step down a size const U = sub ? new FloatText([[sub, '#d8ccb4']], { font: 'head', align: 'center', lighten: false }) : null;
+    const T = new FloatText([[title, col]], { font: 'title', align: 'center', lighten: false }); if (T.w > this.ui.W * 1.8) T.set([[title, col]], { font: 'head' }); /* long chapter titles step down a size */ const U = sub ? new FloatText([[sub, '#d8ccb4']], { font: 'head', align: 'center', lighten: false }) : null;
     this.ui.scene.add(T.group); T.place(0, this.ui.H * 0.42, 10); T.show(); if (U) { this.ui.scene.add(U.group); U.place(0, this.ui.H * 0.42 - 1.7, 10); setTimeout(() => U.show(), 120); }
     const up = { update: (dt) => { T.update(dt); U?.update(dt); } }; this.engine.add(up);
     await tweens.wait(0.45 + hold); T.hide(); U?.hide(); setTimeout(() => { this.engine.remove(up); T.dispose(); U?.dispose(); }, 500);
