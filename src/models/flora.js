@@ -1,5 +1,5 @@
 // Realistic low-poly nature, built procedurally: trees with real branching wood (faceted tapered limbs with pixel bark)
-// and crowns of faceted leaf masses carrying pixel leaf textures (formerly leaf-spray cards) (olive, oak, stone pine, fir, cypress, laurel, apple), bushes with
+// and crowns of 2D pixel-art leaf-spray cards (alpha cut-outs, fluttering) (olive, oak, stone pine, fir, cypress, laurel, apple), bushes with
 // blossoms, 3D cel flowers (poppy, daisy, lavender, cornflower, narcissus), dense instanced grass tufts with banded
 // root-to-tip tones, rolling wind waves and sheen, reeds and cattails, lily pads and water lilies, and cel water.
 // Crown cards carry "inflated" normals (from the clump and crown centres), so the toon ramp paints broad, clean
@@ -59,34 +59,24 @@ function grow(A, r, p0, d0, len, r0, r1, segs, { bend = 0.2, up = 0, sides = 7, 
 function at(b, t) { const f = clamp(t, 0, 1) * (b.pts.length - 1); const i = Math.min(b.pts.length - 2, Math.floor(f)); const k = f - i; return { p: b.pts[i].clone().lerp(b.pts[i + 1], k), r: b.rads[i] + (b.rads[i + 1] - b.rads[i]) * k, d: b.pts[i + 1].clone().sub(b.pts[i]).normalize() }; }
 
 // a clump of leaf-spray cards in an ellipsoid; normals blend the clump's and the crown's outward directions
-const ICO = [new THREE.IcosahedronGeometry(1, 0), new THREE.IcosahedronGeometry(1, 1)];
+// a clump of leaf-spray cards in an ellipsoid; normals blend the clump's and the crown's outward directions
 function clump(F, c, R, n, size, cc, r, { lit = 0.6, flat = false, droop = 0 } = {}) {
-  // a leaf mass: a few overlapping faceted lumps (jittered low-poly icosahedra) filling the clump's ellipsoid, flat
-  // normals, a planar-projected pixel leaf texture, darker towards the crown's heart (ambient occlusion in the vertex colour)
-  const k = Math.max(2, Math.min(6, Math.round(n / 6))); const det = 0; const col = new THREE.Color(); void size; void lit;
-  for (let b = 0; b < k; b++) {
-    const dir = rvec(r); if (flat) dir.y *= 0.35; const off = 0.42 + r() * 0.3; const sc = 0.5 + r() * 0.2;
-    const ctr = c.clone().add(V(dir.x * R.x * off, dir.y * R.y * off - droop * 0.5, dir.z * R.z * off)); const seed = r() * 100;
-    const pos = ICO[det].attributes.position; const tri = [];
-    for (let i = 0; i < pos.count; i++) { const u = V(pos.getX(i), pos.getY(i), pos.getZ(i)); const h = Math.sin(u.x * 12.9898 + u.y * 78.233 + u.z * 37.719 + seed) * 43758.5453; const j = 0.78 + (h - Math.floor(h)) * 0.44;
-      tri.push(ctr.clone().add(V(u.x * R.x * sc * j, u.y * R.y * sc * j * (flat ? 0.8 : 1) - (u.y < 0 ? droop * 0.3 : 0), u.z * R.z * sc * j))); }
-    for (let i = 0; i < tri.length; i += 3) { const [p0, p1, p2] = [tri[i], tri[i + 1], tri[i + 2]]; const nf = V().crossVectors(p1.clone().sub(p0), p2.clone().sub(p0)).normalize(); const fc = p0.clone().add(p1).add(p2).multiplyScalar(1 / 3);
-      const depth = clamp(fc.clone().sub(cc).length() / Math.max(0.3, R.x * 1.6), 0, 1); const ao = clamp(0.66 + 0.2 * (nf.y * 0.5 + 0.5) + 0.18 * depth, 0.6, 1.06); col.setRGB(ao, ao, ao * 0.97);
-      const ax = Math.abs(nf.x), ay = Math.abs(nf.y), az = Math.abs(nf.z); const s2 = 1.1; const b0 = F.count;
-      for (const q of [p0, p1, p2]) { const [u, v] = ay >= ax && ay >= az ? [q.x, q.z] : ax >= az ? [q.z, q.y] : [q.x, q.y]; F.vert(q, q.clone().sub(ctr).normalize(), u * s2, v * s2, col, 0.5 + depth * 0.5); } // smooth normals for the ink pass; the material's flat shading lights the facets
-      F.i.push(b0, b0 + 1, b0 + 2); }
+  const col = new THREE.Color(); const q = new THREE.Quaternion(), e = new THREE.Euler();
+  for (let i = 0; i < n; i++) {
+    const dir = rvec(r); if (flat && dir.y < -0.2) dir.y *= 0.4; const rr = 0.3 + 0.7 * Math.pow(r(), 0.55);
+    const p = c.clone().add(V(dir.x * R.x * rr, dir.y * R.y * rr - droop * rr * rr, dir.z * R.z * rr));
+    const nOut = V(dir.x / R.x, dir.y / R.y, dir.z / R.z).normalize();
+    const nl = nOut.multiplyScalar(lit).addScaledVector(p.clone().sub(cc).normalize(), 1 - lit).add(V(0, 0.18, 0)).normalize();
+    q.setFromEuler(e.set(r() * 6.28, r() * 6.28, r() * 6.28)); const ax = V(1, 0, 0).applyQuaternion(q), ay = V(0, 1, 0).applyQuaternion(q);
+    const s = size * (0.75 + r() * 0.5) * 0.5; const ao = clamp(0.5 + 0.32 * rr + 0.22 * (nl.y * 0.5 + 0.5), 0.45, 1.02); col.setRGB(ao, ao, ao * 0.98);
+    const w = 0.6 + rr * 0.4; const b0 = F.count;
+    for (const [u, v] of [[0, 0], [1, 0], [1, 1], [0, 1]]) F.vert(p.clone().addScaledVector(ax, (u * 2 - 1) * s).addScaledVector(ay, (v * 2 - 1) * s), nl, u, v, col, w);
+    F.quad(b0, b0 + 1, b0 + 2, b0 + 3);
   }
 }
 
 // ---------------------------------------------------------------- pixel-art leaf-spray cards and bark (src/gfx/art/leaves.js, tiles.js)
 export const leafAtlas = (kind) => leafTex(kind);
-const LMASS = new Map();
-export function leafMassTex(kind) {
-  if (LMASS.has(kind)) return LMASS.get(kind); const img = leafAtlas(kind).image; const w = img.width, h = img.height; const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
-  const d = g.getImageData(0, 0, w, h); { const src = document.createElement('canvas'); src.width = w; src.height = h; const sg = src.getContext('2d'); sg.drawImage(img, 0, 0); const sd = sg.getImageData(0, 0, w, h).data; let R = 0, G = 0, B = 0, N = 0; for (let i = 0; i < sd.length; i += 4) if (sd[i + 3] > 128) { R += sd[i]; G += sd[i + 1]; B += sd[i + 2]; N++; } N = Math.max(1, N); void d;
-    g.fillStyle = `rgb(${(R / N) * 0.62 | 0},${Math.min(255, (G / N) * 0.74) | 0},${(B / N) * 0.5 | 0})`; g.fillRect(0, 0, w, h); g.globalAlpha = 1; for (const [x, y] of [[w / 2, h / 2], [-w / 2, h / 2], [w / 2, -h / 2], [-w / 2, -h / 2]]) g.drawImage(src, x, y); g.globalAlpha = 1; g.filter = 'none'; for (const [x, y] of [[0, 0], [w / 3, h / 4], [-w / 3, -h / 4]]) g.drawImage(src, x, y); }
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapLinearFilter; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; LMASS.set(kind, t); return t;
-}
 const barkTex = (kind) => pixelBark(kind);
 
 // ---------------------------------------------------------------- materials (sway shared by wood and leaves so they stay together)
@@ -109,7 +99,7 @@ const SWAY = `
 const MATS = new Map();
 function swayMat(key, params, { flutter = false, sway = 1, foliage = false } = {}) {
   const k = key + '|' + sway; if (MATS.has(k)) return MATS.get(k);
-  const { gradientMap, ...rest } = params; void gradientMap; const m = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0, flatShading: true, ...rest });
+  const { gradientMap, ...rest } = params; void gradientMap; const m = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0, flatShading: !foliage, ...rest });
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, { uTime: T.WIND.time, uWindDir: T.WIND.dir, uWindAmp: T.WIND.amp, uSway: { value: sway } });
     sh.vertexShader = (flutter ? '#define SW_FLUTTER\n' : '') + 'uniform float uTime; uniform vec2 uWindDir; uniform float uWindAmp; uniform float uSway; attribute float aWind;\n' + sh.vertexShader.replace('#include <project_vertex>', SWAY);
@@ -132,7 +122,7 @@ export function inkOccluderMat(kind, sway = 1) {
   });
   OCC.set(k, m); return m;
 }
-export const foliageMat = (kind, sway = 1) => swayMat('leaf:' + kind, { map: leafMassTex(kind), vertexColors: true, roughness: 0.85 }, { flutter: true, sway });
+export const foliageMat = (kind, sway = 1) => swayMat('leaf:' + kind, { map: leafAtlas(kind), alphaTest: 0.5, side: THREE.DoubleSide, vertexColors: true, roughness: 0.85 }, { flutter: true, sway, foliage: true }); // 2D pixel-art leaf-spray cards, realistically lit
 export const woodMat = (kind, sway = 1) => swayMat('wood:' + kind, { map: barkTex(kind), vertexColors: true, gradientMap: T.gradientMap([0.42, 0.7, 1.0]) }, { sway });
 
 // ---------------------------------------------------------------- species
@@ -243,7 +233,7 @@ export class Grove {
         const im = new THREE.InstancedMesh(geom, mat, items.length);
         items.forEach((it, i) => { q.setFromAxisAngle(V(0, 1, 0), it.ry); m4.compose(p.set(it.x, it.y, it.z), q, s.setScalar(it.s)); im.setMatrixAt(i, m4); const j = Math.sin(it.x * 7.1 + it.z * 3.3) * 0.5 + 0.5; col.setRGB(1, 1, 1).offsetHSL((j - 0.5) * 0.04, (j - 0.5) * 0.1, (j - 0.5) * 0.08); if (it.tint) col.multiply(C(it.tint)); im.setColorAt(i, col); });
         im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); im.castShadow = this.shadows && +lod === 0; im.receiveShadow = wood; im.onBeforeRender = T.tickWind; im.name = (wood ? 'wood:' : 'leaves:') + kind;
-        if (+lod) im.userData.noInk = true; g.add(im); return im;
+        if (!wood || +lod) im.userData.noInk = true; if (!wood) { im.userData.noAO = true; im.userData.inkOccluder = inkOccluderMat(geo.leaf); } g.add(im); return im;
       };
       if (geo.wood) mk(geo.wood, woodMat(geo.bark), true); mk(geo.leaves, foliageMat(geo.leaf), false);
     }
@@ -260,7 +250,7 @@ export class Grove {
 export function tree(kind = 'olive', { v = 0, s = 1, lod = 0 } = {}) {
   const geo = treeGeo(kind, v, lod); const g = new THREE.Group(); g.name = 'tree:' + kind;
   if (geo.wood) { const w = new THREE.Mesh(geo.wood, woodMat(geo.bark)); w.castShadow = true; w.receiveShadow = true; w.onBeforeRender = T.tickWind; g.add(w); }
-  const l = new THREE.Mesh(geo.leaves, foliageMat(geo.leaf)); l.castShadow = true; l.receiveShadow = true; l.onBeforeRender = T.tickWind; g.add(l); g.scale.setScalar(s); return g;
+  const l = new THREE.Mesh(geo.leaves, foliageMat(geo.leaf)); l.castShadow = true; l.userData.noInk = true; l.userData.noAO = true; l.userData.inkOccluder = inkOccluderMat(geo.leaf); l.onBeforeRender = T.tickWind; g.add(l); g.scale.setScalar(s); return g;
 }
 
 // ---------------------------------------------------------------- cel grass: instanced tufts, banded root -> tip, rolling wind waves with sheen
