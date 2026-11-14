@@ -137,8 +137,8 @@ export function dilemmaFor(B) {
   const can = (o) => !o.need || ((o.need.gold == null || B.run.gold >= o.need.gold) && (!o.need.hand || B.hand.some((s) => s.cards.some((c) => BASE(c.id) === o.need.hand))));
   if (D.riddle) {
     const R = B.rng.pick(D.riddles);
-    return { foe: e, title: D.title, speaker: D.speaker, intro: [R.q], prompt: D.prompt, riddle: true,
-      options: R.a.map((label, i) => (i === R.right ? { label, sub: '?', fx: D.win.fx, reply: D.win.reply, outcome: D.win.sub, right: true } : { label, sub: '?', fx: D.lose.fx, reply: D.lose.reply, outcome: D.lose.sub, right: false })) };
+    return { foe: e, title: D.title, speaker: D.speaker, intro: [R.q], prompt: `${D.prompt}  ${D.win.sub}.  ${D.lose.sub}.`, riddle: true,
+      options: R.a.map((label, i) => (i === R.right ? { label, fx: D.win.fx, reply: D.win.reply, outcome: D.win.sub, right: true } : { label, fx: D.lose.fx, reply: D.lose.reply, outcome: D.lose.sub, right: false })) };
   }
   return { foe: e, title: D.title, speaker: D.speaker, intro: D.intro, prompt: D.prompt, options: D.options.filter(can) };
 }

@@ -108,7 +108,7 @@ export const ITEM_MODELS = {
     for (let i = 0; i < 4; i++) { const a = (i / 4) * TAU; const pts = [[0, 0, 0]]; for (let j = 1; j <= 5; j++) pts.push([Math.cos(a) * j * 0.07 + Math.sin(j * 3 + i) * 0.03, Math.sin(j * 2.1 + i) * 0.05 + j * 0.02, Math.sin(a) * j * 0.07]); add(arcs, tube(pts, 0.008, { seg: 14, rad: 3 }), glow(0xfff0a0, 2.6)); }
     return g; },
   wings() { const g = grp(); const wax = tm(C.wax); // Daedalus' wax wings: a bent wax-and-willow arm, primaries lengthening to the tip, a row of coverts
-    for (const s of [-1, 1]) { const w = grp(g, s * 0.06, 0, 0); w.scale.x = s; w.userData.flap = [2.2, 0.18, s];
+    for (const s of [-1, 1]) { const wo = grp(g, s * 0.06, 0, 0); wo.rotation.y = s * 0.5; const w = grp(wo); w.scale.x = s; w.userData.flap = [2.2, 0.18, s]; // a shallow V, so they read from any angle
       const arm = [[0.0, 0.0, 0], [0.3, 0.22, 0.02], [0.62, 0.36, 0], [0.95, 0.42, -0.02]];
       add(w, tube(arm, 0.035, { seg: 24, rad: 8, taper: (u) => 1 - u * 0.65 }), wax);
       const curve = new THREE.CatmullRomCurve3(V3(arm));

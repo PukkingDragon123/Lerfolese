@@ -172,7 +172,7 @@ export function createCosmicSelf() {
   const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: true, side: THREE.FrontSide });
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, U);
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vVN; varying vec3 vVP;').replace('#include <project_vertex>', '#include <project_vertex>\nvVP = -mvPosition.xyz; vVN = normalize(normalMatrix * objectNormal);');
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vVN; varying vec3 vVP;').replace('#include <project_vertex>', '#include <project_vertex>\nvVP = -mvPosition.xyz; vVN = normalize(normalMatrix * normal);');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vVN; varying vec3 vVP;\n' + GALAXY_FRAG)
       .replace('vec4 diffuseColor = vec4( diffuse, opacity );', 'vec2 suv = gl_FragCoord.xy / max(uRes.y, 1.0); float fr = pow(1.0 - abs(dot(normalize(vVN), normalize(vVP))), 2.2); vec3 gc = galaxy(suv - vec2(0.5 * uRes.x / uRes.y, 0.5), uTime); gc = mix(gc, vec3(1.0, 0.86, 0.5), smoothstep(0.55, 0.95, fr) * 0.85); vec4 diffuseColor = vec4(gc, uAlpha * mix(0.82, 1.0, fr));');
   };

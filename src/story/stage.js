@@ -174,7 +174,7 @@ export function buildDome() {
   // the dome shell: a ribbed hemisphere of planks with an open slit facing the sky
   const dt = domeTex(); dt.repeat.set(24, 6); const shellGeo = new THREE.SphereGeometry(RAD + 0.3, 96, 32, 0.32, TAU - 0.64, 0, Math.PI / 2);
   const shell = new THREE.Mesh(shellGeo, new THREE.MeshToonMaterial({ map: dt, side: THREE.BackSide })); shell.position.y = 3.4; shell.rotation.y = Math.PI; g.add(shell);
-  for (let i = 0; i < 16; i++) { const a = (i / 16) * TAU; if (Math.abs(((a + Math.PI) % TAU) - Math.PI) < 0.36) continue; const pts = []; for (let k = 0; k <= 12; k++) { const e = (k / 12) * Math.PI / 2; pts.push(V(Math.sin(a) * Math.cos(e) * (RAD + 0.15), 3.4 + Math.sin(e) * (RAD + 0.15), Math.cos(a) * Math.cos(e) * (RAD + 0.15))); } const rib = new THREE.Mesh(new K.Loft(13, 8).set(K.curve(pts), 0.09).geo, plainMat('brass')); g.add(rib); }
+  for (let i = 0; i < 16; i++) { const a = (i / 16) * TAU; if (Math.abs(((a + Math.PI) % TAU) - Math.PI) < 0.36) continue; const pts = []; for (let k = 0; k <= 12; k++) { const e = (k / 12) * Math.PI / 2; pts.push(V(Math.sin(a) * Math.cos(e) * (RAD + 0.15), 3.4 + Math.sin(e) * (RAD + 0.15), Math.cos(a) * Math.cos(e) * (RAD + 0.15))); } const rib = new THREE.Mesh(new K.Loft(13, 8).set(K.curve(pts), () => 0.09).geo, plainMat('brass')); g.add(rib); }
   for (let i = 0; i < 10; i++) { const a = (i / 10) * TAU + 0.31; try { const c = PROPS.column(i, 3.2); c.position.set(Math.sin(a) * (RAD - 0.6), 0, Math.cos(a) * (RAD - 0.6)); g.add(c); } catch (e) { /* */ } }
   // the great telescope on its pier, aimed up through the slit
   const scope = telescope('Ad Astra', V(0, 0.75, -0.66).normalize()); scope.scale.setScalar(2.1); scope.position.set(0.6, 0, -2.6); g.add(scope);

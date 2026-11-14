@@ -61,7 +61,7 @@ export class PrologueScene extends UIScreen {
     try { const { buildOrchard } = await import('../models/orchard.js'); O = buildOrchard({ renderer: this.engine.renderer, menu: false }); sc.add(O.group); O.title.group.visible = false; O.prompt.group.visible = false; O.setNight(0); sc.fog = O.fog; } catch (e) { console.warn('prologue garden fallback', e); }
     this.O = O; this.hAt = O?.hAt || (() => 0);
     const sun = new THREE.DirectionalLight(0xffb468, 2.6); sun.position.set(-26, 9, 12); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -8, near: 1, far: 80 }); sun.shadow.bias = -0.0005; sc.add(sun); this.sun = sun;
-    sc.add(new THREE.HemisphereLight(0xffd8a8, 0x4a3a2a, 0.9));
+    this.hemi = new THREE.HemisphereLight(0xffd8a8, 0x4a3a2a, 0.9); sc.add(this.hemi);
     if (sc.fog) sc.fog.color.set(0xd89a6a);
     const put = (a, x, z, ry) => { a.root.position.set(x, this.hAt(x, z), z); a.root.rotation.y = ry; sc.add(a.root); this.actors.push(a); return a; };
     this.master = put(createMaster(), -1.35, 2.7, 0.85); this.kid = put(createKidIsaac(), 1.05, 3.1, -0.95); // cheated toward the audience; their heads turn to each other
@@ -193,7 +193,7 @@ export class PrologueScene extends UIScreen {
     this.warp?.set(0, 1); const sc = new THREE.Scene(); sc.background = new THREE.Color(0xfbf8f0); sc.fog = new THREE.Fog(0xfbf8f0, 30, 120);
     sc.add(new THREE.HemisphereLight(0xffffff, 0xe8e0d0, 1.6)); const key = new THREE.DirectionalLight(0xfff4e0, 1.6); key.position.set(4, 10, 8); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8 }); sc.add(key);
     const catcher = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: 0.12 })); catcher.rotation.x = -Math.PI / 2; catcher.receiveShadow = true; sc.add(catcher);
-    const kid = createKidIsaac(); kid.root.position.set(0, 0, 3.2); kid.root.rotation.y = Math.PI; sc.add(kid.root); this.actors.push(kid); this.kidW = kid;
+    const kid = createKidIsaac(); kid.root.position.set(0.5, 0, 3.4); kid.root.rotation.y = Math.PI * 0.86; // three-quarters to us, looking up at himself sc.add(kid.root); this.actors.push(kid); this.kidW = kid;
     const cos = createCosmicSelf(); cos.root.scale.setScalar(5.2); cos.root.position.set(0, -1.5, -7.5); cos.setIdleMode?.('still'); sc.add(cos.root); this.actors.push(cos); this.cosmic = cos; cos.setAlpha(0);
     const book = popBook(); book.group.position.set(0, 0, -0.6); sc.add(book.group); this.book = book;
     kid.lookAtWorld(() => cos.headWorld(V()));
@@ -215,7 +215,7 @@ export class PrologueScene extends UIScreen {
     await this.narr('And the pages unfolded: forests and villages, windmills and temples, every tale that was ever told about the gods.');
     this.shot(V(2.6, 1.6, 3.0), V(-0.4, 0.5, -0.6), 36, 4);
     await this.say('cosmic', 'Here, gravity listens to you. Here, the monsters remember their myths. Here, you can write the rules.', cos);
-    this.shot(V(0.5, 1.3, 6.3), V(0, 2.4, -2), 38, 0);
+    this.shot(V(1.6, 0.9, 7.4), V(-0.4, 4.6, -4), 46, 0);
     const c = await this.choose([{ label: 'I want to understand it.', sub: 'the scholar' }, { label: 'I want to be strong.', sub: 'the battle-mage' }, { label: 'I want to go home.', sub: 'the boy' }], { prompt: 'Young Isaac answers…', speaker: 'isaac_kid' });
     await this.say('isaac_kid', ['I want to understand it.', 'I want to be strong.', 'I want to go home.'][c], kid);
     this.shot(V(-0.8, 0.5, 6.0), V(0, 7.4, -7), 46, 0);
@@ -228,12 +228,12 @@ export class PrologueScene extends UIScreen {
   async b_wake() {
     if (!this.gardenScene) await this.buildGarden();
     const sc = this.gardenScene; for (const a of [this.master, this.kid]) if (a) a.root.visible = false; for (const c of this.cons || []) c.group.visible = false;
-    if (this.shards) { sc.remove(this.shards.group); this.shards = null; } if (this.skyMesh) this.skyMesh.visible = true; sc.background = null; this.sun.intensity = 0.0;
+    if (this.shards) { sc.remove(this.shards.group); this.shards = null; } if (this.skyMesh) this.skyMesh.visible = true; sc.background = null; this.sun.intensity = 0.0; if (this.hemi) this.hemi.intensity = 0.15;
     this.O?.setNight(1); if (sc.fog) { sc.fog.color.set(0x2e3260); sc.fog.far = 95; }
     const hero = createProfessor(); const sp = V(1.95, 0, 0.9); hero.root.position.set(sp.x, this.hAt(sp.x, sp.z), sp.z); hero.root.rotation.y = 0.35; hero.act('sleep'); sc.add(hero.root); this.hero = hero;
     let dog = null; try { const { createDog } = await import('../models/dog.js'); dog = createDog(); dog.hAt = this.hAt; dog.area = { x: [-1, 4], z: [1, 5] }; dog.st.pos.set(4.2, 0, 5.2); dog.root.position.copy(dog.st.pos); sc.add(dog.root); this.dog = dog; } catch (e) { console.warn('dog', e); }
     this.world(sc); this.engine.setFx({ bloom: [0.6, 0.6, 0.78], grade: { warmth: 0.12, vignette: 0.45, sat: 1.05 }, rays: false });
-    this.shot(V(3.2, 1.1, 3.6), hero.headWorld(V()), 30, 0);
+    this.shot(hero.headWorld(V()).add(V(1.3, 1.25, 1.5)), hero.headWorld(V()).add(V(0, -0.1, 0)), 32, 0);
     if (this.warp) { await this.w(this.tween(1.8, (u) => this.warp.set((1 - ease(u)) * 0.5, 1 - ease(u)))); this.warp.dispose(); this.warp = null; }
     audio.playMusic('menu');
     await this.narr('He woke beneath a tree he did not know, under stars he almost did.');

@@ -2,8 +2,9 @@
 // Every encounter is played at the point of a run where it is met: normals early with a near-starter deck, elites
 // mid-run with a bigger deck and an artifact or two, guardians at the end with a full deck and a few artifacts.
 // The player prepares objects greedily by the live calculation (so it seeks synergies and avoids anti-synergies),
-// eats and braces when the thought bubbles say it must, and dodges about half of the blows (QTE).
-//   node tools/sim.mjs [battles=200] [--quiet]
+// eats and braces when the thought bubbles say it must, and dodges about half of the blows (QTE). It uses the
+// combinators too (Echo clones, Looking-Glass twins), and answers each fight's story dilemma at random (riddles 70% right).
+//   node tools/sim.mjs [battles=200] [--quiet] [--picks]
 import { newRun, battleRewards, discoveryChoices, mkCard, unlocked } from '../src/game/run.js';
 import { Battle, DIFF } from '../src/game/battle.js';
 import { RNG } from '../src/core/util.js';
