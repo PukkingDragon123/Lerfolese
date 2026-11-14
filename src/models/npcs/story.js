@@ -94,7 +94,7 @@ function tousle(P, seed = 5) { // short chestnut tufts over the Limbo cap: a boy
   return g;
 }
 export function createKidIsaac() {
-  const api = storyHuman({ app: KID_APP, outfit: KID_OUT, height: 1.34, headScale: 1.3, overrides: { hairVolume: 1.0, blush: 0.5 }, sway: 0.7 });
+  const api = storyHuman({ app: KID_APP, outfit: KID_OUT, height: 1.34, headScale: 1.42, overrides: { hairVolume: 1.0, blush: 0.5 }, sway: 0.7 });
   api.L.attach(tousle(api.L.P), 'head');
   api.setExpr('smile'); api.update(0.016); return api;
 }

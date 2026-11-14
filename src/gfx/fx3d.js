@@ -124,7 +124,7 @@ const RUNE2_FS = `uniform float uT, uLife; uniform vec3 uCol; varying vec2 vUv;
     float glyph = step(0.56, r) * step(r, 0.76) * step(0.5, fract(a * 3.8197 - uT * 0.3)) * step(0.35, fract(r * 11.0 + a * 1.4)) * d2;
     float tri = 0.0; for (int i = 0; i < 3; i++) { float ang = float(i) * 2.0944 + uT * 0.35; vec2 n = vec2(cos(ang), sin(ang)); tri += step(abs(dot(p, n) - 0.25), 0.012) * step(r, 0.5); } tri *= d2;
     float m = clamp(ring + ticks * 0.8 + glyph * 0.6 + tri * 0.8, 0.0, 1.0) * step(r, 1.0); float life = 1.0 - smoothstep(0.72, 1.0, uLife); float pulse = 0.85 + 0.15 * sin(uT * 9.0);
-    gl_FragColor = vec4(mix(uCol, vec3(1.0), step(0.95, m) * 0.25) * m * life * 1.7 * pulse, m * life); }`;
+    gl_FragColor = vec4(mix(uCol, vec3(1.0), step(0.95, m) * 0.25) * m * life * 2.6 * pulse, m * life); }`;
 // an impact bloom: a crisp expanding ring, a shrinking core and four short rays, on a 48px grid
 const BLOOM_FS = `uniform float uT, uLife; uniform vec3 uCol; varying vec2 vUv;
   void main(){ vec2 p = (floor(vUv * 48.0) + 0.5) / 24.0 - 1.0; float r = length(p); float a = atan(p.y, p.x);

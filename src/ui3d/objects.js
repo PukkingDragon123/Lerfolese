@@ -49,7 +49,7 @@ function paintFace(S, kind, w, h, seed) {
   }
 }
 function gem(S, cx, cy, R) { const g = ['..#..', '.###.', '#####', '.###.', '..#..']; for (let j = 0; j < 5; j++) for (let i = 0; i < 5; i++) if (g[j][i] === '#') { const lit = i + j <= 3, dk = i + j >= 6; S.set(cx - 2 + i, cy - 2 + j, R, lit ? 4 : dk ? 1 : 3); } S.set(cx - 1, cy - 1, R, 5); S.set(cx, cy + 2, RAMP.gold, 2); S.set(cx + 2, cy, RAMP.gold, 2); }
-const LABEL_FONTS = ['head', 'bold', 'print', 'caps'];
+const LABEL_FONTS = ['head', 'print', 'tiny']; // Alagard 16, then PixelSans, then MicroPixel for very long labels
 export class Plaque extends Body {
   constructor(label, onClick, { w = 5, h = 1.3, color = 'wood', sub = null, disabled = false, size } = {}) {
     super(); this.onClick = onClick; this.disabled = false; this.label = label; this.sub = sub; this.kind = PLQ[color] || PLQ.wood; this.seed = (hash2(label.length, (label.charCodeAt(0) || 1), 3) * 97) | 0;
@@ -57,7 +57,7 @@ export class Plaque extends Body {
     const m = 0.13; let fw = w - 2 * m; let fh = h - 2 * m;
     // fit the label (and sub) inside the face; grow the plaque (up to 45% wider / taller) before stepping down a font
     const need0 = measure(label, 'head') + 16; if (need0 > fw * PX && need0 <= fw * PX * 1.45) { fw = need0 / PX; w = fw + 2 * m; }
-    const W = round(fw * PX); let font = LABEL_FONTS.find((f) => measure(label, f) <= W - 14) || 'caps'; this.font = font;
+    const W = round(fw * PX); let font = LABEL_FONTS.find((f) => measure(label, f) <= W - 14) || 'tiny'; this.font = font;
     // wide plaques carry the sub-line beside the label; narrow ones stack it (up to two lines) under the label
     this.inline = !!sub && measure(label, font) + measure(sub, 'tiny') + 30 <= W;
     let subLines = sub && !this.inline ? wrapText(sub, 'tiny', W - 12) : []; if (subLines.length > 2) subLines = subLines.slice(0, 2);
