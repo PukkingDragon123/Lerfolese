@@ -76,19 +76,19 @@ export class PrologueScene extends UIScreen {
     await this.ready;
     try {
       const b = this.startBeat;
-      if (b <= 0) await this.garden();
-      if (b <= 1) await this.cards();
-      if (b <= 2) await this.forbidden();
-      if (b <= 3) await this.sky();
-      if (b <= 4) await this.white();
-      if (b <= 5) await this.wake();
-      await this.dome();
+      if (b <= 0) await this.b_garden();
+      if (b <= 1) await this.b_cards();
+      if (b <= 2) await this.b_forbidden();
+      if (b <= 3) await this.b_sky();
+      if (b <= 4) await this.b_white();
+      if (b <= 5) await this.b_wake();
+      await this.b_dome();
     } catch (e) { if (e !== SKIP) console.error('prologue', e); }
     this.finishing = true; stopAll(); this.bars.hide(); window.__storyBand = false; this.warp?.dispose(); this.warp = null;
     try { this.game.journal.seenPrologue = true; this.game.saveJournal(); } catch (e) { /* */ }
   }
   // I. the old garden
-  async garden() {
+  async b_garden() {
     const k = this.kid, m = this.master;
     const mid = k.root.position.clone().lerp(m.root.position, 0.5);
     this.shot(V(-7, 9, 14), V(0, 3.5, 0), 40); this.shot(V(-2.5, 2.4, 9.2), mid.clone().add(V(0, 1.2, 0)), 34, 6.5);
@@ -110,7 +110,7 @@ export class PrologueScene extends UIScreen {
     await this.say('master', 'Science asks how. Magic asks what if. A true scholar-mage needs both.', m);
   }
   // II. the first card and the constructs
-  async cards() {
+  async b_cards() {
     const k = this.kid, m = this.master;
     this.shot(m.headWorld(V()).add(V(1.4, -0.3, 1.9)), m.handWorld(1, V()).lerp(m.headWorld(V()), 0.5), 32, 0); m.act('present');
     await this.say('master', 'So. Your first card. Keep it close; it is the seed of everything.', m);
@@ -145,7 +145,7 @@ export class PrologueScene extends UIScreen {
     await this.say('isaac_kid', 'Again! Can we do it again?', k);
   }
   // III. the forbidden apple
-  async forbidden() {
+  async b_forbidden() {
     const k = this.kid, m = this.master; if (!this.card) { const v = new Card3D({ uid: 'p-a', id: 'apple', type: 'basic', up: 0 }); this.root.add(v.group); v.pos.snap(0, -this.H - 4, 3); this.card = v; }
     const v = this.card; v.target = { x: 0, y: -this.H + 3.2, z: 3, rz: 0, s: 0.75 }; this.cardNote && (this.cardNote.group.visible = false);
     await this.wait(0.6);
@@ -169,7 +169,7 @@ export class PrologueScene extends UIScreen {
     this.root.remove(v.group); this.card = null;
   }
   // IV. the sky falls apart; time stops; reality warps
-  async sky() {
+  async b_sky() {
     const k = this.kid, m = this.master; if (!this.gardenScene) return;
     let skyMat = null; this.gardenScene.traverse((o) => { if (!skyMat && o.isMesh && o.material?.uniforms?.uNight && o.material.side === THREE.BackSide) { skyMat = o.material; this.skyMesh = o; } });
     const S = skyShards(V(0, 0, 2), { r: 62, skyMat }); this.gardenScene.add(S.group); this.shards = S; if (this.skyMesh) this.skyMesh.visible = false;
@@ -189,7 +189,7 @@ export class PrologueScene extends UIScreen {
     await this.w(this.tween(4.2, (u) => { this.warp.set(ease(u) * 1.15, ease((u - 0.72) / 0.28)); this.cs.fov = 38 + u * 30; }));
   }
   // V. white space: the cosmic self and the pop-up storybook
-  async white() {
+  async b_white() {
     this.warp?.set(0, 1); const sc = new THREE.Scene(); sc.background = new THREE.Color(0xfbf8f0); sc.fog = new THREE.Fog(0xfbf8f0, 30, 120);
     sc.add(new THREE.HemisphereLight(0xffffff, 0xe8e0d0, 1.6)); const key = new THREE.DirectionalLight(0xfff4e0, 1.6); key.position.set(4, 10, 8); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8 }); sc.add(key);
     const catcher = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: 0.12 })); catcher.rotation.x = -Math.PI / 2; catcher.receiveShadow = true; sc.add(catcher);
@@ -225,7 +225,7 @@ export class PrologueScene extends UIScreen {
     await this.w(this.tween(1.6, (u) => this.warp.set(ease(u) * 0.5, ease(u))));
   }
   // VI. he wakes, grown, under a moonlit tree; the mop dog
-  async wake() {
+  async b_wake() {
     if (!this.gardenScene) await this.buildGarden();
     const sc = this.gardenScene; for (const a of [this.master, this.kid]) if (a) a.root.visible = false; for (const c of this.cons || []) c.group.visible = false;
     if (this.shards) { sc.remove(this.shards.group); this.shards = null; } if (this.skyMesh) this.skyMesh.visible = true; sc.background = null; this.sun.intensity = 0.0;
@@ -251,7 +251,7 @@ export class PrologueScene extends UIScreen {
     await this.narr('The old dog wagged, and trotted off up the hill, toward a dome of brass and glass that glowed beneath the stars.');
   }
   // VII. the star-viewing dome
-  async dome() {
+  async b_dome() {
     const build = setBuilder('dome', buildDome); let D; try { D = await build({ renderer: this.engine.renderer }); } catch (e) { console.warn('dome', e); D = buildDome(); }
     const sc = new THREE.Scene(); sc.add(D.group); sc.background = D.background || new THREE.Color(0x0a0c22); sc.fog = new THREE.Fog(0x0a0c22, 30, 140); this.domeSet = D;
     const sp = D.group.userData.spots || { master: V(-1.2, 0, -1.4), hero: V(1.6, 0, 2.2), dog: V(2.6, 0, 1.3), look: V(0, 1.6, -1) };

@@ -262,11 +262,18 @@ const gCanvas = document.createElement('canvas'); const gCtx = gCanvas.getContex
 const glyphCache = new Map(); const advCache = new Map();
 function fontOf(f) { return typeof f === 'string' ? FONT[f] : f; }
 const cssFont = (f) => `${f.weight || 400} ${f.size}px "${f.font}"`;
-// word layout at native size: [[word, x]], total advance (custom word gap + tracking, whole pixels)
+// glyphs each pixel font lacks (measured in Chromium): substituted with the font's own glyphs so a fallback system
+// font never sneaks in (a middle dot becomes a raised full stop)
+const MISSING = { PixelSans: '×·★◆φöé…—–’‘“”°½→←♥', Alagard: '×·★◆φöé…—–’‘“”°½→←♥', MicroPixel: '×·★◆φöé…—–’‘“”½→←♥', NanoPlus: '★◆—–’‘“”→←♥', RuneMono: '★–’‘“”½' };
+const SUBS = { '×': 'x', '★': '*', '◆': '*', 'φ': 'phi', 'ö': 'o', 'é': 'e', '…': '...', '—': '-', '–': '-', '’': "'", '‘': "'", '“': '"', '”': '"', '°': 'o', '½': '1/2', '→': '->', '←': '<-', '♥': '<3' };
+const fixGlyphs = (str, f) => { const miss = MISSING[f.font]; if (!miss) return String(str); let o = ''; for (const ch of String(str)) o += ch !== '·' && miss.includes(ch) ? SUBS[ch] ?? ch : ch; return o; };
+// word layout at native size: [[run, x, dy]], total advance (custom word gap + tracking, whole pixels)
 function layout(str, f) {
   const key = cssFont(f) + '|' + (f.space ?? '') + '|' + (f.track || 0) + '|' + str; let L = advCache.get(key); if (L) return L;
-  gCtx.font = cssFont(f); const words = String(str).split(' '); const sp = f.space ?? Math.round(gCtx.measureText(' ').width); const tr = f.track || 0; let x = 0; const runs = [];
-  words.forEach((w, i) => { if (i) x += sp; if (!w) return; if (tr) { for (const ch of w) { runs.push([ch, x]); x += Math.round(gCtx.measureText(ch).width) + tr; } x -= tr; } else { runs.push([w, x]); x += Math.round(gCtx.measureText(w).width); } });
+  gCtx.font = cssFont(f); const words = fixGlyphs(str, f).split(' '); const sp = f.space ?? Math.round(gCtx.measureText(' ').width); const tr = f.track || 0; let x = 0; const runs = [];
+  const dot = MISSING[f.font]?.includes('·') ? -Math.round(((f.cap || 8) / (f.scale || 1)) * 0.4) : 0;
+  const put = (w) => { if (!w) return; if (tr) { for (const ch of w) { runs.push([ch, x, 0]); x += Math.round(gCtx.measureText(ch).width) + tr; } x -= tr; } else { runs.push([w, x, 0]); x += Math.round(gCtx.measureText(w).width); } };
+  words.forEach((w, i) => { if (i) x += sp; if (!w) return; if (!dot || !w.includes('·')) return put(w); w.split('·').forEach((part, j) => { if (j) { runs.push(['.', x, dot]); x += Math.round(gCtx.measureText('.').width); } put(part); }); });
   L = { runs, w: x }; if (advCache.size > 4000) advCache.clear(); advCache.set(key, L); return L;
 }
 export function measure(str, f) { f = fontOf(f); if (f.bitmap) { let w = 0; for (const ch of String(str)) w += ((f.bitmap[ch] || f.bitmap[' '])[0].length + 1) * f.scale; return Math.max(0, w - f.scale); } return layout(str, f).w * (f.scale || 1); }
@@ -278,7 +285,7 @@ export function runMask(str, f) {
     const gh = 9 * sc; m = { w: Math.max(0, cols.length - 1) * sc, h: gh, by: gh, top: -gh, bot: 0, on: (x, y) => { const c = cols[Math.floor(x / sc)]; const r = Math.floor((y + gh) / sc); return x >= 0 && y < 0 && y >= -gh && !!c && !!c[r]; } }; glyphCache.set(key, m); return m; }
   const L = layout(str, f); const k = f.scale || 1; const w = Math.max(1, L.w + 6), h = Math.ceil(f.size * 1.6) + 4; gCanvas.width = w; gCanvas.height = h;
   gCtx.font = cssFont(f); gCtx.textBaseline = 'alphabetic'; gCtx.fillStyle = '#fff'; gCtx.clearRect(0, 0, w, h); const by = Math.ceil(f.size * 1.15);
-  for (const [t, x] of L.runs) gCtx.fillText(t, 2 + x, by);
+  for (const [t, x, dy] of L.runs) gCtx.fillText(t, 2 + x, by + dy);
   const id = gCtx.getImageData(0, 0, w, h).data; const bits = new Uint8Array(w * h); let x1 = 0;
   for (let i = 0; i < w * h; i++) if (id[i * 4 + 3] >= 120) { bits[i] = 1; x1 = Math.max(x1, i % w); }
   const on1 = (x, y) => { x += 2; y += by; return x >= 0 && y >= 0 && x < w && y < h && bits[y * w + x] === 1; };
@@ -296,7 +303,7 @@ export function wrapText(str, f, maxW) {
 // k x k blocks (k = f.scale), with an optional 1-font-pixel outline and drop shadow on the same grid. Row runs are
 // filled as rectangles, so there is never a soft or partial pixel. (x, baseY) in canvas px; returns the drawn width.
 export function drawPixelText(g, str, x, baseY, f, { color = '#2a160c', outline = null, shadow = null, align = 'left', k = null } = {}) {
-  f = fontOf(f); str = String(str); if (!str) return 0; const K = k || f.scale || 1; const nf = (f.scale || 1) === 1 ? f : { ...f, scale: 1 }; const m = runMask(str, nf);
+  f = fontOf(f); str = String(str); if (!str) return 0; const K = k || f.scale || 1; const nf = (f.scale || 1) === 1 ? f : { ...f, scale: 1, cap: f.cap / f.scale }; const m = runMask(str, nf);
   const W = m.w * K; x = Math.round(align === 'center' ? x - W / 2 : align === 'right' ? x - W : x); baseY = Math.round(baseY);
   const X0 = -2, X1 = m.w + 3, Y0 = m.top, Y1 = m.bot; const lit = (X, Y) => m.on(X, Y);
   const fillSet = (test, col, dy = 0) => { g.fillStyle = col; for (let Y = Y0 - 1; Y <= Y1 + 1; Y++) { let run = -1; for (let X = X0; X <= X1 + 1; X++) { const on = X <= X1 && test(X, Y); if (on && run < 0) run = X; if (!on && run >= 0) { g.fillRect(x + run * K, baseY + (Y + dy) * K, (X - run) * K, K); run = -1; } } } };

@@ -9,6 +9,7 @@ import { buildStage, PROPS } from '../models/world.js';
 import { realStage } from '../models/realworld.js';
 import { loadModel } from '../gfx/assets.js';
 import { createProfessor } from '../models/professor.js';
+import { wearArtifacts } from '../models/wearables.js';
 import { createCreature } from '../models/creatures.js';
 import { ITEM_MODELS } from '../models/items3d.js';
 import * as P3 from '../models/props3d.js';
@@ -65,7 +66,7 @@ export default class EventScene extends UIScreen {
     const sc = (this.scene = new THREE.Scene()); let st; try { st = await realStage(ev.theme, 30 + ev.id.length, this.engine.renderer, { event: ev.id }); sc.environment = st.env; sc.environmentIntensity = 0.75; sc.background = st.background; } catch (e) { console.warn('event stage fallback', e); st = buildStage(ev.theme, 30 + ev.id.length); } sc.add(st.group); sc.fog = new THREE.Fog(0xe8c09a, 30, 95);
     const sun = new THREE.DirectionalLight(0xffd0a0, 3.2); sun.position.set(-8, 10, 7); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 10, bottom: -8 }); sc.add(sun, new THREE.HemisphereLight(0xa8c8ff, 0x6a4a30, 1.1));
     this.camera = new THREE.PerspectiveCamera(32, this.engine.aspect, 0.1, 300); this.camera.position.set(-2.5, 3.0, 10.5); this.camLook = new THREE.Vector3(-1.2, 1.4, 0); this.camera.lookAt(this.camLook); this.camBase = this.camera.position.clone(); this.stage = st;
-    this.prof = createProfessor(); this.prof.root.position.set(-4.4, 0, 1.2); this.prof.root.rotation.y = 0.6; sc.add(this.prof.root);
+    this.prof = createProfessor(); this.prof.root.position.set(-4.4, 0, 1.2); this.prof.root.rotation.y = 0.6; sc.add(this.prof.root); this.wear = wearArtifacts(this.prof, this.game.run?.items);
     const prop = propFor(ev.prop); prop.position.set(-0.6, 0, 0); sc.add(prop);
     this.npcs = []; if (ev.npc) for (let i = 0; i < (ev.npc === 'kobalos' ? 3 : ev.npc === 'satyr' ? 2 : 1); i++) { const c = createCreature(ev.npc); c.root.position.set(0.4 + i * 1.3, 0, -0.4 - (i % 2) * 0.6); c.root.rotation.y = -0.5; c.root.scale.setScalar(c.root.scale.x * (ev.npc === 'kobalos' ? 0.7 : 1)); sc.add(c.root); this.npcs.push(c); }
     this.measureProp = () => focusOf(prop, this.npcs); // measured when the camera turns to it (the models stream in)
@@ -153,7 +154,7 @@ export default class EventScene extends UIScreen {
   leave() { if (this.leaving) return; this.leaving = true; this.game.afterNode(); }
   dispose() { this.cine?.abort(); this.cine = null; stopLines(); super.dispose(); }
   update(dt, t) {
-    this.prof.update(dt); for (const n of this.npcs) n.update(dt); for (const a of Object.values(this.cast?.actors || {})) if (a !== this.prof && !this.npcs.includes(a)) a.update(dt);
+    this.prof.update(dt); this.wear?.update(dt); for (const n of this.npcs) n.update(dt); for (const a of Object.values(this.cast?.actors || {})) if (a !== this.prof && !this.npcs.includes(a)) a.update(dt);
     this.parts?.update(dt, t); this.glow?.update(dt, t);
     if (!this.cine && this.revealed) { // a slow breathing drift; after a choice, a short push-in on Sir Isaac and back
       const x = this.reactT ? (performance.now() - this.reactT) / 2600 : 1; const sm = (v) => { v = Math.max(0, Math.min(1, v)); return v * v * (3 - 2 * v); }; const k = x < 1 ? sm(x / 0.25) * (1 - sm((x - 0.6) / 0.4)) : 0;

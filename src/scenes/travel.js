@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { realStage } from '../models/realworld.js';
 import { buildStage } from '../models/world.js';
 import { createProfessor } from '../models/professor.js';
+import { wearArtifacts } from '../models/wearables.js';
 import { Critters } from '../gfx/critters.js';
 import { travelShot } from './cinematic.js';
 import { audio } from '../core/audio.js';
@@ -23,7 +24,7 @@ export class TravelScene {
       try { st = await realStage(theme, seed, this.engine.renderer); sc.environment = st.env; sc.environmentIntensity = 0.5; }
       catch (e) { console.warn('travel stage fallback', e); st = buildStage(theme, seed); }
       sc.add(st.group); this.stage = st; sc.fog = st.fog || new THREE.Fog(0xb07c62, 26, 90);
-      this.prof = createProfessor(); sc.add(this.prof.root);
+      this.prof = createProfessor(); sc.add(this.prof.root); this.wear = wearArtifacts(this.prof, this.game?.run?.items);
       this.camera = new THREE.PerspectiveCamera(36, this.engine.aspect, 0.1, 400);
       this.critters = new Critters(40); this.critters.bounds = { x: [-30, 10], y: [1.5, 9], z: [-12, 22] }; sc.add(this.critters.mesh);
       sc.updateMatrixWorld(true); for (const t of st.trees || []) this.critters.perchesFrom(t, 3);
@@ -42,6 +43,6 @@ export class TravelScene {
       await this.shot.done;
     } finally { this._ready(); }
   }
-  update(dt, t) { this.prof?.update(dt); this.critters?.update(dt, t); }
+  update(dt, t) { this.prof?.update(dt); this.wear?.update(dt); this.critters?.update(dt, t); }
   dispose() { this.engine.remove(this); this.shot?.abort(); }
 }

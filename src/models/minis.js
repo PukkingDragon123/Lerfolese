@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createCreature } from './creatures.js';
 import { createProfessor } from './professor.js';
+import { wearArtifacts } from './wearables.js';
 import * as T from './toon.js';
 import { loadModel } from '../gfx/assets.js';
 import { firePit } from './realworld.js';
@@ -239,15 +240,16 @@ export class NodeMini {
 }
 
 // ---------------------------------------------------------------- Sir Isaac's figurine (the real puppet at miniature scale) with an orbiting apple
-export function heroMini() {
+export function heroMini({ items = null } = {}) {
   const root = new THREE.Group(); root.name = 'hero-mini'; const body = new THREE.Group(); root.add(body);
   const b = miniBase(0.36, 0.36, { rim: 'hero', h: 0.06 }); body.add(b); const glow = ring(0.48); glow.material.uniforms.uCol.value.set('#8ad8ff'); glow.position.y = 0.015; root.add(glow);
   let api = null; try { api = createProfessor(); api.root.scale.setScalar(0.68); api.root.position.y = 0.06; body.add(api.root); } catch (e) { console.warn('hero mini', e); }
+  const wear = api && items ? wearArtifacts(api, items() || []) : null; // his curios, worn on the figurine (models/wearables.js)
   const orbit = new THREE.Group(); orbit.position.y = 1.15; body.add(orbit); const apple = new THREE.Group(); apple.position.set(0.5, 0, 0); orbit.add(apple);
   if (!api?.appleWorld) loadModel('food_apple_01').then((o) => { T.toonify(o, { sat: 1.45, wind: 0 }); o.scale.setScalar(3.2); apple.add(o); }).catch(() => {}); // the young hero carries his own orbiting apple
   return {
     root, body, api, walk: 0,
-    update(dt, t) { api?.update(dt); orbit.rotation.y = t * 1.8; orbit.rotation.z = Math.sin(t * 0.9) * 0.25; apple.rotation.y = -t * 3; apple.position.y = Math.sin(t * 3.6) * 0.05; glow.material.uniforms.uTime.value = t; glow.material.uniforms.uK.value = 0.5 + Math.sin(t * 2.5) * 0.15; WAVE.value = t; },
+    update(dt, t) { api?.update(dt); if (wear) { wear.set(items() || []); wear.update(dt); } orbit.rotation.y = t * 1.8; orbit.rotation.z = Math.sin(t * 0.9) * 0.25; apple.rotation.y = -t * 3; apple.position.y = Math.sin(t * 3.6) * 0.05; glow.material.uniforms.uTime.value = t; glow.material.uniforms.uK.value = 0.5 + Math.sin(t * 2.5) * 0.15; WAVE.value = t; },
   };
 }
 

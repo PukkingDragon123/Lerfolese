@@ -29,7 +29,8 @@ const C = { gold: 0xf4c24c, brass: 0xe0a640, bronze: 0xc8823c, verd: 0x5aa88a, i
 // ---------------------------------------------------------------- smooth geometry helpers
 const V2 = (a) => a.map(([x, y]) => new THREE.Vector2(x, y));
 const V3 = (a) => a.map((p) => new THREE.Vector3(...p));
-function lathe(pts, seg = 40, phiStart = 0, phiLen = TAU) { const g = new THREE.LatheGeometry(V2(pts), seg, phiStart, phiLen); g.computeVertexNormals(); return g; }
+// profiles may be authored top-down or bottom-up: always lathe bottom-up so the surface faces outwards
+function lathe(pts, seg = 40, phiStart = 0, phiLen = TAU) { if (pts[0][1] > pts[pts.length - 1][1]) pts = [...pts].reverse(); const g = new THREE.LatheGeometry(V2(pts), seg, phiStart, phiLen); g.computeVertexNormals(); return g; }
 // smooth profile from control points (Catmull-Rom in 2D) so lathed bodies have no faceted silhouette
 function curvy(pts, n = 48) { const c = new THREE.SplineCurve(V2(pts)); return c.getPoints(n).map((v) => [Math.max(0.0005, v.x), v.y]); }
 function tube(pts, r, { seg = 32, rad = 10, closed = false, taper = null } = {}) {
@@ -372,6 +373,10 @@ function runeBand() {
   const txt = 'PHILOSOPHIAE NATURALIS PRINCIPIA MATHEMATICA * F = MA * '; let x = 4; while (x < 1020) x += drawPixelText(g, txt, x, 30, 'runeL', { color: '#ffffff' }) + 12;
   runeTex = new THREE.CanvasTexture(c); runeTex.colorSpace = THREE.SRGBColorSpace; runeTex.wrapS = THREE.RepeatWrapping; runeTex.magFilter = THREE.NearestFilter; runeTex.minFilter = THREE.LinearMipmapLinearFilter; runeTex.anisotropy = 8; return runeTex;
 }
+function beamTex() { if (beamT) return beamT; const c = document.createElement('canvas'); c.width = 32; c.height = 128; const g = c.getContext('2d');
+  for (let y = 0; y < 128; y++) { const v = Math.pow(y / 127, 1.6); for (let x = 0; x < 32; x++) { const u = 1 - Math.pow(Math.abs(x - 15.5) / 16, 2); g.fillStyle = `rgba(255,255,255,${(v * u * 0.75).toFixed(3)})`; g.fillRect(x, y, 1, 1); } }
+  beamT = new THREE.CanvasTexture(c); beamT.colorSpace = THREE.SRGBColorSpace; return beamT; }
+let beamT = null;
 function sparkleTex() { // a 9x9 pixel-art 4-point glint
   if (glintTex) return glintTex; const c = document.createElement('canvas'); c.width = c.height = 9; const g = c.getContext('2d'); const P = (x, y, a) => { g.fillStyle = `rgba(255,255,255,${a})`; g.fillRect(x, y, 1, 1); };
   for (let i = 0; i < 9; i++) { const a = i === 4 ? 1 : Math.abs(i - 4) === 1 ? 0.9 : Math.abs(i - 4) <= 3 ? 0.45 : 0.15; P(4, i, a); P(i, 4, a); } P(3, 3, 0.35); P(5, 3, 0.35); P(3, 5, 0.35); P(5, 5, 0.35);
@@ -394,7 +399,7 @@ export class CurioDisplay {
     this.id = id; this.rar = rarityOf(id); const R = RARITY[this.rar]; const g = (this.group = new THREE.Group()); this.boost = 0; this.hoverK = 0; this.t0 = Math.random() * 10;
     const s = size; this.s = s;
     if (pedestal) {
-      const ped = add(g, pedestalGeo(), tm(C.marble), 0, s * 0.18, 0); ped.scale.set(s * 0.42, s * 0.36, s * 0.42);
+      const ped = add(g, pedestalGeo(), tm(0x34407a), 0, s * 0.18, 0); // lapis pedestal so ivory and gold curios pop ped.scale.set(s * 0.42, s * 0.36, s * 0.42);
       const band = add(g, lathe([[0.555, 0.25], [0.575, 0.27], [0.575, 0.3], [0.555, 0.31]], 48), tm(C.gold, { metal: true }), 0, s * 0.18, 0); band.scale.copy(ped.scale);
       const plinth = add(g, rbox(1.45, 0.16, 1.45, 0.05), tm(C.walnut), 0, -0.0336 * s, 0); plinth.scale.setScalar(s * 0.42);
       this.inkList = [ped, band, plinth];
@@ -403,11 +408,14 @@ export class CurioDisplay {
       rb.scale.set(s * 0.3, s * 0.36, s * 0.3); rb.position.y = s * 0.355; rb.userData.noInk = true; rb.renderOrder = 3; g.add(rb); this.runes = rb;
     }
     const topY = pedestal ? s * 0.18 + 0.32 * s * 0.36 : 0; this.topY = topY;
-    const aura = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: radialTex(), color: new THREE.Color(R.color).multiplyScalar(this.rar === 'legendary' ? 1.5 : 1.0), transparent: true, opacity: 0.85, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+    const aura = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: radialTex(), color: new THREE.Color(R.color).multiplyScalar(this.rar === 'legendary' ? 2.2 : 1.6), transparent: true, opacity: 1, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
     aura.rotation.x = -Math.PI / 2; aura.scale.setScalar(s * 0.8); aura.position.y = topY + 0.01; aura.userData.noInk = true; g.add(aura); this.aura = aura;
     const halo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), aura.material.clone()); halo.material.opacity = 0.32; halo.scale.setScalar(s * 0.95); halo.position.set(0, topY + s * 0.42, -s * 0.2); halo.userData.noInk = true; g.add(halo); this.halo = halo;
     // the curio itself, floating above the pedestal
-    this.holder = grp(g, 0, topY + s * 0.42, 0); this.model = itemModel(id); this.model.scale.setScalar(s * 0.78); this.holder.add(this.model);
+    // a soft shaft of rarity-coloured light rising from the pedestal behind the curio
+    const beam = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: beamTex(), color: new THREE.Color(R.color).multiplyScalar(this.rar === 'legendary' ? 1.6 : this.rar === 'rare' ? 1.2 : 0.8), transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+    beam.scale.set(s * 0.62, s * 1.5, 1); beam.position.set(0, topY + s * 0.75, -s * 0.18); beam.userData.noInk = true; g.add(beam); this.beam = beam;
+    this.holder = grp(g, 0, topY + s * 0.52, 0); this.model = itemModel(id); this.model.scale.setScalar(s * 0.95); this.holder.add(this.model);
     this.model.rotation.set(0.12, -0.5, 0); if (ink) inkModel(g, [...(this.inkList || []), ...meshesOf(this.model)], 0.045);
     // glints: tiny pixel sparkles that twinkle around the curio (more for rarer ones)
     const n = { common: 2, uncommon: 3, rare: 4, legendary: 6 }[this.rar]; this.glints = [];
@@ -417,11 +425,11 @@ export class CurioDisplay {
   pop() { this.boost = 1; }
   update(dt, t, hover = false) {
     t += this.t0; this.hoverK += ((hover ? 1 : 0) - this.hoverK) * Math.min(1, dt * 8); this.boost = Math.max(0, this.boost - dt * 0.8); const s = this.s, b = this.boost, h = this.hoverK;
-    this.holder.position.y = this.topY + s * (0.42 + 0.04 * Math.sin(t * 1.6) + 0.06 * h + 0.1 * b);
+    this.holder.position.y = this.topY + s * (0.52 + 0.04 * Math.sin(t * 1.6) + 0.06 * h + 0.1 * b);
     this.model.rotation.y = -0.5 + t * (0.5 + h * 0.6) + b * 9; this.model.rotation.x = 0.12 + Math.sin(t * 0.9) * 0.08;
     animateModel(this.model, t, Math.max(b, h * 0.3));
     const pulse = 0.85 + 0.15 * Math.sin(t * 2.2); this.aura.material.opacity = (0.6 + 0.3 * h + 0.4 * b) * pulse; this.aura.scale.setScalar(s * (0.8 + 0.1 * h + 0.3 * b));
-    this.halo.material.opacity = 0.22 + 0.2 * h + 0.3 * b; if (this.runes) { this.runes.material.map.offset.x = -t * 0.02 * (1 + h * 2); this.runes.rotation.y = t * 0.1; }
+    this.halo.material.opacity = 0.22 + 0.2 * h + 0.3 * b; this.beam.material.opacity = (0.55 + 0.25 * h + 0.4 * b) * pulse; if (this.runes) { this.runes.material.map.offset.x = -t * 0.02 * (1 + h * 2); this.runes.rotation.y = t * 0.1; }
     for (const sp of this.glints) { const u = sp.userData; const tw = Math.max(0, Math.sin(t * 2.4 + u.ph)); sp.material.opacity = tw * (0.7 + h * 0.3); const a = u.a + t * 0.4; sp.position.set(Math.cos(a) * u.r, u.y + Math.sin(t + u.ph) * 0.05 * s, Math.sin(a) * u.r); sp.scale.setScalar(s * 0.09 * (0.4 + tw)); }
   }
   dispose() { this.group.traverse((o) => { if (o.geometry && !o.geometry.userData?.shared) o.geometry.dispose?.(); }); }

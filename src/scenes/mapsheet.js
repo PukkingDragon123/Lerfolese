@@ -40,7 +40,7 @@ export class MapSheet {
     this.fog = new MapFog(dio); this.world.add(this.fog.group); this.fogPass = new FogPass(this.fog, this.camera);
     this.parts = new Particles(900); this.world.add(this.parts.points); this.glow = new Particles(500, { additive: true }); this.world.add(this.glow.points);
     this.nodeViews = new Map(); this.routeFX = null; this.ray = new THREE.Raycaster(); this.focus = new V3(); this.hovered = null; this.smokeT = 0; this.moteT = 0;
-    this.hero = heroMini(); this.world.add(this.hero.root);
+    this.hero = heroMini({ items: () => this.run?.items }); this.world.add(this.hero.root); // the figurine wears his curios too
   }
   /** free the GPU side of a previous run's diorama (three re-uploads anything shared that is drawn again) */
   dispose() { this.fogPass.detach(); this.scene.traverse((o) => { o.geometry?.dispose?.(); const m = o.material; if (m) (Array.isArray(m) ? m : [m]).forEach((x) => x.dispose?.()); }); this.dio.colorTex?.dispose(); this.dio.maskTex?.dispose(); }

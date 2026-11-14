@@ -91,7 +91,8 @@ export function renderCardFace(card, move) {
   // PixelSans rules text, NanoPlus numbers; drawn as solid k x k blocks so the face stays crisp at any zoom
   const T = (str, x, y, f, color, o = {}) => drawPixelText(g, str, x, Math.round(y + (FONT[f].cap * (o.k || FONT[f].scale || 1)) / (FONT[f].scale || 1) / 2), f, { color, align: 'center', ...o });
   const title = (isMove ? card.name || move.name : isPower ? (def.short || def.name) : def.name) + (up ? '+' : '');
-  const tf = measure(title, 'title') <= 300 ? 'title' : 'head'; const tk = tf === 'head' ? (measure(title, 'head') * 2 <= 300 ? 2 : 1) : 1;
+  // Alagard 32 when the name fits the 300px band, else Alagard 16 doubled, else (long Move names) PixelSans x2
+  const tf = measure(title, 'title') <= 300 ? 'title' : measure(title, 'head') * 2 <= 300 ? 'head' : 'body'; const tk = tf === 'title' ? 1 : tf === 'head' ? 2 : measure(title, 'body') * 2 <= 304 ? 2 : 1;
   T(title, (CW / 2) * CS, 11.75 * CS, tf, '#fff6cf', { outline: '#2a1008', shadow: '#12060a', k: tk });
   medal.slice(0, 2).forEach((m, i) => {
     const [x, y] = MED[i]; const v = (String(m[1]).startsWith('-') ? '' : m[2] || '') + String(m[1]);

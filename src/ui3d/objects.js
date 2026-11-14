@@ -279,7 +279,7 @@ export class Strip extends Body {
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
     S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.mat.map = this.tex; this.mat.needsUpdate = true; } else this.tex.needsUpdate = true;
     this.w = Wt / PXP; this.h = Ht / PXP; this.sheet.geometry = sheet(this.w, this.h, { curl: 0.08, sag: 0.03, segX: 6, segY: 2 });
-    this.pins.forEach((p, i) => p.position.set(this.tacks === 2 ? (i ? 1 : -1) * (this.w / 2 - 6 / PXP) : 0, 0, 0.06)); this.kick(0.3);
+    this.pins.forEach((p, i) => p.position.set(this.tacks === 2 ? (i ? 1 : -1) * (this.w / 2 - 6 / PXP) : 0, this.tacks === 2 ? 0 : this.h / 2 - 3 / PXP, 0.06)); // a single tack pins the top edge, never the lettering this.kick(0.3);
   }
   update(dt, p) { this.updateBody(dt, p); }
 }
