@@ -40,17 +40,17 @@ export class ShotCam {
   }
 }
 
-// ================================================================ PREPARE: slow motion while you plan
+// ================================================================ PREPARE: time STOPS while you plan (the golden apple restarts it)
 export class Prepare {
   constructor(S) { this.S = S; this.k = 0; this.tick = 0; this.side = 0; this.freeze = 0; this.sat0 = null; this.warm0 = null; }
   /** prep: the player is planning; returns the world time scale (1 = real time) */
   update(rdt, prep) {
     this.k += ((prep ? 1 : 0) - this.k) * Math.min(1, rdt * (prep ? 2.2 : 7)); this.freeze = Math.max(0, this.freeze - rdt);
-    const scale = Math.max(this.freeze > 0 ? 0.02 : 0, 1 - 0.86 * sm(this.k) - (this.freeze > 0 ? 0.98 : 0)); WIND.scale = Math.max(0.05, scale);
-    const g = this.S.engine.grade?.uniforms; if (g) { this.sat0 ??= g.uSat.value; this.warm0 ??= g.uWarmth.value; const d = Math.max(sm(this.k) * 0.24, this.freeze > 0 ? 0.6 : 0); g.uSat.value = this.sat0 * (1 - d); g.uWarmth.value = this.warm0 - d * 0.5; }
+    const scale = Math.max(0, 1 - sm(this.k) - (this.freeze > 0 ? 1 : 0)); WIND.scale = scale; // the world stands still: foes mid-breath, dust hanging, grass mid-sway
+    const g = this.S.engine.grade?.uniforms; if (g) { this.sat0 ??= g.uSat.value; this.warm0 ??= g.uWarmth.value; const d = Math.max(sm(this.k) * 0.4, this.freeze > 0 ? 0.6 : 0); g.uSat.value = this.sat0 * (1 - d); g.uWarmth.value = this.warm0 - d * 0.45; }
     // the clock: tick ... tock, slower than real seconds (time is crawling)
     if (this.k > 0.6) { this.tick -= rdt; if (this.tick <= 0) { this.tick = 0.85; this.side ^= 1; audio.play('wood_knock', { vol: 0.07, rate: this.side ? 2.1 : 1.7, variance: 0, minGap: 200 }); } } else this.tick = 0.3;
-    return Math.max(0.02, scale);
+    return scale;
   }
   /** a time-stop: the whole world freezes for `sec` (the timestop strike) */
   stop(sec = 0.6) { this.freeze = Math.max(this.freeze, sec); }
