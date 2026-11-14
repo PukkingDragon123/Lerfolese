@@ -5,7 +5,7 @@
 // lives in world space and is solved every frame from the body's anchor to the head (arc-length matched curve, spring
 // lag on every joint). Heads bite, recoil, hiss and, on death, are severed: the stump stays with a bloody cap.
 import * as THREE from 'three';
-import { K } from './look.js';
+import { K, weather } from './look.js';
 import { Spring } from '../../core/tween.js';
 import { Sculpt, bake } from './flesh.js';
 import { makeBones, skinned, onBone, skinAttrs, sample, add, apply, battleRig, paintWounds, woundMat, woundTex, rigidSkinned } from './rig.js';
@@ -76,7 +76,7 @@ function bodyPainter(S, P) {
     const sz = q.tag === 'root' ? 0.055 : 0.075; const C = K.cells3(c.x / sz, c.y / (sz * 0.8), c.z / sz); const seam = C[1] - C[0] < 0.06;
     const blot = K.vnoise(c.x * 4.2, c.y * 4.2, c.z * 4.2) > 0.69; const dorsal = c.ny > 0.75;
     const col = blot ? P.dark : dorsal ? P.top : c.ny > 0.25 ? P.top : P.side;
-    K.tone(col, K.band(L + (seam ? -0.16 : (0.5 - C[0]) * 0.12), 4), o.col);
+    const cc = [...col]; const Lw = weather('scale', c, cav, L + (seam ? -0.16 : (0.5 - C[0]) * 0.12), cc, 0.85); K.tone(cc, K.band(Lw), o.col); // scarred, chipped, old
     if (dorsal && Math.abs(c.x) < 0.06 + Math.max(0, c.z) * 0.02) K.tone(P.dark, K.band(L - 0.05, 4), o.col);
   };
 }
@@ -197,7 +197,7 @@ function headPainter(S, P) {
     if (tag === 'crest') { K.tone(P.spine, K.band(L, 4), o.col); return; }
     const under = tag === 'jaw' && c.ny < 0.2 || c.ny < -0.5; if (under) { const pl = ((c.z * 26) % 1 + 1) % 1; K.tone(P.belly, K.band(L + 0.05 - pl * 0.2, 4), o.col); return; }
     const sz = tag === 'brow' ? 0.016 : 0.02; const C = K.cells3(c.x / sz, c.y / sz, c.z / sz); const seam = C[1] - C[0] < 0.08;
-    const col = tag === 'lip' ? P.side : c.ny > 0.45 ? P.top : P.side; K.tone(col, K.band(L + (seam ? -0.15 : (0.5 - C[0]) * 0.1) + (tag === 'brow' ? 0.04 : 0), 4), o.col);
+    const col = [...(tag === 'lip' ? P.side : c.ny > 0.45 ? P.top : P.side)]; K.tone(col, K.band(weather('scale', c, cav, L + (seam ? -0.15 : (0.5 - C[0]) * 0.1) + (tag === 'brow' ? 0.04 : 0), col, 0.7)), o.col);
     if (q.tag2 === 'mouth' && q.d2 < 0.006) K.tone(hex('#3a0e18'), 0.3, o.col);
   };
 }

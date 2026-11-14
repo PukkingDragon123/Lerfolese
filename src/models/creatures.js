@@ -48,7 +48,7 @@ function rig(root, height, proc = false) {
 const ANIM = { hurt: 'hit', die: 'death', cheer: 'cheer' };
 function limboHumanoid(id, cfg, seed) {
   const root = new THREE.Group(); root.name = id;
-  const L = new LimboBody(cfg.app, cfg.outfit, { severed: cfg.severed || [], hook: cfg.hook, overrides: cfg.overrides || {} }); L.mesh.material = limboMat(L.tex);
+  const L = new LimboBody(cfg.app, cfg.outfit, { severed: cfg.severed || [], hook: cfg.hook, overrides: cfg.overrides || {}, lowpoly: true }); L.gg.paintAll(L.spec, L.app, {}, 'base'); L.mesh.material = limboMat(L.tex); // realistic low poly like Newton
   const sc = cfg.height / (cfg.refH || L.P.crown); L.root.scale.setScalar(sc); root.add(L.root);
   const anim = new LimboAnim(L, { sway: cfg.sway ?? 1, speed: cfg.speed ?? 1, fall: cfg.fall ?? true }); anim.t += seed * 1.7;
   const head = new THREE.Group(); L.bones.head.add(head); head.position.set(0, 0.14, 0.03);
@@ -91,7 +91,7 @@ const tufty = (a, t, amt) => 1 + amt * Math.abs((((a / (Math.PI * 2)) * 9 + t * 
 /** digitigrade goat leg on its own bone chain: knee, upper shin, hock, cannon/fetlock, hoof (rest body space) */
 function goatLeg(x, P, parent, furM, hoofM) {
   const k = P.kneeY; const crv = K.curve([[x, k + 0.05, 0.0], [x, k - 0.09, -0.05], [x, k * 0.52, -0.115], [x, k * 0.35, -0.1], [x, 0.11, -0.05], [x, 0.06, -0.02]]);
-  const leg = K.skinnedLoft(28, 18, crv, (t) => { const r = t < 0.3 ? 0.075 - t * 0.085 : t < 0.55 ? 0.05 - (t - 0.3) * 0.055 : t < 0.85 ? 0.036 - (t - 0.55) * 0.02 : 0.03 + (t - 0.85) * 0.13; return [r, r]; },
+  const leg = K.skinnedLoft(28, 18, crv, (t) => { const r = (t < 0.3 ? 0.075 - t * 0.085 : t < 0.55 ? 0.05 - (t - 0.3) * 0.055 : t < 0.85 ? 0.036 - (t - 0.55) * 0.02 : 0.03 + (t - 0.85) * 0.13) * (t < 0.86 ? 0.72 : 1); return [r, r]; /* spindly goat shanks */ },
     { ref: (t, n) => n.set(0, 0, 1), shape: (a, t) => tufty(a, t, t < 0.45 || t > 0.86 ? 0.28 : 0.07) }, 4, parent, furM);
   const toes = new THREE.Group(); toes.position.copy(crv(1, new THREE.Vector3())).multiplyScalar(-1); leg.bones[4].add(toes);
   for (const s of [-1, 1]) { const tx = x + s * 0.016; K.mesh(new K.Loft(8, 12).set(K.curve([[tx, 0.065, -0.025], [tx + s * 0.003, 0.035, 0.005], [tx + s * 0.004, 0.012, 0.04]]), (t) => [0.02 - t * 0.007, 0.024 - t * 0.011], { ref: (t, n) => n.set(0, 1, 0), shape: (a) => 1 - Math.max(0, -Math.cos(a)) * 0.3 }).geo, hoofM, toes); }

@@ -23,7 +23,7 @@ function leafTex(pal) {
   const leaf = (cx, cy, ang, len) => { for (let t = 0; t <= len; t += 0.5) { const w = Math.sin((t / len) * Math.PI) * 2.2; for (let s = -w; s <= w; s += 0.5) { const x = Math.round(cx + Math.cos(ang) * t - Math.sin(ang) * s), y = Math.round(cy + Math.sin(ang) * t + Math.cos(ang) * s); put(x, y, s < -w * 0.45 && t > len * 0.25 ? 3 : 2); } } };
   leaf(8, 9, -2.2, 6.5); leaf(8, 9, -0.9, 6.5); leaf(8, 9, 0.4, 6); leaf(8, 9, 1.9, 5.5); leaf(8, 9, -1.55, 7);
   const out = px.slice(); for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (px[y * S + x] == null && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => px[(y + b) * S + x + a] != null && x + a >= 0 && x + a < S && y + b >= 0 && y + b < S)) out[y * S + x] = 0;
-  const t = pixTex(S, S, (x, y) => { const v = out[y * S + x]; return v == null ? [R[0][0] * 0.62 | 0, R[0][1] * 0.66 | 0, R[0][2] * 0.62 | 0, 255] : [...R[v], 255]; }, { mip: true }); t.wrapS = t.wrapT = THREE.RepeatWrapping; // opaque, tiling: the skin of a faceted leaf mass TEXC.set(k, t); return t;
+  const t = pixTex(S, S, (x, y) => { const v = out[y * S + x]; return v == null ? [(R[0][0] + R[1][0]) / 2 | 0, (R[0][1] + R[1][1]) / 2 | 0, (R[0][2] + R[1][2]) / 2 | 0, 255] : [...R[v], 255]; }, { mip: true }); t.wrapS = t.wrapT = THREE.RepeatWrapping; // opaque, tiling: the skin of a faceted leaf mass TEXC.set(k, t); return t;
 }
 function barkTex(pal) { const k = 'b' + pal.join(); if (TEXC.has(k)) return TEXC.get(k); const R = pal.map((h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }); const t = pixTex(16, 32, (x, y) => { const ridge = (x + Math.floor(hash(Math.floor(y / 5), 3) * 3)) % 4; return R[ridge === 0 ? 0 : ridge === 3 && hash(x, y) > 0.5 ? 2 : 1]; }, { repeat: [1, 1] }); TEXC.set(k, t); return t; }
 
@@ -44,7 +44,7 @@ function cluster(c, r, n, rnd, out, { flat = 1, card = 0.2 } = {}) {
   // leaf skin projected per facet, darker underneath (AO in the vertex colour); smooth outward normals keep the ink to the silhouette
   void n; void card; const P = ICO1.attributes.position; const seed = rnd() * 100; const pts = [];
   for (let i = 0; i < P.count; i++) { const x = P.getX(i), y = P.getY(i), z = P.getZ(i); const h = Math.sin(x * 12.99 + y * 78.23 + z * 37.72 + seed) * 43758.55; const j = 0.84 + (h - Math.floor(h)) * 0.3; pts.push(new V3(x * r * j, y * r * j * flat, z * r * j).add(c)); }
-  for (let i = 0; i < pts.length; i += 3) { const [a, b, d] = [pts[i], pts[i + 1], pts[i + 2]]; const nf = new V3().crossVectors(b.clone().sub(a), d.clone().sub(a)).normalize(); const ao = 0.5 + 0.5 * Math.min(1, (nf.y * 0.5 + 0.5) * 0.8 + 0.2); const ax = Math.abs(nf.x), ay = Math.abs(nf.y), az = Math.abs(nf.z); const base = out.pos.length / 3;
+  for (let i = 0; i < pts.length; i += 3) { const [a, b, d] = [pts[i], pts[i + 1], pts[i + 2]]; const nf = new V3().crossVectors(b.clone().sub(a), d.clone().sub(a)).normalize(); const ao = 0.72 + 0.34 * Math.min(1, (nf.y * 0.5 + 0.5) * 0.8 + 0.2); const ax = Math.abs(nf.x), ay = Math.abs(nf.y), az = Math.abs(nf.z); const base = out.pos.length / 3;
     for (const q of [a, b, d]) { const nn = q.clone().sub(c).normalize(); const [u, v] = ay >= ax && ay >= az ? [q.x, q.z] : ax >= az ? [q.z, q.y] : [q.x, q.y]; out.pos.push(q.x, q.y, q.z); out.nrm.push(nn.x, nn.y, nn.z); out.uv.push(u * 7, v * 7); out.col.push(ao, ao, ao * 0.96); }
     out.idx.push(base, base + 1, base + 2); }
 }

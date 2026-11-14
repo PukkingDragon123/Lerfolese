@@ -7,13 +7,13 @@ const O = { Lb: 0.95, Hw: 0.85, W: 0.16, Ln: 0.34, Lh: 0.4, Hd: 0, tail: 4, tail
 const BONES = quadRows(O);
 const moon = (c, o) => { if (c.nz < 0.3 || c.y < 1.1) return; const d1 = Math.hypot(c.x, c.y - 1.135), d2 = Math.hypot(c.x - 0.011, c.y - 1.143); if (d1 < 0.028 && d2 > 0.023) { K.tone(hex('#e8e4dc'), 0.7, o.col); } };
 const PAL = {
-  fur: { s: 'fur', c: hex('#8c8a84'), back: hex('#5a5650'), backY: 0.6, belly: hex('#cfc8bc'), fs: 30, fn: moon }, furL: { s: 'fur', c: hex('#d2cabe'), fs: 34 },
+  fur: { s: 'fur', c: hex('#8c8a84'), back: hex('#5a5650'), backY: 0.6, belly: hex('#cfc8bc'), fs: 30, fn: moon, age: 0.75, skin: hex('#6e5e56') }, furL: { s: 'fur', c: hex('#d2cabe'), fs: 34 },
   ruff: { s: 'fur', c: hex('#9a968e'), fs: 24, strand: 0.3 }, paw: { s: 'skin', c: hex('#4e5260') }, nose: { s: 'skin', c: hex('#22222a'), L: 0.05, ro: 0.3 },
   eye: { s: 'eye', c: hex('#b8862a'), pupil: 'round', pupilR: 0.3 }, mouth: { s: 'dark', c: hex('#5a1622') }, ear: { s: 'fur', c: hex('#6a665e'), fs: 40 }, default: { s: 'fur', c: hex('#aeb9c8') },
 };
 function sculpt(S) {
   const J = Object.fromEntries(BONES.map(([n, , p]) => [n, p]));
-  sculptQuad(S, J, O, { bulk: 0.92, depth: 1.08, tuck: 0.14, tags: { body: 'fur', belly: 'furL', leg: 'fur', paw: 'paw' } });
+  sculptQuad(S, J, O, { bulk: 0.84, depth: 1.1, tuck: 0.22, tags: { body: 'fur', belly: 'furL', leg: 'fur', paw: 'paw' } });
   S.limb([0, 0.82, 0.4], [0, 1.0, 0.68], 0.17, 0.105, ['neck1', 'neck2'], { k: 0.06, tag: 'ruff' });
   for (let i = 0; i < 11; i++) { const a = (i / 10 - 0.5) * 3.6; const p = [Math.sin(a) * 0.15, 0.93 + Math.cos(a) * 0.12, 0.55 + Math.cos(a) * 0.02]; S.limb(p, [p[0] * 1.6, p[1] - 0.12, p[2] - 0.13], 0.05, 0.012, 'neck1', { k: 0.025, tag: 'ruff' }); }
   // head
