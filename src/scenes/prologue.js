@@ -46,6 +46,8 @@ export class PrologueScene extends UIScreen {
   /** camera move: to (p, l, fov) over d seconds (0 = cut) */
   shot(p, l, fov = this.cs.fov, d = 0) { const c = this.cs; if (!d) { c.p.copy(p); c.l.copy(l); c.fov = fov; c.mv = null; return Promise.resolve(); } return this.w(new Promise((res) => { c.mv = { p0: c.p.clone(), l0: c.l.clone(), f0: c.fov, p, l, fov, d, t: 0, res }; })); }
   world(sc) { this.sc = sc; this.engine.setWorld(sc, this.cam); }
+  /** a close-up in front of an actor's face (from its facing), side > 0 = its left, a touch off-axis */
+  face(a, { d = 1.7, side = 0.55, up = 0.02, fov = 28, dy = -0.04, t = 0 } = {}) { a.root.updateMatrixWorld(true); const h = a.headWorld(V()); const f = V(0, 0, 1).applyQuaternion(a.root.getWorldQuaternion(new THREE.Quaternion())); f.y = 0; f.normalize(); const r = V(f.z, 0, -f.x); return this.shot(h.clone().addScaledVector(f, d).addScaledVector(r, side).add(V(0, up, 0)), h.clone().add(V(0, dy, 0)), fov, t); }
   async build() {
     await ensureFonts();
     this.bars = new Letterbox(this.root); this.bars.show(); window.__storyBand = true;
@@ -94,16 +96,16 @@ export class PrologueScene extends UIScreen {
     this.shot(V(-7, 9, 14), V(0, 3.5, 0), 40); this.shot(V(-2.5, 2.4, 9.2), mid.clone().add(V(0, 1.2, 0)), 34, 6.5);
     await this.narr('Long ago, before the apples learned to fall, there was an old garden in Woolsthorpe…');
     await this.narr('…and in it lived a boy who asked too many questions.');
-    await this.shot(m.headWorld(V()).add(V(1.6, -0.1, 2.0)), m.headWorld(V()).add(V(0, -0.15, 0)), 30, 0);
+    this.face(m, { d: 2.3, side: 0.8, fov: 30, dy: -0.12 });
     m.act('explain'); await this.say('master', 'Isaac. You are staring at that tree again.', m);
-    this.shot(k.headWorld(V()).add(V(-1.3, 0.05, 1.7)), k.headWorld(V()), 30, 0); k.act('point');
+    this.face(k, { d: 1.7, side: -0.7, up: 0.15, fov: 30 }); k.act('point');
     await this.say('isaac_kid', 'Master, why do apples fall down? Why never up? Or sideways?', k);
     this.shot(V(-0.4, 1.7, 6.6), mid.clone().add(V(0, 1.05, 0)), 32, 0); m.act('nod');
     await this.say('master', 'Ah. The oldest question in the garden. What do you think, little one?', m);
     const c = await this.choose([{ label: 'Because the ground wants them.', sub: 'a poet' }, { label: 'Because they are heavy.', sub: 'a scholar' }, { label: 'The tree gets tired of holding them.', sub: 'a jester' }], { prompt: 'Young Isaac thinks…', speaker: 'isaac_kid' });
     this.flavour = ['poet', 'scholar', 'jester'][c];
     await this.say('isaac_kid', ['Because the ground wants them.', 'Because they are heavy.', 'Because the tree gets tired of holding them!'][c], k);
-    this.shot(m.headWorld(V()).add(V(1.3, 0.0, 1.6)), m.headWorld(V()), 28, 0);
+    this.face(m, { d: 1.9, side: 0.6 });
     if (c === 2) { m.act('cheer'); m.setExpr('happy', 2); }
     await this.say('master', ['Wants? A poet’s answer. Hold on to it; it is closer to the truth than you know.', 'Heavy, yes. But heavy toward what? Remember that question. It will remember you.', 'Ha! Trees do not tire, Isaac. But you have made an old man laugh, and that is a kind of magic too.'][c], m);
     this.shot(V(0.6, 1.9, 7.4), mid.clone().add(V(0, 1.1, 0)), 33, 2.5); m.act('explain');
@@ -155,7 +157,7 @@ export class PrologueScene extends UIScreen {
     this.shot(V(0.3, 1.5, 6.2), k.headWorld(V()).lerp(m.headWorld(V()), 0.5), 32, 0); k.setExpr('surprised', 3); m.act('alarm');
     await this.say('master', 'Isaac… where did you get that? That is not one of mine.', m);
     await this.say('isaac_kid', 'It was just there. In my hand. It’s warm… and it’s humming.', k);
-    this.shot(m.headWorld(V()).add(V(1.0, 0.0, 1.3)), m.headWorld(V()), 26, 0);
+    this.face(m, { d: 1.6, side: 0.5, fov: 26 });
     await this.say('master', 'That is a Forbidden Apple. It does not obey the garden’s laws. Put it down, slowly.', m);
     this.shot(V(0.2, 1.4, 5.4), k.headWorld(V()).add(V(0, -0.3, 0)), 30, 0);
     let c = await this.choose([{ label: 'Use the Forbidden Apple', sub: 'it wants to be used' }, { label: 'Put it down', sub: 'as the Master says' }], { prompt: 'The golden apple hums in your hand…', speaker: 'isaac_kid' });
@@ -163,7 +165,7 @@ export class PrologueScene extends UIScreen {
     // he uses it: the card becomes the golden apple in his hand, and he bites
     v.target = { x: this.engine.worldToUI(k.handWorld(1, V())).x, y: this.engine.worldToUI(k.handWorld(1, V())).y, z: 3, rz: 0.4, s: 0.05 }; audio.play('card_flip');
     const ga = P3.apple({ kind: 'gold' }); ga.scale.setScalar(0.12); k.hand(1).add(ga); ga.position.set(0, -0.04, 0.05); this.gapple = ga;
-    this.shot(k.headWorld(V()).add(V(-0.9, -0.05, 1.1)), k.headWorld(V()).add(V(0, -0.1, 0)), 26, 0); k.act('reach');
+    this.face(k, { d: 1.4, side: -0.6, up: 0.12, fov: 28, dy: -0.12 }); k.act('reach');
     await this.wait(0.8); audio.play('apple_crunch'); k.setExpr('surprised', 3); this.engine.flash(0.6, 0xfff0b0, 0.5); this.burst(k.handWorld(1, V()), '#ffd84a', 40);
     await this.say('master', 'ISAAC, NO—', m, { wait: false }); await this.wait(1.1);
     this.root.remove(v.group); this.card = null;
@@ -183,7 +185,7 @@ export class PrologueScene extends UIScreen {
     await this.say('isaac_kid', 'Master! The sky is falling!', k);
     // time stops
     this.frozen = true; audio.play('whoosh_heavy'); audio.duckMusic?.(0.1, 4); this.engine.flash(0.3, 0xd8e8ff, 0.6);
-    this.shot(m.headWorld(V()).add(V(1.2, 0.2, 1.4)), m.headWorld(V()), 28, 0);
+    this.face(m, { d: 1.7, side: 0.55, up: 0.12 });
     await this.say('master', 'Isaac, listen to me. Whatever you see next, remember the garden.', m);
     this.warp = warpPass(this.engine);
     await this.w(this.tween(4.2, (u) => { this.warp.set(ease(u) * 1.15, ease((u - 0.72) / 0.28)); this.cs.fov = 38 + u * 30; }));
@@ -194,7 +196,7 @@ export class PrologueScene extends UIScreen {
     sc.add(new THREE.HemisphereLight(0xffffff, 0xe8e0d0, 1.6)); const key = new THREE.DirectionalLight(0xfff4e0, 1.6); key.position.set(4, 10, 8); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8 }); sc.add(key);
     const catcher = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: 0.12 })); catcher.rotation.x = -Math.PI / 2; catcher.receiveShadow = true; sc.add(catcher);
     const kid = createKidIsaac(); kid.root.position.set(0.5, 0, 3.4); kid.root.rotation.y = Math.PI * 0.86; // three-quarters to us, looking up at himself sc.add(kid.root); this.actors.push(kid); this.kidW = kid;
-    const cos = createCosmicSelf(); cos.root.scale.setScalar(5.2); cos.root.position.set(0, -1.5, -7.5); cos.setIdleMode?.('still'); sc.add(cos.root); this.actors.push(cos); this.cosmic = cos; cos.setAlpha(0);
+    const cos = createCosmicSelf(); cos.root.scale.setScalar(4.6); cos.root.position.set(0, -2.2, -7.5); cos.setIdleMode?.('still'); sc.add(cos.root); this.actors.push(cos); this.cosmic = cos; cos.setAlpha(0);
     const book = popBook(); book.group.position.set(0, 0, -0.6); sc.add(book.group); this.book = book;
     kid.lookAtWorld(() => cos.headWorld(V()));
     this.world(sc); this.engine.setFx({ bloom: [0.45, 0.6, 0.86], grade: { warmth: 0.1, vignette: 0.18, sat: 1.04 }, exposure: 1.0 });
@@ -205,7 +207,7 @@ export class PrologueScene extends UIScreen {
     this.shot(V(0.9, 0.6, 7.0), V(0, 6.5, -6), 50, 4.5); audio.play('magic_shimmer'); audio.playMusic('journal');
     await this.w(this.tween(3.0, (u) => cos.setAlpha(ease(u) * 0.92)));
     await this.say('cosmic', 'Do not be afraid, Isaac. You are only looking at what you will become.', cos);
-    this.shot(kid.headWorld(V()).add(V(0.8, 0.1, -1.3)), kid.headWorld(V()), 30, 0); kid.setExpr('surprised', 2.5);
+    this.face(kid, { d: 1.5, side: -0.5, up: -0.1, fov: 30, dy: 0.05 }); kid.setExpr('surprised', 2.5);
     await this.say('isaac_kid', 'Are you… me?', kid);
     this.shot(V(-1.2, 0.4, 6.4), V(0, 7.2, -7), 46, 0);
     await this.say('cosmic', 'I am every answer you have not found yet.', cos);
@@ -232,8 +234,8 @@ export class PrologueScene extends UIScreen {
     this.O?.setNight(1); if (sc.fog) { sc.fog.color.set(0x2e3260); sc.fog.far = 95; }
     const hero = createProfessor(); const sp = V(1.95, 0, 0.9); hero.root.position.set(sp.x, this.hAt(sp.x, sp.z), sp.z); hero.root.rotation.y = 0.35; hero.act('sleep'); sc.add(hero.root); this.hero = hero;
     let dog = null; try { const { createDog } = await import('../models/dog.js'); dog = createDog(); dog.hAt = this.hAt; dog.area = { x: [-1, 4], z: [1, 5] }; dog.st.pos.set(4.2, 0, 5.2); dog.root.position.copy(dog.st.pos); sc.add(dog.root); this.dog = dog; } catch (e) { console.warn('dog', e); }
-    this.world(sc); this.engine.setFx({ bloom: [0.6, 0.6, 0.78], grade: { warmth: 0.12, vignette: 0.45, sat: 1.05 }, rays: false });
-    this.shot(hero.headWorld(V()).add(V(1.3, 1.25, 1.5)), hero.headWorld(V()).add(V(0, -0.1, 0)), 32, 0);
+    this.world(sc); this.engine.setFx({ bloom: [0.6, 0.6, 0.78], grade: { warmth: -0.15, vignette: 0.55, sat: 1.0, lift: [0.0, 0.01, 0.06], gain: [0.86, 0.9, 1.05] }, exposure: 0.72, rays: false });
+    this.shot(hero.headWorld(V()).add(V(2.0, 1.5, 2.4)), hero.headWorld(V()).add(V(-0.3, -0.25, 0)), 36, 0);
     if (this.warp) { await this.w(this.tween(1.8, (u) => this.warp.set((1 - ease(u)) * 0.5, 1 - ease(u)))); this.warp.dispose(); this.warp = null; }
     audio.playMusic('menu');
     await this.narr('He woke beneath a tree he did not know, under stars he almost did.');
@@ -242,7 +244,7 @@ export class PrologueScene extends UIScreen {
     await this.wait(2.6);
     await this.say('dog', 'Woof!', dog ? { headWorld: (o) => dog.head.getWorldPosition(o) } : null);
     hero.act('bonk'); audio.play('wood_knock'); await this.wait(2.6);
-    this.shot(hero.headWorld(V()).add(V(1.2, 0.1, 1.6)), hero.headWorld(V()), 30, 0); hero.setExpr('shock');
+    this.face(hero, { d: 1.9, side: 0.7, fov: 30 }); hero.setExpr('shock');
     await this.say('newton', 'I’m… taller. Why am I taller? And floating. Why am I floating?', hero);
     if (dog) dog.pet(); hero.setExpr('delight');
     this.shot(V(3.4, 1.0, 3.9), sp.clone().lerp(dog ? dog.root.position : sp, 0.5).add(V(0, 0.7, 0)), 34, 0);
@@ -262,19 +264,19 @@ export class PrologueScene extends UIScreen {
     await this.w(this.engine.wipe(async () => { this.world(sc); this.engine.setFx({ bloom: [0.7, 0.6, 0.72], grade: { warmth: 0.25, vignette: 0.5, sat: 1.08 } }); this.shot(V(4.5, 2.6, 7.5), V(0, 2.6, -1), 40, 0); }, { color: 0x05040a }));
     this.shot(V(2.8, 1.8, 4.8), m.headWorld(V()).lerp(h.headWorld(V()), 0.5), 34, 4);
     await this.narr('At the top of the hill stood the star-viewing dome, and in it, someone was waiting.');
-    this.shot(m.headWorld(V()).add(V(1.3, 0.0, 1.5)), m.headWorld(V()), 28, 0); m.act('explain');
+    this.face(m, { d: 2.0, side: 0.6 }); m.act('explain');
     await this.say('master', 'There you are. You took your time. About three hundred years, give or take.', m);
-    this.shot(h.headWorld(V()).add(V(-1.2, 0.05, 1.3)), h.headWorld(V()), 28, 0); h.setExpr('shock');
+    this.face(h, { d: 1.9, side: -0.6 }); h.setExpr('shock');
     await this.say('newton', 'Master? You’re here too? You look exactly the same.', h);
-    this.shot(m.headWorld(V()).add(V(1.1, 0.05, 1.3)), m.headWorld(V()), 27, 0);
+    this.face(m, { d: 1.7, side: 0.5, fov: 27 });
     await this.say('master', 'Masters do not age, Isaac. We only become more mysterious.', m);
     this.shot(V(-2.4, 2.4, 5.2), V(0.4, 2.2, -2.4), 40, 5); m.act('point');
     await this.say('master', 'This world was born from the apple you should not have eaten. Its stories are coming loose, and its gods are restless.', m);
     await this.say('master', 'Your cards will grow. Your laws will grow. And when you fall, and you will fall, the stars will put you back together.', m);
-    this.shot(h.headWorld(V()).add(V(-1.1, 0.05, 1.2)), h.headWorld(V()), 28, 0);
+    this.face(h, { d: 1.8, side: -0.6 });
     const c = await this.choose([{ label: 'Where do I begin?', sub: 'eager' }, { label: 'What was that golden apple?', sub: 'suspicious' }], { prompt: 'Isaac asks…', speaker: 'newton' });
     await this.say('newton', ['Where do I begin?', 'What was that golden apple?'][c], h);
-    this.shot(m.headWorld(V()).add(V(1.2, 0.0, 1.4)), m.headWorld(V()), 28, 0);
+    this.face(m, { d: 1.9, side: 0.55 });
     await this.say('master', ['Where every scholar begins: outside, with something trying to eat you.', 'A question for later. Questions, like apples, are best when they have ripened.'][c], m);
     m.act('present');
     await this.say('master', 'Go on. The Wilds are waiting. And take the dog. He takes himself anyway.', m);

@@ -6,6 +6,7 @@
 // telescope, arched night windows with light shafts full of dust motes. Warm, bright, cozy lighting.
 // buildLibrary() -> { group, update(dt, t), spots, routes, exhibitSpots }
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import * as T from './toon.js';
 import * as F from './flora.js';
 import { Kit } from './village.js';
@@ -53,7 +54,7 @@ class Books {
 // a tall bookcase (local +z faces the room): carved frame, cornice, plinth, shelves packed with books
 function bookcase(K, books, frame, w, h, shelves, r) {
   const tr = (x, y, z, sx, sy, sz, rz = 0, ry = 0) => { const m = new THREE.Matrix4().compose(V(x, y, z).applyMatrix4(frame), new THREE.Quaternion().setFromRotationMatrix(frame).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, rz))), V(sx, sy, sz)); return m; };
-  const box = (key, sx, sy, sz, x, y, z, rad = 0.02) => { const g = new THREE.BoxGeometry(sx, sy, sz); g.applyMatrix4(new THREE.Matrix4().makeTranslation(x, y, z)); g.applyMatrix4(frame); K.add(key, g, V()); void rad; };
+  const box = (key, sx, sy, sz, x, y, z, rad = 0.012) => { const g = new RoundedBoxGeometry(sx, sy, sz, 2, Math.min(rad, sx / 2.2, sy / 2.2, sz / 2.2)); g.applyMatrix4(new THREE.Matrix4().makeTranslation(x, y, z)); g.applyMatrix4(frame); K.add(key, g, V()); };
   for (const s of [-1, 1]) box('woodDark', 0.07, h, 0.36, s * (w / 2), h / 2, 0); box('woodDark', w + 0.2, 0.14, 0.42, 0, h + 0.07, 0.02); box('woodRaw', w + 0.26, 0.05, 0.46, 0, h + 0.165, 0.03); box('woodDark', w + 0.1, 0.14, 0.4, 0, 0.07, 0.01); box('plain:#2a1a12', w, h, 0.02, 0, h / 2, -0.17);
   const sp = (h - 0.2) / shelves;
   for (let s = 0; s < shelves; s++) {
@@ -132,7 +133,7 @@ export function buildLibrary({ seed = 7 } = {}) {
   // rolling ladders on a brass rail
   const railB = new THREE.Mesh(new THREE.TorusGeometry(R - 0.42, 0.025, 6, 160), plainMat('brass')); railB.rotation.x = Math.PI / 2; railB.position.y = 2.95; G.add(railB);
   const ladders = [];
-  for (const a of [2.15, 4.15]) { const base = at(a, R - 1.15), top = at(a, R - 0.45, 2.95); const dir = top.clone().sub(base); const L = dir.length(); const lad = new THREE.Group(); lad.position.copy(base); lad.lookAt(top); G.add(lad); const KL = new Kit();
+  for (const a of [2.094, -2.094]) { const base = at(a, R - 1.15), top = at(a, R - 0.45, 2.95); const dir = top.clone().sub(base); const L = dir.length(); const lad = new THREE.Group(); lad.position.copy(base); lad.lookAt(top); G.add(lad); const KL = new Kit();
     for (const s of [-1, 1]) KL.box('woodRaw', 0.06, 0.06, L, V(s * 0.24, 0, L / 2), null, 0.015); for (let i = 1; i < 10; i++) KL.box('woodRaw', 0.48, 0.04, 0.05, V(0, 0, (i / 10) * L), null, 0.01); KL.build(lad);
     for (const s of [-1, 1]) { const w = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.015, 6, 12), plainMat('brass')); w.position.set(s * 0.24, -0.05, 0.02); w.rotation.y = Math.PI / 2; lad.add(w); } ladders.push({ base, top }); }
   // spiral staircase up to the balcony
@@ -142,8 +143,18 @@ export function buildLibrary({ seed = 7 } = {}) {
   KS.build(stair); const rm = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rail2), 64, 0.035, 6), plainMat('walnut')); stair.add(rm);
   // the fireplace in the front wall: stone surround, mantel with candles and a clock, logs and a living fire
   const fpA = Math.PI; const fpC = at(fpA, R - 0.25); const fp = new THREE.Group(); fp.position.copy(fpC); fp.rotation.y = fpA + Math.PI; G.add(fp); const KF = new Kit();
-  KF.box('stone', 2.8, 0.14, 1.0, V(0, 0.07, 0.35), null, 0.03); for (const s of [-1, 1]) KF.box('rubble', 0.5, 1.55, 0.55, V(s * 1.0, 0.85, 0.1), null, 0.04); KF.box('stone', 3.0, 0.16, 0.65, V(0, 1.68, 0.14), null, 0.03); KF.box('rubble', 2.4, 1.6, 0.35, V(0, 2.55, -0.05), null, 0.04);
+  KF.box('stone', 2.8, 0.14, 1.0, V(0, 0.07, 0.35), null, 0.03); for (const s of [-1, 1]) KF.box('stone', 0.5, 1.55, 0.55, V(s * 1.0, 0.85, 0.1), null, 0.04); KF.box('stone', 3.0, 0.16, 0.65, V(0, 1.68, 0.14), null, 0.03); KF.box('woodDark', 2.5, 1.62, 0.3, V(0, 2.56, -0.06), null, 0.03); for (const x of [-0.85, 0.85]) KF.box('woodRaw', 0.42, 1.2, 0.05, V(x, 2.55, 0.1), null, 0.015); KF.box('woodRaw', 2.62, 0.12, 0.42, V(0, 3.33, 0.0), null, 0.03);
   KF.box('plain:#1a1210', 1.5, 1.2, 0.1, V(0, 0.75, -0.08), null, 0.01); for (let i = 0; i < 3; i++) KF.add('plain:#5a3a22', new THREE.CylinderGeometry(0.07, 0.08, 0.9, 10).rotateZ(Math.PI / 2).rotateY((i - 1) * 0.3), V((i - 1) * 0.1, 0.24 + (i === 1 ? 0.1 : 0), 0.15)); KF.build(fp);
+  { const art = pix(48, 32, (g, W, H, rr) => { for (let y = 0; y < H; y++) { const k = y / H; g.fillStyle = k < 0.3 ? '#1a2456' : k < 0.55 ? '#26346e' : k < 0.7 ? '#3a4a84' : '#2a3a2a'; g.fillRect(0, y, W, 1); }
+      g.fillStyle = '#f2e8b8'; for (const [x, y, w] of [[36, 4, 4], [35, 5, 6], [35, 6, 6], [35, 7, 6], [36, 8, 4]]) g.fillRect(x, y, w, 1); g.fillStyle = '#c8c098'; g.fillRect(37, 6, 1, 1); g.fillRect(38, 7, 2, 1);
+      for (let i = 0; i < 26; i++) { g.fillStyle = rr() < 0.5 ? '#fff4c8' : '#aab8ee'; g.fillRect((rr() * W) | 0, (rr() * 12) | 0, 1, 1); }
+      g.fillStyle = '#1e2a1e'; g.fillRect(0, 24, W, 8); g.fillStyle = '#2e4a2a'; for (let x = 0; x < W; x++) g.fillRect(x, 23 + ((x * 7) % 3 === 0 ? 0 : 1), 1, 1);
+      g.fillStyle = '#3a2a1a'; g.fillRect(15, 14, 3, 10); g.fillRect(13, 22, 2, 2); g.fillRect(18, 22, 2, 2); g.fillRect(12, 15, 4, 1); g.fillRect(17, 13, 5, 1);
+      for (let i = 0; i < 70; i++) { const a = rr() * 6.28, d = Math.sqrt(rr()) * 8; g.fillStyle = ['#244a26', '#2e5e30', '#3a7038', '#1a3a1e'][(rr() * 4) | 0]; g.fillRect(16 + Math.cos(a) * d * 1.3, 10 + Math.sin(a) * d * 0.75, 2, 1); }
+      g.fillStyle = '#d8342a'; for (const [x, y] of [[11, 9], [20, 7], [14, 12], [23, 11], [17, 6], [9, 12]]) { g.fillRect(x, y, 2, 2); g.fillStyle = '#ff8a6a'; g.fillRect(x, y, 1, 1); g.fillStyle = '#d8342a'; }
+      g.fillStyle = '#c84a3a'; g.fillRect(19, 24, 2, 2); g.fillStyle = '#e8d8b8'; g.fillRect(27, 21, 2, 3); g.fillStyle = '#2a2a3a'; g.fillRect(27, 20, 2, 1); });
+    const pf = new THREE.Group(); pf.position.set(0, 2.55, 0.12); fp.add(pf); const cv = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), toonM({ map: art })); cv.position.z = 0.03; pf.add(cv);
+    const KP = new Kit(); for (const [w, h, x, y] of [[1.42, 0.12, 0, 0.46], [1.42, 0.12, 0, -0.46], [0.12, 1.04, -0.65, 0], [0.12, 1.04, 0.65, 0]]) KP.box('plain:#b08a3a', w, h, 0.08, V(x, y, 0.03), null, 0.02); KP.build(pf); }
   for (const [x, w, h] of [[0, 0.75, 0.9], [-0.25, 0.5, 0.65], [0.28, 0.45, 0.6]]) { const f = T.animeFlame(w, h); f.position.set(x, 0.28, 0.15); fp.add(f); flames.push(f); }
   const fireL = new THREE.PointLight(0xff9a40, 30, 14, 1.4); fireL.position.copy(fp.localToWorld(V(0, 0.9, 1.2))); G.add(fireL); lights.push(fireL);
   for (const x of [-1.2, 1.2]) { const c = candle(0.2); c.position.set(x, 1.76, 0.2); fp.add(c); } toonModel('grandfather_clock').then((o) => { o.scale.multiplyScalar(1.1); o.position.copy(at(fpA + 0.27, R - 0.55)); o.rotation.y = fpA + Math.PI + 0.25; G.add(o); }).catch(() => {});
@@ -159,7 +170,7 @@ export function buildLibrary({ seed = 7 } = {}) {
     const ink = new THREE.Mesh(turned([[0.001, 0], [0.04, 0], [0.045, 0.04], [0.02, 0.06], [0.022, 0.07], [0.001, 0.07]], 16), toonM({ color: C('#1a1a2a') })); ink.position.set(0.5, 0.815, -0.1); d.add(ink);
     const quill = new THREE.Mesh(new THREE.ConeGeometry(0.02, 0.28, 6, 1, true), toonM({ color: C('#f0ece0'), side: THREE.DoubleSide })); quill.position.set(0.52, 0.95, -0.1); quill.rotation.z = -0.4; d.add(quill);
     for (let i = 0; i < 4; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.32 - i * 0.02, 0.06, 0.24), toonM({ color: C(['#6a2a24', '#2a3a6a', '#4a5a2a', '#6a4a22'][i]) })); b.position.set(-0.2, 0.845 + i * 0.06, -0.25); b.rotation.y = (r() - 0.5) * 0.4; d.add(b); }
-    desks.push({ d, top: d.localToWorld(V(0.3, 0.815, 0.05)), book: d.localToWorld(V(0.05, 0.84, 0.1)) }); }
+    desks.push({ d, ry, top: d.localToWorld(V(0.32, 0.815, 0.12)), book: d.localToWorld(V(0.05, 0.84, 0.1)), stack: d.localToWorld(V(-0.2, 1.06, -0.25)) }); }
   const gl = globe(); gl.position.set(-4.6, 0, 0.9); G.add(gl); const arm = armillary(); arm.position.set(4.4, 0, 2.4); G.add(arm);
   const tel = telescope('Star Gallery', V(0.2, 1, 0.25).normalize()); tel.scale.setScalar(1.9); tel.position.set(0, 0, 4.6); G.add(tel);
   for (const [a, k] of [[1.32, 'oleander'], [-1.32, 'myrtle'], [2.9, 'bush'], [3.38, 'bush']]) { const p = at(a, R - 0.9); toonModel('planter_pot_clay').then((o) => { o.scale.multiplyScalar(2.2); o.position.copy(p); G.add(o); }).catch(() => {}); const pl = F.tree(k, { v: 1, s: 0.75 }); pl.position.copy(p).add(V(0, 0.42, 0)); G.add(pl); }
@@ -168,18 +179,31 @@ export function buildLibrary({ seed = 7 } = {}) {
     const cage = new THREE.Mesh(turned([[0.001, -0.62], [0.12, -0.62], [0.15, -0.58], [0.11, -0.54], [0.11, -0.36], [0.15, -0.32], [0.09, -0.28], [0.02, -0.24], [0.001, -0.22]], 24), plainMat('brass')); lan.add(cage);
     const glass = new THREE.Mesh(turned([[0.001, -0.54], [0.105, -0.54], [0.105, -0.36], [0.001, -0.36]], 24), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.5, 0.7), toneMapped: false })); glass.userData.noAO = true; lan.add(glass);
     if (i % 2 === 0) { const l = new THREE.PointLight(0xffb060, 5, 7, 1.6); l.position.copy(p).add(V(0, -0.5, 0)); G.add(l); lights.push(l); } }
+  // the great door back to the garden: an arched double door of studded planks under a carved stone arch
+  { const dr = new THREE.Group(); dr.position.copy(at(0, R - 0.12)); dr.rotation.y = Math.PI; G.add(dr); const KD = new Kit();
+    for (const s of [-1, 1]) { KD.box('stone', 0.32, 2.3, 0.36, V(s * 1.06, 1.15, 0), null, 0.03); for (let i = 0; i < 5; i++) KD.box('plain:#2a1c14', 0.025, 2.2, 0.06, V(s * (0.18 + i * 0.17), 1.12, 0.02), null, 0.008); KD.box('woodDark', 0.88, 2.2, 0.08, V(s * 0.45, 1.12, -0.02), null, 0.015);
+      for (const y of [0.45, 1.25, 1.95]) { KD.box('plain:#2e2c30', 0.82, 0.07, 0.03, V(s * 0.45, y, 0.035), null, 0.01); for (let k = 0; k < 4; k++) KD.add('plain:#4a4650', new THREE.SphereGeometry(0.018, 8, 6), V(s * (0.12 + k * 0.2), y, 0.055)); }
+      KD.add('plain:#8a6a2a', new THREE.TorusGeometry(0.07, 0.014, 6, 16), V(s * 0.16, 1.15, 0.07)); }
+    KD.add('stone', new THREE.TorusGeometry(1.06, 0.17, 10, 28, Math.PI), V(0, 2.25, 0)); KD.add('plain:#2a1c14', new THREE.CircleGeometry(0.9, 24, 0, Math.PI), V(0, 2.25, -0.03)); KD.build(dr); }
   // the frog's reading lectern by the fire
-  const lec = new THREE.Group(); lec.position.set(0.25, 0, -5.0); lec.rotation.y = 0.2; G.add(lec); { const KL = new Kit(); KL.box('woodDark', 0.12, 1.0, 0.12, V(0, 0.5, 0), null, 0.02); KL.box('woodDark', 0.5, 0.06, 0.5, V(0, 0.03, 0), null, 0.02); KL.box('woodDark', 0.6, 0.05, 0.45, V(0, 1.05, 0.02), new THREE.Euler(0.45, 0, 0), 0.02); KL.build(lec); const ob = openBook(0.5, 3); ob.position.set(0, 1.09, 0.04); ob.rotation.x = 0.45; lec.add(ob); const c = candle(0.14); c.position.set(0.32, 1.0, 0.08); lec.add(c); }
+  const lec = new THREE.Group(); lec.position.set(0.72, 0, -5.12); lec.rotation.y = 1.89; G.add(lec); { const KL = new Kit(); KL.box('woodDark', 0.12, 1.0, 0.12, V(0, 0.5, 0), null, 0.02); KL.box('woodDark', 0.5, 0.06, 0.5, V(0, 0.03, 0), null, 0.02); KL.box('woodDark', 0.6, 0.05, 0.45, V(0, 1.05, 0.02), new THREE.Euler(0.45, 0, 0), 0.02); KL.build(lec); const ob = openBook(0.5, 3); ob.position.set(0, 1.09, 0.04); ob.rotation.x = 0.45; lec.add(ob); const c = candle(0.14); c.position.set(0.32, 1.0, 0.08); lec.add(c); }
   // light shafts from the upper windows with dust motes drifting in them
-  const shaftM = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.55, 0.62, 0.9), transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); const shafts = [];
-  for (const w of windows.filter((x) => x.y > LOW)) { const from = at(w.a, R - 0.3, w.y), to = at(w.a, 2.2, 0.05); const L = from.distanceTo(to); const g = new THREE.PlaneGeometry(1.0, L, 1, 1); g.translate(0, -L / 2, 0); const m = new THREE.Mesh(g, shaftM); m.position.copy(from); m.lookAt(to); m.rotateX(-Math.PI / 2); m.userData.noInk = true; m.userData.noAO = true; G.add(m); shafts.push({ from, to }); }
+  // each shaft is a soft beam: two crossed ribbons that widen towards the floor, fading at the edges, the window and the floor
+  const shaftM = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: { uTime: T.WIND.time },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform float uTime; varying vec2 vUv; void main(){ float x = abs(vUv.x * 2.0 - 1.0); float e = pow(1.0 - x, 1.8); float l = smoothstep(0.0, 0.35, vUv.y) * smoothstep(1.0, 0.9, vUv.y); float flick = 0.85 + 0.15 * sin(uTime * 0.7 + vUv.y * 6.0); gl_FragColor = vec4(vec3(0.62, 0.7, 1.0) * e * l * flick * 0.075, 1.0); }' });
+  const poolM = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }', fragmentShader: 'varying vec2 vUv; void main(){ float d = length(vUv - 0.5) * 2.0; float a = smoothstep(1.0, 0.2, d); gl_FragColor = vec4(vec3(0.55, 0.62, 0.9) * a * 0.12, 1.0); }' });
+  const shafts = [];
+  for (const w of windows.filter((x) => x.y > LOW)) { const from = at(w.a, R - 0.3, w.y), to = at(w.a, 2.6, 0.02); const L = from.distanceTo(to);
+    for (const rot of [0, Math.PI / 2]) { const g = new THREE.PlaneGeometry(0.9, L, 1, 6); const pp = g.attributes.position; for (let i = 0; i < pp.count; i++) { const k = 0.5 - pp.getY(i) / L; pp.setX(i, pp.getX(i) * (1 + k * 1.4)); } g.translate(0, -L / 2, 0); const m = new THREE.Mesh(g, shaftM); m.position.copy(from); m.lookAt(to); m.rotateX(-Math.PI / 2); m.rotateY(rot); m.userData.noInk = true; m.userData.noAO = true; m.renderOrder = 5; G.add(m); }
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.6).rotateX(-Math.PI / 2), poolM); pool.position.copy(to).setY(0.03); pool.rotation.y = w.a; pool.userData.noInk = true; pool.userData.noAO = true; G.add(pool); shafts.push({ from, to }); }
   const motes = (() => { const P = [], S = []; for (let i = 0; i < 360; i++) { const s = shafts[i % shafts.length]; const k = r(); const p = s.from.clone().lerp(s.to, k).add(V((r() - 0.5) * 0.9, (r() - 0.5) * 0.4, (r() - 0.5) * 0.9)); P.push(p.x, p.y, p.z); S.push(r() * 10); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('aS', new THREE.Float32BufferAttribute(S, 1));
     const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uTime: T.WIND.time, uPx: { value: 1 } }, vertexShader: 'attribute float aS; uniform float uTime, uPx; varying float vA; void main(){ vec3 p = position + vec3(sin(uTime * 0.3 + aS) * 0.25, sin(uTime * 0.2 + aS * 2.0) * 0.15, cos(uTime * 0.25 + aS) * 0.25); vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv; vA = 0.5 + 0.5 * sin(uTime * 1.3 + aS * 7.0); gl_PointSize = max(1.0, 0.03 * uPx / -mv.z); }', fragmentShader: 'varying float vA; void main(){ vec2 q = gl_PointCoord - 0.5; if (length(q) > 0.5) discard; gl_FragColor = vec4(vec3(1.0, 0.92, 0.75) * vA * 0.7, 1.0); }' });
     const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.onBeforeRender = (rd) => { T.tickWind(); m.uniforms.uPx.value = rd.domElement.height * 0.9; }; return pts; })(); G.add(motes);
   K.build(G); G.add(books.build());
   // light: warm and bright; fire and lamps as keys, a soft sky fill, moonlight through the windows
-  G.add(new THREE.HemisphereLight(0xffe6c8, 0x6a4a34, 1.7)); G.add(new THREE.AmbientLight(0xfff0e0, 0.55));
+  G.add(new THREE.HemisphereLight(0xfff0e0, 0x5a4a40, 1.6)); G.add(new THREE.AmbientLight(0xfff0e0, 0.55));
   const moon = new THREE.DirectionalLight(0xc8d4ff, 1.3); moon.position.set(4, 14, 6); moon.castShadow = true; moon.shadow.mapSize.set(2048, 2048); Object.assign(moon.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 30 }); G.add(moon);
   const key = new THREE.DirectionalLight(0xffc890, 1.2); key.position.set(-2, 6, -8); G.add(key);
   // routes and spots for the bookworms
@@ -189,6 +213,6 @@ export function buildLibrary({ seed = 7 } = {}) {
     const ep = embers.geometry.attributes.position; for (let i = 0; i < ep.count; i++) { let y = ep.getY(i) + dt * (0.25 + (i % 5) * 0.08); if (y > 1.4) y = 0; ep.setY(i, y); ep.setX(i, ep.getX(i) + Math.sin(t * 3 + i) * dt * 0.05); } ep.needsUpdate = true;
     gl.userData.spin.rotation.y += dt * 0.15; for (let i = 0; i < 4; i++) arm.userData['r' + i].rotation.z += dt * (0.1 + i * 0.07); };
   // where the exhibits stand: plinths and cases along the shelves (two arcs, clear of the fire, the door and the stair)
-  const exhibitSpots = [0.42, 1.05, 1.25, 1.45, 1.7, 1.9, 2.42, 2.64, -0.45, -0.68, -0.9, -1.12, -1.35, -1.8, -2.42, -2.66].map((a) => at(a, 7.85));
-  return { group: G, update, spots, exhibitSpots, lights };
+  const exhibitSpots = [0.524, 1.047, 1.571, 2.618, -0.524, -1.047, -1.571, -2.618].flatMap((m) => [m - 0.12, m + 0.12]).map((a) => at(a, 7.8));
+  return { group: G, update, spots, exhibitSpots, lights, dome };
 }

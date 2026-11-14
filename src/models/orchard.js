@@ -285,7 +285,7 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
   // night factor: 0 = late dusk, 1 = full moonlight
   let night = -1; const setNight = (k) => {
     if (Math.abs(k - night) < 1e-3) return; night = k; sky.material.uniforms.uNight.value = k; starPts.material.uniforms.uNight.value = k; flies.material.uniforms.uNight.value = k;
-    duskL.intensity = 2.3 * (1 - k) + 0.2; moonL.intensity = 1.4 + 1.0 * k; hemi.intensity = 1.7 - 0.2 * k; amb.intensity = 0.35; hemi.color.set(0x8a7cc8).lerp(C('#5a6ac0'), k); fog.color.set(0x6a5a88).lerp(C('#2e3260'), k); for (const l of winLights) l.intensity = 3 + 3 * k;
+    duskL.intensity = 2.3 * (1 - k) + 0.2; moonL.intensity = 1.6 + 1.3 * k; hemi.intensity = 1.95 - 0.15 * k; amb.intensity = 0.5; hemi.color.set(0x8a7cc8).lerp(C('#5a6ac0'), k); fog.color.set(0x6a5a88).lerp(C('#2e3260'), k); for (const l of winLights) l.intensity = 3 + 3 * k;
   };
   setNight(0.2);
   let petalT = 0; const update = (dt, t) => {

@@ -47,7 +47,7 @@ export class LoadingScene extends UIScreen {
     const rimC = new THREE.DirectionalLight(0x8ab0ff, 2.4); rimC.position.set(-2.5, 1.6, -2.2); const rimW = new THREE.DirectionalLight(0xff9a60, 1.8); rimW.position.set(2.6, 1.2, -2.0); sc.add(rimC, rimW, new THREE.HemisphereLight(0x6a4a8a, 0x1a0a14, 0.55));
     this.plate = plaque('Click to Begin', { font: 'title', style: 'engrave', kind: 'brass', depth: 0.25 }); { const [w] = this.plate.userData.size; this.plate.scale.multiplyScalar(0.62 / w); this.plateBase = this.plate.scale.x; } this.plate.position.set(0, 0.64, 0.5); this.plate.rotation.x = -0.75; this.plate.visible = false; sc.add(this.plate); this.plateS = new Spring(0, 10, 0.3);
     this.camera = new THREE.PerspectiveCamera(30, this.engine.aspect, 0.05, 60); this.camera.position.set(0, 1.05, 2.55); this.camera.lookAt(0, 0.86, 0);
-    this.engine.setWorld(sc, this.camera); this.engine.setFx({ bloom: [0.8, 0.6, 0.7], tilt: false, grade: { sat: 1.1, contrast: 1.1, vignette: 0.7, lift: [0.01, 0.0, 0.02] }, ink: { fade: [6, 20] } });
+    this.engine.setWorld(sc, this.camera); this.engine.setFx({ bloom: [0.8, 0.6, 0.7], tilt: false, exposure: 1.15, grade: { sat: 1.1, contrast: 1.08, vignette: 0.6, lift: [0.018, 0.01, 0.025] }, ink: { fade: [6, 20] } });
     this.pre = preload; this.t0 = performance.now(); this.age = 0; this.engine.add(this); this.pushInput();
   }
   tableGeo() { const pts = [[0.001, 0.0], [0.34, 0.0], [0.36, 0.04], [0.18, 0.1], [0.12, 0.3], [0.1, 0.5], [0.14, 0.55], [0.62, 0.57], [0.66, 0.6], [0.64, 0.63], [0.001, 0.63]].map(([a, b]) => new THREE.Vector2(a, b)); const g = new THREE.LatheGeometry(pts, 48); g.computeVertexNormals(); return g; }
@@ -93,7 +93,7 @@ export class MenuScene extends UIScreen {
     const dog = (this.dog = createDog()); dog.hAt = O.hAt; dog.area = { x: [-4.2, 4.8], z: [0.6, 5.6] }; dog.home = V(1.3, 0, 3.1); dog.root.position.set(2.8, 0, 3.4); dog.st.heading = -0.8; sc.add(dog.root);
     this.apples = [];
     this.engine.setWorld(sc, this.camera);
-    this.engine.setFx({ bloom: [0.75, 0.6, 0.7], tilt: false, grade: { sat: 1.12, contrast: 1.08, vignette: 0.55, warmth: 0.04, lift: [0.015, 0.01, 0.045] }, ink: { fade: [40, 120] } });
+    this.engine.setFx({ bloom: [0.75, 0.6, 0.7], tilt: false, exposure: 1.28, grade: { sat: 1.14, contrast: 1.05, vignette: 0.4, warmth: 0.05, lift: [0.03, 0.028, 0.06], gain: [1.04, 1.02, 1.0] }, ink: { fade: [40, 120] } });
     this.engine.add(this); this.pushInput(); audio.setAmbSet(['night', 'stream']); audio.playMusic('menu');
     const j = this.game.journal; this.stats = new Strip([`Loops remembered: ${j.loops} · Star shards: ${save.meta.shards} · Best hit: ${j.bestHit || 0}`], { maxW: 24, font: 'handS', tone: 3 }); uiPos(this.stats.group, 0, -this.H + 0.85, 3); this.root.add(this.stats.group);
     this.note = new Note({ w: 8, h: 1.3, size: 44, tail: true }); this.root.add(this.note.group);

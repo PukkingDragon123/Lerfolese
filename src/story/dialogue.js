@@ -141,8 +141,10 @@ function step(dt) {
     else {
       const a = anchorUI(L.anchor, _p) || (L.last ? _p.copy(L.last) : _p.set(L.side === 'right' ? W * 0.35 : -W * 0.35, -H * 0.35, 0)); L.last = (L.last || V()).copy(a);
       const tip = (s.tailX + (s.tail === 'right' ? 8.4 : 2.5)) / PXP - s.w / 2; // the tail tip sits just above the speaker's head
+      const top = H - (window.__storyBand || (window.__cine && !window.__cine.ended && window.__cine.bars) ? H * 0.165 : 0) - 0.25; // never under the letterbox beam
       x = a.x - tip; y = a.y + 0.42 + s.h / 2;
-      x = Math.max(-W + s.w / 2 + 0.3, Math.min(W - s.w / 2 - 0.3, x)); y = Math.max(-H + s.h / 2 + 0.4, Math.min(H - s.h / 2 - 0.3, y));
+      if (y + s.h / 2 > top) { y = Math.min(top - s.h / 2, a.y + s.h * 0.15); x = a.x + (a.x > 0 ? -1 : 1) * (s.w / 2 + 1.1); } // a close-up: beside the face instead of above it
+      x = Math.max(-W + s.w / 2 + 0.3, Math.min(W - s.w / 2 - 0.3, x)); y = Math.max(-H + s.h / 2 + 0.4 + (top < H - 0.3 ? H * 0.165 : 0), Math.min(top - s.h / 2, y));
     }
     if (L.lift) y += L.lift;
     L.x = L.x == null ? x : L.x + (x - L.x) * Math.min(1, dt * 14); L.y = L.y == null ? y : L.y + (y - L.y) * Math.min(1, dt * 14);

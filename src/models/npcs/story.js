@@ -130,6 +130,11 @@ function robeSkirt(P) { // the robe falls from the waist to the ground in deep f
   const geo = new K.Loft(14, 48).set((t, out) => out.set(0, top + (bot - top) * t, 0.005), (t) => { const r = 0.13 * H / 1.8 + t * t * 0.17 * H / 1.8 + t * 0.03; return [r * 1.05, r * 0.95]; }, { ref: () => V(0, 0, 1), shape: (a, t) => 1 + Math.sin(a * 11) * 0.07 * t }).geo;
   const mesh = K.mesh(geo, m); mesh.material.side = THREE.DoubleSide; return mesh;
 }
+function skullcap(P) { // a scholar's indigo velvet cap over the crown, a gold-embroidered band
+  const r = P.hw * 1.07, h = 0.075; const m = K.uvMat('master-cap', 64, 64, (u, v, o) => { const band = v > 0.78; const seam = Math.abs(((u * 6) % 1) - 0.5) < 0.04 && !band; K.tone(band ? [232, 184, 72] : [52, 44, 104], band ? (Math.sin(u * 120) > 0 ? 0.62 : 0.5) : seam ? 0.36 : 0.5 + (v < 0.3 ? 0.08 : 0), o.col); });
+  const cap = new THREE.Mesh(turned([[0, h], [r * 0.42, h * 0.95], [r * 0.75, h * 0.78], [r * 0.95, h * 0.45], [r * 1.02, h * 0.12], [r * 1.03, 0], [r * 0.97, -0.004]], 40), m); cap.castShadow = true;
+  cap.position.set(0, P.hairY - 0.03, P.hcz - 0.004); cap.scale.set(1, 1, (P.hd / P.hw) * 1.04); cap.rotation.x = -0.12; return cap;
+}
 function staff() { // a turned walnut staff with brass collars, crowned with a small brass armillary (three engraved bands round a crystal)
   const g = new THREE.Group();
   const prof = [[0.0, 0], [0.018, 0.01], [0.02, 0.2], [0.017, 0.8], [0.019, 1.2], [0.024, 1.25], [0.02, 1.3], [0.018, 1.62], [0.026, 1.66], [0.03, 1.7], [0.022, 1.74], [0.012, 1.78], [0, 1.79]];
@@ -143,7 +148,7 @@ function staff() { // a turned walnut staff with brass collars, crowned with a s
 export function createMaster() {
   const api = storyHuman({ app: M_APP, outfit: M_OUT, height: 1.82, overrides: { hairVolume: 1.1 }, sway: 0.35,
     stance: (add, t, st) => { add('uarmL', -0.42, 0, 0.18); add('farmL', -1.05); add('handL', 0.2); add('chest', 0.05 + Math.sin(t * 1.1) * 0.01); add('head', 0.04); st.lean = 0.04; } }); // a slight stoop, his left hand on the staff
-  const P = api.L.P; api.L.attach(longBeard(P), 'head'); api.L.attach(robeSkirt(P), 'hips');
+  const P = api.L.P; api.L.attach(longBeard(P), 'head'); api.L.attach(robeSkirt(P), 'hips'); api.L.attach(skullcap(P), 'head');
   const sf = staff(); sf.position.set(0.36, 0, 0.22); api.root.add(sf); api.staff = sf; // planted beside him, under his left hand
   const up = api.update; let t = 0; api.update = (dt) => { up(dt); t += dt; sf.userData.gem.rotation.y += dt * 1.2; sf.children.forEach((c, i) => { if (i > 0 && i < 4) c.rotation.y += dt * (0.4 + i * 0.2); }); };
   api.setExpr('smile'); api.update(0.016); return api;
@@ -158,9 +163,9 @@ const GALAXY_FRAG = `
   vec3 galaxy(vec2 uv, float t) {
     vec2 q = uv * 3.0; float r = length(q - vec2(0.3, 0.1)); float ang = atan(q.y - 0.1, q.x - 0.3);
     float arm = sin(ang * 2.0 - r * 5.0 + t * 0.15) * 0.5 + 0.5; float neb = fb(q * 1.3 + vec2(t * 0.02, -t * 0.015));
-    vec3 c = mix(vec3(0.02, 0.03, 0.12), vec3(0.18, 0.08, 0.38), neb);
-    c += vec3(0.55, 0.3, 0.85) * pow(neb, 3.0) * 1.2 + vec3(0.25, 0.55, 1.0) * pow(arm * neb, 4.0) * 1.6;
-    c += vec3(1.0, 0.85, 0.55) * exp(-r * 2.4) * 0.9; // a bright core
+    vec3 c = mix(vec3(0.006, 0.01, 0.05), vec3(0.1, 0.03, 0.26), neb);
+    c += vec3(0.62, 0.22, 0.9) * pow(neb, 3.2) * 1.4 + vec3(0.18, 0.5, 1.0) * pow(arm * neb, 3.0) * 1.8;
+    c += vec3(1.0, 0.82, 0.5) * exp(-r * 7.0) * 0.8; // a small bright core
     // stars: three layers, crisp, a few that twinkle
     for (int L = 0; L < 3; L++) { float sc = 40. + float(L) * 55.; vec2 g = uv * sc; vec2 id = floor(g); vec2 f = fract(g) - .5; float s = h21(id + float(L) * 7.1);
       if (s > .93) { float tw = .6 + .4 * sin(t * (2. + s * 6.) + s * 40.); float d = length(f - (vec2(h21(id + 3.), h21(id + 9.)) - .5) * .6); c += vec3(1., .95, .85) * smoothstep(.09, 0., d) * tw * (1.4 - float(L) * .35); } }

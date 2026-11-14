@@ -1,5 +1,6 @@
-// The Star Gallery: a domed observatory reached from the garden. A star map painted on the dome, arched windows full of
-// night, a great brass telescope, warm lamps. Around the wall stands the Achievement Museum: marble pedestals with
+// The Star Gallery: a cozy two-storey library-museum under the observatory dome, reached from the garden (the room is
+// models/library.js: bookcases, balcony, ladders, fire, desks, telescope; bookworm scholars from models/bookworm.js
+// crawl and read about it). In the alcoves under the balcony stands the Achievement Museum: marble pedestals with
 // engraved brass plates, each holding its exhibit (the First Eureka golden apple under glass, the Hydra Slayer's
 // trophy, a Newton's cradle...); unearned ones wait under velvet drapes. Drag to turn and look around, click an
 // exhibit to walk up to it. Archimage Croakley the wizard frog spends star shards (a glowing jar shows how many) to
@@ -9,7 +10,9 @@ import { UIScreen, Button3D, Panel } from '../ui3d/widgets.js';
 import { uiPos } from '../ui3d/craft.js';
 import { Note } from '../ui3d/kit.js';
 import { save, ACHIEVEMENTS, STAR_UNLOCKS } from '../core/save.js';
-import { makeApple, plaque, telescope } from '../models/orchard.js';
+import { makeApple, plaque } from '../models/orchard.js';
+import { buildLibrary } from '../models/library.js';
+import { createBookworm } from '../models/bookworm.js';
 import { createFrog } from '../models/frog.js';
 import { toonModel } from '../models/realworld.js';
 import { turned, plainMat } from '../ui3d/craft.js';
@@ -51,65 +54,78 @@ const EXHIBIT = {
 };
 // a velvet drape over an unearned exhibit: folds falling from a hidden form, gold fringe
 let VELVET = null;
-function drape() { VELVET ||= pix(32, 32, (g, w, h, r) => { const ramp = ['#3a0c1c', '#4e1226', '#621a30', '#7a2238']; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { g.fillStyle = ramp[1 + ((x * 3 + y * 5) % 9 === 0 ? 1 : 0) + (r() < 0.1 ? 1 : 0) - ((x + y * 2) % 13 === 0 ? 1 : 0)]; g.fillRect(x, y, 1, 1); } g.fillStyle = '#c89a30'; g.fillRect(0, h - 3, w, 2); g.fillStyle = '#f2cc5a'; for (let x = 0; x < w; x += 3) g.fillRect(x, h - 2, 1, 2); }, [2, 2]);
-  const geo = new THREE.PlaneGeometry(1.2, 1.2, 30, 30); geo.rotateX(-Math.PI / 2); const p = geo.attributes.position;
-  for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); const e = Math.max(Math.abs(x), Math.abs(z)); const out = Math.max(0, e - 0.24); const a = Math.atan2(z, x); const y = 0.62 - out * 1.9 + Math.sin(a * 7 + out * 6) * out * 0.08; const k = 1 - out * 0.35; p.setXYZ(i, x * k + Math.cos(a * 7) * out * 0.04, Math.max(0.02, y), z * k + Math.sin(a * 7) * out * 0.04); }
-  geo.computeVertexNormals(); const m = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ map: VELVET, side: THREE.DoubleSide, gradientMap: T.gradientMap([0.4, 0.72, 1.0]) })); m.castShadow = true; m.receiveShadow = true; return m;
+function drape() { // a square of velvet thrown over a hidden form: a rounded crown, folds falling to the plinth, corners hanging over its edge, gold braid at the hem
+  VELVET ||= pix(32, 32, (g, w, h, r) => { const ramp = ['#3a0c1c', '#4e1226', '#621a30', '#7a2238']; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const dam = ((x + 4) % 16 < 9 && (y + 2) % 16 < 9 && Math.abs(((x + 4) % 16) - 4) + Math.abs(((y + 2) % 16) - 4) === 3) ? 1 : 0; g.fillStyle = ramp[1 + dam + (r() < 0.06 ? 1 : 0) - ((x + y * 2) % 13 === 0 ? 1 : 0)]; g.fillRect(x, y, 1, 1); } }, [3, 3]);
+  const S = 1.36, N = 40; const geo = new THREE.PlaneGeometry(S, S, N, N); geo.rotateX(-Math.PI / 2); const p = geo.attributes.position; const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const place = (x, z, out) => { const d = Math.hypot(x, z), a = Math.atan2(z, x); const peak = 0.6 + 0.05 * Math.sin(a * 2 + 0.6); const fold = Math.sin(a * 9 + d * 5) * 0.035 * sm(0.14, 0.5, d);
+    let rr, y; if (d < 0.42) { rr = d; y = d < 0.16 ? peak - (d / 0.16) ** 2 * 0.1 : peak - 0.1 - (peak - 0.13) * sm(0.16, 0.42, d) ** 0.8; } else { const hang = d - 0.42; rr = 0.43 + hang * 0.12; y = 0.03 - hang * 0.92; }
+    rr += fold; out.set(Math.cos(a) * rr, Math.max(-0.5, y) + fold * 0.4, Math.sin(a) * rr); return out; };
+  const tmp = V(); for (let i = 0; i < p.count; i++) { place(p.getX(i), p.getZ(i), tmp); p.setXYZ(i, tmp.x, tmp.y, tmp.z); }
+  geo.computeVertexNormals(); const g = new THREE.Group(); const m = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ map: VELVET, side: THREE.DoubleSide, gradientMap: T.gradientMap([0.4, 0.72, 1.0]) })); m.castShadow = true; m.receiveShadow = true; g.add(m);
+  const hem = []; const h = S / 2; for (let i = 0; i < 64; i++) { const u = (i / 64) * 4; const s = Math.floor(u), f = u - s; const [x, z] = [[-h + f * S, -h], [h, -h + f * S], [h - f * S, h], [-h, h - f * S]][s]; hem.push(place(x * 0.995, z * 0.995, V())); }
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hem, true), 160, 0.012, 6, true), plainMat('gold'))); return g;
 }
 let MARBLE = null;
-function pedestal() { MARBLE ||= pix(32, 32, (g, w, h, r) => { const ramp = ['#b8b0a8', '#d0c8c0', '#e4ded6', '#f2eee8']; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { g.fillStyle = ramp[2 + (r() < 0.15 ? 1 : 0) - (r() < 0.06 ? 1 : 0)]; g.fillRect(x, y, 1, 1); } g.fillStyle = '#9a9088'; let x = 4, y = 0; for (let i = 0; i < 40; i++) { g.fillRect(x, y, 1, 1); x += r() < 0.5 ? 1 : 0; y += 1; if (y >= h) { y = 0; x = (r() * w) | 0; } } }, [1, 2]);
+function pedestal() { MARBLE ||= pix(32, 32, (g, w, h, r) => { const ramp = ['#9a9290', '#b4aca6', '#c8c0b8', '#dcd6ce']; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { g.fillStyle = ramp[2 + (r() < 0.15 ? 1 : 0) - (r() < 0.06 ? 1 : 0)]; g.fillRect(x, y, 1, 1); } g.fillStyle = '#9a9088'; let x = 4, y = 0; for (let i = 0; i < 40; i++) { g.fillRect(x, y, 1, 1); x += r() < 0.5 ? 1 : 0; y += 1; if (y >= h) { y = 0; x = (r() * w) | 0; } } }, [1, 2]);
   const m = new THREE.MeshToonMaterial({ map: MARBLE, gradientMap: T.gradientMap([0.45, 0.75, 1.0]) });
   const g = new THREE.Group(); const col = new THREE.Mesh(turned([[0.001, 0], [0.42, 0], [0.42, 0.08], [0.36, 0.12], [0.3, 0.18], [0.27, 0.3], [0.25, 0.86], [0.29, 0.92], [0.36, 0.98], [0.4, 1.02], [0.4, 1.08], [0.001, 1.08]], 36), m); col.castShadow = true; col.receiveShadow = true; g.add(col); return g; }
+
+// a museum bell jar: blown glass on a brass collar with a turned finial
+function bellJar() { const g = new THREE.Group(); g.add(new THREE.Mesh(turned([[0.36, 0], [0.36, 0.62], [0.3, 0.74], [0.16, 0.8], [0.04, 0.82], [0.001, 0.82]], 40), glass()));
+  const rim = new THREE.Mesh(turned([[0.35, -0.01], [0.4, -0.01], [0.41, 0.02], [0.39, 0.05], [0.35, 0.05]], 40), plainMat('brass')); g.add(rim);
+  const fin = new THREE.Mesh(turned([[0.001, 0.8], [0.04, 0.81], [0.05, 0.84], [0.02, 0.87], [0.03, 0.9], [0.001, 0.93]], 16), plainMat('brass')); g.add(fin); return g; }
 
 export class GalleryScene extends UIScreen {
   async enter() {
     const fresh = save.evaluate(); const M = save.meta;
-    const sc = (this.scene = new THREE.Scene()); sc.background = C('#0a0a18'); sc.fog = new THREE.Fog(0x14122a, 14, 32);
-    // the room: tiled floor, panelled stone wall with arched night windows, the painted star-map dome
-    const floorT = pix(64, 64, (g, w, h, r) => { const ramp = ['#3a2a22', '#5a4434', '#7a5e46', '#8e7256', '#a88a68']; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const tile = ((x >> 4) + (y >> 4)) % 2; const edge = x % 16 === 0 || y % 16 === 0; g.fillStyle = edge ? ramp[0] : ramp[tile ? 3 : 2] ; if (!edge && r() < 0.08) g.fillStyle = ramp[tile ? 4 : 1]; g.fillRect(x, y, 1, 1); } }, [9, 9]);
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(9.4, 64).rotateX(-Math.PI / 2), new THREE.MeshToonMaterial({ map: floorT, gradientMap: T.gradientMap([0.5, 0.78, 1.0]) })); floor.receiveShadow = true; sc.add(floor);
-    const inlay = new THREE.Mesh(new THREE.RingGeometry(2.4, 2.6, 64).rotateX(-Math.PI / 2), toonC('#d8a830')); inlay.position.y = 0.005; sc.add(inlay);
-    const wallT = pix(64, 64, (g, w, h, r) => { const ramp = ['#2a2230', '#3a3040', '#4a3e50', '#5a4c60']; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const row = (y >> 3); const off = row % 2 ? 8 : 0; const edge = y % 8 === 0 || (x + off) % 16 === 0; g.fillStyle = edge ? ramp[0] : ramp[2 + (r() < 0.12 ? 1 : 0) - (r() < 0.1 ? 1 : 0)]; g.fillRect(x, y, 1, 1); } }, [14, 2]);
-    const wall = new THREE.Mesh(new THREE.CylinderGeometry(9.4, 9.4, 6, 64, 1, true), new THREE.MeshToonMaterial({ map: wallT, side: THREE.BackSide, gradientMap: T.gradientMap([0.5, 0.78, 1.0]) })); wall.position.y = 3; wall.receiveShadow = true; sc.add(wall);
-    const winT = pix(32, 48, (g, w, h, r) => { g.fillStyle = '#0c1030'; g.fillRect(0, 0, w, h); for (let i = 0; i < 26; i++) { g.fillStyle = r() < 0.3 ? '#fff2c0' : '#c8d4ff'; g.fillRect((r() * w) | 0, (r() * h) | 0, 1, 1); } g.fillStyle = '#3a2a1a'; g.fillRect(15, 0, 2, h); g.fillRect(0, 22, w, 2); });
-    for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2 + 0.31; const wnd = new THREE.Group(); wnd.position.set(Math.sin(a) * 9.3, 0, Math.cos(a) * 9.3); wnd.rotation.y = a + Math.PI; sc.add(wnd);
-      const sh = new THREE.Shape(); sh.moveTo(-0.7, 0); sh.lineTo(0.7, 0); sh.lineTo(0.7, 1.8); sh.absarc(0, 1.8, 0.7, 0, Math.PI, false); sh.lineTo(-0.7, 0); const pane = new THREE.Mesh(new THREE.ShapeGeometry(sh, 16), new THREE.MeshBasicMaterial({ map: winT })); pane.position.set(0, 2.0, 0.02); const uv = pane.geometry.attributes.uv; const pp = pane.geometry.attributes.position; for (let k = 0; k < uv.count; k++) uv.setXY(k, (pp.getX(k) + 0.7) / 1.4, pp.getY(k) / 2.5); wnd.add(pane);
-      const fr = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.06, 8, 24, Math.PI), plainMat('walnut')); fr.position.set(0, 3.8, 0.05); wnd.add(fr); for (const s of [-1, 1]) { const j = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.85, 0.12), plainMat('walnut')); j.position.set(s * 0.72, 2.9, 0.05); wnd.add(j); } const sill = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.1, 0.3), plainMat('walnut')); sill.position.set(0, 1.97, 0.1); wnd.add(sill); }
-    const mapT = (() => { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const g = c.getContext('2d'); const r = mulberry32(11); g.fillStyle = '#121a44'; g.fillRect(0, 0, 512, 256); for (let i = 0; i < 500; i++) { g.fillStyle = r() < 0.2 ? '#f4dc90' : '#aab8ee'; g.fillRect((r() * 512) | 0, (r() * 256) | 0, 1, 1); }
-      g.strokeStyle = '#c8a040'; g.lineWidth = 2; for (const y of [60, 120, 190]) { g.beginPath(); g.moveTo(0, y); g.lineTo(512, y); g.stroke(); } g.lineWidth = 1; for (let k = 0; k < 12; k++) { g.beginPath(); g.moveTo(k * 512 / 12, 60); g.lineTo(k * 512 / 12, 256); g.stroke(); }
-      g.strokeStyle = '#e8d8a0'; g.fillStyle = '#fff4c8'; for (let k = 0; k < 14; k++) { const cx = 20 + r() * 470, cy = 70 + r() * 170; const pts = Array.from({ length: 4 + ((r() * 3) | 0) }, () => [cx + (r() - 0.5) * 50, cy + (r() - 0.5) * 34]); g.beginPath(); pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.stroke(); for (const [x, y] of pts) g.fillRect(x - 1, y - 1, 3, 3); }
-      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return t; })();
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(9.4, 64, 24, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ map: mapT, side: THREE.BackSide })); dome.position.y = 6; sc.add(dome); this.dome = dome;
-    // the great telescope behind the room's centre, aimed up through the dome
-    const tel = telescope('Star Gallery', V(0.25, 1, -0.2).normalize()); tel.scale.setScalar(2.1); tel.position.set(0, 0, 3.4); sc.add(tel);
-    // light: warm lamps around the ring, a cool shaft of night from the dome
-    sc.add(new THREE.HemisphereLight(0x8a8ad0, 0x3a2a20, 0.9)); const moon = new THREE.DirectionalLight(0xb0c0ff, 1.4); moon.position.set(2, 12, 3); moon.castShadow = true; moon.shadow.mapSize.set(2048, 2048); Object.assign(moon.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 30 }); sc.add(moon);
-    for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2 + 0.6; const l = new THREE.PointLight(0xffb060, 9, 9, 1.6); l.position.set(Math.sin(a) * 6.8, 3.2, Math.cos(a) * 6.8); sc.add(l); const cup = new THREE.Mesh(turned([[0.001, 0], [0.12, 0.0], [0.14, 0.08], [0.1, 0.1], [0.001, 0.1]], 24), plainMat('brass')); cup.position.copy(l.position).add(V(0, -0.15, 0)); sc.add(cup); const fl = new THREE.Mesh(turned([[0.001, 0], [0.05, 0.03], [0.03, 0.12], [0.001, 0.18]], 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(2, 1.3, 0.5), toneMapped: false })); fl.position.copy(l.position).add(V(0, -0.06, 0)); sc.add(fl); }
-    // the museum ring
-    this.exhibits = []; const n = ACHIEVEMENTS.length; const R = 6.4;
+    const sc = (this.scene = new THREE.Scene()); sc.background = C('#1c140e'); sc.fog = new THREE.Fog(0x3a2818, 16, 40);
+    // the room: a two-storey library-museum under the star dome (models/library.js), lit warm by fire, lamps and lanterns
+    const lib = (this.lib = buildLibrary({ seed: 7 })); sc.add(lib.group); this.dome = lib.dome;
+    // the museum: exhibits on marble plinths in the alcoves under the balcony, glass bells over the precious ones
+    this.exhibits = []; const spots = lib.exhibitSpots;
     ACHIEVEMENTS.forEach((a, i) => {
-      const ang = Math.PI + (i - (n - 1) / 2) * (Math.PI * 1.62 / (n - 1)); const g = new THREE.Group(); g.position.set(Math.sin(ang) * R, 0, Math.cos(ang) * R); g.rotation.y = ang + Math.PI; sc.add(g);
+      const p = spots[i % spots.length]; const g = new THREE.Group(); g.position.set(p.x, 0, p.z); g.rotation.y = Math.atan2(-p.x, -p.z); sc.add(g);
       g.add(pedestal()); const got = !!M.achievements[a.id]; const top = new THREE.Group(); top.position.y = 1.08; g.add(top);
-      if (got) { const ex = EXHIBIT[a.id]?.() || makeApple({ s: 0.3 }); top.add(ex); if (ex.userData.glass) { const dome2 = new THREE.Mesh(turned([[0.36, 0], [0.36, 0.62], [0.3, 0.74], [0.16, 0.8], [0.001, 0.82]], 40), glass()); top.add(dome2); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.37, 0.02, 6, 40), plainMat('brass')); rim.rotation.x = Math.PI / 2; top.add(rim); } top.userData.ex = ex; }
+      if (got) { const ex = EXHIBIT[a.id]?.() || makeApple({ s: 0.3 }); top.add(ex); if (ex.userData.glass) top.add(bellJar()); top.userData.ex = ex; }
       else top.add(drape());
       const pl = plaque(got ? a.name : '???', { font: 'title', style: 'engrave', kind: 'brass', depth: 0.2 }); const [pw] = pl.userData.size; pl.scale.multiplyScalar(0.62 / pw); pl.position.set(0, 0.72, 0.29); pl.rotation.x = -0.2; g.add(pl);
       this.exhibits.push({ a, g, got, top, fresh: fresh.includes(a.id), hit: g });
     });
-    // the frog wizard on his star podium, and the jar of star shards
-    const frog = (this.frog = createFrog()); frog.root.position.set(0.0, 0.18, -3.2); sc.add(frog.root); const pod = new THREE.Mesh(turned([[0.001, 0], [0.9, 0], [0.92, 0.1], [0.86, 0.18], [0.001, 0.18]], 48), plainMat('walnut')); pod.position.copy(frog.root.position).setY(0); pod.receiveShadow = true; sc.add(pod);
-    const jar = (this.jar = new THREE.Group()); jar.position.set(1.15, 0.18, -2.9); sc.add(jar); jar.add(new THREE.Mesh(turned([[0.001, 0], [0.18, 0.0], [0.22, 0.12], [0.22, 0.42], [0.14, 0.5], [0.12, 0.56], [0.001, 0.56]], 32), glass()));
+    // the frog wizard on his reading podium by the fire, and the jar of star shards on a little turned stand
+    const frog = (this.frog = createFrog()); frog.root.position.set(1.6, 0.18, -5.4); sc.add(frog.root);
+    const pod = new THREE.Mesh(turned([[0.001, 0], [0.82, 0], [0.86, 0.04], [0.84, 0.1], [0.8, 0.13], [0.82, 0.18], [0.001, 0.18]], 48), plainMat('walnut')); pod.position.copy(frog.root.position).setY(0); pod.receiveShadow = true; pod.castShadow = true; sc.add(pod);
+    const inlay = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.7, 48).rotateX(-Math.PI / 2), plainMat('brass')); inlay.position.copy(pod.position).setY(0.182); sc.add(inlay);
+    const stand = new THREE.Mesh(turned([[0.001, 0], [0.24, 0], [0.26, 0.04], [0.16, 0.08], [0.08, 0.14], [0.07, 0.42], [0.12, 0.46], [0.26, 0.5], [0.27, 0.54], [0.001, 0.54]], 32), plainMat('walnut')); stand.position.set(2.75, 0, -4.85); stand.castShadow = true; sc.add(stand);
+    const jar = (this.jar = new THREE.Group()); jar.position.set(2.75, 0.54, -4.85); sc.add(jar); jar.add(new THREE.Mesh(turned([[0.001, 0], [0.18, 0.0], [0.22, 0.12], [0.22, 0.42], [0.14, 0.5], [0.12, 0.56], [0.001, 0.56]], 32), glass()));
     const lid = new THREE.Mesh(turned([[0.001, 0.56], [0.14, 0.56], [0.14, 0.62], [0.001, 0.64]], 32), plainMat('brass')); jar.add(lid);
     this.shardMeshes = []; const sm = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.9, 1.1, 1.8), toneMapped: false }); for (let i = 0; i < 24; i++) { const s = new THREE.Mesh(new THREE.OctahedronGeometry(0.035, 0), sm); s.position.set((Math.random() - 0.5) * 0.24, 0.05 + (i % 6) * 0.06 + Math.random() * 0.03, (Math.random() - 0.5) * 0.24); s.scale.y = 1.6; s.userData.noAO = true; jar.add(s); this.shardMeshes.push(s); }
     const jl = new THREE.PointLight(0x9cc8ff, 1.5, 3, 2); jl.position.y = 0.3; jar.add(jl);
     this.jarPlate = null; this.updateJar();
-    this.door = plaque('Return to the Garden', { font: 'title', style: 'carve', kind: 'oak', depth: 0.3 }); { const [dw] = this.door.userData.size; this.door.scale.multiplyScalar(1.8 / dw); } this.door.position.set(-2.2, 1.0, -2.6); this.door.rotation.y = 0.35; sc.add(this.door);
+    // the way out: a carved oak plaque on a brass easel near the hearth (the great door itself stands behind you)
+    const easel = new THREE.Group(); easel.position.set(-1.75, 0, -3.7); easel.rotation.y = 0.42; sc.add(easel);
+    for (const s of [-1, 1]) { const leg = new THREE.Mesh(turned([[0.001, 0], [0.025, 0], [0.02, 0.05], [0.016, 1.2], [0.022, 1.24], [0.001, 1.26]], 12), plainMat('brass')); leg.position.set(s * 0.55, 0, 0); leg.rotation.z = -s * 0.08; easel.add(leg); }
+    { const back = new THREE.Mesh(turned([[0.001, 0], [0.022, 0], [0.016, 1.15], [0.001, 1.16]], 12), plainMat('brass')); back.position.set(0, 0, -0.32); back.rotation.x = -0.28; easel.add(back); const bar = new THREE.Mesh(turned([[0.001, -0.6], [0.02, -0.6], [0.02, 0.6], [0.001, 0.6]], 12), plainMat('brass')); bar.rotation.z = Math.PI / 2; bar.position.set(0, 0.62, 0.02); easel.add(bar); }
+    this.door = plaque('Return to the Garden', { font: 'title', style: 'carve', kind: 'oak', depth: 0.3 }); { const [dw] = this.door.userData.size; this.door.scale.multiplyScalar(1.35 / dw); } this.door.position.set(0, 0.95, 0.05); this.door.rotation.x = -0.12; easel.add(this.door);
+    // the bookworms: little earthworm scholars in robes, at their desks, on the shelves, the ladder, the balcony rail
+    this.worms = []; const S = lib.spots; const W = (o) => { const w = createBookworm(o); w.root.scale.setScalar(1.25); sc.add(w.root); this.worms.push(w); return w; };
+    const kNear = (a) => S.shelfFrames.reduce((b, f, i) => (Math.abs(f.a - a) < Math.abs(S.shelfFrames[b].a - a) ? i : b), 0);
+    let w = W({ seed: 1, robe: '#2a3a7a', spectacles: true, book: '#6a2a24' }); w.root.position.copy(S.desks[0].top); w.root.rotation.y = S.desks[0].ry + 2.4;
+    w = W({ seed: 2, robe: '#1e1e2a', cap: 'mortar', book: '#2a4a2a' }); w.root.position.copy(S.desks[1].top); w.root.rotation.y = S.desks[1].ry + 2.8;
+    w = W({ seed: 6, robe: '#4a2a5a', cap: 'night' }); w.setMode('sleep'); w.root.position.copy(S.desks[1].stack); w.root.rotation.y = S.desks[1].ry;
+    w = W({ seed: 3, robe: '#5a2a3a', cap: 'mortar' }); w.setRoute({ a: S.shelfAt(kNear(3.75), 3, 0.06), b: S.shelfAt(kNear(3.75), 3, 0.94), up: V(0, 1, 0) });
+    w = W({ seed: 4, robe: '#2e5a34', scarf: '#d8a838', book: '#7a4a1a' }); w.setRoute({ a: V(-1.2, 0.012, -1.4), b: V(1.0, 0.012, -2.9), up: V(0, 1, 0) }); w.setMode('carry');
+    { const L = lib.spots.ladders[1]; const f = L.top.clone().sub(L.base); const len = f.length(); f.normalize(); const inw = L.base.clone().setY(0).normalize().negate(); const up = inw.sub(f.clone().multiplyScalar(inw.dot(f))).normalize();
+      w = W({ seed: 5, robe: '#7a3a1a', spectacles: true }); w.setRoute({ a: L.base.clone().addScaledVector(f, 0.35).addScaledVector(up, 0.03), b: L.base.clone().addScaledVector(f, len - 0.4).addScaledVector(up, 0.03), up }); w.st.speed = 0.06; }
+    w = W({ seed: 7, robe: '#8a2a2a', scarf: '#ece2c8' }); w.setRoute({ a: S.rail(2.62), b: S.rail(2.76), up: V(0, 1, 0) });
+    w = W({ seed: 8, robe: '#2a4a5a', spectacles: true, scarf: '#a83a2a', book: '#3a2a6a' }); w.root.position.copy(S.chairArm); w.root.rotation.y = 0.55 + Math.PI;
     // camera: you stand in the room and turn (drag), or walk up to an exhibit (click)
     this.camera = new THREE.PerspectiveCamera(50, this.engine.aspect, 0.1, 200); this.yaw = 0; this.yawT = 0; this.focus = null; this.pos = V(0, 1.75, 1.4); this.look = V(0, 1.3, -4);
-    this.engine.setWorld(sc, this.camera); this.engine.setFx({ bloom: [0.9, 0.6, 0.62], tilt: false, grade: { sat: 1.1, contrast: 1.08, vignette: 0.55, warmth: 0.08 }, ink: { fade: [20, 60] } });
+    this.engine.setWorld(sc, this.camera);
+    this.engine.setFx({ bloom: [0.7, 0.5, 0.8], tilt: false, exposure: 1.3, grade: { sat: 1.08, contrast: 1.05, vignette: 0.3, warmth: 0.05, lift: [0.035, 0.026, 0.018], gain: [1.06, 1.0, 0.92] }, ink: { fade: [24, 70] } });
     this.engine.add(this); this.pushInput(); audio.playMusic('journal'); audio.setAmbSet(['night']);
     this.note = new Note({ w: 9, h: 1.6, size: 44, tail: false }); this.root.add(this.note.group);
     if (fresh.length) setTimeout(() => this.say(`New exhibit${fresh.length > 1 ? 's' : ''}: ${fresh.map((id) => ACHIEVEMENTS.find((a) => a.id === id).name).join(', ')}.`), 900);
-    else setTimeout(() => this.say('Drag to look around. Click an exhibit, or Archimage Croakley the frog.'), 900);
+    else setTimeout(() => this.say('Drag to look around. Click an exhibit, a bookworm, or Archimage Croakley the frog.'), 900);
   }
   updateJar() { const n = save.meta.shards; this.shardMeshes.forEach((s, i) => { s.visible = i < Math.min(24, n); }); if (this.jarPlate) this.scene.remove(this.jarPlate); const p = plaque(`${n} Star Shard${n === 1 ? '' : 's'}`, { font: 'title', style: 'engrave', kind: 'brass', depth: 0.2 }); const [w] = p.userData.size; p.scale.multiplyScalar(0.9 / w); p.position.copy(this.jar.position).add(V(0, 0.1, 0.32)); p.rotation.x = -0.25; this.scene.add(p); this.jarPlate = p; }
   say(t, sec = 3800) { this.note.show([[[t, '#2a160c']]], 0, -this.H + 2.4, 8); clearTimeout(this._nt); this._nt = setTimeout(() => this.note.hide(), sec); }
@@ -124,7 +140,7 @@ export class GalleryScene extends UIScreen {
   closeAlign() { if (!this.panelOpen) return; this.panelOpen = false; this.root.remove(this.panel.group); for (const b of this.alignBtns) { this.root.remove(b.group); this.buttons.splice(this.buttons.indexOf(b), 1); } this.alignBtns = []; }
   align(u) { if (!save.unlock(u.id)) return; this.frog.act('cast'); audio.play('magic_shimmer'); audio.play('chime_soft', { delay: 0.4 }); this.alignT = performance.now(); this.updateJar(); this.closeAlign(); this.say(`The stars align: ${u.name}. ${u.text}`, 4600); }
   // ---------------------------------------------------------------- input
-  pick() { const rc = new THREE.Raycaster(); rc.setFromCamera(this.input.ndc, this.camera); const objs = [this.frog.root, this.door, this.jar, ...this.exhibits.map((e) => e.g)]; const h = rc.intersectObjects(objs, true)[0]; if (!h) return null; let o = h.object; while (o) { if (o === this.frog.root) return 'frog'; if (o === this.door) return 'door'; if (o === this.jar) return 'jar'; const ex = this.exhibits.find((e) => e.g === o); if (ex) return ex; o = o.parent; } return null; }
+  pick() { const rc = new THREE.Raycaster(); rc.setFromCamera(this.input.ndc, this.camera); const objs = [this.frog.root, this.door, this.jar, ...this.worms.map((w) => w.hit), ...this.exhibits.map((e) => e.g)]; const h = rc.intersectObjects(objs, true)[0]; if (!h) return null; let o = h.object; const wm = this.worms.find((w) => w.hit === o); if (wm) return wm; while (o) { if (o === this.frog.root) return 'frog'; if (o === this.door) return 'door'; if (o === this.jar) return 'jar'; const ex = this.exhibits.find((e) => e.g === o); if (ex) return ex; o = o.parent; } return null; }
   onMove() { if (this.dragging) return; const h = this.pick(); if (h !== this.hover) { this.hover = h; if (h) audio.play('ui_hover', { vol: 0.35 }); this.engine.renderer.domElement.style.cursor = h ? 'pointer' : ''; } }
   onDragStart() { if (this.panelOpen) return false; this.dragging = { x: this.input.ndc.x, yaw: this.yawT }; this.focus = null; return true; }
   onDrag() { if (!this.dragging) return; this.yawT = this.dragging.yaw - (this.input.ndc.x - this.dragging.x) * 2.4; }
@@ -135,6 +151,7 @@ export class GalleryScene extends UIScreen {
     if (h === 'frog') { this.frog.act('ribbit'); audio.play('pop', { vol: 0.5 }); this.openAlign(); return true; }
     if (h === 'jar') { this.say(`${save.meta.shards} star shards. Earn more with every loop, every guardian toppled, every new exhibit.`); return true; }
     if (h === 'door') { audio.play('card_place'); this.game.toMenu({ from: 'gallery' }); return true; }
+    if (h.hit && h.react) { this.say(h.react(), 2600); audio.play('pop', { vol: 0.35 }); audio.play('paper_rustle', { vol: 0.5 }); return true; }
     this.focus = h; audio.play('wood_knock', { vol: 0.4 }); const a = h.a; this.say(h.got ? `${a.name}: ${a.text} (earned in loop ${save.meta.achievements[a.id]})` : `Under the velvet: ${a.text}`); return true;
   }
   update(dt, t) {
@@ -142,7 +159,7 @@ export class GalleryScene extends UIScreen {
     if (this.focus) { const p = this.focus.g.position; const dir = V(p.x, 0, p.z).normalize(); this.pos.lerp(V(p.x - dir.x * 2.1, 1.75, p.z - dir.z * 2.1), Math.min(1, dt * 2.5)); this.look.lerp(V(p.x, 1.45, p.z), Math.min(1, dt * 3)); this.yawT = this.yaw = Math.atan2(p.x, -p.z); }
     else { const d = V(Math.sin(this.yaw), 0, -Math.cos(this.yaw)); this.pos.lerp(V(0, 1.75, 0).addScaledVector(d, -1.6), Math.min(1, dt * 2.5)); this.look.lerp(V(0, 1.35, 0).addScaledVector(d, 6), Math.min(1, dt * 4)); }
     this.camera.position.copy(this.pos); this.camera.lookAt(this.look);
-    this.frog.lookAt(this.camera.position); this.frog.update(dt, t);
+    this.frog.lookAt(this.camera.position); this.frog.update(dt, t); this.lib.update(dt, t); for (const w of this.worms) w.update(dt, t);
     for (const e of this.exhibits) { const ex = e.top.userData.ex; if (!ex) continue; e.top.rotation.y = Math.sin(t * 0.4 + e.g.position.x) * 0.25; if (ex.userData.spin) for (let i = 0; i < 3; i++) ex.userData['r' + i].rotation.z += dt * (0.4 + i * 0.3); if (ex.userData.cradle) { const b = ex.userData.cradle; const s = Math.sin(t * 3.2); b[0].rotation.z = Math.min(0, s) * 0.5; b[4].rotation.z = Math.max(0, s) * 0.5; } ex.userData.api?.update?.(dt); }
     this.shardMeshes.forEach((s, i) => { s.rotation.y += dt * (1 + i * 0.05); s.position.y += Math.sin(t * 2 + i) * 0.0006; });
     const al = this.alignT ? (performance.now() - this.alignT) / 1000 : 9; this.dome.material.color.setScalar(1 + Math.max(0, Math.sin(Math.min(1, al / 2.4) * Math.PI)) * 0.8); this.dome.rotation.y += dt * 0.01;
