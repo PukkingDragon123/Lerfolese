@@ -1,5 +1,6 @@
 // Pixel-perfect 2D pixel-art particles: tiny hand-placed sprites (stardust motes, 4-point twinkles in three sizes,
-// diamond glints, rot spores, seed glitter, firefly glows, falling leaflets) drawn as GL points whose size is an exact
+// diamond glints, rot spores, growing mould hyphae, fruit flies, juice drips and splashes, dust puffs, seed glitter,
+// firefly glows, falling leaflets) drawn as GL points whose size is an exact
 // integer multiple of the art-pixel size and whose centres snap to the art-pixel grid, so every texel is a crisp
 // k x k block on screen (never a blurred or uneven pixel). Fading is ordered (Bayer) dithering, not transparency, so the
 // particles stay pixel art all the way out. Twinkles step through frame sequences (3 -> 5 -> 7 -> 5 -> 3 px).
@@ -28,9 +29,28 @@ const SPR = {
   leafB: ['..kk..', '.kwlk.', 'kwllmk', 'kllmmk', '.kmmk.', '..kk..'],
   leafC: ['kk....', 'kwlk..', 'klwmk.', '.kmlmk', '..kmmk', '....kk'],
   streak: ['#wlmd'],
+  // rot: mould hyphae tufts that grow (stalk -> fork -> fruiting head), fruit flies (dark body, beating pale wings),
+  // juice drips (stretching as they fall) and their tiny splash, dust puffs (a dithered ring that opens and thins)
+  hyph1: ['.l.', '.m.'],
+  hyph2: ['l.l', '.l.', '.m.'],
+  hyph3: ['.w.', 'l.l', '.l.', '.m.'],
+  hyph4: ['w.w.w', '.l.l.', '..l..', '..m..'],
+  fly1: ['w.w', '.k.'],
+  fly2: ['...', 'lkl'],
+  drip1: ['w', 'l'],
+  drip2: ['l', 'w', 'm'],
+  drip3: ['m', 'l', 'w', 'm'],
+  splash1: ['l.l', '.m.'],
+  splash2: ['m...m', '.d.d.'],
+  puff1: ['.mm.', 'mllm', 'mllm', '.mm.'],
+  puff2: ['..dmd..', '.m.l.m.', 'd.l.l.d', 'ml...lm', 'd.l.l.d', '.m.l.m.', '..dmd..'],
+  puff3: ['...d.d...', '.d.m.m.d.', '..m...m..', 'dm.....md', '.........', 'dm.....md', '..m...m..', '.d.m.m.d.', '...d.d...'],
+  puff4: ['....d....', '.d.....d.', '.........', '.........', 'd.......d', '.........', '.........', '.d.....d.', '....d....'],
+
 };
 const NAMES = Object.keys(SPR);
-const SEQ = { twinkle: ['t3', 't5', 't7', 't9', 't7', 't5', 't3'], glint: ['m1', 't3', 't5', 't3', 'm1'], pulse: ['m1', 'm2', 'glow', 'm2'], leaf: ['leafA', 'leafB', 'leafC', 'leafB'] };
+const SEQ = { twinkle: ['t3', 't5', 't7', 't9', 't7', 't5', 't3'], glint: ['m1', 't3', 't5', 't3', 'm1'], pulse: ['m1', 'm2', 'glow', 'm2'], leaf: ['leafA', 'leafB', 'leafC', 'leafB'],
+  mould: ['m1', 'hyph1', 'hyph2', 'hyph3', 'hyph4', 'hyph4', 'hyph4', 'hyph4'], fly: ['fly1', 'fly2'], drip: ['drip1', 'drip2', 'drip3', 'drip3'], splash: ['splash1', 'splash2'], puff: ['puff1', 'puff2', 'puff3', 'puff4'] };
 const TONE = { '#': 1.0, w: 0.92, l: 0.7, m: 0.48, d: 0.3, k: 0.12 };
 let ATLAS = null;
 function atlas() {
@@ -63,17 +83,20 @@ export class Motes {
     const A = atlas(); this.max = max; this.n = 0; this.px = px;
     this.P = new Float32Array(max * 3); this.Vv = new Float32Array(max * 3); this.life = new Float32Array(max); this.life0 = new Float32Array(max); this.grav = new Float32Array(max); this.drag = new Float32Array(max);
     this.wob = new Float32Array(max); this.col = new Float32Array(max * 4); this.seq = new Array(max); this.fps = new Float32Array(max); this.k = new Float32Array(max); this.ph = new Float32Array(max); this.tw = new Float32Array(max); this.fin = new Float32Array(max);
+    this.home = new Float32Array(max * 3); this.bz = new Float32Array(max); this.floor = new Float32Array(max).fill(-1e9); this.once = new Uint8Array(max);
     const g = (this.geo = new THREE.BufferGeometry()); const dyn = (n, s) => new THREE.BufferAttribute(new Float32Array(n * s), s).setUsage(THREE.DynamicDrawUsage);
     this.aPos = dyn(max, 3); this.aFrame = dyn(max, 1); this.aK = dyn(max, 1); this.aColor = dyn(max, 4);
     g.setAttribute('position', this.aPos); g.setAttribute('aFrame', this.aFrame); g.setAttribute('aK', this.aK); g.setAttribute('aColor', this.aColor); g.setDrawRange(0, 0);
     this.mat = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, uniforms: { uAtlas: { value: A.tex }, uGrid: { value: new THREE.Vector2(A.cols, A.rows) }, uRes: { value: new THREE.Vector2(1280, 720) }, uPx: { value: px } }, depthWrite: false, toneMapped: false });
     this.points = new THREE.Points(g, this.mat); this.points.frustumCulled = false; this.points.renderOrder = 6; this.points.userData.noInk = true; this.points.userData.noAO = true;
   }
-  /** o: { pos:[x,y,z]|V3, vel, life, sprite | seq (name or array), fps, color ('#hex' | THREE.Color, may be > 1 for bloom), alpha, k (1|2), grav, drag, wobble, twinkle (alpha flicker Hz), fadeIn } */
+  /** o: { pos:[x,y,z]|V3, vel, life, sprite | seq (name or array), fps, color ('#hex' | THREE.Color, may be > 1 for bloom), alpha, k (1|2), grav, drag, wobble, twinkle (alpha flicker Hz), fadeIn,
+   *  buzz: { at:[x,y,z], k } (darts about a home point like a fly), floor: y (hits it and turns into a splash), once: true (the sequence plays once and holds its last frame) } */
   spawn(o) {
     if (this.n >= this.max) return -1; const i = this.n++; const p = o.pos, v = o.vel || [0, 0, 0];
     this.P[i * 3] = p.x ?? p[0]; this.P[i * 3 + 1] = p.y ?? p[1]; this.P[i * 3 + 2] = p.z ?? p[2]; this.Vv[i * 3] = v.x ?? v[0]; this.Vv[i * 3 + 1] = v.y ?? v[1]; this.Vv[i * 3 + 2] = v.z ?? v[2];
     this.life[i] = this.life0[i] = o.life ?? 1; this.grav[i] = o.grav ?? 0; this.drag[i] = o.drag ?? 0; this.wob[i] = o.wobble ?? 0; this.k[i] = o.k ?? 1; this.ph[i] = Math.random() * 100; this.tw[i] = o.twinkle ?? 0; this.fin[i] = o.fadeIn ?? 0.12;
+    const bz = o.buzz; this.bz[i] = bz ? bz.k ?? 1 : 0; if (bz) { const a = bz.at; this.home[i * 3] = a.x ?? a[0]; this.home[i * 3 + 1] = a.y ?? a[1]; this.home[i * 3 + 2] = a.z ?? a[2]; } this.floor[i] = o.floor ?? -1e9; this.once[i] = o.once ? 1 : 0;
     const c = o.color instanceof THREE.Color ? o.color : new THREE.Color(o.color || '#ffffff'); const m = o.bright ?? 1; this.col.set([c.r * m, c.g * m, c.b * m, o.alpha ?? 1], i * 4);
     const s = o.seq ? (Array.isArray(o.seq) ? o.seq : SEQ[o.seq]) : [o.sprite || 'm1']; this.seq[i] = s.map(idx); this.fps[i] = o.fps ?? (s.length > 1 ? s.length / (o.life ?? 1) : 0); return i;
   }
@@ -84,11 +107,15 @@ export class Motes {
       this.life[i] -= dt; if (this.life[i] <= 0) { this._mv(i, --n); i--; continue; }
       const d = Math.exp(-this.drag[i] * dt); const j = i * 3; this.Vv[j] *= d; this.Vv[j + 1] = this.Vv[j + 1] * d - this.grav[i] * dt; this.Vv[j + 2] *= d;
       if (this.wob[i]) { this.Vv[j] += Math.sin(t * 2.3 + this.ph[i]) * this.wob[i] * dt; this.Vv[j + 2] += Math.cos(t * 1.9 + this.ph[i] * 1.3) * this.wob[i] * dt; }
+      if (this.bz[i]) { const b = this.bz[i], ph = this.ph[i]; // a fly: springs toward home, darting in sudden jinks
+        for (let c = 0; c < 3; c++) { const jink = Math.sin(t * (7 + c * 2.3) + ph * (c + 1)) * Math.sin(t * 2.9 + ph * 3.1 + c) ; this.Vv[j + c] += ((this.home[j + c] - this.P[j + c]) * 6 * b + jink * 9 * b) * dt; }
+        const sp = Math.hypot(this.Vv[j], this.Vv[j + 1], this.Vv[j + 2]), mx = 1.4 * b; if (sp > mx) for (let c = 0; c < 3; c++) this.Vv[j + c] *= mx / sp; }
       this.P[j] += this.Vv[j] * dt; this.P[j + 1] += this.Vv[j + 1] * dt; this.P[j + 2] += this.Vv[j + 2] * dt;
+      if (this.P[j + 1] < this.floor[i]) { this.P[j + 1] = this.floor[i]; this.Vv[j] = this.Vv[j + 1] = this.Vv[j + 2] = 0; this.grav[i] = 0; this.floor[i] = -1e9; this.seq[i] = SEQ.splash.map(idx); this.life[i] = this.life0[i] = 0.3; this.fps[i] = 7; this.once[i] = 1; }
     }
     this.n = n; const P = this.aPos.array, F = this.aFrame.array, K = this.aK.array, C = this.aColor.array;
     for (let i = 0; i < n; i++) {
-      const age = this.life0[i] - this.life[i], u = age / this.life0[i]; const s = this.seq[i]; const f = s.length > 1 ? s[Math.min(s.length - 1, Math.floor(age * this.fps[i]) % s.length)] : s[0];
+      const age = this.life0[i] - this.life[i], u = age / this.life0[i]; const s = this.seq[i]; const fi = Math.floor(age * this.fps[i]); const f = s.length > 1 ? s[this.once[i] ? Math.min(s.length - 1, fi) : fi % s.length] : s[0];
       P[i * 3] = this.P[i * 3]; P[i * 3 + 1] = this.P[i * 3 + 1]; P[i * 3 + 2] = this.P[i * 3 + 2]; F[i] = f; K[i] = this.k[i];
       let a = this.col[i * 4 + 3] * Math.min(1, age / Math.max(1e-3, this.fin[i] * this.life0[i])) * Math.min(1, (1 - u) * 4); if (this.tw[i]) a *= 0.55 + 0.45 * Math.sin(t * this.tw[i] + this.ph[i]);
       C[i * 4] = this.col[i * 4]; C[i * 4 + 1] = this.col[i * 4 + 1]; C[i * 4 + 2] = this.col[i * 4 + 2]; C[i * 4 + 3] = a;
@@ -97,7 +124,8 @@ export class Motes {
   }
   _mv(i, j) {
     for (let c = 0; c < 3; c++) { this.P[i * 3 + c] = this.P[j * 3 + c]; this.Vv[i * 3 + c] = this.Vv[j * 3 + c]; } for (let c = 0; c < 4; c++) this.col[i * 4 + c] = this.col[j * 4 + c];
-    for (const A of [this.life, this.life0, this.grav, this.drag, this.wob, this.fps, this.k, this.ph, this.tw, this.fin]) A[i] = A[j]; this.seq[i] = this.seq[j];
+    for (const A of [this.life, this.life0, this.grav, this.drag, this.wob, this.fps, this.k, this.ph, this.tw, this.fin, this.bz, this.floor, this.once]) A[i] = A[j]; this.seq[i] = this.seq[j];
+    for (let c = 0; c < 3; c++) this.home[i * 3 + c] = this.home[j * 3 + c];
   }
   clear() { this.n = 0; this.geo.setDrawRange(0, 0); }
   dispose() { this.geo.dispose(); this.mat.dispose(); }

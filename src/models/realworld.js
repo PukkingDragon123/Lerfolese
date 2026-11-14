@@ -95,7 +95,7 @@ function sunBillboard(pos, size) {
 // drifting leaves and sunlit pollen; stepped from the points' own render callback
 function windMotes(theme, hAt) {
   const leaves = new Particles(160), pollen = new Particles(220, { additive: true }); let last = performance.now();
-  const step = () => { const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000); last = now; const t = now / 1000; const wd = T.WIND.dir.value;
+  const step = () => { const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000) * (T.WIND.scale ?? 1); last = now; const t = now / 1000; const wd = T.WIND.dir.value;
     if (Math.random() < dt * 2.2) leaves.spawn({ pos: [-14 + Math.random() * 28, 4 + Math.random() * 3, -10 + Math.random() * 8], vel: [wd.x * 1.4, -0.1, wd.y * 1.4], grav: 0.25, drag: 0.4, wobble: 1.8, spin: 3, life: 6, size: 13, color: theme === 'marsh' ? '#7a8a4a' : Math.random() < 0.5 ? '#8aa040' : '#d0a040', sprite: 'leaf', floor: 0.05, bounce: 0 });
     if (Math.random() < dt * 9) pollen.spawn({ pos: [-12 + Math.random() * 24, 0.4 + Math.random() * 3.2, -8 + Math.random() * 10], vel: [wd.x * 0.25, 0.04, wd.y * 0.25], wobble: 0.35, life: 6, size: 5 + Math.random() * 5, color: '#fff2c0', alpha: 0.55, sprite: 'dot' });
     leaves.update(dt, t); pollen.update(dt, t); void hAt; };

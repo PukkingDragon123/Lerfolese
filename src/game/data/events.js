@@ -62,6 +62,7 @@ export const EVENTS = [
       { label: '"The Moon."', sub: 'What falls forever but never lands?', run: (x) => (x.addItem('event') ? '"Correct: it is always falling and always missing." She gives you a curio and a gold star sticker.' : 'Correct! She gives you 50 gold.') },
       { label: '"An apple."', sub: 'What falls forever but never lands?', run: (x) => { x.hurt(12); return '"It LANDS. On heads, mostly." She bites you. 12 damage. Partial credit for confidence.'; } },
       { label: '"Your grades."', sub: 'What falls forever but never lands?', run: (x) => { x.gold(25); return 'She laughs so hard she drops her lunch money. 25 gold. Technically still wrong.'; } },
+      { label: 'Refuse the exam', sub: 'BOSS FIGHT: the Sphinx herself', fight: 'sphinx', run: () => '"Refuse? REFUSE?" She rises, unfolding wings like a slammed book. "Then you fail. Violently."' },
     ],
   },
   {
@@ -80,6 +81,7 @@ export const EVENTS = [
       { label: 'Buy fire (35 gold)', sub: 'Gain Heat+', if: (r) => r.gold >= 35, run: (x) => { x.gold(-35); x.addCard('heat', 1); return '"Pleasure doing business. Tell Zeus nothing." Gain Heat+.'; } },
       { label: 'Offer a card', sub: 'Spark', slot: { prompt: 'Offer Spark', filter: any('spark') }, run: (x, c) => { x.remove(c); x.addCard('thermo', 0, 'power'); return '"Electric fire? Visionary." He trades you his trade secret: the Thermodynamics Power. Lose the Spark.'; } },
       { label: 'Free him', sub: 'Lose 10, gain a friend', run: (x) => { x.hurt(10); x.maxhp(8); return 'You pick the lock with a theorem. The eagle is furious (10 damage). Prometheus hugs you. +8 max Integrity.'; } },
+      { label: 'Fight the eagle', sub: 'BOSS FIGHT: the Eagle of Zeus', fight: 'prometheus', run: () => '"Finally, someone with a SPINE!" The eagle screams down from the dead tree, talons first.' },
     ],
   },
   {

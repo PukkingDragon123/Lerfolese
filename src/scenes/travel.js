@@ -2,7 +2,7 @@
 // narrating, before the shop / laboratory (<= 5 s; click or Space skips). Battles and events stage their own walk-in.
 import * as THREE from 'three';
 import { realStage } from '../models/realworld.js';
-import { stageLights, ContactShadows, GRADE_TRAVEL } from '../gfx/lighting.js';
+import { stageLights, ContactShadows, GRADE_TRAVEL, EXPOSURE } from '../gfx/lighting.js';
 import { buildStage } from '../models/world.js';
 import { createProfessor } from '../models/professor.js';
 import { wearArtifacts } from '../models/wearables.js';
@@ -22,7 +22,7 @@ export class TravelScene {
     try {
       const row = node?.row ?? 0; const theme = THEMES[row % THEMES.length]; const seed = 60 + row * 3;
       const sc = (this.scene = new THREE.Scene()); let st;
-      try { st = await realStage(theme, seed, this.engine.renderer); sc.environment = st.env; sc.environmentIntensity = 0.5; }
+      try { st = await realStage(theme, seed, this.engine.renderer); sc.environment = st.env; sc.environmentIntensity = 0.3; }
       catch (e) { console.warn('travel stage fallback', e); st = buildStage(theme, seed); }
       sc.add(st.group); this.stage = st; sc.fog = st.fog || new THREE.Fog(0xb07c62, 26, 90);
       this.prof = createProfessor(); sc.add(this.prof.root); this.wear = wearArtifacts(this.prof, this.game?.run?.items);
@@ -31,7 +31,7 @@ export class TravelScene {
       sc.updateMatrixWorld(true); for (const t of st.trees || []) this.critters.perchesFrom(t, 3);
       this.critters.spawnBirds(10, ['sparrow', 'swallow', 'hoopoe', 'dove']); st.animals?.(this.critters);
       this.engine.setWorld(sc, this.camera);
-      this.engine.setFx({ rays: st.sunPos ? { pos: st.sunPos, strength: 0.4, thresh: 0.8, decay: 0.958, tint: 0xffcf8a } : null, exposure: 1.0, bloom: [0.42, 0.58, 0.84], ao: 1.0, grade: GRADE_TRAVEL });
+      this.engine.setFx({ rays: st.sunPos ? { pos: st.sunPos, strength: 0.4, thresh: 0.8, decay: 0.958, tint: 0xffcf8a } : null, exposure: EXPOSURE.travel, bloom: [0.42, 0.58, 0.84], ao: 1.0, grade: GRADE_TRAVEL });
       this.engine.add(this); audio.setAmbSet(['wilderness']);
       this.shot = travelShot(this, { lines: ['And the road wound on through the Wilds…', WHERE[node?.type] || '…toward a curious sight.'] });
       // the sun follows the walk so the puppet keeps his shadow far from the arena

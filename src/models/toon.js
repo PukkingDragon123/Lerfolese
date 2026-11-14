@@ -9,7 +9,9 @@ export const WIND = {
   time: { value: 0 }, dir: { value: new THREE.Vector2(0.86, -0.5).normalize() }, amp: { value: 1 },
   ptr: { value: new THREE.Vector3(1e5, 0, 1e5) }, ptrR: { value: 1.6 }, ptrK: { value: 0 },
 };
-export const tickWind = () => { WIND.time.value = performance.now() / 1000; };
+// the wind clock: real time, scaled by WIND.scale (a battle's slow-motion prepare slows grass and leaves to a crawl)
+let _wLast = performance.now(), _wAcc = performance.now() / 1000;
+export const tickWind = () => { const now = performance.now(); const d = Math.min(0.1, Math.max(0, (now - _wLast) / 1000)); _wLast = now; _wAcc += d * (WIND.scale ?? 1); WIND.time.value = _wAcc; };
 
 // ---------------------------------------------------------------- gradient ramps (hard cel bands)
 const RAMPS = new Map();

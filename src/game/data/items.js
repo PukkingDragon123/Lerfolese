@@ -1,6 +1,9 @@
 // Rare Curios: only from events, elites and guardians/bosses. Never from normal fights or shops.
 // Hooks receive (battle, item, ...). "resonates" lists items it interacts with.
 export const ITEMS = {
+  aegis: { name: 'Aegis of Athena', icon: 'shield', text: 'Half of your Block is kept at the start of each turn.', flavor: 'Goatskin, gorgon-faced, very much load-bearing.' },
+  greaves: { name: 'Bronze Greaves', icon: 'shield', text: 'Whenever you place Matter, gain 3 Block.', flavor: 'Well-armed below the knee, philosophically.' },
+  ram: { name: 'Battering Ram', icon: 'horn', text: 'Whenever your Block absorbs a blow, the attacker takes that much.', flavor: 'The best defence is a bronze goat.' },
   spirit_cross: { name: 'The Spirit Cross', starter: true, icon: 'cross', text: 'Your control bar. Six gravity strings: draw 6 cards a turn.', flavor: 'Death is a career change.' },
   golden_apple: { name: 'Golden Apple of the Hesperides', icon: 'gapple', text: 'Apples heal +3. Once, when you would die, eat it and revive at 40%.', flavor: 'Guarded by a dragon. Was.', resonates: ['schrodinger'] },
   lever: { name: "Archimedes' Lever", icon: 'lever', text: 'The first Force in each Move counts double.', flavor: 'Give me a place to stand. Also a snack.', resonates: ['horn'] },
@@ -9,7 +12,7 @@ export const ITEMS = {
   wings: { name: 'Wax Wings', icon: 'wings', text: 'The first attack each battle misses you. Playing Heat 2+ times melts them for the battle (take 6).', flavor: 'Lightly used. Previous owner: unavailable.' },
   antikythera: { name: 'Antikythera Mechanism', icon: 'gear', text: 'Draw 1 extra card on your first turn. Foes reveal their next TWO intents.', flavor: 'A Greek computer. Still faster than mine.', resonates: ['pendulum'] },
   schrodinger: { name: "Schrödinger's Lunchbox", icon: 'box', text: 'Each battle starts with a Superposition in hand: an Apple AND a Spark until played.', flavor: 'The sandwich is both eaten and not.', resonates: ['golden_apple'] },
-  owl: { name: 'Owl of Athena', icon: 'owl', text: '+1 Second Thought each battle. Lens cards draw 1 more.', flavor: 'Wise. Judgemental. Mostly judgemental.' },
+  owl: { name: 'Owl of Athena', icon: 'owl', text: 'Draw 1 more card on your first turn. Lens and Notebook draw 1 more.', flavor: 'Wise. Judgemental. Mostly judgemental.' },
   pan_flute: { name: "Pan's Flute", icon: 'flute', text: 'At battle start, all foes dance: Weak 1 and Dizzy 1.', flavor: 'Contains at least one forbidden chord.' },
   horn: { name: "Minotaur's Horn", icon: 'horn', text: 'Force gives +2 extra v. Below half health: +4 instead.', flavor: 'Still angry. Separately.', resonates: ['lever'] },
   fang: { name: 'Hydra Fang', icon: 'fang', text: 'Multi-hit Moves apply 1 Venom per hit.', flavor: 'It grew back. The fang did not care.' },
@@ -28,14 +31,14 @@ export const ITEMS = {
   horseshoe: { name: "Hermes' Horseshoe", icon: 'horseshoe', math: true, text: 'Every throw: 1 in 4 lands a Lucky ×2.', flavor: 'Shod on the swiftest foot in Olympus. Still lucky.' },
   pandora: { name: "Pandora's Jar", icon: 'pandora', math: true, text: 'Every throw: 1 in 3 ×3 · 1 in 3 ×1 · 1 in 3 it fizzles.', flavor: 'Hope was at the bottom. So were the odds.' },
   golden_ratio: { name: 'The Golden Ratio', icon: 'golden_ratio', math: true, text: 'Every 5th merge of the run is golden: ×1.618.', flavor: 'φ = 1.618... Even snails know it.' },
-  lead_boots: { name: 'Lead Boots', icon: 'lead_boots', math: true, text: 'Mass cards give double the kg. You can no longer dodge.', flavor: 'Excellent posture. Terrible footwork.' },
+  lead_boots: { name: 'Lead Boots', icon: 'lead_boots', math: true, text: 'Mass cards give double the kg. Rooted: draw 1 fewer card each turn.', flavor: 'Excellent posture. Terrible footwork.' },
   lyre: { name: "Pythagoras' Lyre", icon: 'lyre', math: true, text: 'Objects of exactly 3 cards ×1.5. Objects of 5 or more ×0.75.', flavor: 'All is number. Three is a chord.' },
   nemesis: { name: 'Coin of Nemesis', icon: 'nemesis', math: true, text: '×2 against the foe with the most HP. ×0.75 against all the others.', flavor: 'Retribution, for the proud and the healthy.' },
   achilles: { name: 'Heel of Achilles', icon: 'achilles', math: true, text: 'Every 3rd strike on the same foe ×3.', flavor: 'Everyone has one. Keep counting.' },
   anvil: { name: 'Anvil of Hephaestus', icon: 'anvil', math: true, text: 'Stone and Mass objects ×1.5. Spark objects ×0.5.', flavor: 'The smith god hates loose sparks.' },
   amphora: { name: 'The Leaky Amphora', icon: 'amphora', math: true, text: 'Water objects ×2. Heat objects ×0.5.', flavor: 'It leaks on purpose. Probably.' },
   icarus_feather: { name: "Icarus' Feather", icon: 'icarus_feather', math: true, text: 'Falling objects ×2. Each one costs you 2 HP (the wax drips).', flavor: 'The last one he lost.' },
-  talaria: { name: 'Talaria', icon: 'talaria', text: 'Winged sandals: your dodge window is 60% wider.', flavor: 'Hermes lent them. Hermes wants them back.' },
+  talaria: { name: 'Talaria', icon: 'talaria', text: 'Winged sandals: the first blow each enemy turn is sidestepped for half damage.', flavor: 'Hermes lent them. Hermes wants them back.' },
   plumb_bob: { name: 'Plumb Bob', icon: 'plumb', text: 'Gravity gives +1 v for every Mass in the same Move.', flavor: 'The truest vertical. My namesake. Ish.' },
 };
 
@@ -54,7 +57,7 @@ export const LOOT = {
 export const EXTRA_LOOT = { harpy: ['icarus_feather', 'talaria'], centaur: ['lyre'], wolf: ['achilles'], spartoi: ['anvil'], cyclops: ['lead_boots', 'anvil'], chimera: ['pandora', 'amphora'], talos: ['talaria', 'nemesis'], hydra_elder: ['amphora'], minotaur_king: ['golden_ratio'] };
 
 export const ITEM_POOLS = {
-  elite: ['lever', 'pendulum', 'leyden', 'antikythera', 'horn', 'fang', 'prism', 'plumb_bob', 'thread', 'tyche', 'horseshoe', 'lyre', 'nemesis', 'anvil', 'amphora', 'pandora', 'golden_ratio', 'lead_boots', 'achilles'],
-  event: ['golden_apple', 'wings', 'schrodinger', 'owl', 'pan_flute', 'mirror', 'sack', 'wineskin', 'lever', 'thread', 'tyche', 'horseshoe', 'talaria', 'icarus_feather'],
-  guardian: ['golden_apple', 'thread', 'pendulum', 'leyden', 'antikythera', 'prism', 'statues', 'nemesis', 'pandora', 'golden_ratio'],
+  elite: ['aegis', 'ram', 'lever', 'pendulum', 'leyden', 'antikythera', 'horn', 'fang', 'prism', 'plumb_bob', 'thread', 'tyche', 'horseshoe', 'lyre', 'nemesis', 'anvil', 'amphora', 'pandora', 'golden_ratio', 'lead_boots', 'achilles'],
+  event: ['greaves', 'golden_apple', 'wings', 'schrodinger', 'owl', 'pan_flute', 'mirror', 'sack', 'wineskin', 'lever', 'thread', 'tyche', 'horseshoe', 'talaria', 'icarus_feather'],
+  guardian: ['aegis', 'golden_apple', 'thread', 'pendulum', 'leyden', 'antikythera', 'prism', 'statues', 'nemesis', 'pandora', 'golden_ratio'],
 };

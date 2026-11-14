@@ -7,7 +7,7 @@ import { UIScreen, Button3D, Panel } from '../ui3d/widgets.js';
 import { textPlane } from '../ui3d/kit.js';
 import { buildStage, PROPS } from '../models/world.js';
 import { realStage } from '../models/realworld.js';
-import { stageLights, ContactShadows, GRADE_DAY } from '../gfx/lighting.js';
+import { stageLights, ContactShadows, GRADE_DAY, EXPOSURE } from '../gfx/lighting.js';
 import { loadModel } from '../gfx/assets.js';
 import { createProfessor } from '../models/professor.js';
 import { wearArtifacts } from '../models/wearables.js';
@@ -15,7 +15,7 @@ import { createCreature } from '../models/creatures.js';
 import { ITEM_MODELS } from '../models/items3d.js';
 import * as P3 from '../models/props3d.js';
 import { EVENTS } from '../game/data/events.js';
-import { mkCard, mkMove, itemChoices, mutateCard } from '../game/run.js';
+import { mkCard, mkMove, itemChoices, mutateCard, eventBoss } from '../game/run.js';
 import { ITEMS } from '../game/data/items.js';
 import { BASICS } from '../game/data/cards.js';
 import { DeckView } from './deckview.js';
@@ -64,7 +64,7 @@ export default class EventScene extends UIScreen {
     const pool = EVENTS.filter((e) => !seen.has(e.id) && save.unlocked('event:' + e.id)); const forced = EVENTS.find((e) => e.id === new URLSearchParams(location.search).get('event')); const ev = (this.ev = forced || run.rng.pick(pool.length ? pool : EVENTS)); run.seenEvents.push(ev.id);
     const j = this.game.journal; (j.events[ev.id] ||= 0); j.events[ev.id]++; this.game.saveJournal();
     // world
-    const sc = (this.scene = new THREE.Scene()); let st; try { st = await realStage(ev.theme, 30 + ev.id.length, this.engine.renderer, { event: ev.id }); sc.environment = st.env; sc.environmentIntensity = 0.75; sc.background = st.background; } catch (e) { console.warn('event stage fallback', e); st = buildStage(ev.theme, 30 + ev.id.length); } sc.add(st.group); sc.fog = new THREE.Fog(0xe8c09a, 30, 95);
+    const sc = (this.scene = new THREE.Scene()); let st; try { st = await realStage(ev.theme, 30 + ev.id.length, this.engine.renderer, { event: ev.id }); sc.environment = st.env; sc.environmentIntensity = 0.38; sc.background = st.background; } catch (e) { console.warn('event stage fallback', e); st = buildStage(ev.theme, 30 + ev.id.length); } sc.add(st.group); sc.fog = new THREE.Fog(0xe8c09a, 30, 95);
     stageLights(sc, { theme: ev.theme, sunDir: new THREE.Vector3(-8, 10, 7), target: new THREE.Vector3(-1, 0, 0), box: new THREE.Box3(new THREE.Vector3(-14, -0.5, -9), new THREE.Vector3(12, 6, 6)), mapSize: this.engine.quality === 'high' ? 4096 : 2048 }); new ContactShadows(sc, { hAt: st.hAt });
     this.camera = new THREE.PerspectiveCamera(32, this.engine.aspect, 0.1, 300); this.camera.position.set(-2.5, 3.0, 10.5); this.camLook = new THREE.Vector3(-1.2, 1.4, 0); this.camera.lookAt(this.camLook); this.camBase = this.camera.position.clone(); this.stage = st;
     this.prof = createProfessor(); this.prof.root.position.set(-4.4, 0, 1.2); this.prof.root.rotation.y = 0.6; sc.add(this.prof.root); this.wear = wearArtifacts(this.prof, this.game.run?.items);
@@ -78,7 +78,7 @@ export default class EventScene extends UIScreen {
     if (ev.id === 'toll' && this.npcs.length) this.cast.actors.toll = this.npcs[1] || this.npcs[0];
     if (ev.id === 'schrodinger') this.cast.prop.crate = prop;
     this.parts = new Particles(900); sc.add(this.parts.points); this.glow = new Particles(500, { additive: true }); sc.add(this.glow.points);
-    this.engine.setWorld(sc, this.camera); this.engine.setFx({ rays: st.sunPos ? { pos: st.sunPos, strength: 0.3, thresh: 0.8, decay: 0.958, tint: 0xffcf8a } : null, exposure: 1.02, bloom: [0.4, 0.58, 0.85], tilt: false, ao: 1.0, grade: { ...GRADE_DAY, vignette: 0.4, warmth: 0.22 } });
+    this.engine.setWorld(sc, this.camera); this.engine.setFx({ rays: st.sunPos ? { pos: st.sunPos, strength: 0.3, thresh: 0.8, decay: 0.958, tint: 0xffcf8a } : null, exposure: EXPOSURE.event, bloom: [0.4, 0.58, 0.85], tilt: false, ao: 1.0, grade: { ...GRADE_DAY, vignette: 0.4, warmth: 0.1 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('event'); audio.setAmbSet(['wilderness']);
     // UI
     const W = this.W, H = this.H;
@@ -126,14 +126,14 @@ export default class EventScene extends UIScreen {
   }
   resolve(c, card, score) {
     this.chosen = true; audio.play('stamp'); this.reactT = performance.now(); // the camera leans in on Sir Isaac's reaction
-    const text = c.run(this.ctx(), card, score);
+    const text = c.run(this.ctx(), card, score); if (c.fight) this.fightEnc = eventBoss(c.fight); // an optional boss fight follows the scene
     for (const b of this.choiceBtns) b.setDisabled(true);
     const after = () => {
       if (!this.root.parent) return; this.cine = null; this.panel.group.visible = true; for (const b of this.choiceBtns) b.group.visible = true;
       this.panel.set(this.ev.title, [text], '#1e5a5a'); uiPos(this.panel.group, this.W - 8.75, this.H - 1.0 - this.panel.scroll.h / 2, 2);
       this.prof.setExpr(/damage|bites|lose|terrible/i.test(text) ? 'annoyed' : 'delight');
       this.say(vpick(['Noted. Filed. Mildly traumatised.', 'Science marches on. Limping.', 'Write that down. No, I will.']));
-      this.addButton(new Button3D('Continue', () => this.leave(), { w: 5, h: 1.3, size: 58, color: 'teal' }), this.W - 8.4, -this.H + 1.6, 2);
+      this.addButton(new Button3D(this.fightEnc ? 'Fight!' : 'Continue', () => this.leave(), { w: 5, h: 1.3, size: 58, color: this.fightEnc ? 'purple' : 'teal' }), this.W - 8.4, -this.H + 1.6, 2);
     };
     // the consequence, filmed: the parchment and plaques step aside for a short reaction scene
     const idx = this.ev.choices.indexOf(c); this.panel.group.visible = false; for (const b of this.choiceBtns) b.group.visible = false; stopLines();
@@ -152,7 +152,7 @@ export default class EventScene extends UIScreen {
     });
   }
   onClick() { if (this.rhythmHit) { this.rhythmHit(); return true; } }
-  leave() { if (this.leaving) return; this.leaving = true; this.game.afterNode(); }
+  leave() { if (this.leaving) return; this.leaving = true; if (this.fightEnc && this.game.eventBattle) return this.game.eventBattle(this.fightEnc); this.game.afterNode(); }
   dispose() { this.cine?.abort(); this.cine = null; stopLines(); super.dispose(); }
   update(dt, t) {
     this.prof.update(dt); this.wear?.update(dt); for (const n of this.npcs) n.update(dt); for (const a of Object.values(this.cast?.actors || {})) if (a !== this.prof && !this.npcs.includes(a)) a.update(dt);

@@ -11,7 +11,8 @@ const Q = new URLSearchParams(location.search); const W = +(Q.get('w') || 200), 
 const PLAN = [ // [label, setup(prof), times (s after the act starts)]
   ['float', (p) => p.setIdleMode('battle'), [0, 1.2]], ['think', (p) => p.act('think'), [0.8, 1.6]], ['ponder', (p) => p.setIdleMode('ponder'), [1.5]], ['chill', (p) => p.setIdleMode('chill'), [1.5]],
   ['invent', (p) => p.setIdleMode('invent'), [1.5]], ['write', (p) => p.setIdleMode('write'), [1.5]],
-  ['throw', (p) => p.act('throw'), [0.12, 0.26, 0.36, 0.45, 0.6, 0.9]], ['cast', (p) => p.act('cast'), [0.2, 0.5, 0.9, 1.3]], ['eat', (p) => p.act('eat'), [0.3, 0.6, 1.2]],
+  ['walk', (p) => p.locomote(1.6), [0.6, 0.85, 1.1, 1.35]], ['throw', (p) => p.act('throw'), [0.15, 0.35, 0.5, 0.6, 0.75, 1.0]], ['hurl', (p) => p.act('hurl'), [0.2, 0.55, 0.85, 1.1]],
+  ['spin', (p) => p.act('spin'), [0.4, 0.78, 1.0]], ['gravity', (p) => p.act('gravity'), [0.35, 0.72, 0.95]], ['timestop', (p) => p.act('timestop'), [0.5, 1.0]], ['grab', (p) => p.act('grab'), [0.2, 0.45]], ['cast', (p) => p.act('cast'), [0.2, 0.5, 0.9, 1.3]], ['eat', (p) => p.act('eat'), [0.3, 0.6, 1.2]],
   ['hurt', (p) => p.act('hurt'), [0.1, 0.3, 0.7]], ['dodge', (p) => p.act('dodge', { dir: 1 }), [0.08, 0.2, 0.45, 0.8]], ['die', (p) => p.act('die'), [0.4, 1.4]],
   ['sleep', (p) => p.act('sleep'), [1]], ['bonk', (p) => { p.act('sleep'); p.act('bonk'); }, [0.3, 0.8, 1.5, 2.2]],
 ].filter(([k]) => !Q.get('acts') || Q.get('acts').split(',').includes(k));

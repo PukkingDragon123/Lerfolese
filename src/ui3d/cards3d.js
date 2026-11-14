@@ -41,37 +41,43 @@ export class Card3D {
 
 // A hand of slots. Each slot = one Card3D per card; stacks show the combined Move on top.
 export class HandView {
-  constructor(ui) { this.ui = ui; this.views = new Map(); this.slots = []; this.hover = null; this.drag = null; this.dropTarget = null; this.enabled = true; }
+  constructor(ui) { this.ui = ui; this.views = new Map(); this.slots = []; this.hover = null; this.drag = null; this.dropTarget = null; this.enabled = true; this.dealN = 0; this.hideAll = false; this.selected = null; }
   viewFor(card) { let v = this.views.get(card.uid); if (!v) { v = new Card3D(card); this.views.set(card.uid, v); this.ui.scene.add(v.group); } return v; }
   // sync with battle.hand (array of {uid, cards}); spawnFrom = where new cards fly in from
   sync(hand, battle, spawnFrom) {
     const live = new Set();
     this.slots = hand.map((s) => {
-      const cards = s.cards.map((c) => { live.add(c.uid); const v = this.viewFor(c); if (v.isNew === undefined) { v.isNew = false; v.pos.snap(spawnFrom.x, spawnFrom.y, 1); v.flip.set(1); v.flip.target = 0; } return v; });
+      const cards = s.cards.map((c) => { live.add(c.uid); const v = this.viewFor(c); if (v.isNew === undefined) { v.isNew = false; v.pos.snap(spawnFrom.x, spawnFrom.y, 1); v.flip.set(1); v.flip.target = 1; v.deal = { t: -(this.dealN++ % 10) * 0.075, from: { x: spawnFrom.x, y: spawnFrom.y } }; } return v; });
       const move = s.cards.length > 1 ? battle.moveOf(s) : null;
       cards.forEach((v, i) => { if (i === cards.length - 1 && move) v.showFace({ type: 'move', up: 0, name: move.name }, move); else v.refresh(v.card.petrified ? null : undefined); if (v.card.petrified) v.showFace({ ...v.card, petrified: true }); });
       return { uid: s.uid, slot: s, views: cards, move };
     });
     for (const [uid, v] of this.views) if (!live.has(uid) && !v.leaving) { v.leaving = true; }
-    this.layout();
+    this.dealN = 0; this.layout();
   }
   removeViews(uids, to) { for (const uid of uids) { const v = this.views.get(uid); if (!v) continue; v.leaving = true; v.target = { x: to.x, y: to.y, z: to.z ?? 2, rz: (Math.random() - 0.5) * 2, s: to.s ?? 0.5 }; v.flip.target = to.flip ?? 1; v.killAt = 0.45; } }
   layout() {
     const n = this.slots.length; const W = this.ui.W; const maxW = Math.min(W * 1.1, 21); const sp = n > 1 ? Math.min(2.75, maxW / (n - 1 + 0.001)) : 0;
     const baseY = -this.ui.H + 2.25;
     this.slots.forEach((s, i) => {
-      const k = i - (n - 1) / 2; let x = k * sp; let y = baseY - k * k * 0.07; let rz = -k * 0.045; let z = i * 0.06; let sc = 0.84;
-      if (this.hover && this.hover !== s && !this.drag) { const hi = this.slots.indexOf(this.hover); x += (i < hi ? -1 : 1) * Math.max(0, 1.0 - Math.abs(i - hi) * 0.3); }
-      if (this.hover === s && !this.drag) { y = baseY + 2.2; rz = 0; z = 6; sc = 1.3; }
+      const k = i - (n - 1) / 2; let x = k * sp; let y = baseY - k * k * 0.08; let rz = -k * 0.05; let z = i * 0.06; let sc = 0.92;
+      if (this.hover && this.hover !== s && !this.drag) { const hi = this.slots.indexOf(this.hover); x += (i < hi ? -1 : 1) * Math.max(0, 1.5 - Math.abs(i - hi) * 0.35); }
+      if (this.hover === s && !this.drag) { y = baseY + 3.3; rz = 0; z = 7; sc = 1.7; } // Balatro-style: the hovered card rises big and readable
       if (this.dropTarget?.slot === s) { y = baseY + 1.1; sc = 1.15; z = 4; }
+      if (this.selected?.has(s.uid)) { y = baseY + 2.0; rz = 0; z = 5; } // marked to discard
+      if (this.hideAll) { y = baseY - 7; }
       s.base = { x, y, z, rz, sc };
       if (this.drag?.slot === s) return;
-      s.views.forEach((v, j) => { const off = s.views.length - 1 - j; v.target = { x: x - off * 0.18, y: y + off * 0.38, z: z - off * 0.08, rz: rz + off * 0.06, s: sc }; v.tilt.x = 0; v.tilt.y = 0; });
+      const marked = !!this.selected?.has(s.uid); s.views.forEach((v, j) => { const off = s.views.length - 1 - j; v.target = { x: x - off * 0.18, y: y + off * 0.38, z: z - off * 0.08, rz: rz + off * 0.06, s: sc }; v.tilt.x = 0; v.tilt.y = 0; v.front.color.setRGB(1, marked ? 0.62 : 1, marked ? 0.55 : 1); });
     });
   }
   pick(hits) { for (const h of hits) { const v = h.object.userData.card3d; if (!v) continue; const s = this.slots.find((sl) => sl.views.includes(v)); if (s) return s; } return null; }
   update(dt, t) {
+    // the hovered card leans toward the pointer (a physical card held up to the light)
+    if (this.hover && !this.drag) { const p = this.ui.pointerPlane?.(6); if (p) for (const v of this.hover.views) { const b = this.hover.base; v.tilt.y = Math.max(-0.4, Math.min(0.4, (p.x - b.x) * 0.16)); v.tilt.x = Math.max(-0.35, Math.min(0.35, -(p.y - (b.y + 0.4)) * 0.12)); } }
     for (const [uid, v] of this.views) {
+      // dealt in an arc from the draw pile, face down, flipping face up as it lands
+      if (v.deal) { const D = v.deal; D.t += dt; const tg = v.target; if (D.t < 0) { v.pos.snap(D.from.x, D.from.y, 1); } else if (D.t < 0.34) { const u = D.t / 0.34, e = 1 - (1 - u) * (1 - u); const mx = (D.from.x + tg.x) / 2, my = Math.max(D.from.y, tg.y) + 3.2; const x = (1 - e) * (1 - e) * D.from.x + 2 * (1 - e) * e * mx + e * e * tg.x, y = (1 - e) * (1 - e) * D.from.y + 2 * (1 - e) * e * my + e * e * tg.y; v.pos.snap(x, y, 2 + Math.sin(u * Math.PI) * 4); v.rz.value = (1 - e) * 1.2; if (u > 0.45) v.flip.target = 0; } else { v.deal = null; v.flip.target = 0; v.sc.kick(3); } }
       v.update(dt, t);
       if (v.killAt != null) { v.killAt -= dt; if (v.killAt <= 0) { this.ui.scene.remove(v.group); this.views.delete(uid); } }
       else if (v.leaving && !this.slots.some((s) => s.views.includes(v))) { v.killAt = 0.5; v.target = { x: v.target.x, y: -this.ui.H - 6, z: 0, rz: 0, s: 0.6 }; }

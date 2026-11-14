@@ -26,7 +26,7 @@ export const ENEMIES = {
       const t = e.turn % 4;
       if (t === 0) return A(3, 3, { venom: 1, label: 'Snake Bites', icon: 'sword' });
       if (t === 1) return { kind: 'debuff', id: 'gaze', icon: 'eye', label: 'Petrifying Gaze', petrify: 2, dmg: 5 };
-      if (t === 2) return A(9, 1, { label: 'Tail Lash' });
+      if (t === 2) return A(9, 1, { label: 'Tail Lash', status: { weak: 1 } });
       return { kind: 'block', id: 'hiss', icon: 'shield', label: 'Hiss', block: 8, str: 1 };
     },
   },
@@ -49,7 +49,7 @@ export const ENEMIES = {
       const t = e.turn % 4;
       if (t === 0) return { kind: 'buff', id: 'snort', icon: 'up', label: 'Snort & Scrape', str: 2, telegraph: true };
       if (t === 1) return A(24, 1, { id: 'charge', label: 'CHARGE!', charge: true });
-      if (t === 2) return A(8, 2, { label: 'Labrys Swing' });
+      if (t === 2) return A(8 + Math.floor(e.turn / 4) * 2, 2, { label: 'Labrys Swing' }); // swings harder every round
       return { kind: 'block', id: 'bellow', icon: 'shield', label: 'Bellow', block: 14, str: 1 };
     },
   },
@@ -87,7 +87,7 @@ export const ENEMIES = {
     barks: { start: ['Hold still. I only need one arrow. Probably.', 'Chiron taught me patience. I skipped that lesson.', 'Nice strings. Shame about the rest.'], hurt: ['A scratch!', 'You will regret that, kindling.'], die: ['My aim... was true...', 'Tell Chiron... I tried...'], special: ['*draws a fistful of arrows*', 'Nock. Draw. Loose.'] },
     ai(e, B, rng) {
       const t = e.turn % 4;
-      if (t === 0) return A(4, 3, { label: 'Arrow Volley' });
+      if (t === 0) return A(4, 3, { label: 'Arrow Volley', status: { frail: 1 } }); // pinned: Block -25%
       if (t === 1) return { kind: 'buff', id: 'snort', icon: 'up', label: 'Steady Aim', str: 2 };
       if (t === 2) return A(11, 1, { label: 'Aimed Shot' });
       return { kind: 'block', id: 'rear', icon: 'shield', label: 'Rear & Guard', block: 9 };
@@ -101,7 +101,7 @@ export const ENEMIES = {
       const t = e.turn % 3;
       if (t === 0) return A(5, 2, { label: 'Savage Bite' });
       if (t === 1) return { kind: 'buff', id: 'snort', icon: 'up', label: 'Moon Howl', str: 1 };
-      return A(9, 1, { label: 'Pounce' });
+      return A(9, 1, { label: 'Pounce', status: { vulnerable: 1 } });
     },
   },
   spartoi: {
@@ -111,7 +111,7 @@ export const ENEMIES = {
     ai(e, B, rng) {
       const t = e.turn % 4;
       if (t === 0) return { kind: 'block', id: 'wall', icon: 'shield', label: 'Shield Wall', block: 10 };
-      if (t === 1) return A(9, 1, { label: 'Spear Thrust' });
+      if (t === 1) return A(9, 1, { label: 'Spear Thrust', status: { vulnerable: 1 } });
       if (t === 2) return A(5, 2, { label: 'Phalanx Jabs' });
       return { kind: 'buff', id: 'snort', icon: 'up', label: 'War Clatter', str: 1 };
     },
@@ -123,13 +123,13 @@ export const ENEMIES = {
     ai(e, B, rng) {
       const t = e.turn % 4;
       if (t === 0) return { kind: 'buff', id: 'snort', icon: 'up', label: 'Bellowing Rage', str: 3, telegraph: true };
-      if (t === 1) return A(20, 1, { label: 'Club Smash' });
-      if (t === 2) return A(14, 1, { label: 'Hurl Boulder', icon: 'skull' });
+      if (t === 1) return A(20 + Math.floor(e.turn / 4) * 4, 1, { label: 'Club Smash' }); // each round the club comes down harder
+      if (t === 2) return e.hp < e.maxHp / 2 ? A(9, 2, { label: 'Frenzied Boulders', icon: 'skull', status: { frail: 1 } }) : A(14, 1, { label: 'Hurl Boulder', icon: 'skull', status: { frail: 1 } });
       return { kind: 'block', id: 'brace', icon: 'shield', label: 'Lumber & Brace', block: 12 };
     },
   },
   chimera: {
-    name: 'Chimera', title: 'Lion, Goat, Snake, Problem', hp: [112, 120], model: 'chimera', scale: 1.5, elite: true, loot: { items: ['fang', 'leyden'], gold: [30, 40] },
+    name: 'Chimera', title: 'Lion, Goat, Snake, Problem', hp: [112, 120], model: 'chimera', scale: 1.5, elite: true, ramp: 1, loot: { items: ['fang', 'leyden'], gold: [30, 40] },
     weakness: 'Three heads, one stomach: Water (puddles, rain) douses its Fire Breath. Its serpent tail is venomous.',
     barks: { start: ['LION: Roar. GOAT: Meh. SNAKE: Hssss.', 'We are three opinions and one appetite.', 'Smells like kindling. Excellent.'], hurt: ['ROAR! / MEEH! / HSS!', 'Which of us did you hit?!'], die: ['We... disagree... on dying...', '*three sad noises*'], special: ['*inhales a furnace*', 'All three: ATTACK!'] },
     ai(e, B, rng) {
@@ -141,16 +141,91 @@ export const ENEMIES = {
     },
   },
   talos: {
-    name: 'Talos', title: 'Bronze Guardian of Crete', hp: [196, 206], model: 'talos', scale: 1.45, guardian: true, loot: { items: ['antikythera', 'leyden'], gold: [40, 50] },
+    name: 'Talos', title: 'Bronze Guardian of Crete', hp: [196, 206], model: 'talos', scale: 1.45, guardian: true, ramp: 1, loot: { items: ['antikythera', 'leyden'], gold: [40, 50] },
     weakness: 'One vein of ichor runs to the nail in his ankle: falling objects and Gravity crack his plating (Vulnerable).',
     barks: { start: ['INTRUDER. CIRCUIT OF CRETE: THREE TIMES DAILY. YOU ARE IN THE WAY.', 'HEPHAESTUS BUILT ME. WHO CARVED YOU?', 'HEATING... PLATES...'], hurt: ['*CLANG*', 'DENT DETECTED.'], die: ['ICHOR... DRAINING...', 'THE NAIL... DO NOT... TOUCH THE NAIL...'], special: ['*bronze glows white-hot*', 'EMBRACE OF FIRE.'] },
     ai(e, B, rng) {
       const t = e.turn % 4;
-      if (t === 0) return A(26, 1, { label: 'Bronze Fist' });
+      if (t === 0) return A(26 + Math.floor(e.turn / 4) * 5, 1, { label: 'Bronze Fist' });
       if (t === 1) return { kind: 'block', id: 'heat', icon: 'shield', label: 'Heat the Bronze', block: 16, str: 2 };
       if (t === 2) return { kind: 'debuff', id: 'acid', icon: 'ember', label: 'Ichor Spray', dmg: 7, corrode: 2 };
       return A(9, 2, { label: 'Hurl Stones' });
     },
+  },
+};
+
+// ---------------------------------------------------------------- bosses of the star library (guardian tier) and event bosses
+Object.assign(ENEMIES, {
+  frog_wizard: {
+    name: 'Archimage Croakley', title: 'Toad-Wizard, Examiner of Laws', hp: [176, 186], model: 'frog_wizard', scale: 1.6, guardian: true, boss: true, ramp: 1,
+    weakness: 'Cold-blooded: Heat dries his hide (×1.5). Water only refreshes him. His crystal ward cracks under falling weight.',
+    resist: [{ tag: 'hot', mul: 1.5, text: 'Heat dries his hide ×1.5' }, { tag: 'wet', mul: 0.5, text: 'Water refreshes him ×0.5' }, { tag: 'fall', mul: 1.25, text: 'Falling weight cracks the ward ×1.25' }],
+    barks: { start: ['Ribbit. So. The little apple-thrower wishes to be EXAMINED.', 'I have unlocked a thousand laws, boy. Show me one I have not.', 'Croak. Let us begin the viva.'], hurt: ['Croak!', 'A fair point. Painfully made.'], die: ['Ribbit... you... pass...', 'Write it... in the... ledger...'], special: ['*the crystal hums*', 'Abracadabra, as the Babylonians mispronounced it.'] },
+    ai(e, B, rng) {
+      const t = e.turn % 5;
+      if (t === 0) return { kind: 'debuff', id: 'steal', icon: 'steal', label: 'Tongue Lash', dmg: 7, hits: 2 };
+      if (t === 1) return { kind: 'debuff', id: 'hex', icon: 'skull', label: 'Hex of Warts', dmg: 6, status: { hex: 2, weak: 1 } };
+      if (t === 2) return { kind: 'block', id: 'ward', icon: 'shield', label: 'Crystal Ward', block: 22, str: 2 };
+      if (t === 3) return A(30 + Math.floor(e.turn / 5) * 6, 1, { label: 'Thunder Hop', icon: 'skull' });
+      return A(4, 5, { label: 'Firefly Swarm', status: { frail: 1 } });
+    },
+  },
+  bookworm_queen: {
+    name: 'Bookworm Queen', title: 'Devourer of the Principia', hp: [132, 140], model: 'bookworm_queen', scale: 1, guardian: true, boss: true, brood: 3,
+    weakness: 'Paper and pulp: Heat burns her ×1.5. Her brood is soft: waves and spinning ricochets clear it.',
+    resist: [{ tag: 'hot', mul: 1.5, text: 'Paper burns ×1.5' }, { tag: 'rock', mul: 0.75, text: 'Soft coils soak stone ×0.75' }],
+    barks: { start: ['*the great worm rears, pages sliding off her coils*', 'Sssso many books. Ssso little time. Ssstart with yours.', 'My children are hungry, scholar.'], hurt: ['SSKREE!', '*pages flutter out of the wound*'], die: ['*the queen coils, and is still*', 'The... last... chapter...'], special: ['*the brood squirms*', 'Feed. FEED.'] },
+    ai(e, B, rng) {
+      const t = e.turn % 4; const brood = B.enemies.filter((x) => x.alive && x.def.minion).length;
+      if (t === 0) return { kind: 'debuff', id: 'devour', icon: 'skull', label: 'Devour Pages', dmg: 8, devour: 2 };
+      if (t === 1 && brood < 3) return { kind: 'special', id: 'brood', icon: 'up', label: 'Lay a Brood', spawn: 'bookworm', n: Math.min(2, 3 - brood), block: 10 };
+      if (t === 2) return A(9 + Math.floor(e.turn / 4) * 2, 2, { label: 'Coil Crush', status: { frail: 1 } });
+      return A(18 + Math.floor(e.turn / 4) * 3, 1, { label: 'Spine Lash', icon: 'skull' });
+    },
+  },
+  bookworm: {
+    name: 'Bookworm', title: 'Hungry Larva', hp: [13, 16], model: 'bookworm', scale: 1, minion: true,
+    barks: { start: [], hurt: ['*squirm*', '*squelch*'], die: ['*goes limp*'], special: ['*nibble nibble*'] },
+    ai(e, B, rng) { return e.turn % 2 ? { kind: 'debuff', id: 'nibble', icon: 'steal', label: 'Nibble', dmg: 3, status: { nibble: 1 } } : A(5, 1, { label: 'Bite' }); },
+  },
+  sphinx: {
+    name: 'The Sphinx', title: 'Examiner of Travellers', hp: [128, 136], model: 'sphinx', scale: 1.45, elite: true, boss: true,
+    weakness: 'Proud: a Lens dazzles her (×1.5). Her riddles curse the slow-witted: kill her before the last question.',
+    resist: [{ tag: 'lens', mul: 1.5, text: 'Dazzled by a Lens ×1.5' }, { tag: 'sound', mul: 0.5, text: 'She out-roars Sound ×0.5' }],
+    barks: { start: ['You chose to fight the examiner. Bold. Wrong, but bold.', 'Every wrong answer has teeth.', 'Pencils DOWN.'], hurt: ['Rrrrh!', 'That was not on the syllabus.'], die: ['You... pass...', 'The riddle... answers itself...'], special: ['What walks on four legs at dawn...', '*she licks her pencil*'] },
+    ai(e, B, rng) {
+      const t = e.turn % 4;
+      if (t === 0) return { kind: 'debuff', id: 'riddle', icon: 'eye', label: 'Riddle of Ages', dmg: 6, status: { weak: 2, vulnerable: 1 } };
+      if (t === 1) return A(18 + Math.floor(e.turn / 4) * 4, 1, { label: 'Pounce' });
+      if (t === 2) return A(5, 3, { label: 'Claw Flurry' });
+      return { kind: 'block', id: 'wings', icon: 'shield', label: 'Fold the Wings', block: 16, str: 2 };
+    },
+  },
+  eagle: {
+    name: 'Eagle of Zeus', title: 'Liver Connoisseur', hp: [104, 112], model: 'eagle', scale: 1.6, elite: true, boss: true, flying: true,
+    weakness: 'Flies high: Gravity and falling strikes drag it down (×2). Sound scatters it.',
+    resist: [{ tag: 'fall', mul: 2, text: 'Dragged out of the sky ×2' }, { tag: 'sound', mul: 1.5, text: 'Sound scatters it ×1.5' }],
+    barks: { start: ['SKRAAAW! (Zeus says: no refunds on fire.)', '*it eyes your liver professionally*', 'The titan stays chained. You stay lunch.'], hurt: ['SKREE!', '*feathers everywhere*'], die: ['*a last thunderclap of wings*', '*it falls like a stone*'], special: ['*thunder rolls behind it*', '*it rides the storm wind*'] },
+    ai(e, B, rng) {
+      const t = e.turn % 4;
+      if (t === 0) return A(3, 3, { label: 'Liver Peck', venom: 1 });
+      if (t === 1) return { kind: 'buff', id: 'nimble', icon: 'up', label: 'Ride the Storm', evade: 1, str: 2 };
+      if (t === 2) return A(15 + Math.floor(e.turn / 4) * 3, 1, { label: 'Thunder Dive', icon: 'skull' });
+      return { kind: 'debuff', id: 'bolt', icon: 'ember', label: 'Bolt of Zeus', dmg: 8, status: { frail: 1, vulnerable: 1 } };
+    },
+  },
+});
+
+// The prologue's tutorial foe (story agent): never in the random pools; src/story/tutorial.js stages him in the old garden
+ENEMIES.raccoon = {
+  name: 'Fat Raccoon', title: 'Bandit of the Picnic Basket', hp: [22, 22], model: 'raccoon', scale: 1.75, tutorial: true,
+  weakness: 'Greedy: he snatches your apples and eats them. Hit him hard and often.',
+  barks: { start: ['*chitters, cheeks stuffed with your lunch*', '*hisses: mine, all mine*'], hurt: ['*squeak!*', '*indignant hiss*'], die: ['*waddles off into the hedge, defeated*'], special: ['*snatch!*', '*stuffs his cheeks*'] },
+  ai(e, B, rng) {
+    const t = e.turn % 3;
+    if (t === 0) return A(3, 1, { label: 'Greedy Swipe' });
+    if (t === 1 && !e.loot) return { kind: 'debuff', id: 'steal', icon: 'steal', label: 'Snatch the Apple!', dmg: 2 };
+    return { kind: 'buff', id: 'munch', icon: 'up', label: 'Munch', heal: 4, str: 1 };
   },
 };
 
@@ -163,6 +238,7 @@ export const ENCOUNTERS = {
     easy: [['satyr'], ['kobalos', 'kobalos'], ['medusa'], ['harpy'], ['wolf', 'wolf'], ['spartoi']],
     hard: [['satyr', 'kobalos'], ['medusa', 'kobalos'], ['satyr', 'satyr'], ['medusa', 'satyr'], ['kobalos', 'kobalos', 'kobalos'], ['centaur'], ['harpy', 'harpy'], ['spartoi', 'spartoi'], ['centaur', 'wolf'], ['wolf', 'wolf', 'harpy'], ['spartoi', 'harpy']],
     elite: [['minotaur'], ['hydra'], ['cyclops'], ['chimera']],
-    guardian: [['minotaur_king'], ['hydra_elder'], ['talos']],
+    guardian: [['minotaur_king'], ['hydra_elder'], ['talos'], ['frog_wizard'], ['bookworm_queen', 'bookworm', 'bookworm']],
+    event: { sphinx: ['sphinx'], prometheus: ['eagle'] },
   },
 };

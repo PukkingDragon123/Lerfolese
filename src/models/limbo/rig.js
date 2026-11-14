@@ -8,6 +8,7 @@ import { BONES, BONE_PARENT, rigDims } from './humanModel.js';
 import { GGSkin } from './gg/skin.js';
 import { specOf } from './gg/spec.js';
 import { SEC_BONES, SEC_PARENT } from './gg/types.js';
+import { clothRecorder, SkinnedCloth } from './cloth.js';
 
 const DEF = { skin: 0xe8b98f, hair: 0x3b2a1e, hairStyle: 'short', face: 0, build: 'average', height: 1 };
 let GRAD = null;
@@ -43,6 +44,7 @@ export function cleanPage(d, S, k) {
   }
 }
 
+const opts_cloth = (o) => o?.clothTex !== false;
 export class LimboBody {
   /** app: Limbo Appearance; outfit: Limbo Outfit (LookParts); opts: { severed: ['shin_l', ...], overrides (SpecOverrides), hook(painters, P, spec), hd, paint, material } */
   constructor(app, outfit = {}, { severed = [], overrides = {}, hook = null, hd = true, paint = true, material = null, lowpoly = false } = {}) {
@@ -56,6 +58,7 @@ export class LimboBody {
     for (const b of SEC_BONES) { const g = new THREE.Group(); g.name = b; this.bones[SEC_PARENT[b]].add(g); this.bones[b] = g; }
     this.dims = rigDims(this.app); for (const b of BONES) this.bones[b].position.fromArray(this.dims.off[b]);
     const spec = specOf(this.app, outfit, this.dims, hashApp(this.app), {}, overrides); if (hook) spec.hook = hook; if (lowpoly) spec.lowpoly = true; this.spec = spec;
+    const rec = paint && opts_cloth(overrides) ? clothRecorder(S, this.app) : null; if (rec) spec.hook = rec.hook(spec.hook); // real woven cloth on the page (cloth.js)
     const boneIndex = (b) => { const si = SEC_BONES.indexOf(b); return si >= 0 ? BONES.length + si : BONES.indexOf(b); };
     const geo = this.gg.build(spec, this.dims, new Set(severed), 0, boneIndex); this.P = this.gg.P;
     smoothSkin(geo);
@@ -66,8 +69,9 @@ export class LimboBody {
     this.skeleton = new THREE.Skeleton([...BONES, ...SEC_BONES].map((b) => this.bones[b]), inv);
     this.mesh = new THREE.SkinnedMesh(geo, material || toonMat({ map: tex })); this.mesh.castShadow = true; this.mesh.receiveShadow = true; this.mesh.frustumCulled = false;
     this.root.add(this.mesh); this.mesh.bind(this.skeleton, new THREE.Matrix4());
-    if (paint) { this.gg.paintAll(spec, this.app, {}, 'base'); cleanPage(this.tex.image.data, S, hd ? 2 : 1); this.gg.base?.set?.(this.tex.image.data); this.tex.needsUpdate = true; }
+    if (paint) { this.gg.paintAll(spec, this.app, {}, 'base'); cleanPage(this.tex.image.data, S, hd ? 2 : 1); rec?.apply(this.tex.image.data); this.gg.base?.set?.(this.tex.image.data); this.tex.needsUpdate = true; }
     geo.computeBoundingBox(); this.box = geo.boundingBox.clone(); this.height = this.box.max.y;
+    this.cloth = overrides.clothSim === false ? null : new SkinnedCloth(this); if (this.cloth?.off) this.cloth = null; // coat tails / skirts swing on a verlet grid
   }
   /** rest-pose (body space) position of a bone */
   restOf(b) { return this.rest?.[b] ? new THREE.Vector3(...this.rest[b]) : new THREE.Vector3(...this.dims.rest[b]); }
@@ -75,7 +79,7 @@ export class LimboBody {
   attach(obj, bone, cancelScale = 1) { const g = new THREE.Group(); g.position.copy(this.restOf(bone)).multiplyScalar(-1); g.add(obj); if (cancelScale !== 1) { const f = new THREE.Group(); f.scale.setScalar(1 / cancelScale); f.add(g); this.bones[bone].add(f); } else this.bones[bone].add(g); obj.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } }); return g; }
   setExpression(name, hold = 0) { this.gg.setExpression(name, hold); }
   talk(sec) { this.gg.talk(sec); }
-  update(dt) { this.gg.update(dt); }
+  update(dt) { this.gg.update(dt); if (this.cloth && dt > 0) { this.root.updateWorldMatrix(true, true); this.cloth.step(dt); } }
 }
 
 // ---------------------------------------------------------------- procedural animator

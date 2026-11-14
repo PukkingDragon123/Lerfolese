@@ -10,6 +10,7 @@ import { createChimera, warmChimera } from './chimera.js';
 import { createCentaur, warmCentaur } from './centaur.js';
 import { createHarpy, warmHarpy } from './harpy.js';
 import { createSpartoi, warmSpartoi } from './spartoi.js';
+import { createRaccoon, warmRaccoon } from './raccoon.js';
 
 const BUILD = {
   minotaur: (s) => createMinotaur(s, false),
@@ -24,6 +25,7 @@ const BUILD = {
   centaur: (s) => createCentaur(s),
   harpy: (s) => createHarpy(s),
   spartoi: (s) => createSpartoi(s),
+  raccoon: (s) => createRaccoon(s), // the prologue's tutorial foe
 };
 export const isBeast = (id) => id in BUILD;
 export function createBeast(id, seed = 1) {
@@ -31,5 +33,5 @@ export function createBeast(id, seed = 1) {
   api.update(0.016); return api;
 }
 /** optional: pre-build a beast's sculpt, skin and textures (about 1-2 s of main-thread work) before its battle starts */
-const WARM = { cyclops: warmCyclops, talos: warmTalos, wolf: warmWolf, chimera: warmChimera, centaur: warmCentaur, harpy: warmHarpy, spartoi: warmSpartoi };
+const WARM = { cyclops: warmCyclops, talos: warmTalos, wolf: warmWolf, chimera: warmChimera, centaur: warmCentaur, harpy: warmHarpy, spartoi: warmSpartoi, raccoon: warmRaccoon };
 export function warmBeast(id) { if (id.startsWith('minotaur')) warmMinotaur(id === 'minotaur_king'); else if (id.startsWith('hydra')) warmHydra(id === 'hydra_elder'); else WARM[id]?.(); }

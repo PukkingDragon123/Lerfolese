@@ -12,7 +12,7 @@ import * as T from './toon.js';
 import { lowpolyify } from '../gfx/lowpoly.js';
 import { loadModel } from '../gfx/assets.js';
 import { firePit } from './realworld.js';
-import { ENCOUNTERS } from '../game/data/enemies.js';
+import { nodeEncounter } from '../game/run.js';
 import { TX, toonM, bevelBox, addMesh as M, pixTex, hash, propMats } from './diorama.js';
 import { makeNoise } from '../gfx/pixel.js';
 import { prop } from './lowprops.js';
@@ -138,14 +138,10 @@ let GEAR = null; const gear = () => GEAR || (GEAR = (() => {
 })());
 function droppedGear(g, rnd) { const G = gear(); const Mt = propMats(); const s = M(G.shield, G.shieldM, g, (rnd() - 0.5) * 0.6, 0.075, 0.35 + rnd() * 0.15); s.rotation.set(-0.2, rnd() * TAU, 0.25); const sp = new THREE.Group(); sp.position.set((rnd() - 0.5) * 0.8, 0.09, -0.25); sp.rotation.set(0.4, rnd() * TAU, 1.2); g.add(sp); M(G.shaft, Mt.darkWood, sp); M(G.tip, toonM({ color: '#c8c0b0' }), sp, 0, 0.25, 0); }
 
-// ---------------------------------------------------------------- which enemies stand on a battle node (the encounter itself is rolled on entry)
-function groupFor(nd, run) {
-  const E = ENCOUNTERS.wilderness; const h = strHash(nd.id + (run.seed || 1));
-  if (nd.type === 'elite') { const opts = E.elite.filter((e) => !(run.foughtElites || []).includes(e[0])); const L = opts.length ? opts : E.elite; return L[h % L.length]; }
-  if (nd.type === 'guardian') { const f = run.foughtElites || []; return [f.includes('minotaur') && !f.includes('hydra') ? 'hydra_elder' : f.includes('hydra') && !f.includes('minotaur') ? 'minotaur_king' : h % 2 ? 'hydra_elder' : 'minotaur_king']; }
-  const pool = nd.row < 3 ? E.easy : E.hard; return pool[h % pool.length];
-}
-const FIG_SCALE = { satyr: 0.66, kobalos: 0.74, medusa: 0.6, minotaur: 0.7, hydra: 0.5, minotaur_king: 0.8, hydra_elder: 0.58 };
+// ---------------------------------------------------------------- which enemies stand on a battle node: exactly the node's pre-rolled encounter
+// (game/run.js nodeEncounter: same species, same count, the elite / boss itself); minions beyond three stay off the plinth
+function groupFor(nd, run) { const enc = nodeEncounter(run, nd); return (enc?.enemies || ['satyr']).slice(0, 3); }
+const FIG_SCALE = { frog_wizard: 0.55, bookworm_queen: 0.5, bookworm: 0.55, sphinx: 0.55, eagle: 0.6, satyr: 0.66, kobalos: 0.74, medusa: 0.6, minotaur: 0.7, hydra: 0.5, minotaur_king: 0.8, hydra_elder: 0.58 };
 
 // ---------------------------------------------------------------- node pieces
 export class NodeMini {

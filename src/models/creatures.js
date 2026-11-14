@@ -4,6 +4,7 @@
 // and the minotaur (bulky body under the repainted Poly Haven CC0 bull head, labrys). Paint hooks recolour the Limbo
 // pixel page per creature. Horns, tails, snakes, props and the hydra are smooth lofted meshes with painted textures.
 import * as THREE from 'three';
+import { BOSS_BUILD } from './bosses.js';
 import { Spring } from '../core/tween.js';
 import { K, limboMat } from './beasts/look.js'; // realistic low-poly pixel look (flat-shaded lit materials, natural pixel ramps)
 import { LimboBody, LimboAnim, IMPACT } from './limbo/rig.js';
@@ -377,6 +378,7 @@ function hydraHead(seed = 1) {
 
 const BUILDERS = { satyr, medusa, kobalos, minotaur: (s) => minotaur(s, false), minotaur_king: (s) => minotaur(s, true), hydra: (s) => hydra(s, false), hydra_elder: (s) => hydra(s, true), hydra_head: hydraHead };
 export function createCreature(id, seed = 1) {
+  if (BOSS_BUILD[id]) { const api = BOSS_BUILD[id](seed); api.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); return api; } // frog wizard, bookworms, sphinx, eagle (models/bosses.js)
   if (isBeast(id)) return createBeast(id, seed); // custom-rigged minotaur / hydra (src/models/beasts)
   const api = (BUILDERS[id] || satyr)(seed);
   api.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });

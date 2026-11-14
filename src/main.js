@@ -11,7 +11,8 @@ import { newRun, restoreRun, serializeRun, encounterFor, battleRewards, attachRu
 import { BattleScene } from './scenes/battlescene.js';
 
 const $ = (id) => document.getElementById(id);
-const bootMsg = (t, p) => { $('boot-msg').textContent = t; if (p != null) $('boot-fill').style.width = `${p}%`; };
+const bootMsg = (t, p) => { window.__boot?.(t, p); }; // the pixel-art boot canvas in index.html draws the message's progress as seed pips
+const bootGone = () => { const b = $('boot'); if (!b) return; b.classList.add('gone'); setTimeout(() => { b.classList.add('done'); b.remove(); }, 1000); };
 
 class Game {
   constructor() {
@@ -36,12 +37,12 @@ class Game {
     if (!q.get('battle') && !q.get('node') && !q.get('scene') && !q.get('prologue')) { // the loading time-lapse: an apple lives and dies while everything preloads
       bootMsg('Planting the apple…', 60); const pre = this.preload();
       const { LoadingScene } = await import('./scenes/menu.js'); this.scene = new LoadingScene(this); await this.scene.enter({ preload: pre });
-      requestAnimationFrame(() => setTimeout(() => $('boot').classList.add('gone'), 200)); return;
+      requestAnimationFrame(() => setTimeout(bootGone, 120)); return;
     }
     bootMsg('Tuning gravity strings…', 40); await audio.init();
     bootMsg('Convincing the gods…', 80);
-    $('boot').classList.add('gone');
-    if (q.get('scene')) { const k = q.get('scene'); if (k === 'sky') return this.toSky(); if (k === 'gallery') return this.toGallery(); return this.toMenu({ from: k === 'loading-end' ? 'loading' : null }); } // debug: ?scene=garden|sky|gallery
+    bootGone();
+    if (q.get('scene')) { const k = q.get('scene'); if (k === 'hall') return this.toHall(); if (k === 'sky') return this.toSky(); if (k === 'gallery') return this.toGallery(); return this.toMenu({ from: k === 'loading-end' || k === 'intro' ? 'loading' : null }); } // debug: ?scene=tower|intro|hall (old: sky|gallery)
     if (q.get('battle')) return this.debugBattle(q.get('battle').split(','), q.get('kind') || 'normal');
     if (q.get('prologue')) { this.journal.seenPrologue = false; return this.newRun(); } // story: ?prologue=1 (&beat=...)
     if (q.get('node')) { this.run = newRun(Number(q.get('seed')) || 1234); attachRun?.(this.run, this.journal); const n = Object.values(this.run.map.nodes).find((x) => x.type === q.get('node')); if (n) return this.enterNode(n.id); }
@@ -61,7 +62,7 @@ class Game {
     let done = 0, total = 1; const self = this;
     const promise = (async () => {
       const { preloadTasks } = await import('./models/realworld.js');
-      const tasks = [() => audio.init(), () => import('./scenes/mapscene.js'), () => import('./scenes/event.js'), () => import('./scenes/journal.js'), () => import('./scenes/sky.js'), () => import('./scenes/gallery.js'), ...preloadTasks(self.engine.renderer)];
+      const tasks = [() => audio.init(), () => import('./scenes/tower.js'), () => import('./scenes/mapscene.js'), () => import('./scenes/event.js'), () => import('./scenes/journal.js'), () => import('./scenes/hall.js'), ...preloadTasks(self.engine.renderer)];
       total = tasks.length; let i = 0;
       const worker = async () => { while (i < tasks.length) { const t = tasks[i++]; try { await t(); } catch (e) { console.warn('preload', e); } done++; } };
       await Promise.all([worker(), worker(), worker()]);
@@ -70,18 +71,21 @@ class Game {
   }
   async toSky() { const { SkyScene } = await import('./scenes/sky.js'); await this.swap(async () => { this.scene = new SkyScene(this); await this.scene.enter(); }, { color: 0x0a0c20 }); }
   async toGallery(opts = {}) { const { GalleryScene } = await import('./scenes/gallery.js'); await this.swap(async () => { this.scene = new GalleryScene(this); await this.scene.enter(opts); }, { color: 0x0a0a18, ...(opts.wipe || {}) }); }
+  /** the Hall of Memories inside the tower (achievements and challenges as memory shards; swipe right to go back up) */
+  async toHall(opts = {}) { const { HallScene } = await import('./scenes/hall.js'); if (!this.scene) { this.scene = new HallScene(this); return this.scene.enter(opts); } await this.swap(async () => { this.scene = new HallScene(this); await this.scene.enter(opts); }, { color: 0x0a0604, dur: 0.45, ...(opts.wipe || {}) }); }
+  /** the tower-top menu (scenes/tower.js); the story agent ends the prologue here: game.toMenu({ from: 'prologue' }) */
   async toMenu(opts = {}) {
     const { MenuScene } = await import('./scenes/menu.js');
     if (this.scene) return this.swap(async () => { this.scene = new MenuScene(this); await this.scene.enter(opts); }, { color: 0x07050d, ...(opts.wipe || {}) });
     this.scene = new MenuScene(this); await this.scene.enter(opts);
   }
   async newRun() {
-    if (!this.journal.seenPrologue) await this.playPrologue(); // story agent: the prologue plays once, on the first New Run
+    if (!this.journal.seenPrologue) { await this.playPrologue(); return; } // story agent: the prologue plays once, on the first New Run, and ends in the tower-top menu (New Adventure then starts the run)
     save.clearRun(); this.run = newRun(); this.journal.loops++; this.saveJournal();
     await this.toMap(true);
   }
   /** the prologue (src/scenes/prologue.js); { replay: true } from the gallery */
-  async playPrologue(opts = {}) { try { const { playPrologue } = await import('./scenes/prologue.js'); await playPrologue(this, opts); } catch (e) { console.warn('prologue skipped', e); } this.journal.seenPrologue = true; this.saveJournal(); }
+  async playPrologue(opts = {}) { try { const { playPrologue } = await import('./scenes/prologue.js'); await playPrologue(this, opts); } catch (e) { console.warn('prologue skipped', e); await this.toMenu().catch(() => {}); } this.journal.seenPrologue = true; this.saveJournal(); }
   async continueRun() { const d = save.loadRun(); if (!d) return this.newRun(); this.run = restoreRun(d); await this.toMap(); }
   async toMap(first = false) {
     const { MapScene } = await import('./scenes/mapscene.js');
@@ -106,6 +110,14 @@ class Game {
     const { default: Scene } = await import(mod);
     await this.swap(async () => { this.scene = new Scene(this); await this.scene.enter(node); });
   }
+  // an optional boss fight chosen inside an event (the Sphinx, Prometheus' eagle): a battle, then the boss's loot
+  async eventBattle(enc) {
+    const run = this.run; let res;
+    await this.swap(async () => { const bs = new BattleScene(this); this.scene = bs; res = bs.run(run, enc); await new Promise((r) => { const w = () => (bs.ready ? bs.ready.then(r) : setTimeout(w, 30)); w(); }); }, { mode: 1 });
+    const r = await res; if (!r.won) return this.gameOver(r); run.stats.elites++;
+    const rewards = battleRewards(run, 'elite', enc.enemies); run.gold += rewards.gold;
+    const { RewardScene } = await import('./scenes/reward.js'); await this.swap(async () => { this.scene = new RewardScene(this); await this.scene.enter(rewards, enc); });
+  }
   // the road between nodes: a short, skippable walk in the golden stage before the shop / laboratory
   async travel(node) {
     try { const { TravelScene } = await import('./scenes/travel.js'); let walk; await this.swap(async () => { const tr = new TravelScene(this); this.scene = tr; walk = tr.play(node); await tr.ready; }, { mode: 1 }); await walk; }
@@ -114,14 +126,14 @@ class Game {
   async afterNode() { this.saveRun(); if (this.run.player.hp <= 0) return this.gameOver({}); await this.toMap(); }
   async gameOver(res) {
     const j = this.journal; const r = this.run;
-    j.history.unshift({ loop: r.loop, floor: r.floor + 1, area: r.area, kills: r.stats.kills, bestHit: r.stats.bestHit, combos: r.stats.combos, won: false, date: Date.now(), cause: res.enemies?.join(', ') || 'hubris' });
+    j.history.unshift({ loop: r.loop, floor: r.floor + 1, area: r.area, kills: r.stats.kills, bestHit: r.stats.bestHit, combos: r.stats.combos, healed: r.stats.healed ?? null, fastest: r.stats.fastest ?? null, won: false, date: Date.now(), cause: res.enemies?.join(', ') || 'hubris' });
     j.history = j.history.slice(0, 30); this.saveJournal(); save.clearRun();
     const { EndScene } = await import('./scenes/end.js');
     await this.swap(async () => { this.scene = new EndScene(this); await this.scene.enter(false); }, { color: 0x0b0716 });
   }
   async areaComplete() {
     const j = this.journal; const r = this.run; j.wins++;
-    j.history.unshift({ loop: r.loop, floor: r.floor + 1, area: r.area, kills: r.stats.kills, bestHit: r.stats.bestHit, combos: r.stats.combos, won: true, date: Date.now() });
+    j.history.unshift({ loop: r.loop, floor: r.floor + 1, area: r.area, kills: r.stats.kills, bestHit: r.stats.bestHit, combos: r.stats.combos, healed: r.stats.healed ?? null, fastest: r.stats.fastest ?? null, won: true, date: Date.now() });
     this.saveJournal(); save.clearRun();
     const { EndScene } = await import('./scenes/end.js');
     await this.swap(async () => { this.scene = new EndScene(this); await this.scene.enter(true); }, { color: 0xfff6cf });

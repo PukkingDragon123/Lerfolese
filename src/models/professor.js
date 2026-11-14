@@ -1,4 +1,8 @@
-// Sir Isaac: a cool YOUNG Isaac Newton who LEVITATES and fights with an orbiting APPLE.
+// Sir Isaac: a cool YOUNG Isaac Newton, feet on the ground, who fights with a MAGIC APPLE that orbits him (it bends
+// physics and stops time). GROUNDED: a standing idle with weight shifts and contrapposto, a procedural walk cycle
+// (locomote(speed)), smooth turning (face(ry)), and cinematic apple attacks: throw (a pitcher's wind-up), hurl (a
+// two-handed heave), spin (twirled on a fingertip, then flicked), gravity (hand up, palm slammed down), timestop
+// (palm out, the world freezes), grab (snatch from the air). Each returns its impact time.
 // Body: the Limbo Phobia people port (src/models/limbo, from the user's own game), anime cel-shaded (MeshToon, the
 // engine adds ink outlines): long wavy 17th-century hair, a long dark scholar-battlemage coat with brass buttons and
 // gold rune trim, burgundy waistcoat, white lace cravat, boots. He floats with a gentle bob, coat tails drifting, a
@@ -18,7 +22,7 @@ import { runeRingTex } from '../gfx/pixeltex.js';
 
 const { hex } = K;
 const TAU = Math.PI * 2;
-const HEIGHT = 1.88, FLOAT = 0.32;
+const HEIGHT = 1.88, FLOAT = 0; // grounded (he used to levitate 0.32 m)
 const COAT = [30, 34, 56], SHIRT = [242, 236, 224], VEST = [122, 30, 48], BRASS = [240, 196, 84], GOLD = [232, 184, 72];
 const APP = { skin: 0xf2caa6, hair: 0x3e2618, hairStyle: 'wavy', build: 'slim', bodyShape: 0.12, age: 0, face: 3, nose: 0, brows: 2, mouth: 1, ears: 1, eyeColor: 0x5a86b0, facialHair: 'none', height: 1 };
 const OUTFIT = { torso: { tex: 'c_shirt_button', color: 0xf2ece0 }, torsoOuter: { tex: 'c_labcoat', color: 0x1e2238 }, legs: { tex: 'c_slacks', color: 0x2a2028 }, feet: { tex: 'c_shoes_boot', color: 0x1a1418 } };
@@ -163,14 +167,45 @@ const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
 const JOINTS = { hips: 14, spine: 13, chest: 14, neck: 12, head: 11, uarmL: 20, farmL: 17, handL: 13, uarmR: 20, farmR: 17, handR: 13, thighL: 9, shinL: 8, footL: 7, thighR: 9, shinR: 8, footR: 7 };
 // acts with their own choreography (anticipation -> action -> follow-through -> settle)
 const ACT = {
-  throw(a, m) { // reach the apple up behind the head, coil, whip through (release at IMPACT), follow through, settle
-    const up = ss(0, 0.22, m), coil = ss(0.12, 0.32, m) * (1 - ss(0.32, 0.4, m)), whip = ss(0.32, 0.44, m) * (1 - ss(0.6, 1.15, m)), hold = up * (1 - ss(0.33, 0.42, m));
-    a('uarmR', -2.3 * hold + 0.45 * coil - 1.25 * whip, 0, -0.3 * hold - 0.1 * whip); a('farmR', -1.3 * hold - 0.5 * coil - 0.25 * whip); a('handR', 0.5 * coil - 0.7 * whip);
-    a('chest', -0.1 * coil + 0.24 * whip, -0.55 * coil + 0.5 * whip); a('spine', -0.06 * coil + 0.12 * whip, -0.25 * coil + 0.25 * whip); a('head', -0.05 * coil + 0.12 * whip, 0.25 * coil - 0.12 * whip);
-    a('uarmL', -0.85 * coil + 0.3 * whip, 0, 0.45 * coil + 0.3 * whip); a('farmL', -0.9 * coil - 0.45 * whip);
-    a('thighL', -0.45 * coil - 0.3 * whip); a('shinL', 0.55 * coil + 0.35 * whip); a('thighR', 0.3 * whip); a('shinR', 0.25 * coil);
-    return { lean: -0.12 * coil + 0.2 * whip, lift: 0.04 * coil };
+  throw(a, m) { // a pitcher's throw: gather (lead knee up, arm drops back) -> stride -> cock overhead -> whip (release 0.6) -> follow through
+    const gather = ss(0, 0.26, m) * (1 - ss(0.3, 0.46, m)), stride = ss(0.26, 0.48, m) * (1 - ss(0.75, 1.3, m)), cock = ss(0.3, 0.5, m) * (1 - ss(0.54, 0.62, m)), whip = ss(0.54, 0.64, m) * (1 - ss(0.72, 1.25, m)), fol = ss(0.6, 0.8, m) * (1 - ss(0.95, 1.4, m));
+    a('uarmR', 0.7 * gather - 2.5 * cock - 1.1 * whip + 0.3 * fol, 0, -0.35 * gather - 0.5 * cock - 0.15 * whip); a('farmR', -0.4 * gather - 1.7 * cock - 0.2 * whip); a('handR', 0.6 * cock - 0.8 * whip);
+    a('chest', 0.06 * gather - 0.1 * cock + 0.3 * whip + 0.12 * fol, -0.55 * gather - 0.7 * cock + 0.55 * whip); a('spine', -0.04 * cock + 0.16 * whip, -0.25 * gather - 0.3 * cock + 0.3 * whip); a('head', -0.06 * cock + 0.12 * whip, 0.35 * gather + 0.45 * cock - 0.2 * whip);
+    a('uarmL', -1.1 * cock - 0.5 * gather + 0.5 * whip, 0, 0.5 * cock + 0.4 * whip); a('farmL', -0.5 * cock - 0.9 * whip);
+    a('thighL', -1.05 * gather - 0.55 * stride * (1 - gather)); a('shinL', 1.3 * gather + 0.35 * stride * (1 - gather)); a('footL', 0.5 * gather - 0.2 * stride);
+    a('thighR', 0.2 * stride - 0.55 * fol); a('shinR', 0.25 * gather + 0.5 * fol); a('footR', 0.35 * stride);
+    return { lean: 0.04 * gather - 0.1 * cock + 0.26 * whip + 0.1 * fol, drop: 0.05 * stride + 0.04 * gather, fwd: 0.12 * stride + 0.08 * fol };
   },
+  hurl(a, m) { // two-handed heave of something heavy: crouch, rise with it overhead, step and heave (release 0.85)
+    const dip = ss(0, 0.3, m) * (1 - ss(0.3, 0.55, m)), up = ss(0.25, 0.6, m) * (1 - ss(0.78, 0.9, m)), heave = ss(0.78, 0.9, m) * (1 - ss(1.05, 1.5, m)), step = ss(0.6, 0.85, m) * (1 - ss(1.2, 1.6, m));
+    for (const [s, sd] of [[1, 'L'], [-1, 'R']]) { a('uarm' + sd, -0.6 * dip - 2.85 * up - 1.4 * heave, 0, s * (0.25 * dip + 0.15 * up)); a('farm' + sd, -0.9 * dip - 0.5 * up - 0.3 * heave); a('hand' + sd, 0.4 * up); }
+    a('chest', 0.25 * dip - 0.22 * up + 0.35 * heave); a('spine', 0.12 * dip - 0.12 * up + 0.2 * heave); a('head', 0.2 * dip - 0.35 * up + 0.1 * heave);
+    a('thighL', -0.55 * dip - 0.6 * step); a('shinL', 0.9 * dip + 0.35 * step); a('footL', -0.35 * dip); a('thighR', -0.5 * dip + 0.25 * step); a('shinR', 0.85 * dip + 0.3 * step); a('footR', -0.3 * dip + 0.3 * step);
+    return { lean: 0.12 * dip - 0.08 * up + 0.3 * heave, drop: 0.13 * dip + 0.05 * step, fwd: 0.16 * step };
+  },
+  spin(a, m) { // twirl the apple on a raised fingertip, a little showman's sway, then a sidearm flick (release 0.78)
+    const show = ss(0, 0.25, m) * (1 - ss(0.62, 0.72, m)), flick = ss(0.68, 0.8, m) * (1 - ss(0.95, 1.4, m)), sway = Math.sin(m * 9) * show;
+    a('uarmR', -1.2 * show - 0.4 * flick, -0.6 * flick, -0.3 * show - 1.0 * flick); a('farmR', -1.9 * show + 0.2 * flick); a('handR', -0.3 * show);
+    a('chest', 0.02 * sway, -0.5 * show + 0.7 * flick + 0.05 * sway); a('head', -0.15 * show, 0.2 * show - 0.2 * flick); a('uarmL', -0.3 * show, 0, 0.4 * show + 0.3 * flick); a('farmL', -0.9 * show);
+    a('thighL', -0.25 * flick); a('shinL', 0.2 * flick); a('thighR', 0.08 * sway); a('shinR', 0.15 * show);
+    return { lean: 0.15 * flick, drop: 0.03 * flick, fwd: 0.05 * flick };
+  },
+  gravity(a, m) { // a hand raised to the sky (the apple climbs above the foe), rise on the toes, then the palm slams down (0.72)
+    const raise = ss(0, 0.4, m) * (1 - ss(0.6, 0.72, m)), slam = ss(0.6, 0.72, m) * (1 - ss(1.0, 1.5, m));
+    a('uarmR', -3.0 * raise - 1.0 * slam, 0, -0.15 * raise); a('farmR', -0.2 * raise - 0.2 * slam); a('handR', -0.5 * raise + 0.9 * slam);
+    a('uarmL', -0.4 * raise + 0.2 * slam, 0, 0.55 * raise + 0.5 * slam); a('farmL', -0.5 * raise);
+    a('chest', -0.18 * raise + 0.35 * slam); a('head', -0.45 * raise + 0.25 * slam); a('spine', -0.08 * raise + 0.15 * slam);
+    a('footL', 0.35 * raise - 0.3 * slam); a('footR', 0.35 * raise - 0.3 * slam); a('thighL', -0.55 * slam); a('shinL', 0.95 * slam); a('thighR', -0.35 * slam); a('shinR', 0.8 * slam);
+    return { lean: -0.04 * raise + 0.2 * slam, drop: -0.025 * raise + 0.12 * slam, fwd: 0.06 * slam };
+  },
+  timestop(a, m) { // palm thrust out, feet set wide: time freezes (hold), then a click of the fingers lets it go (0.95)
+    const out = ss(0, 0.3, m) * (1 - ss(1.25, 1.75, m)), snap = ss(0.88, 0.98, m) * (1 - ss(1.05, 1.4, m));
+    a('uarmL', -1.45 * out, 0.15 * out, 0.15 * out); a('farmL', -0.12 * out); a('handL', 0.85 * out);
+    a('uarmR', -0.6 * out - 0.5 * snap, 0, -0.4 * out); a('farmR', -1.6 * out - 0.3 * snap); a('handR', 0.3 * snap);
+    a('chest', -0.05 * out, 0.3 * out); a('head', -0.05 * out, -0.2 * out); a('thighL', -0.3 * out, 0, -0.18 * out); a('thighR', 0.15 * out, 0, 0.18 * out); a('shinL', 0.35 * out); a('shinR', 0.25 * out);
+    return { lean: 0.06 * out, drop: 0.06 * out, fwd: 0.03 * out };
+  },
+  grab(a, m) { const r = ss(0, 0.22, m) * (1 - ss(0.3, 0.7, m)), back = ss(0.3, 0.5, m) * (1 - ss(0.65, 0.9, m)); a('uarmR', -1.7 * r - 0.7 * back, 0, -0.2 * r); a('farmR', -0.15 * r - 1.6 * back); a('handR', 0.4 * r); a('chest', 0.08 * r, -0.2 * r + 0.15 * back); a('thighL', -0.2 * r); a('shinL', 0.2 * r); return { lean: 0.12 * r, drop: 0.03 * r, fwd: 0.06 * r }; },
   cast(a, m) { // rise, left palm up under the apple, the right hand traces a sigil, settle
     const rise = ss(0, 0.35, m) * (1 - ss(1.3, 1.7, m)), tr = ss(0.25, 0.5, m) * (1 - ss(1.05, 1.4, m)), g = m * 7.5;
     a('uarmL', -1.15 * rise, 0, 0.3 * rise); a('farmL', -0.6 * rise); a('handL', 0.55 * rise);
@@ -182,7 +217,9 @@ const ACT = {
   dodge(a, m, o) { const out = ss(0, 0.14, m) * (1 - ss(0.45, 0.9, m)); const d = o.dir || 1; a('chest', 0, 0, d * 0.25 * out); a('spine', -0.1 * out, 0, d * 0.15 * out); a('head', 0.1 * out, -d * 0.2 * out, -d * 0.2 * out); a('uarmL', -0.5 * out, 0, (0.6 + d * 0.3) * out); a('uarmR', -0.5 * out, 0, -(0.6 - d * 0.3) * out); a('farmL', -0.8 * out); a('farmR', -0.8 * out);
     a('thighL', -0.7 * out); a('thighR', -0.6 * out); a('shinL', 1.2 * out); a('shinR', 1.1 * out); return { lean: 0, lift: 0.06 * out, side: d * 0.62 * (ss(0, 0.16, m) - ss(0.42, 0.95, m)), roll: -d * 0.32 * (ss(0, 0.1, m) - ss(0.18, 0.7, m)) }; },
 };
-const ACT_DUR = { throw: 1.2, cast: 1.7, eat: 2.1, dodge: 1.0 };
+const ACT_DUR = { throw: 1.45, cast: 1.7, eat: 2.1, dodge: 1.0, hurl: 1.6, spin: 1.45, gravity: 1.5, timestop: 1.8, grab: 0.9 };
+const ACT_IMPACT = { throw: 0.6, hurl: 0.85, spin: 0.78, gravity: 0.72, timestop: 0.95, grab: 0.3 };
+const ATTACKS = ['throw', 'hurl', 'spin', 'gravity', 'timestop', 'grab'];
 const IDLES = ['float', 'chill', 'think', 'ponder', 'invent', 'write'];
 export function createProfessor() {
   const root = new THREE.Group(); root.name = 'professor';
@@ -190,7 +227,7 @@ export function createProfessor() {
   const L = new LimboBody(APP, OUTFIT, { hook: heroHook, overrides: { hairVolume: 1.25, blush: 0.05, eyeW: 0.9, eyeH: 0.78 }, lowpoly: true }); // realistic low poly: octagon rings, believable eyes
   L.gg.paintAll(L.spec, L.app, {}, 'base'); // repaint without the anime median clean-up: keep the realistic texel detail
   L.mesh.material.flatShading = true; L.mesh.material.needsUpdate = true; const sc = HEIGHT / L.P.crown; L.root.scale.setScalar(sc); body.add(L.root);
-  pixelCloth(L); const B = L.bones; const anim = new LimboAnim(L, { sway: 0.6 });
+  pixelCloth(L); const B = L.bones; const anim = new LimboAnim(L, { sway: 0.6 }); const HIP_H = L.dims.off.hips[1] * sc; // grounded crouch depth unit
   L.attach(wavyLocks(L.P), B.hair ? 'hair' : 'head'); const jabot = laceJabot(L, sc);
   const head = new THREE.Group(); B.head.add(head); head.position.set(0, 0.12, 0.03); const jaw = new THREE.Group(); head.add(jaw); jaw.position.set(0, -0.06, 0.06);
   const headTop = new THREE.Group(); B.head.add(headTop); headTop.position.set(0, 0.22, 0.01);
@@ -216,6 +253,7 @@ export function createProfessor() {
   const st = { t: Math.random() * 5, mode: 'idle', modeT: 9, talk: 0, look: new THREE.Vector2(), expr: 'smug', shown: '', hold: 0, blink: 0, orbit: 0, orbitSpd: 1.3, dead: 0, count: 1, bitten: 0,
     lift: sp(FLOAT, 5, 0.45), kx: sp(0, 6, 0.5), kz: sp(0, 6, 0.5), spin: sp(0, 6, 0.6), tilt: sp(0, 7, 0.4), jolt: sp(0, 14, 0.35),
     idleMode: 'battle', idle: 'float', idleT: 0, nextIdle: 8, lock: null, w: Object.fromEntries([...IDLES, 'sleep'].map((k) => [k, k === 'float' ? 1 : 0])), appleVis: 1, twitch: 0, onDone: null, done: null, actOut: null, actOpts: {},
+    walkK: 0, walkPh: 0, walkSpd: 0, faceRy: null, squash: sp(0, 9, 0.4), appleOut: 0,
     ws: sp(0, 2.2, 0.9), wsT: 2, gx: sp(0, 6, 0.85), gy: sp(0, 6, 0.85), glanceT: 3, glance: 0, leanX: sp(0, 6, 0.7), leanZ: sp(0, 6, 0.7), hairX: sp(0, 9, 0.32), hairZ: sp(0, 9, 0.32), coatX: sp(0.12, 6, 0.3), coatZ: sp(0, 6, 0.3), jabX: sp(0, 11, 0.3), jabZ: sp(0, 11, 0.3),
     ikL: sp(0, 9, 1), ikR: sp(0, 9, 1), reachT: 9, tgR: new THREE.Vector3(), tgL: new THREE.Vector3(), prev: new THREE.Vector3(), vel: new THREE.Vector3() };
   const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3(), inv = new THREE.Matrix4();
@@ -224,16 +262,18 @@ export function createProfessor() {
   const ease = (x) => { const c = Math.min(1, Math.max(0, x)); return c * c * (3 - 2 * c); };
   // ------------------------------------------------ poses (joint offsets, scaled by their blend weight k)
   const POSE = {
-    float(a, t) { a('thighL', -0.14 + Math.sin(t * 1.6) * 0.04); a('thighR', -0.06 + Math.sin(t * 1.6 + 1) * 0.04); a('shinL', 0.36); a('shinR', 0.18); a('footL', 0.55); a('footR', 0.45); a('chest', -0.04); a('head', -0.06, 0, 0.05); },
-    chill(a, t) { a('uarmL', -2.65, 0, 0.55); a('uarmR', -2.65, 0, -0.55); a('farmL', -1.95); a('farmR', -1.95); a('head', 0.42, Math.sin(t * 0.4) * 0.15, 0.06); a('thighL', -0.35, 0, -0.14); a('thighR', -0.28, 0, 0.16); a('shinL', 0.12); a('shinR', 0.1); a('footL', 0.45); a('footR', 0.45); a('chest', -0.05); },
-    think(a, t) { a('uarmR', -0.5, 0, -1.2); a('farmR', -2.1); a('handR', -0.4); a('head', 0.15, -0.15, -0.08); a('uarmL', -0.3, 0, 0.35); a('farmL', -1.4); a('thighL', -0.14); a('shinL', 0.36); a('footL', 0.55); a('footR', 0.45); a('shinR', 0.2); },
-    ponder(a, t) { a('uarmR', -1.15, 0, -0.35); a('farmR', -2.0 + Math.sin(t * 5) * 0.08); a('handR', -0.3); a('uarmL', 0.35, 0, 0.1); a('farmL', -1.2); a('head', 0.12 + Math.sin(t * 0.7) * 0.08, Math.sin(t * 0.9) * 0.55, Math.sin(t * 0.6) * 0.08); a('thighL', -0.1 + Math.sin(t * 2) * 0.12); a('thighR', -0.1 - Math.sin(t * 2) * 0.12); a('shinL', 0.3); a('shinR', 0.3); a('footL', 0.5); a('footR', 0.5); },
-    invent(a, t) { a('uarmL', -0.95 + Math.sin(t * 3) * 0.06, 0, 0.25); a('uarmR', -0.95 + Math.sin(t * 3.4 + 1) * 0.06, 0, -0.25); a('farmL', -0.95); a('farmR', -1.0); a('handL', 0.3); a('handR', 0.3); a('head', 0.32); a('thighL', -0.2); a('thighR', -0.1); a('shinL', 0.4); a('shinR', 0.3); a('footL', 0.5); a('footR', 0.5); },
-    write(a, t) { a('uarmL', -0.75, 0, 0.3); a('farmL', -1.2); a('handL', 0.4); a('uarmR', -0.85 + Math.sin(t * 9) * 0.03, 0, -0.15); a('farmR', -1.05 + Math.sin(t * 13) * 0.05); a('handR', 0.5 + Math.sin(t * 11) * 0.1); a('head', 0.4, -0.05); a('chest', 0.06); a('thighL', -0.4); a('thighR', -0.35); a('shinL', 0.9); a('shinR', 0.8); a('footL', 0.4); a('footR', 0.4); },
+    float(a, t) { // (the old key) standing idle: weight on the right leg, the left knee relaxed, a hand at the coat
+      a('thighL', -0.08, 0, -0.06); a('shinL', 0.16); a('footL', -0.06); a('thighR', 0.03, 0, 0.04); a('shinR', 0.02); a('hips', 0, 0.06, -0.04); a('chest', -0.03, -0.05, 0.03); a('head', -0.04, 0.08, 0.02);
+      a('uarmR', 0.05, 0, -0.08); a('farmR', -0.5); a('uarmL', -0.12, 0, 0.12); a('farmL', -0.35); },
+    chill(a, t) { a('uarmL', -2.65, 0, 0.55); a('uarmR', -2.65, 0, -0.55); a('farmL', -1.95); a('farmR', -1.95); a('head', -0.12, Math.sin(t * 0.4) * 0.15, 0.06); a('thighL', -0.06, 0, -0.1); a('thighR', 0.04, 0, 0.12); a('shinL', 0.1); a('footL', -0.05); a('hips', 0, 0, -0.05); a('chest', 0.06); },
+    think(a, t) { a('uarmR', -0.5, 0, -1.2); a('farmR', -2.1); a('handR', -0.4); a('head', 0.15, -0.15, -0.08); a('uarmL', -0.3, 0, 0.35); a('farmL', -1.4); a('thighL', -0.06, 0, -0.05); a('shinL', 0.14); a('footL', -0.05); },
+    ponder(a, t) { a('uarmR', -1.15, 0, -0.35); a('farmR', -2.0 + Math.sin(t * 5) * 0.08); a('handR', -0.3); a('uarmL', 0.35, 0, 0.1); a('farmL', -1.2); a('head', 0.12 + Math.sin(t * 0.7) * 0.08, Math.sin(t * 0.9) * 0.55, Math.sin(t * 0.6) * 0.08); a('thighL', -0.04); a('shinL', 0.08); },
+    invent(a, t) { a('uarmL', -0.95 + Math.sin(t * 3) * 0.06, 0, 0.25); a('uarmR', -0.95 + Math.sin(t * 3.4 + 1) * 0.06, 0, -0.25); a('farmL', -0.95); a('farmR', -1.0); a('handL', 0.3); a('handR', 0.3); a('head', 0.32); a('thighL', -0.05); a('shinL', 0.1); },
+    write(a, t) { a('uarmL', -0.75, 0, 0.3); a('farmL', -1.2); a('handL', 0.4); a('uarmR', -0.85 + Math.sin(t * 9) * 0.03, 0, -0.15); a('farmR', -1.05 + Math.sin(t * 13) * 0.05); a('handR', 0.5 + Math.sin(t * 11) * 0.1); a('head', 0.4, -0.05); a('chest', 0.06); a('thighL', -0.06); a('shinL', 0.12); a('footL', -0.06); },
     sleep(a, t) { a('uarmL', -2.7, 0, 0.6); a('uarmR', -2.7, 0, -0.6); a('farmL', -2.0); a('farmR', -2.0); a('chest', Math.sin(t * 1.1) * 0.04); a('head', 0.25 + Math.sin(t * 1.1) * 0.02, 0.35, 0.1); a('thighL', -0.7); a('shinL', 1.3); a('thighR', -0.08, 0, 0.12); a('shinR', 0.05); a('footR', 0.3); },
   };
   // body offsets per pose: [lift (m), rotX (recline), posZ, posX]
-  const BODY = { float: [FLOAT, 0, 0, 0], chill: [0.95, -1.0, 0.25, 0], think: [FLOAT, 0, 0, 0], ponder: [FLOAT + 0.05, 0, 0, 0], invent: [FLOAT, 0, 0, 0], write: [FLOAT + 0.1, -0.15, 0, 0], sleep: [0.08, -1.42, 0.0, 0] };
+  const BODY = { float: [0, 0, 0, 0], chill: [0, -0.06, 0, 0], think: [0, 0, 0, 0], ponder: [0, 0, 0, 0], invent: [0, 0, 0, 0], write: [0, 0.04, 0, 0], sleep: [0.08, -1.42, 0.0, 0] }; // grounded
   const bonkPose = (a, m) => { // ~2.5 s from lying asleep: jolt -> sit up rubbing head -> look up -> EUREKA finger up -> rise into the float
     const sit = ease((m - 0.12) / 0.5), rub = m > 0.25 && m < 1.0 ? 1 : 0, look = ease((m - 0.9) / 0.3) * (1 - ease((m - 2.0) / 0.4)), eur = ease((m - 1.35) / 0.25) * (1 - ease((m - 2.15) / 0.3));
     a('uarmR', -2.3 * rub - 2.6 * eur, 0, -0.5 * rub); a('farmR', (-1.7 + Math.sin(m * 22) * 0.25) * rub - 0.2 * eur); a('handR', 0.4 * rub - 0.5 * eur);
@@ -242,11 +282,22 @@ export function createProfessor() {
     const legs = 1 - ease((m - 1.9) / 0.5); a('thighL', -1.3 * sit * legs); a('thighR', -1.2 * sit * legs); a('shinL', 1.6 * sit * legs); a('shinR', 1.5 * sit * legs);
     return { lift: 0.08 + (FLOAT - 0.08) * ease((m - 1.95) / 0.5), rotX: -1.42 * (1 - sit) * (1 - ease((m - 1.9) / 0.4)) };
   };
-  anim.extra = (add, t) => {
+  anim.extra = (add, t, A) => {
     const md = st.mode, m = st.modeT;
+    // the walk cycle (locomote): legs swing and plant, the swing knee folds, arms counter-swing, hips roll, a heel-strike bob
+    const wk = st.walkK; if (wk > 0.003) { const ph = st.walkPh, sL = Math.sin(ph), cL = Math.cos(ph), sw = (c) => Math.pow(Math.max(0, c), 1.3); const kk = wk * (1 - (st.w.sleep || 0));
+      add('thighL', -0.5 * sL * kk); add('thighR', 0.5 * sL * kk); add('shinL', (0.08 + 0.95 * sw(cL)) * kk); add('shinR', (0.08 + 0.95 * sw(-cL)) * kk);
+      add('footL', (-0.28 * sw(cL) + 0.22 * sL) * kk); add('footR', (-0.28 * sw(-cL) - 0.22 * sL) * kk);
+      if (!ATTACKS.includes(md)) { add('uarmL', 0.42 * sL * kk, 0, 0.04 * kk); add('uarmR', -0.42 * sL * kk, 0, -0.04 * kk); add('farmL', -0.25 * kk); add('farmR', -0.25 * kk); }
+      add('chest', 0.06 * kk, 0.14 * sL * kk); add('hips', 0, -0.12 * sL * kk, 0.04 * sL * kk); add('head', -0.04 * kk, -0.08 * sL * kk); }
+
     for (const k in st.w) { const w = st.w[k]; if (w > 0.002) POSE[k]((j, x = 0, y = 0, z = 0) => add(j, x * w, y * w, z * w), t); }
     if (md === 'bonk') bonkPose(add, m);
     st.actOut = ACT[md] && m < ACT_DUR[md] ? ACT[md](add, m, st.actOpts) : null;
+    // grounded: a hip drop (crouch / stride / impact) bends both knees and keeps the feet planted
+    const dropK = Math.max(0, (st.actOut?.drop || 0) + st.squash.value * 0.08 + (st.walkK * (Math.abs(Math.cos(st.walkPh)) * 0.025)));
+    st.dropK = dropK; if (dropK > 0.002) { const th = Math.sqrt(2 * Math.min(0.4, dropK)) * 0.9; for (const sd of ['L', 'R']) { add('thigh' + sd, -th); add('shin' + sd, th * 2); add('foot' + sd, -th); } }
+    if (A) A.fwd = (A.fwd || 0) + (st.actOut?.fwd || 0);
     // breathing (chest and shoulders), slow weight shifts, legs trailing them
     const br = Math.sin(t * 1.05), wsv = st.ws.value; add('chest', br * 0.022); add('uarmL', 0, 0, br * 0.018); add('uarmR', 0, 0, -br * 0.018); add('neck', -br * 0.01);
     add('hips', 0, wsv * 0.05, wsv * 0.05); add('spine', 0, -wsv * 0.03, -wsv * 0.04); add('thighL', wsv * 0.08); add('thighR', -wsv * 0.08); add('shinL', Math.max(0, wsv) * 0.12); add('shinR', Math.max(0, -wsv) * 0.12);
@@ -304,7 +355,7 @@ export function createProfessor() {
   const pickIdle = () => { const pool = ['chill', 'ponder', 'invent', 'write', 'think'].filter((k) => k !== st.idle); st.idle = pool[Math.floor(Math.random() * pool.length)]; st.idleT = 0; st.nextIdle = 6 + Math.random() * 4; };
 
   const api = {
-    root, head, jaw, ctrl, arms, legs, torso, body, ghost, impactTime: IMPACT,
+    root, head, jaw, ctrl, arms, legs, torso, body, ghost, impactTime: ACT_IMPACT.throw, actImpact: ACT_IMPACT, actDur: ACT_DUR,
     get mode() { return st.mode; }, get modeT() { return st.modeT; },
     handWorld(i = 1, out = new THREE.Vector3()) { root.updateMatrixWorld(true); return hands[i].getWorldPosition(out); },
     headWorld(out = new THREE.Vector3()) { root.updateMatrixWorld(true); return head.getWorldPosition(out); },
@@ -329,31 +380,40 @@ export function createProfessor() {
       st.mode = mode; st.modeT = 0; st.actOpts = opts;
       if (mode === 'dodge') { st.actOpts = { dir: opts.dir ?? (Math.random() < 0.5 ? -1 : 1) }; st.expr = 'shock'; st.hold = 0.7; return 0.16; }
       if (mode === 'bonk') { st.jolt.kick(14); st.onDone = opts.onDone || null; L.setExpression('surprised'); st.shown = 'bonk'; return new Promise((res) => { st.done = res; }); }
-      if (mode === 'throw') { st.count = Math.max(1, opts.count | 0 || 1); st.expr = 'smug'; st.hold = 1; return IMPACT; }
+      if (mode === 'throw') { st.count = Math.max(1, opts.count | 0 || 1); st.expr = 'smug'; st.hold = 1; st.appleOut = opts.object ? 1 : 0; return ACT_IMPACT.throw; }
+      if (ATTACKS.includes(mode)) { st.expr = mode === 'timestop' || mode === 'gravity' ? 'annoyed' : 'smug'; st.hold = ACT_DUR[mode]; st.appleOut = opts.object ? 1 : 0; if (mode === 'gravity' || mode === 'timestop') L.setExpression('angry', 0.4); return ACT_IMPACT[mode]; }
       if (mode === 'cast') { L.setExpression('surprised', 0.4); st.hold = 0; }
       if (mode === 'think') { st.expr = 'think'; st.hold = 2.2; }
       if (mode === 'eat') { st.expr = 'delight'; st.hold = 2.4; }
-      if (mode === 'hurt') { anim.play('hit'); st.kz.kick(-6); st.kx.kick(3); st.spin.kick(-4); st.lift.kick(-2); st.expr = 'hurt'; st.hold = 1.0; }
-      if (mode === 'cheer') { anim.play('cheer'); st.spin.target += TAU; st.lift.kick(4); st.expr = 'delight'; st.hold = 1.5; }
+      if (mode === 'hurt') { anim.play('hit'); st.kz.kick(-6 * (opts.k ?? 1)); st.kx.kick(3); st.spin.kick(-3); st.squash.kick(7 * (opts.k ?? 1)); st.expr = 'hurt'; st.hold = 1.0; }
+      if (mode === 'cheer') { anim.play('cheer'); st.spin.target += TAU; st.lift.kick(3); st.expr = 'delight'; st.hold = 1.5; }
       if (mode === 'die') { anim.play('death', { hold: true }); st.dead = 1; }
       return undefined;
     },
+    /** grounded locomotion: ground speed in m/s (the scene moves root); the walk cycle blends in above ~0.12 m/s */
+    locomote(speed = 0) { st.walkSpd = Math.max(0, speed); },
+    /** turn smoothly to a heading (root.rotation.y), or null to stop steering */
+    face(ry) { st.faceRy = ry; },
+    get walking() { return st.walkK > 0.3; },
     update(dt) {
       dt = Math.min(dt, 0.05); st.t += dt; st.modeT += dt; const t = st.t, md = st.mode, m = st.modeT;
       const dur = { think: 2.3, bonk: 2.5, ...ACT_DUR }[md] ?? 1.6;
       if (md !== 'idle' && md !== 'die' && md !== 'sleep' && m > dur) { st.mode = 'idle'; if (md === 'bonk') { st.shown = ''; st.onDone?.(); st.done?.(); st.onDone = st.done = null; } }
       // which pose is wanted, blended smoothly
       st.idleT += dt; if (st.idleMode === 'menu' && st.mode === 'idle' && st.idleT > st.nextIdle) pickIdle();
-      const busy = ['throw', 'cast', 'eat', 'hurt', 'cheer', 'bonk', 'die', 'dodge'].includes(st.mode);
+      const busy = ['throw', 'cast', 'eat', 'hurt', 'cheer', 'bonk', 'die', 'dodge', ...ATTACKS].includes(st.mode);
+      // walking: blend the cycle in / out with the ground speed; one stride (two steps) covers ~1.45 m; turn toward face(ry)
+      { const want = st.walkSpd > 0.12 && !st.dead ? 1 : 0; st.walkK += (want - st.walkK) * (1 - Math.exp(-dt * (want ? 7 : 5))); st.walkPh += dt * Math.max(st.walkSpd, st.walkK * 0.9) * (TAU / 1.45);
+        if (st.faceRy != null) { let d = st.faceRy - root.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); root.rotation.y += d * Math.min(1, dt * 6); } }
       const want = st.mode === 'sleep' ? 'sleep' : st.mode === 'think' ? 'think' : busy ? 'float' : st.idleMode === 'menu' || st.idleMode === 'lock' ? st.idle : 'float';
       for (const k in st.w) st.w[k] += ((k === want && st.mode !== 'bonk' ? 1 : 0) - st.w[k]) * Math.min(1, dt * (st.mode === 'bonk' ? 6 : 2.2));
       // body: blended levitation height, recline and drift; knockback springs; dying drops him
       let lift = 0, rotX = 0, pz = 0, px = 0, ws = 0; for (const k in st.w) { const w = st.w[k]; ws += w; lift += BODY[k][0] * w; rotX += BODY[k][1] * w; pz += BODY[k][2] * w; px += BODY[k][3] * w; } if (ws > 1e-3) { lift /= ws; rotX /= ws; pz /= ws; px /= ws; } else lift = FLOAT; // normalised blend: never snaps
       if (st.mode === 'bonk') { const b = bonkPose(() => {}, m); lift = b.lift; rotX = b.rotX; }
-      px += st.w.ponder * Math.sin(t * 0.45) * 0.45; const bob = (1 - st.w.sleep) * (st.mode === 'bonk' ? 0 : 1) * Math.sin(t * 1.6) * 0.05;
-      st.lift.target = st.dead ? -0.02 : lift + bob; for (const k of ['lift', 'kx', 'kz', 'spin', 'tilt', 'jolt']) st[k].update(dt);
+      px += st.w.ponder * Math.sin(t * 0.45) * 0.45; const bob = 0; // grounded: no levitation bob
+      st.lift.target = st.dead ? 0 : lift + bob; for (const k of ['lift', 'kx', 'kz', 'spin', 'tilt', 'jolt', 'squash']) st[k].update(dt); if (st.lift.value < 0 && st.w.sleep < 0.5) { st.lift.value = 0; st.lift.vel = Math.max(0, st.lift.vel); }
       st.tilt.target = md === 'hurt' && m < 0.6 ? -0.35 : 0;
-      const ao = st.actOut || {}; body.position.set(st.kx.value * 0.1 + px + (ao.side || 0) + st.ws.value * 0.02, st.lift.value + st.jolt.value * 0.02 + (ao.lift || 0), st.kz.value * 0.1 + pz);
+      const ao = st.actOut || {}; body.position.set(st.kx.value * 0.1 + px + (ao.side || 0) + st.ws.value * 0.02, st.lift.value + st.jolt.value * 0.02 + (ao.lift || 0) - (st.dropK || 0) * HIP_H, st.kz.value * 0.1 + pz);
       if (dt > 0) { st.vel.subVectors(body.position, st.prev).multiplyScalar(1 / dt); st.vel.clampLength(0, 6); } st.prev.copy(body.position);
       st.leanX.target = clampN(st.vel.z * 0.22 + (ao.lean || 0), -0.4, 0.4); st.leanZ.target = clampN(-st.vel.x * 0.28 + (ao.roll || 0), -0.45, 0.45); st.leanX.update(dt); st.leanZ.update(dt); // tilt into motion
       body.rotation.set(st.tilt.value + rotX + st.leanX.value, st.spin.value + st.w.ponder * Math.cos(t * 0.45) * 0.6, Math.sin(t * 0.9) * 0.03 * (1 - st.w.sleep) + st.leanZ.value);
@@ -377,9 +437,10 @@ export function createProfessor() {
       st.orbitSpd += ((st.w.think > 0.5 ? 0.25 : st.w.chill > 0.5 ? 0.5 : 1.3) - st.orbitSpd) * Math.min(1, dt * 3); st.orbit += dt * st.orbitSpd;
       const a = st.orbit; const orbitPos = tmp.set(Math.cos(a) * 0.62 + px, st.lift.value + 1.22 + Math.sin(a * 2) * 0.08, Math.sin(a) * 0.55 + pz);
       let pos = orbitPos.clone(); apple.rotation.y += dt * 2; apple.rotation.z = Math.sin(t * 1.3) * 0.2;
-      if (md === 'throw' && m < 1.4) {
+      const TI = ACT_IMPACT.throw;
+      if (md === 'throw' && m < 1.45) {
         const hand = localOf(hands[1], tmp2); const fwd = new THREE.Vector3(0.25, 1.35, 3.2);
-        if (m < 0.36) pos.lerp(hand, ss(0, 0.2, m)); else if (m < IMPACT) pos.copy(hand).lerp(fwd, (m - 0.36) / (IMPACT - 0.36)); else if (m < 1.0) pos.copy(fwd).lerp(orbitPos, (m - IMPACT) / (1.0 - IMPACT)).add(new THREE.Vector3(0, Math.sin((m - IMPACT) / (1 - IMPACT) * Math.PI) * 0.6, 0));
+        if (m < TI - 0.04) pos.lerp(hand, ss(0, 0.25, m)); else if (m < TI + 0.12) pos.copy(hand).lerp(fwd, (m - TI + 0.04) / 0.16); else if (m < 1.2) pos.copy(fwd).lerp(orbitPos, (m - TI - 0.12) / (1.08 - TI)).add(new THREE.Vector3(0, Math.sin(Math.min(1, (m - TI - 0.12) / (1.08 - TI)) * Math.PI) * 0.6, 0));
         apple.rotation.x += dt * 18;
         while (extras.length < st.count - 1) { const e = makeApple(); ctrl.add(e); extras.push(e); }
         extras.forEach((e, i) => { e.visible = m > 0.3 && m < 1.0; const s2 = (i + 1) * (i % 2 ? -1 : 1) * 0.55; e.position.copy(pos).add(new THREE.Vector3(s2, Math.abs(s2) * 0.3, -Math.abs(s2) * 0.2).multiplyScalar(Math.sin(Math.min(1, Math.max(0, (m - 0.3) / 0.25)) * Math.PI / 2) * (m < IMPACT ? 1 : Math.max(0, 1 - (m - IMPACT) * 2)))); e.rotation.x += dt * 18; });
@@ -387,11 +448,22 @@ export function createProfessor() {
       if (md === 'cast' && m < ACT_DUR.cast) { const palm = localOf(hands[0], tmp2); pos.lerp(palm.add(new THREE.Vector3(0.0, 0.14 + Math.sin(m * 6) * 0.015, 0.03)), ss(0.05, 0.4, m) * (1 - ss(1.3, 1.7, m))); apple.rotation.y += dt * (6 + 10 * ss(0.4, 1.1, m)); }
       if (md === 'eat' && m < ACT_DUR.eat) { const hd = localOf(hands[1], tmp2).add(new THREE.Vector3(0, 0.03, 0.03)); const k = ss(0.05, 0.4, m) * (1 - ss(1.5, 1.95, m)); pos.lerp(hd, k); if (m > 0.6 && !st.bitten) { st.bitten = 1; apple.userData.bite(true); L.talk(0.7); } }
       if (st.bitten && md !== 'eat') { st.bitten += dt; if (st.bitten > 2.5) { st.bitten = 0; apple.userData.bite(false); } }
+      // the other apple attacks: in the hand / on a fingertip / overhead / before the open palm, then away and home again
+      if (ATTACKS.includes(md) && md !== 'throw' && m < ACT_DUR[md]) {
+        const I = ACT_IMPACT[md], hold = ss(0.02, 0.25, m) * (1 - ss(I + 0.05, Math.min(ACT_DUR[md], I + 0.6), m)); const tgt = tmp2;
+        if (md === 'spin') { localOf(hands[1], tgt).add(new THREE.Vector3(0, 0.12, 0)); apple.rotation.y += dt * 26; }
+        else if (md === 'hurl') { localOf(hands[0], tgt).add(localOf(hands[1], new THREE.Vector3())).multiplyScalar(0.5).add(new THREE.Vector3(0, 0.08, 0.04)); }
+        else if (md === 'timestop') { localOf(hands[0], tgt).add(new THREE.Vector3(0.0, 0.05, 0.22)); apple.rotation.y += dt * (m < I ? 1 : 12); }
+        else localOf(hands[1], tgt).add(new THREE.Vector3(0, md === 'gravity' ? 0.14 : 0.03, 0.03));
+        if (m > I && m < I + 0.25 && md !== 'timestop') tgt.lerp(new THREE.Vector3(0.3, 1.4, 3.0), ss(I, I + 0.12, m));
+        pos.lerp(tgt, hold);
+      }
+      if (st.appleOut && (!ATTACKS.includes(md) || m > ACT_DUR[md] - 0.3)) st.appleOut = Math.max(0, st.appleOut - dt * 3);
       if (st.dead) pos.y = Math.max(0.08, pos.y - st.modeT * 1.2);
-      st.appleVis += ((st.mode === 'sleep' || (st.mode === 'bonk' && m < 1.9) ? 0 : 1) - st.appleVis) * Math.min(1, dt * 4); apple.scale.setScalar(Math.max(0.001, st.appleVis)); apple.visible = st.appleVis > 0.02;
+      st.appleVis += ((st.mode === 'sleep' || (st.mode === 'bonk' && m < 1.9) || st.appleOut > 0.5 ? 0 : 1) - st.appleVis) * Math.min(1, dt * 4); apple.scale.setScalar(Math.max(0.001, st.appleVis)); apple.visible = st.appleVis > 0.02;
       ctrl.position.set(0, 0, 0); apple.position.copy(pos);
       // ground shimmer and dust (only while floating)
-      const f = (st.dead ? Math.max(0, 1 - st.modeT) : 1) * (1 - st.w.sleep) * (st.mode === 'bonk' ? ease((m - 1.9) / 0.5) : 1); shim.rotation.z = t * 0.3; shim.material.opacity = (0.16 + Math.sin(t * 2.2) * 0.05) * f; shim.scale.setScalar(1 + Math.sin(t * 1.6) * 0.04); shim.position.x = px; shim.position.z = pz;
+      const f = 0; void ease; // grounded: no levitation shimmer or dust ring shim.rotation.z = t * 0.3; shim.material.opacity = (0.16 + Math.sin(t * 2.2) * 0.05) * f; shim.scale.setScalar(1 + Math.sin(t * 1.6) * 0.04); shim.position.x = px; shim.position.z = pz;
       for (let i = 0; i < ND; i++) { const [a0, r0, s0] = dseed[i]; const ph = (t * 0.25 * s0 + r0) % 1; const r = 0.25 + ph * 0.5; dp.set([px + Math.cos(a0 + t * 0.2) * r, 0.03 + Math.sin(ph * Math.PI) * 0.12, pz + Math.sin(a0 + t * 0.2) * r], i * 3); }
       dg.attributes.position.needsUpdate = true; dust.material.opacity = 0.55 * f; dust.visible = f > 0.02;
     },

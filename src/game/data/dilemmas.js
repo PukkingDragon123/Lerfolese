@@ -129,6 +129,44 @@ export const DILEMMAS = {
   },
 };
 DILEMMAS.minotaur_king = DILEMMAS.minotaur; DILEMMAS.hydra_elder = DILEMMAS.hydra;
+Object.assign(DILEMMAS, {
+  frog_wizard: {
+    title: "Croakley's Viva", speaker: 'foe', intro: ['Ribbit. An examination needs a question. Here is mine: what will you GIVE for an answer?'],
+    prompt: 'The toad-wizard taps his crystal. It hums with unlocked laws.',
+    options: [
+      { label: 'Kiss the crystal', act: 'grab', sub: 'A Hypothesis+ and a Notebook now · you are Frail 2 (Block ×0.75)', fx: { cards: ['hypothesis', 'notebook'], st: { frail: 2 } }, reply: 'Ha! Nobody kisses the crystal. Bold. Unhygienic. Bold.' },
+      { label: 'Recite the Principia', act: 'answer', sub: 'He is Weak 2 · lose 2 cards from your hand', fx: { foeSt: { weak: 2 }, loseHand: { base: 'any', n: 2 } }, reply: 'Hm. Hmmm. Acceptable. Lex secunda was a little rushed.' },
+      { label: 'Refuse the exam', act: 'refuse', sub: 'Block 12 · he gains Strength +3', fx: { block: 12, foeSt: { strength: 3 } }, reply: 'Then I shall grade you on PAIN.' },
+    ],
+  },
+  bookworm_queen: {
+    title: 'The Last Page', speaker: 'foe', intro: ['Sssscholar. Feed my brood one of your books, and I sssshall spare a chapter.'],
+    prompt: 'The queen sways over you, mandibles clicking. Her brood waits.',
+    options: [
+      { label: 'Feed her a card', act: 'give', sub: 'Lose 1 card from your deck for good · every foe is Weak 2', fx: { loseDeck: 1, foesSt: { weak: 2 } }, reply: 'Mmm. Sssavoury. A little dry.' },
+      { label: 'Light a page', act: 'grab', sub: 'Every foe Burns 5 · you take 6', fx: { foesSt: { burn: 5 }, hurt: 6 }, reply: 'FIRE! In a LIBRARY?! Monssster!' },
+      { label: 'Read to the brood', act: 'answer', sub: 'Block 10 · draw 2 · she gains Strength +2', fx: { block: 10, draw: 2, foeSt: { strength: 2 } }, reply: 'They are... lisstening. How dare you.' },
+    ],
+  },
+  sphinx: {
+    title: 'The Final Question', speaker: 'foe', intro: ['Since you insist on violence: one question, scholar. Answer and bleed less.'],
+    prompt: 'The Sphinx raises a paw. The pencil hovers.',
+    options: [
+      { label: '"Man."', act: 'answer', sub: 'She is Vulnerable 2 and Weak 1', fx: { foeSt: { vulnerable: 2, weak: 1 } }, reply: 'Correct. You have read Sophocles. I HATE that.' },
+      { label: '"A very long caterpillar."', act: 'answer', sub: '50%: she laughs (Stunned 1) · 50%: she bites (take 14)', fx: { odds: { p: 0.5, yes: { foeSt: { stun: 1 } }, no: { hurt: 14 } } }, reply: 'Hrrrk. HA. ...No.' },
+      { label: 'Steal her pencil', act: 'grab', sub: 'A Scratchpad now · she gains Strength +2', fx: { cards: ['scratchpad'], foeSt: { strength: 2 } }, reply: 'My PENCIL! That was a 2B!' },
+    ],
+  },
+  eagle: {
+    title: "The Titan's Liver", speaker: 'foe', intro: ['*the eagle eyes you, then the chained titan, then you again*'],
+    prompt: "Prometheus shouts from the crag: 'Throw it my liver! No, wait, that is MINE!'",
+    options: [
+      { label: 'Offer it an apple', act: 'give', sub: 'Lose an Apple from your hand · it is Weak 2 and Dizzy 1', need: { hand: 'apple' }, fx: { loseHand: { base: 'apple', n: 1 }, foeSt: { weak: 2, dizzy: 1 } }, reply: '*it pecks the apple, baffled*' },
+      { label: 'Drink the titan\'s ambrosia', act: 'drink', sub: 'Heal 14 · you are Vulnerable 2', fx: { heal: 14, st: { vulnerable: 2 } }, reply: 'Prometheus: "That was MY ambrosia!"' },
+      { label: 'Brace for the dive', act: 'brace', sub: 'Block 14 · it gains Strength +2', fx: { block: 14, foeSt: { strength: 2 } }, reply: '*SKRAAAW*' },
+    ],
+  },
+});
 
 /** the dilemma a fight offers (resolved for this battle: a riddle is drawn, unaffordable options are hidden) */
 export function dilemmaFor(B) {

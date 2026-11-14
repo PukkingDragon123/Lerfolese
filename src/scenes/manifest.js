@@ -13,6 +13,15 @@ import { mkCard } from '../game/run.js';
 import { audio } from '../core/audio.js';
 import { tweens } from '../core/tween.js';
 import { baseOf, flatten } from '../game/combos.js';
+import { FloatText } from '../ui3d/floatlabel.js';
+import { attackStyle, Vignette } from './battlecine.js';
+
+// a floating-letter tag (the Tag API: set(text), group, w, update(dt)) for the damage, the multiplier and the target
+class FTag {
+  constructor(text, { color = '#ffe6a8', font = 'num2' } = {}) { this.color = color; this.font = font; this.T = new FloatText([[text, color]], { font, align: 'center', lighten: false }); this.T.show(); this.group = this.T.group; this.w = this.T.w; this.cur = text; }
+  set(text) { if (text === this.cur) return; this.cur = text; this.T.set([[text, this.color]]); this.w = this.T.w; this.T.pop.kick(5); }
+  update(dt) { this.T.update(dt); this.group.scale.multiplyScalar(1); }
+}
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 // the manifest zone: mid-air between Sir Isaac and the foes (the ground below stays the old FIELD drop)
@@ -53,9 +62,11 @@ class HeldView {
     this.dotN = 26; this.dotGeo = new THREE.BufferGeometry(); this.dotGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.dotN * 3), 3));
     this.dots = new THREE.Points(this.dotGeo, new THREE.PointsMaterial({ map: moteTex(), size: 0.4, sizeAttenuation: true, transparent: true, alphaTest: 0.5, depthWrite: false, toneMapped: false })); this.dots.frustumCulled = false; L.S.scene.add(this.dots);
     this.hit = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), new THREE.MeshBasicMaterial({ visible: false })); this.hit.userData.target = { type: 'held', uid: o.uid }; this.g.add(this.hit);
-    this.tag = new Tag('0', { icon: 'sword' }); L.S.ui.root.add(this.tag.group);
-    this.mark = new Tag('TARGET', { icon: 'down', style: 'burn' }); L.S.ui.root.add(this.mark.group); // hangs beside the foe it will hit
-    this.mulTag = new Tag('x1', { style: 'burn' }); this.mulTag.group.visible = false; L.S.ui.root.add(this.mulTag.group); // the product of every multiplier
+    this.tag = new FTag('0', { color: '#ffd27a' }); L.S.ui.root.add(this.tag.group);
+    this.mark = new FTag('TARGET', { color: '#ff8a70', font: 'head' }); L.S.ui.root.add(this.mark.group); // floats beside the foe it will hit
+    this.mulTag = new FTag('x1', { color: '#c8a8ff', font: 'num' }); this.mulTag.group.visible = false; L.S.ui.root.add(this.mulTag.group); // the product of every multiplier
+    // the attack vignette: a little pixel-art panel of Sir Isaac performing this object's strike (appears once it is launched)
+    this.vig = null; this.vigM = new THREE.Mesh(new THREE.PlaneGeometry(64 * 0.034, 40 * 0.034), new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false, depthWrite: false })); this.vigM.visible = false; this.vigS = new Spring(0, 12, 0.5); L.S.ui.root.add(this.vigM);
     this.rebuild(true);
   }
   // the object itself, rebuilt from its current Move art whenever a Law changes it
@@ -63,6 +74,8 @@ class HeldView {
     const pv = this.L.S.battle.heldPreview(this.o); this.pv = pv; this.art = pv.mv.art;
     if (this.model) this.g.remove(this.model);
     this.model = projectileModel(this.art); this.model.scale.multiplyScalar(0.85); this.baseScale = this.model.scale.x; this.g.add(this.model);
+    const a = pv.mv.attack; const style = a.valid && a.launched && !a.fizzle ? attackStyle(pv.mv) : null; const vk = style ? style + ':' + (this.art.core || '') + (this.art.hot ? 'h' : '') + (this.art.electric ? 'e' : '') : null;
+    if (vk !== this.vigKey) { this.vigKey = vk; this.vig?.dispose(); this.vig = style ? new Vignette(style, this.art) : null; if (this.vig) { this.vigM.material.map = this.vig.tex; this.vigM.material.needsUpdate = true; this.vigS.value = 0; this.vigS.target = 1; this.vigS.kick(6); if (!first) { audio.play('page_turn', { vol: 0.35 }); audio.play('magic_sparkle', { vol: 0.35 }); } } else this.vigS.target = 0; }
     this.liftT = this.art.falling ? 0.9 : 0; this.pop = first ? 1 : 0.6;
     this.refresh();
   }
@@ -97,12 +110,13 @@ class HeldView {
     if (a.electric && Math.random() < dt * 10) P.spawn({ pos: [q.x + (Math.random() - 0.5) * 0.6, q.y + (Math.random() - 0.5) * 0.6, q.z], vel: [0, 0, 0], life: 0.15, size: 30, color: '#fff3b0', sprite: 'spark' });
     if (Math.random() < dt * 3) P.spawn({ pos: [top.x, top.y - 0.3, top.z], vel: [0, -2.2, 0], life: 1.6, size: 16, color: '#cdb6f0', sprite: 'star4' });
     // the damage tag hangs just above it, in the UI layer
-    const ui = this.L.S.engine.worldToUI(_t.copy(q).add(V(0, 1.0 + (a.falling ? 0.2 : 0), 0))); uiPos(this.tag.group, ui.x, ui.y, 3); this.tag.group.scale.setScalar(((40 - 3) / 40) * 0.95); this.tag.update(dt, null);
+    const ui = this.L.S.engine.worldToUI(_t.copy(q).add(V(0, 1.0 + (a.falling ? 0.2 : 0), 0))); uiPos(this.tag.group, ui.x, ui.y, 3); this.tag.group.scale.setScalar((40 - 3) / 40); this.tag.update(dt, null);
+    this.vigS.update(dt); const vs = Math.max(0, this.vigS.value); this.vigM.visible = !!this.vig && vs > 0.02 && !this.L.insp; if (this.vigM.visible) { this.vig.update(dt); uiPos(this.vigM, ui.x, ui.y + 1.5, 3.05); this.vigM.scale.set(vs * (40 - 3.05) / 40, Math.max(0.02, vs) * (40 - 3.05) / 40, 1); this.vigM.rotation.z = Math.sin(t * 1.3 + this.seed) * 0.03; }
     if (this.mulTag.group.visible) { uiPos(this.mulTag.group, ui.x + this.tag.w * 0.5 + this.mulTag.w * 0.55 + 0.15, ui.y - 0.12, 3.1); this.mulTag.group.scale.setScalar(((40 - 3.1) / 40) * 0.9); this.mulTag.update(dt, null); }
     const foe = this.pv?.target, fv = foe && this.L.S.enemyViews.get(foe.uid); this.mark.group.visible = !!fv && !this.L.insp;
     if (fv) { const mp = this.L.S.engine.worldToUI(_t.copy(fv.api.root.position).add(V(-0.75, fv.h * 0.62, 0))); const k = this.L.targetSlot(this); uiPos(this.mark.group, mp.x - 1.2, mp.y + k * 0.9, 3.2); this.mark.group.scale.setScalar(((40 - 3.2) / 40) * 0.9); this.mark.update(dt, null); }
   }
-  dispose() { const S = this.L.S; S.scene.remove(this.g, this.str, this.dots); this.strGeo.dispose(); this.dotGeo.dispose(); this.str.material.dispose(); this.dots.material.dispose(); for (const t of [this.tag, this.mark, this.mulTag]) { t.group.parent?.remove(t.group); t.tex?.dispose(); } }
+  dispose() { const S = this.L.S; S.scene.remove(this.g, this.str, this.dots); this.strGeo.dispose(); this.dotGeo.dispose(); this.str.material.dispose(); this.dots.material.dispose(); for (const t of [this.tag, this.mark, this.mulTag]) { t.T?.dispose(); t.group.parent?.remove(t.group); } this.vig?.dispose(); this.vigM.parent?.remove(this.vigM); this.vigM.geometry.dispose(); this.vigM.material.dispose(); }
 }
 
 export class HeldLayer {
@@ -152,14 +166,32 @@ export class HeldLayer {
   beginAim() { const h = this.pick(); if (!h) return false; this.aiming = h.uid; audio.play('string_pluck', { vol: 0.5 }); return true; }
   aimMove(foeUid) { const v = this.views.get(this.aiming); if (!v) return; v.aimPreview = foeUid; }
   endAim(foeUid) { const v = this.views.get(this.aiming); this.aiming = null; if (!v) return; v.aimPreview = null; if (foeUid && this.S.battle.aim(v.uid, foeUid)) { audio.play('card_snap', { vol: 0.6 }); v.refresh(); } }
-  // ---- the release: the string snaps, the object flies its path, the battle resolves the hit
+  // ---- the release, filmed: a push-in on Newton, the object zips into his grip (hand / overhead / fingertip / held out
+  // before his palm), he performs the strike (professor.js: throw, hurl, spin, gravity, timestop), the camera whips
+  // after it along its path, and the battle resolves the hit as it lands (then the camera eases back)
   async fly(o, mv, foe) {
-    const v = this.views.get(o.uid); if (!v) return; const S = this.S; v.flying = true; v.art = mv.art;
-    const to = foe ? S.enemyPos(foe) : v.target() || V(3, 1, 0); const from = v.g.position.clone(); const path = flightPath(from, to, mv.art);
-    S.scene.remove(v.str); v.tag.group.visible = false; v.mark.group.visible = false; v.mulTag.group.visible = false; audio.play(mv.art.falling ? 'whoosh_heavy' : 'whoosh_soft'); audio.play('string_pluck', { vol: 0.6 }); S.prof.act('cast');
-    S.burst(from, 'magic', 10);
-    const dur = mv.art.falling ? 0.85 : mv.art.fast ? 0.32 : 0.55; const st = { k: 0 };
-    await tweens.to(st, { k: 1 }, dur, { ease: mv.art.falling ? 'linear' : 'inQuad', onUpdate: () => { v.g.position.copy(path(st.k)); v.model.rotation.x += mv.art.spin ? 0.7 : 0.25; v.model.rotation.z += 0.2; if (Math.random() < 0.7) S.glowParts.spawn({ pos: [v.g.position.x, v.g.position.y, v.g.position.z], vel: [0, 0, 0], life: 0.35, size: 30, size1: 4, color: mv.art.hot ? '#ffb04a' : mv.art.electric ? '#fff3b0' : '#cdb6f0', sprite: 'star4' }); } });
+    const v = this.views.get(o.uid); if (!v) return; const S = this.S; v.flying = true; v.art = mv.art; const prof = S.prof; const cam = S.shotCam;
+    const style = attackStyle(mv); const to = foe ? S.enemyPos(foe) : v.target() || V(3, 1, 0); const pp = prof.root.position;
+    S.scene.remove(v.str); for (const t of [v.tag, v.mark, v.mulTag]) t.group.visible = false; v.vigS.target = 0; audio.play('string_pluck', { vol: 0.6 });
+    // 1. the push-in (a quick cut on the first throw of a turn, an ease for the rest)
+    const first = !this._cutDone; this._cutDone = true; setTimeout(() => { this._cutDone = false; }, 2500);
+    cam.shot(V(pp.x + 1.9, 1.75, pp.z + 3.4), V(pp.x + 0.6, 1.35, pp.z), { snap: first, speed: 6, fov: 30 });
+    prof.face(Math.atan2(to.x - pp.x, to.z - pp.z) * 0.8 + 0.1); const I = prof.act(style, { object: true }) ?? 0.6;
+    if (style === 'timestop') { S.prepT.stop(I + 0.1); audio.play('clockwork', { vol: 0.7 }); audio.play('magic_shimmer', { vol: 0.6 }); }
+    if (style === 'gravity') audio.play('gravity_hum', { vol: 0.7 }); if (style === 'spin') audio.play('spin_whoosh', { vol: 0.5, delay: 0.2 }); if (style === 'hurl') audio.play('grunt_hurt', { vol: 0.35, delay: I - 0.15 });
+    // 2. the object follows his grip through the wind-up
+    const grip = (out) => { if (style === 'hurl') return prof.handWorld(0, out).add(prof.handWorld(1, _t)).multiplyScalar(0.5).add(V(0, 0.25, 0)); if (style === 'gravity') return out.copy(to).add(V(0, 3.6, 0)); if (style === 'timestop') return prof.handWorld(0, out).add(V(0.55, 0.15, 0.1)); if (style === 'spin') return prof.handWorld(1, out).add(V(0, 0.3, 0)); return prof.handWorld(1, out).add(V(0, 0.06, 0)); };
+    const from0 = v.g.position.clone(); const st = { k: 0 }; const gp = V();
+    await tweens.to(st, { k: 1 }, I, { ease: 'linear', onUpdate: () => { const u = Math.min(1, st.k * I / Math.min(0.35, I * 0.6)); const e = u * u * (3 - 2 * u); grip(gp); v.g.position.lerpVectors(from0, gp, e); v.model.rotation.y += style === 'spin' ? 0.9 : 0.12; if (style === 'timestop' && st.k > 0.4) v.model.rotation.y -= 0.12; } });
+    // 3. the strike: the camera whips after the object down its path
+    const from = v.g.position.clone(); const path = flightPath(from, to, mv.art);
+    audio.play(mv.art.falling ? 'whoosh_heavy' : style === 'hurl' ? 'whoosh_heavy' : 'whoosh_soft'); if (style === 'timestop') { S.engine.flash(0.15, 0xdfe8ff, 0.25); audio.play('glass_shatter', { vol: 0.25 }); }
+    S.burst(from, 'magic', 8); S.engine.shake(style === 'hurl' || style === 'gravity' ? 0.25 : 0.1);
+    cam.shot(V((from.x + to.x) / 2 - 0.6, Math.max(from.y, to.y) + 0.9, Math.max(from.z, to.z) + 4.6), V((from.x * 0.3 + to.x * 0.7), to.y, to.z), { speed: 5.5, fov: 31 });
+    const dur = mv.art.falling ? 0.62 : style === 'hurl' ? 0.5 : mv.art.fast ? 0.28 : 0.42; const fl = { k: 0 };
+    await tweens.to(fl, { k: 1 }, dur, { ease: mv.art.falling ? 'linear' : 'inQuad', onUpdate: () => { v.g.position.copy(path(fl.k)); v.model.rotation.x += mv.art.spin || style === 'spin' ? 0.7 : 0.25; v.model.rotation.z += 0.2; if (Math.random() < 0.7) S.glowParts.spawn({ pos: [v.g.position.x, v.g.position.y, v.g.position.z], vel: [0, 0, 0], life: 0.3, size: 26, size1: 4, color: mv.art.hot ? '#ffb04a' : mv.art.electric ? '#fff3b0' : '#e8e0d0', sprite: 'star4' }); } });
+    // 4. impact framing: hold on the foe a moment, then ease back (the battle applies the damage right after this)
+    cam.shot(V(to.x - 1.8, to.y + 0.7, to.z + 3.6), to, { speed: 8, fov: 29 }); setTimeout(() => { if (!this._cutDone) cam.release(2.2); }, 650); prof.face(S.profRy ?? 0.55); setTimeout(() => prof.face(null), 1200);
     this.remove(o);
   }
   update(dt, t) {
@@ -185,7 +217,10 @@ export function heldFx(S) {
     async manipulated(o, slot) {
       const v = L().views.get(o.uid); if (!v) return; fling(slot, o); const ids = flatten(slot.cards).map((c) => baseOf(c.id));
       for (const id of new Set(ids)) audio.play(LAWSND[id] || 'magic_sparkle', { vol: 0.7 });
-      v.rebuild(); S.burst(v.g.position, ids.includes('heat') ? 'fire' : ids.includes('spark') ? 'zap' : 'magic', 14); S.prof.act('cast'); await tweens.wait(0.15);
+      v.rebuild(); S.burst(v.g.position, ids.includes('heat') ? 'fire' : ids.includes('spark') ? 'zap' : 'magic', 14); S.prof.act('cast');
+      // the snap: a crack of sparks round the object, a tiny camera kick, the object pops
+      audio.play('card_snap', { vol: 0.8 }); for (let i = 0; i < 26; i++) { const a = (i / 26) * Math.PI * 2; S.glowParts.spawn({ pos: [v.g.position.x, v.g.position.y, v.g.position.z], vel: [Math.cos(a) * 3.2, Math.sin(a) * 3.2, (Math.random() - 0.5) * 1.5], life: 0.35 + Math.random() * 0.2, size: 26, size1: 3, color: i % 3 ? '#ffe6a0' : '#ffffff', sprite: 'spark2', drag: 4 }); }
+      S.camPunch = Math.max(S.camPunch || 0, 0.12); v.pop = 1; await tweens.wait(0.15);
     },
     aimed(o) { L().views.get(o.uid)?.refresh(); },
     async release(o, mv, foe, rolled) {
@@ -222,12 +257,12 @@ export function discoveryPick(S, mv, opts, calc = null) {
     const title = new Signboard([law ? 'A Law of Nature!' : 'A Discovery!'], { sub: mv.name, hang: 1.1, style: law ? 'gild' : undefined });
     // a hidden Law is written out in full: its effect, the arithmetic, the note (and it goes into the Journal)
     let note = null; if (law || calc) {
-      note = new Paper({ font: 'handS', title: 'head', maxW: 9.5, pin: true, kind: 'letter', seal: !!law });
+      note = new FloatText(null, { font: 'body', align: 'left', anchor: 'left' });
       const lines = [[[mv.name, law ? '#6a1a6a' : '#3a2410']], ...(law ? [[[mv.special.effect || '', '#8a1a1c']]] : []), ...mathLines((calc?.lines) || mv.attack.lines, 9.5, 6), ...(mv.special?.note ? [[[mv.special.note, '#8a6a44']]] : []), [[law ? 'Written into your Journal.' : 'New combination: in your Journal.', '#5a3622']]];
-      note.show(lines, 0, 0, 6.5, { title: true }); note.group.position.set(-W * 0.64 * (40 - 6.5) / 40, (H * 0.05 + note.h / 2) * (40 - 6.5) / 40, 6.5); note.baseScale = (40 - 6.5) / 40 * 0.95; g.add(note.group);
+      note.set(lines, { fonts: lines.map((_, i) => (i ? 'body' : 'head')) }); note.place(-W * 0.97, H * 0.12, 6.5); note.show(); g.add(note.group); note.group.position.z = 6.5;
       if (law) { audio.play('eureka'); S.engine.flash?.(0.25, 0xffe08a, 0.5); }
     } title.group.scale.setScalar(Math.min(1, (W * 1.1) / title.w)); uiPos(title.group, 0, H - 2.0, 7); g.add(title.group);
-    const lbl = new Strip([[['Choose a new card for your deck', '#2a160c']]], { maxW: 16 }); uiPos(lbl.group, 0, -H * 0.42, 7); g.add(lbl.group);
+    const lbl = new FloatText([['Choose a new card for your deck', '#ffe6a8']], { font: 'head', align: 'center', lighten: false }); lbl.place(0, -H * 0.42, 7); lbl.show(); g.add(lbl.group); lbl.group.position.z = 7;
     const cards = opts.map((id, i) => { const c = new Card3D(mkCard(id)); c.pos.snap((i - 1) * 5.6, -H - 5, 6); c.flip.set(1); c.flip.target = 0; c.target = { x: (i - 1) * 5.6 * (40 - 6) / 40, y: 0.2, z: 6, rz: (i - 1) * -0.05, s: 1.1 }; c.id = id; g.add(c.group); return c; });
     audio.play('magic_shimmer'); audio.play('card_fan'); S.prof?.act?.('cheer');
     const ray = new THREE.Raycaster(); let hover = null, done = false; const pick = () => { ray.setFromCamera(S.input.ndc, E.ui.camera); return ray.intersectObjects(cards.map((c) => c.mesh), false)[0]?.object.userData.card3d || null; };
@@ -235,10 +270,10 @@ export function discoveryPick(S, mv, opts, calc = null) {
     const handler = S.input.push({ modal: true, move() { const h = pick(); if (h !== hover) { hover = h; for (const c of cards) c.target = { ...c.target, s: c === h ? 1.22 : 1.1, z: c === h ? 7 : 6 }; if (h) { audio.play('ui_hover', { vol: 0.5 }); S.tooltip.show(loreLines(h.card, 15), h.target.x > 0.5 ? h.target.x - 8.5 : h.target.x + 8.5, 3.2, 10, { maxW: 15 }); } else S.tooltip.hide(); } return true; },
       click() { const h = pick(); if (!h || done) return true; done = true; audio.play('card_pick'); audio.play('chime_soft'); S.tooltip.hide();
         for (const c of cards) { if (c === h) c.target = { x: 0, y: -H - 2, z: 4, rz: 0.4, s: 0.6 }; else { c.flip.target = 1; c.target = { ...c.target, y: H + 8 }; } }
-        lbl.set([[[`${BASICS[h.id]?.name || h.id} joins your deck`, '#3e6a22']]]);
+        lbl.set([[`${BASICS[h.id]?.name || h.id} joins your deck`, '#bff4a0']]); lbl.pop.kick(5);
         setTimeout(() => { E.remove(upd); S.input.remove(handler); ui.remove(g); resolve(h.id); }, 750); return true; },
       key: eat, down: eat, dragstart: eat, drag: eat, dragend: eat, wheel: eat });
-    const upd = { update(dt, t) { for (const c of cards) c.update(dt, t); title.update(dt, null, t); lbl.update(dt, null); note?.update(dt, null); } }; E.add(upd);
+    const upd = { update(dt, t) { for (const c of cards) c.update(dt, t); title.update(dt, null, t); lbl.update(dt); note?.update(dt); } }; E.add(upd);
   });
 }
 

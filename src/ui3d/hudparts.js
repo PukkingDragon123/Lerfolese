@@ -161,37 +161,7 @@ function crumple(seed) { // 14x14 crumpled paper ball, faceted creases, tinted o
   for (const [x, y] of [[4, 3], [9, 4], [5, 9]]) if (hash2(x, y, seed) > 0.3) S.pix(x, y, '#3a2a30');
   return pxTex(S.toCanvas());
 }
-export class Bin extends Body {
-  constructor() {
-    super(); this.tiltK = 0.05; const p = this.pivot;
-    this.basket = new THREE.Group(); this.basket.rotation.x = 0.3; this.basket.position.y = -0.1; this.basket.scale.setScalar(1.12); p.add(this.basket);
-    const wm = toon({ map: wickerTex(), side: THREE.DoubleSide });
-    this.body = mesh(turned([[0.8, -0.9], [0.86, -0.6], [0.98, 0.0], [1.12, 0.62], [1.18, 0.86]], 56), wm, this.basket, { ink: 0.05 });
-    mesh(turned([[0.001, -0.9], [0.8, -0.9], [0.8, -0.86], [0.001, -0.86]], 48, { smooth: false }), plainMat('walnut'), this.basket);
-    const rim = mesh(turned([[1.14, 0.8], [1.3, 0.84], [1.33, 0.92], [1.22, 1.0], [1.1, 0.96]], 56), plainMat('rope'), this.basket, { ink: 0.04 }); void rim;
-    const inner = mesh(new THREE.CircleGeometry(1.12, 56), toon({ color: 0.1 }), this.basket); inner.rotation.x = -Math.PI / 2; inner.position.y = 0.55;
-    this.tokens = [0, 1, 2].map((i) => { const m = mesh(new THREE.PlaneGeometry(0.85, 0.85), toon({ map: crumple(i * 2.3 + 1), alphaTest: 0.5, side: THREE.DoubleSide }), p); m.userData.home = new THREE.Vector3(-0.55 + i * 0.55, 0.55 + (i === 1 ? 0.18 : 0), 0.35 + i * 0.02); m.position.copy(m.userData.home); m.rotation.z = i * 1.3; return m; });
-    this.tagTex = new SurfTex(48, 24); this.tagTex.paint((S) => { leather(S, 0, 0, 48, 24, { seed: 2, base: 2, stitch: 2 }); inscribeLines(S, ['SECOND', 'THOUGHTS'], { x: 0, y: 4, w: 48, h: 16 }, 'tiny', 'paint', { lineH: 8, ramp: RAMP.ivory }); for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) S.set(23 + dx, 1 + dy, RAMP.ink, 0); });
-    this.tag = mesh(slab(48 / PX, 24 / PX, 0.08, { shape: 'tag', cut: 0.1, bevel: 0.025 }), [frontMat(this.tagTex.tex), sideMat('leather')], p, { ink: 0.03 }); this.tag.position.set(0.05, -0.75, 1.0); this.tag.rotation.z = 0.05;
-    this.hot = new Spring(0, 12, 0.4); this.jig = new Spring(0, 18, 0.2); this.count = 3; this.fly = [];
-    this.hit = [this.body, this.tag, ...this.tokens];
-  }
-  set(n) {
-    if (n === this.count) return; if (n < this.count) { this.jig.kick(10); for (let i = n; i < this.count; i++) { const tk = this.tokens[i]; if (tk) this.fly.push({ m: tk, v: new THREE.Vector3((Math.random() - 0.5) * 3, 6, 2), t: 0 }); } }
-    else this.tokens.forEach((tk, i) => { if (i < n) { tk.visible = true; tk.position.copy(tk.userData.home); } });
-    this.count = n;
-  }
-  setHot(b) { this.hot.target = b ? 1 : 0; }
-  update(dt, p, t = performance.now() / 1000) {
-    this.hot.update(dt); this.jig.update(dt); this.updateBody(dt, p);
-    const h = this.hot.value; this.basket.rotation.x = 0.3 + h * 0.25; this.pivot.scale.multiplyScalar(1 + h * 0.08); this.pivot.rotation.z += this.jig.value * 0.03 + h * Math.sin(t * 18) * 0.03;
-    for (const tk of this.tokens) if (!this.fly.some((f) => f.m === tk) && tk.visible) tk.position.y = tk.userData.home.y + h * 0.25 + Math.sin(t * 3 + tk.userData.home.x * 4) * 0.02;
-    for (const f of this.fly) { f.t += dt; f.v.y -= 22 * dt; f.m.position.addScaledVector(f.v, dt); f.m.rotation.z += dt * 8; if (f.t > 1.2) f.m.visible = false; }
-    this.fly = this.fly.filter((f) => f.t <= 1.2);
-  }
-}
-
-// ================================================================ LAW TAG: parchment tag on a string, wax seal, inked name
+// (the wicker basket of Second Thoughts was removed with the redraw mechanic)
 export class LawTag extends Body {
   constructor(name, tip) {
     super(); this.name = name; this.tip = tip; this.tiltK = 0.04; this.hoverLift = 0.25; this.seed = (hash2(name.length, name.charCodeAt(0), 2) * 99) | 0;

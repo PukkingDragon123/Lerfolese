@@ -4,6 +4,7 @@
 // Used by the battle intro (battlescene.js), the travel shot (travel.js) and the event vignette (event.js).
 // Debug: window.__cine is the running director (speed = 0 pauses, seek(t) jumps ahead, skip()).
 import * as THREE from 'three';
+import { FloatText } from '../ui3d/floatlabel.js';
 import { Strip, Paper } from '../ui3d/objects.js';
 import { Surf, RAMP, pxTex, frontMat, sideMat, slab, wood, rivet, mesh, uiRig, wrapText, PX, PXP } from '../ui3d/craft.js';
 import { audio } from '../core/audio.js';
@@ -191,6 +192,7 @@ function crane(rig, p0, l0, p1, l1, u, fov0, fov1) {
 export class PuppetGait {
   constructor(prof) {
     this.prof = prof; this.phase = 0; this.k = 0; this.spd = 0; this.lastStep = 0; this.off = {}; this.patched = [];
+    if (prof.locomote) { this.native = true; return; } // the grounded Newton walks by himself (professor.js locomote)
     const L = prof.legs || [], A = prof.arms || [];
     const wrap = (key, target) => { if (!target?.set) return; const orig = target.set; const off = this.off; target.set = function (x, y, z, w) { const d = off[key]; return d ? orig.call(this, x + d[0], y + d[1], z + d[2], w) : orig.call(this, x, y, z, w); }; this.patched.push(target); };
     wrap('hipL', L[1]?.hip.rotation); wrap('hipR', L[0]?.hip.rotation); wrap('knL', L[1]?.kn.rotation); wrap('knR', L[0]?.kn.rotation); wrap('anL', L[1]?.an.rotation); wrap('anR', L[0]?.an.rotation);
@@ -200,6 +202,7 @@ export class PuppetGait {
   // spd: ground speed (units/s). One stride cycle (two steps) covers ~1.5 units.
   step(dt, spd) {
     this.spd += (spd - this.spd) * (1 - Math.exp(-dt * 10));
+    if (this.native) { this.prof.locomote(this.spd); this.phase += dt * this.spd * (Math.PI * 2 / 1.45); const n = Math.floor(this.phase / Math.PI); if (n !== this.lastStep) { this.lastStep = n; if (this.spd > 0.4) audio.play('wood_knock', { vol: 0.1, minGap: 0.12 }); } return; }
     const want = this.spd > 0.12 ? 1 : 0; this.k += (want - this.k) * (1 - Math.exp(-dt * (want ? 7 : 4)));
     this.phase += dt * Math.max(this.spd, this.k * 0.8) * (Math.PI * 2 / 1.5);
     const n = Math.floor(this.phase / Math.PI); if (n !== this.lastStep) { this.lastStep = n; if (this.k > 0.4) audio.play('wood_knock', { vol: 0.12 * this.k, minGap: 0.12 }); }
@@ -213,7 +216,7 @@ export class PuppetGait {
     o.body = [0.035 * sL * k, (0.055 * Math.abs(cL) - 0.015) * k, 0];
     o.ctrl = [0, 0.07 * Math.abs(cL) * k, 0.22 * k]; // the spectral hand leads and lifts him each step
   }
-  stop() { this.k = 0; this.spd = 0; for (const key in this.off) this.off[key] = null; }
+  stop() { this.k = 0; this.spd = 0; if (this.native) this.prof.locomote(0); for (const key in this.off) this.off[key] = null; }
   dispose() { this.stop(); for (const t of this.patched) delete t.set; this.patched = []; }
 }
 
@@ -254,15 +257,19 @@ export class Walker {
 // establishing crane -> Sir Isaac walks the road in (tracking) -> whip to each foe as it steps out (name + epithet)
 // -> settle into the battle framing. S is the BattleScene. Returns { done, abort }.
 const ROADS = { meadow: 'the olive road', garden: 'the road through the marble garden', gully: 'the dry gully road', labyrinth: 'the road to the Labyrinth', marsh: 'the reed-choked marsh road', guardian: 'the last road of the Wilds' };
-const ENTRANCE = { satyr: 'hop', kobalos: 'hop', medusa: 'glide', minotaur: 'stomp', minotaur_king: 'stomp', hydra: 'rise', hydra_elder: 'rise' };
-const CALL = { satyr: 'drunk_laugh', kobalos: 'goblin_laugh', medusa: 'snake_hiss', minotaur: 'bull_roar', minotaur_king: 'bull_roar', hydra: 'snake_hiss', hydra_elder: 'snake_hiss' };
+const ENTRANCE = { satyr: 'hop', kobalos: 'hop', medusa: 'glide', minotaur: 'stomp', minotaur_king: 'stomp', hydra: 'rise', hydra_elder: 'rise', frog_wizard: 'hop', bookworm_queen: 'rise', sphinx: 'stomp', eagle: 'glide' };
+const CALL = { satyr: 'drunk_laugh', kobalos: 'goblin_laugh', medusa: 'snake_hiss', minotaur: 'bull_roar', minotaur_king: 'bull_roar', hydra: 'snake_hiss', hydra_elder: 'snake_hiss', frog_wizard: 'gurgle', bookworm_queen: 'monster_growl', sphinx: 'monster_roar', eagle: 'thunder' };
 export function battleIntro(S, { onReveal = () => {} } = {}) {
   const D = new Director(S.engine, S.input); const cam = S.camera, prof = S.prof, rig = new CamRig(cam); const baseFov = cam.fov;
   const home = prof.root.position.clone(), homeRy = prof.root.rotation.y, spiritOff = S.spirit ? S.spirit.position.clone().sub(home) : null;
-  const walk = new Walker(prof, roadPath(S.stage, { from: 7.2, home }), { t0: 0.15, speed: 1.75, endRy: homeRy });
+  const walk = new Walker(prof, roadPath(S.stage, { from: 5.2, home }), { t0: 0.1, speed: 2.1, endRy: homeRy });
   const start = walk.path.getPointAt(0), A = frameAt(start, walk.path.getTangentAt(0.02)); const sky = skyPoint(S.stage, start);
-  const views = [...S.enemyViews.values()]; const mains = views.filter((v) => !v.e.def.isHead); const N = mains.length;
-  const DN = N <= 1 ? 1.9 : N === 2 ? 1.45 : 1.08; const TA = 2.2, R0 = walk.t1 + 0.3; let S0 = R0 + N * DN, SD = 1.3;
+  const views = [...S.enemyViews.values()]; const mains = views.filter((v) => !v.e.def.isHead && !v.e.def.minion); const N = mains.length;
+  const DN = N <= 1 ? 2.3 : N === 2 ? 1.6 : 1.2; const TA = 2.0, R0 = walk.t1 + 0.15; let S0 = R0 + N * DN, SD = 1.0;
+  // the title cards: each foe's name in big crisp floating Alagard, its epithet beneath (FloatText, UI layer)
+  const titles = []; const tUp = { update: (dt) => { for (const c of titles) { c.N.update(dt); c.E.update(dt); } } }; S.engine.add(tUp);
+  const titleCard = (v) => { const N2 = new FloatText([[v.e.def.name.toUpperCase(), '#ffe2a0']], { font: 'title', align: 'left', anchor: 'left', lighten: false, depth: 0.12 }); const E2 = new FloatText([[v.e.def.title || 'a creature of the Wilds', '#d8ccb4']], { font: 'head', align: 'left', anchor: 'left', lighten: false });
+    S.ui.scene.add(N2.group, E2.group); N2.show(); setTimeout(() => E2.show(), 140); const c = { N: N2, E: E2, at(x, y) { N2.place(x, y, 10); E2.place(x + 0.3, y - 1.5, 10); }, hide() { N2.hide(); E2.hide(); } }; titles.push(c); return c; };
   const BACK = V(0.9, 0, -3.0);
   const foes = mains.map((v, i) => {
     const kids = views.filter((h) => h.e.def.isHead && h.e.parent === v.e.uid);
@@ -284,33 +291,34 @@ export function battleIntro(S, { onReveal = () => {} } = {}) {
     const face = Math.atan2(-BACK.x, -BACK.z); f.v.api.root.rotation.y = f.how === 'rise' ? f.ry : lerpAngle(face, f.ry, ease.io(span(u, 0.5, 1)));
     if (f.how === 'glide') f.v.api.root.rotation.z = Math.sin(u * Math.PI * 4) * 0.06 * (1 - u);
     if (u >= 1 && !f.landed) {
-      f.landed = true; f.v.api.root.rotation.z = 0; S.burst?.(tmp.copy(f.home).add(V(0, 0.25, 0)), 'smoke', f.how === 'rise' ? 22 : 12);
-      f.v.api.act?.('cast'); f.v.api.talk?.(1.4); audio.play(CALL[f.v.e.id] || 'monster_growl', { vol: 0.7 }); if (f.how !== 'hop') audio.play('monster_roar', { vol: 0.45 });
-      if (f.how === 'stomp' || f.how === 'rise') S.engine.shake(0.22); else audio.play('hoof_stomp', { vol: 0.4 });
+      // its hero moment: a weapon flourish and a roar, a burst of dust and grit, a camera punch, the reveal sting
+      f.landed = true; f.punch = t; f.v.api.root.rotation.z = 0; S.burst?.(tmp.copy(f.home).add(V(0, 0.25, 0)), 'smoke', f.how === 'rise' ? 34 : 26); S.burst?.(tmp.copy(f.home).add(V(0, 0.4, 0)), 'stone', 14);
+      f.v.api.act?.('attack'); setTimeout(() => f.v.api.act?.('cast'), 700); f.v.api.talk?.(1.6); audio.play(CALL[f.v.e.id] || 'monster_growl', { vol: 0.8 }); audio.play('monster_roar', { vol: 0.5, delay: 0.1 });
+      audio.play('hit_heavy', { vol: 0.55 }); audio.play('thunder', { vol: 0.35 }); if (foes.indexOf(f) === 0) audio.play('crit', { vol: 0.5 }); S.engine.shake(f.how === 'stomp' || f.how === 'rise' ? 0.4 : 0.25); S.engine.hitStop?.(70);
     }
   };
   const settleFoes = () => { for (const f of foes) { for (const o of f.objs) o.visible = true; f.v.api.root.position.copy(f.home); f.kids.forEach((k, i) => k.api.root.position.copy(f.kidHome[i])); f.v.api.root.rotation.y = f.ry; f.v.api.root.rotation.z = 0; f.landed = true; } };
   const settleProf = () => { walk.gait.dispose(); prof.root.position.copy(home); prof.root.rotation.y = homeRy; if (spiritOff) S.spirit.position.copy(home).add(spiritOff); };
   // chronicle lines
   const kind = S.encounter?.kind;
-  D.at(0.45, () => D.say(`And so the floating philosopher came upon ${ROADS[S.theme] || ROADS.meadow}…`));
-  D.at(Math.max(2.4, walk.t1 - 1.3), () => D.say(kind === 'guardian' ? '…where the master of the Wilds awaited him.' : kind === 'elite' ? '…and there a most perilous foe barred his way.' : '…and found that he did not walk it alone.'));
+  D.at(0.35, () => D.say(`And so the young philosopher came upon ${ROADS[S.theme] || ROADS.meadow}…`));
+  D.at(Math.max(1.8, walk.t1 - 1.0), () => D.say(kind === 'guardian' ? '…where the master of this chapter awaited him.' : kind === 'elite' ? '…and there a most perilous foe barred his way.' : '…and found that he did not walk it alone.'));
   D.at(R0 - 0.1, () => { D.narr.clear(); audio.play('whoosh_soft', { vol: 0.6 }); });
   foes.forEach((f, i) => {
-    D.at(f.t0 + 0.7, () => { f.card = D.card(f.v.e.def.name, f.v.e.def.title || 'a creature of the Wilds').show(); });
-    D.at(i < N - 1 ? R0 + (i + 1) * DN - 0.05 : S0 + 0.05, () => f.card?.hide());
+    D.at(f.t0 + 0.75, () => { f.card = titleCard(f.v); });
+    D.at(i < N - 1 ? R0 + (i + 1) * DN - 0.05 : S0 + 0.3, () => f.card?.hide());
     if (i > 0) D.at(R0 + i * DN - 0.1, () => audio.play('whoosh_soft', { vol: 0.4 }));
   });
   let settleFrom = null, revealed = false, finished = false;
-  const finish = () => { if (finished) return; finished = true; settleFoes(); settleProf(); cam.fov = baseFov; cam.updateProjectionMatrix(); if (!revealed) { revealed = true; onReveal(); } D.end(); };
-  D.onSkip = () => { settleFoes(); settleProf(); S0 = D.t; SD = 0.55; settleFrom = null; D.bars?.hide(); if (!revealed) { revealed = true; onReveal(); } };
+  const finish = () => { if (finished) return; finished = true; settleFoes(); settleProf(); for (const c of titles) c.hide(); setTimeout(() => { S.engine.remove(tUp); for (const c of titles) { c.N.dispose(); c.E.dispose(); } }, 700); cam.fov = baseFov; cam.updateProjectionMatrix(); if (!revealed) { revealed = true; onReveal(); } D.end(); };
+  D.onSkip = () => { settleFoes(); settleProf(); for (const c of titles) c.hide(); S0 = D.t; SD = 0.55; settleFrom = null; D.bars?.hide(); if (!revealed) { revealed = true; onReveal(); } };
   const head = V(), look = V(), pos = V();
   D.frame = (t, dt) => {
     const scenePos = cam.position.clone(); // the battle camera's own pose this frame (the scene's update just set it)
     if (t < S0) {
       if (!D.skipped) { walk.apply(t, dt); if (spiritOff) S.spirit.position.copy(prof.root.position).add(spiritOff); for (const f of foes) poseFoe(f, t); }
       if (t < TA) { // establishing crane: tilt down from the sunset sky onto the road, sinking in behind the marionette
-        const u = ease.io(span(t, 0, TA)); crane(rig, A(-1.8, 5.2, -8.5), sky, A(1.3, 2.3, -4.4), A(-0.6, 1.4, 8), u, 44, 36);
+        const u = ease.io(span(t, 0, TA)); crane(rig, A(-4.2, 8.2, -13), sky, A(1.5, 2.2, -4.2), A(-0.6, 1.4, 8), u, 48, 36); // a sweeping drop from the sky
         prof.lookAt(Math.sin(t * 0.8) * 0.3, 0.15);
       } else if (t < R0) { // tracking, front three-quarter, as he walks the last stretch and turns to the field
         const F = frameAt(walk.pos, walk.tan); pos.copy(F(6.0, 1.75, 1.4)); look.copy(walk.pos).add(V(0, 1.8, 0)).addScaledVector(walk.tan, 0.7);
@@ -320,8 +328,8 @@ export function battleIntro(S, { onReveal = () => {} } = {}) {
         const i = Math.min(N - 1, Math.floor((t - R0) / DN)); const f = foes[i]; if (f) {
           const h = f.v.h, big = f.kids.length ? 1.7 : 1; const E = f.home; const toCam = V(S.camBase.x - E.x, 0, S.camBase.z - E.z).normalize(); // many-headed foes need a wider lens on their necks
           pos.copy(E).addScaledVector(toCam, (2.6 + h * 1.35) * big).add(V(-0.9 - h * 0.15, 0.5 + h * 0.35 * big, 0)); look.copy(E).add(V(-0.15, h * 0.62 * big, 0));
-          const first = t - R0 < DN; rig.follow(pos, look, 30, dt, first ? 2.6 : 3.4, first ? 9 : 6);
-          head.copy(E).add(V(0, h * 0.95 + 0.2, 0)); const p = S.engine.worldToUI(head); f.card?.at(p.x - 4.6, p.y + 0.2);
+          const first = t - R0 < DN; const pk = f.punch != null ? Math.max(0, 1 - (t - f.punch) / 0.5) : 0; rig.follow(pos, look, 30 - pk * 7, dt, first ? 3.2 : 5, first ? 10 : 8); // a whip to each foe; the FOV punches in on its roar
+          head.copy(E).add(V(0, h * 0.95 + 0.2, 0)); const p = S.engine.worldToUI(head); f.card?.at(Math.max(-S.ui.W + 0.8, p.x - 9.5), Math.min(S.ui.H - 2, p.y + 0.6));
           prof.lookAt(0.85, 0.12);
         }
       }

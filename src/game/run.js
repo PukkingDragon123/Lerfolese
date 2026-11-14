@@ -1,5 +1,5 @@
 // A single loop of the universe: deck, health, gold, curios, map. Dies with you (the Journal does not).
-import { RNG, uid } from '../core/util.js';
+import { RNG, uid, hashString } from '../core/util.js';
 import { STARTER_DECK, POWERS, BASICS, CARD_POOL, MUTATIONS } from './data/cards.js';
 import { ITEMS, ITEM_POOLS } from './data/items.js';
 import { ENCOUNTERS, ENEMIES } from './data/enemies.js';
@@ -31,6 +31,7 @@ export function newRun(seed = (Math.random() * 2 ** 31) | 0) {
     flags: {}, foughtElites: [], seenEvents: [], loop: save.journal.loops + 1,
   };
   run.rng = rng; run.map = genMap(rng.fork('map'), 'wilderness');
+  for (const n of Object.values(run.map.nodes)) nodeEncounter(run, n); // every fight is rolled now, so the map's figurines show exactly who waits there
   attachRun(run);
   return run;
 }
@@ -113,15 +114,25 @@ export function reachable(run) {
   return cur.next;
 }
 
-export function encounterFor(run, node) {
-  const enc = AREAS[run.area].enc; const r = run.rng;
-  if (node.type === 'guardian') {
-    const fought = run.foughtElites; const pick = fought.includes('minotaur') && !fought.includes('hydra') ? 'hydra_elder' : fought.includes('hydra') && !fought.includes('minotaur') ? 'minotaur_king' : r.pick(['hydra_elder', 'minotaur_king']);
-    return { enemies: [pick], kind: 'guardian' };
+// a node's fight, rolled once from the run seed and the node id and stored on the node (node.enc). Old saves that
+// predate pre-rolled maps get theirs lazily, the first time the map or the battle asks.
+export const isFight = (node) => node && (node.type === 'battle' || node.type === 'elite' || node.type === 'guardian');
+export function rollEncounter(run, node) {
+  const enc = AREAS[run.area || 'wilderness'].enc; const r = new RNG((hashString(String(run.seed) + ':' + node.id) ^ 0x5bd1e995) >>> 0);
+  if (node.type === 'guardian') { const pool = enc.guardian.filter((g) => g.every((id) => unlocked(id) !== false)); return { enemies: [...r.pick(pool.length ? pool : enc.guardian)], kind: 'guardian' }; }
+  if (node.type === 'elite') { // elites in the same row differ, and the map avoids repeating one elite on consecutive rows
+    const rowSeed = new RNG((hashString(String(run.seed) + ':elites') >>> 0)); const order = rowSeed.shuffle([...enc.elite]);
+    return { enemies: [...order[(node.row + node.col) % order.length]], kind: 'elite' };
   }
-  if (node.type === 'elite') { const opts = enc.elite.filter((e) => !run.foughtElites.includes(e[0])); const e = r.pick(opts.length ? opts : enc.elite); return { enemies: e, kind: 'elite' }; }
-  const pool = run.stats.floors < 3 ? enc.easy : enc.hard; return { enemies: r.pick(pool), kind: 'normal' };
+  const pool = node.row < 3 ? enc.easy : enc.hard; return { enemies: [...r.pick(pool)], kind: 'normal' };
 }
+export function nodeEncounter(run, node) {
+  if (!isFight(node)) return null; if (!node.enc) node.enc = rollEncounter(run, node);
+  return node.enc;
+}
+export function encounterFor(run, node) { const e = nodeEncounter(run, node); return { enemies: [...e.enemies], kind: e.kind }; }
+// an event's optional boss (the Sphinx, Prometheus' eagle): its fight, or null
+export function eventBoss(eventId) { const e = AREAS.wilderness.enc.event?.[eventId]; return e ? { enemies: [...e], kind: 'elite', boss: true, event: eventId } : null; }
 
 // ---------------------------------------------------------------- rewards
 export function cardChoices(run, n = 3, rare = 0) {
@@ -148,7 +159,7 @@ export function itemChoices(run, pool, n = 1) {
 }
 // a won battle pays only what the foes carried: gold, and their own drops (cards come from discoveries)
 // the card a foe may carry (added straight to the deck with the rest of the loot)
-export const CARD_LOOT = { satyr: 'catalyst', kobalos: 'echo', medusa: 'looking_glass', harpy: 'amplifier', wolf: 'resonance', spartoi: 'keystone', centaur: 'domino',
+export const CARD_LOOT = { frog_wizard: 'hypothesis', bookworm_queen: 'scratchpad', bookworm: 'recycle', sphinx: 'notebook', eagle: 'paper_plane', satyr: 'catalyst', kobalos: 'echo', medusa: 'looking_glass', harpy: 'amplifier', wolf: 'resonance', spartoi: 'keystone', centaur: 'domino',
   minotaur: 'keystone', minotaur_king: 'domino', hydra: 'echo', hydra_elder: 'resonance', cyclops: 'amplifier', chimera: 'catalyst', talos: 'looking_glass' };
 export function battleRewards(run, kind, enemies = []) {
   const r = run.rng; const gm = run.items.includes('sack') ? 1.25 : 1; const loot = [];

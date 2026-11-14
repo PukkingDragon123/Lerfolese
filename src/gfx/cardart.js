@@ -101,29 +101,22 @@ export function renderCardFace(card, move) {
   const typeLabel = card.petrified ? 'PETRIFIED' : isPower ? 'POWER · LAW' : isMove ? `MOVE · ${move.n} CARDS` : `BASIC · ${KIND_LABEL[def.kind].toUpperCase()}`;
   if (isPower) T('POWER · LAW', (CW / 2) * CS, 90.75 * CS, 'rune', '#3a1660', { k: 2 }); // Laws are magic: RuneMono
   else T(typeLabel, (CW / 2) * CS, 90.75 * CS, 'body', '#3a1c0c', { k: measure(typeLabel, 'body') * 2 <= 52 * CS ? 2 : 1 });
+  // RULES: big and short, Slay-the-Spire style: up to 3 lines of PixelSans x4 (x3 when a line is long), inline pixel
+  // icons ({kg} {v} {hit} {blk} {heal} {draw} {disc} {zap} {burn} {launch} {thorn}) and the keywords in carmine
   let lines;
   if (isPower) lines = up ? def.upText : def.text;
   else if (isMove) {
     const a = move.attack; lines = [];
-    if (a.perHit > 0) lines.push(`${a.m}kg × ${a.v}m/s${a.focus > 1 ? ' ×' + a.focus : ''} = ${a.perHit}${a.hits > 1 ? ' ×' + a.hits : ''}`);
-    const extra = describeAttack(a).slice(a.perHit > 0 ? 1 : 0).join(' · ');
-    if (extra) lines.push(...wrapText(extra, 'body', Math.floor(100 * CS / 3)).slice(0, 2));
-    const sf = move.self; const ss = []; if (sf.block) ss.push(`Block ${sf.block}`); if (sf.heal) ss.push(`Heal ${sf.heal}`); if (sf.draw) ss.push(`Draw ${sf.draw}`);
-    if (ss.length && lines.length < 4) lines.push('SELF: ' + ss.join(', '));
-    if (move.field.valid && lines.length < 4) lines.push('FIELD: ' + move.field.name);
-  } else lines = up && def.upText ? def.upText : def.text;
-  // rules text: PixelSans x3 when every line fits the 100px box (else x2 for the whole card, never mixed), long lines
-  // re-wrapped without orphans; "AIR:"-style rule keywords in carmine
-  const BOX = 96 * CS; let k = 3; const fitK = (kk) => lines.every((l) => measure(l, 'body') * kk <= BOX);
-  if (!fitK(3)) { const re = lines.flatMap((l) => (measure(l, 'body') * 3 <= BOX ? [l] : wrapText(l, 'body', Math.floor(BOX / 3)))); if (re.length <= 4) lines = re; else k = 2; }
-  if (k === 2 && !fitK(2)) lines = lines.flatMap((l) => (measure(l, 'body') * 2 <= BOX ? [l] : wrapText(l, 'body', Math.floor(BOX / 2))));
-  lines = lines.slice(0, k === 3 ? 4 : 5); const n = lines.length;
-  const lh = (k === 3 ? (n > 3 ? 10.5 : 12) : (n > 4 ? 8 : 9.5)) * CS; const y0 = 124.75 * CS - ((n - 1) * lh) / 2;
-  lines.forEach((l, i) => {
-    const y = y0 + i * lh; const m = l.match(/^([A-Z]+:)(.*)$/);
-    if (m) { const w1 = measure(m[1], 'body') * k, w2 = measure(m[2], 'body') * k; const x0 = (CW / 2) * CS - (w1 + w2) / 2; T(m[1], x0 + w1 / 2, y, 'body', '#8c1a30', { k }); T(m[2], x0 + w1 + w2 / 2, y, 'body', '#2a140c', { k }); }
-    else T(l, (CW / 2) * CS, y, 'body', '#2a140c', { k });
-  });
+    if (a.perHit > 0) lines.push(`${a.m}{kg} x ${a.v}{v} = ${a.perHit}${a.hits > 1 ? ' x' + a.hits : ''}`);
+    const extra = describeAttack(a).slice(a.perHit > 0 ? 1 : 0, 2).map((x) => x.replace(/\(.*\)/, '').trim()); lines.push(...extra);
+    const sf = move.self; const ss = []; if (sf.block) ss.push(`{blk}${sf.block}`); if (sf.heal) ss.push(`{heal}${sf.heal}`); if (sf.draw) ss.push(`{draw}${sf.draw}`);
+    if (ss.length && lines.length < 3) lines.push('SELF: ' + ss.join(' '));
+  } else lines = cardRules(def, up);
+  lines = lines.filter(Boolean).slice(0, isPower ? 4 : 3);
+  const BOX = 104 * CS; const wOf = (l, kk) => lineW(l, kk); let k = isPower ? 3 : 4; while (k > 2 && lines.some((l) => wOf(l, k) > BOX)) k--;
+  if (lines.some((l) => wOf(l, k) > BOX)) lines = lines.flatMap((l) => (wOf(l, k) <= BOX ? [l] : wrapText(l, 'body', Math.floor(BOX / k)))).slice(0, 5);
+  const n = lines.length; const lh = (k >= 4 ? 13 : k === 3 ? (n > 3 ? 10.5 : 12) : 9) * CS; const y0 = 124.5 * CS - ((n - 1) * lh) / 2;
+  lines.forEach((l, i) => drawRuleLine(g, l, (CW / 2) * CS, y0 + i * lh, k, T));
   const num = isMove ? (move.special ? '★' : '◆') : def.mutantOf ? roman(BASICS[def.mutantOf].num) + '*' : roman(def.num || 0);
   if (/^[★◆]$/.test(num)) T(num, (CW / 2) * CS, 158.75 * CS, 'body', '#3a1c0c', { k: 2 }); else T(num, (CW / 2) * CS, 158.75 * CS, 'num', '#3a1c0c', { k: 2 });
   faceCache.set(key, out);
@@ -141,10 +134,50 @@ export function renderCardBack() {
   s.grid(['..a..', '.aba.', 'abbba', '.aba.', '..a..'], { a: TRIM.brass[2], b: TRIM.brass[6] }, CW / 2 - 3, 156);
   windowCorners(s, TRIM.brass);
   const out = toCanvas(s, CS); const g = out.getContext('2d');
-  drawPixelText(g, 'APPLE OF DISCORD', CW / 2 * CS, 11.75 * CS + 11, 'title', { color: '#fff6cf', outline: '#2a1008', shadow: '#12060a', align: 'center' });
+  drawPixelText(g, 'LERFOLESE', CW / 2 * CS, 11.75 * CS + 11, 'title', { color: '#fff6cf', outline: '#2a1008', shadow: '#12060a', align: 'center' });
   ['Every action has an', 'equal and opposite', 'god.'].forEach((l, i) => drawPixelText(g, l, CW / 2 * CS, (112 + i * 12) * CS + 11, 'body', { color: '#d8c6ff', shadow: '#1a1030', align: 'center', k: 3 }));
   backCanvas = out; return out;
 }
 
 export function clearFaceCache() { faceCache.clear(); }
 void baseOf;
+
+// ---------- short rules text: generated from a card's numbers (or its own `rules`), with inline pixel icons
+const ICONS = {
+  kg: ['...kkk...', '..k...k..', '..kkkkk..', '.kwwwwwk.', '.kwwhwwk.', 'kwwwwwwwk', 'kwwwwwwwk', 'kdddddddk', 'kkkkkkkkk'],
+  v: ['.........', 'kk..kkk..', '.....kbk.', 'kkkkkbbbk', 'kbbbbbbbk', 'kkkkkbbbk', '.....kbk.', 'kk..kkk..', '.........'],
+  hit: ['....k....', '.k.kyk.k.', '..kyyyk..', '.kyywyyk.', 'kyywwwyyk', '.kyywyyk.', '..kyyyk..', '.k.kyk.k.', '....k....'],
+  blk: ['kkkkkkkkk', 'kbbbbbbbk', 'kbhbbbbbk', 'kbbbbbbbk', 'kbbbbbbbk', '.kbbbbbk.', '.kbbbbbk.', '..kbbbk..', '...kkk...'],
+  heal: ['.........', '.kk...kk.', 'krrk.krrk', 'krhrkrrrk', 'krrrrrrrk', '.krrrrrk.', '..krrrk..', '...krk...', '....k....'],
+  draw: ['.kkkkkk..', '.kppppk..', '.kppppkk.', '.kpkkpk..', '.kpkgkk..', '.kkgggk..', '..kkgkk..', '...kkk...', '.........'],
+  disc: ['.kkkkkk..', '.kppppk..', '.krpprk..', '.kprrpk..', '.kprrpk..', '.krpprk..', '.kppppk..', '.kkkkkk..', '.........'],
+  zap: ['....kkk..', '...kyyk..', '..kyyk...', '.kyyykk..', '.kkkyyk..', '...kyk...', '..kyk....', '..kk.....', '.........'],
+  burn: ['....k....', '...kok...', '..kook.k.', '..koookok', '.kooyook.', '.koyyyok.', '.koyyyok.', '..kooook.', '...kkkk..'],
+  launch: ['....kkkkk', '.....kwwk', '....kwwwk', '...kwwkwk', '..kwwk.kk', '.kwwk....', 'kwwk.....', 'kkk......', '.........'],
+  thorn: ['....k....', '...kgk...', 'k..kgk..k', 'kk.kgk.kk', '.kkgggkk.', '..kgggk..', '.kkgggkk.', 'kk.kgk.kk', 'k...k...k'],
+};
+const IPAL = { k: '#1a0c14', w: '#d8d4dc', h: '#ffffff', d: '#8a8690', b: '#5aa8e8', y: '#ffd848', r: '#d8283a', p: '#f2e6c8', g: '#58a838', o: '#ff8a2a' };
+function drawIcon(g, name, x, y, k) { const I = ICONS[name]; if (!I) return 0; for (let j = 0; j < 9; j++) for (let i = 0; i < 9; i++) { const c = IPAL[I[j][i]]; if (c) { g.fillStyle = c; g.fillRect(x + i * k, y + j * k, k, k); } } return 10 * k; }
+const tokens = (l) => String(l).split(/(\{[a-z]+\})/).filter(Boolean);
+function lineW(l, k) { return tokens(l).reduce((w, t) => w + (/^\{[a-z]+\}$/.test(t) && ICONS[t.slice(1, -1)] ? 10 * k : measure(t, 'body') * k), 0); }
+const KEY = /^(LAUNCH(ES)?|SELF:|EAT:|MERGE:|ZAP|BURN|HIT|BLOCK|DRAW|DISCARD|DISCARDED:|THORNS|WEAK|VENOM|WET|KEPT|ALL|CARRY:|SHOVE:|FALLS:|PLACE:|DOUBLE|x\d.*)$/;
+function drawRuleLine(g, l, cx, y, k, T) {
+  const parts = tokens(l); const W = lineW(l, k); let x = Math.round(cx - W / 2);
+  for (const t of parts) {
+    const ic = /^\{([a-z]+)\}$/.exec(t); if (ic && ICONS[ic[1]]) { x += drawIcon(g, ic[1], x, Math.round(y - 5 * k), k); continue; }
+    // keywords in carmine, numbers in deep blue, the rest in ink (word by word, so a keyword inside a phrase still pops)
+    for (const w of t.split(/(\s+)/)) { if (!w) continue; const ww = measure(w, 'body') * k; if (w.trim()) T(w, x + ww / 2, y, 'body', KEY.test(w) ? '#8c1a30' : /^[+\-x×]?\d/.test(w) ? '#1e3a7a' : '#2a140c', { k }); x += ww; }
+  }
+}
+export function cardRules(def, up) {
+  if (def.rules) return (up && def.upRules) || def.rules;
+  const S = (k) => (up && def.up?.[k] !== undefined ? def.up[k] : def[k]); const L = [];
+  if (def.kind === 'matter') L.push(`{kg} ${S('m')} kg MATTER`);
+  const md = []; if (S('dm')) md.push(`${S('dm') > 0 ? '+' : ''}${S('dm')}{kg}`); if (S('dv')) md.push(`${S('dv') > 0 ? '+' : ''}${S('dv')}{v}`); if (S('hits')) md.push(`+${S('hits')}{hit}`); if (md.length) L.push(md.join('  '));
+  if (def.launch) L.push('{launch} LAUNCHES');
+  if (S('charge')) L.push(`{zap} ZAP ${S('charge')}`); if (S('burn')) L.push(`{burn} BURN ${S('burn')}`); if (S('focus')) L.push(`x${S('focus')} damage`); if (def.prism || def.spread) L.push('Hits ALL foes'); if (S('bounce')) L.push(`Bounces +${S('bounce')}`);
+  if (S('persist')) L.push(`Again +${S('persist')} turn${S('persist') > 1 ? 's' : ''}`); if (S('weakOnHit') || S('chill')) L.push(`Foe WEAK ${S('weakOnHit') || S('chill')}`); if (S('venom')) L.push(`VENOM ${S('venom')}`); if (S('wet')) L.push(`WET ${S('wet')}`); if (S('disarm')) L.push(`Foe -${S('disarm')} STR`);
+  if (def.echo) L.push('Repeats its left card'); if (def.twin) L.push('CLONES the object'); if (def.amplify) L.push('DOUBLE the next card'); if (def.resonance) L.push('x1.5 per repeat'); if (def.catalyst) L.push('Heat x2 (Water held)'); if (def.keystone) L.push(`+${def.keystone}{kg} per Stone`); if (def.domino) L.push('+20% per kind change'); if (def.lever) L.push('x2 FORCE damage'); if (S('pressure')) L.push(`+${S('pressure')}{kg} per card`); if (S('swing')) L.push(`+${S('swing')}{v} per card`); if (def.pierce) L.push('Ignores Block'); if (def.hard) L.push('Cracks Block');
+  const self = []; if (S('heal')) self.push(`{heal}${S('heal')}`); if (S('block')) self.push(`{blk}${S('block')}`); if (S('draw')) self.push(`{draw}${S('draw')}`); if (S('thorns')) self.push(`{thorn}${S('thorns')}`); if (S('charged')) self.push(`{zap}+${S('charged')}`); if (S('kindle')) self.push(`{burn}+${S('kindle')}`); if (S('momentum')) self.push(`+${S('momentum')}{v} next`); if (def.retain) self.push('KEEP hand'); if (def.cleanse) self.push('cleanse');
+  const head = L.slice(0, self.length ? 2 : 3); if (self.length) head.push(`${def.kind === 'matter' && S('heal') ? 'EAT:' : 'SELF:'} ${self.slice(0, 2).join(' ')}`); return head;
+}

@@ -1,4 +1,7 @@
-// The battle: golden-hour diorama, marionette vs. monsters, physical hand of cards, all juice.
+// The battle: a dusk diorama, Sir Isaac (on his feet) vs. monsters, a physical hand of cards, all juice. While you
+// prepare, time crawls (battlecine.js Prepare); End Turn snaps it back and everything resolves in cinematic shots.
+// The UI is physical and alive: an hourglass of Integrity with a Block shield, a coin jar, a bell to end the turn,
+// and every word in crisp floating 3D letters (tooltips, intents, speech, numbers) instead of paper.
 import * as THREE from 'three';
 import { buildStage } from '../models/world.js';
 import { realStage, firePit } from '../models/realworld.js';
@@ -9,11 +12,13 @@ import { createCreature } from '../models/creatures.js';
 import { Particles } from '../gfx/particles.js';
 import { Critters } from '../gfx/critters.js';
 import { makeSun } from '../gfx/vfx.js';
-import { stageLights, ContactShadows, GRADE_DAY } from '../gfx/lighting.js';
+import { stageLights, ContactShadows, GRADE_BATTLE, EXPOSURE } from '../gfx/lighting.js';
 import { FX3D } from '../gfx/fx3d.js';
 import { HandView, cardBackTex } from '../ui3d/cards3d.js';
-import { Pile, Numbers } from '../ui3d/kit.js';
-import { hud, HudTip, BattleHUD, chapterTitle } from '../ui3d/hud.js';
+import { Pile } from '../ui3d/kit.js';
+import { hud, BattleHUD, chapterTitle } from '../ui3d/hud.js';
+import { FloatTip, FloatNumbers, FloatSpeech, FloatText } from '../ui3d/floatlabel.js';
+import { ShotCam, Prepare, dilemmaScene, dilemmaReply, chooseCards, Tutorial } from './battlecine.js';
 import { uiRig } from '../ui3d/craft.js';
 import { fieldView, projectileModel } from './fieldviews.js';
 import { Battle } from '../game/battle.js';
@@ -24,7 +29,6 @@ import { vpick, vrange, clamp, roman } from '../core/util.js';
 import { RNG } from '../core/util.js';
 import { POWERS, BASICS } from '../game/data/cards.js';
 import { HeldLayer, heldFx, loreLines, mathLines } from './manifest.js';
-import { DodgeQTE } from './dodge.js';
 import { ITEMS } from '../game/data/items.js';
 import { foeNature } from '../game/data/synergy.js';
 import { IntentLayer } from './intents.js';
@@ -45,24 +49,24 @@ export class BattleScene {
     let readyRes; this.ready = new Promise((r) => (readyRes = r));
     await this.buildWorld(encounter); this.buildUI(); readyRes();
     const rng = new RNG((run.seed ^ (run.stats.floors * 7919)) >>> 0);
-    this.battle = new Battle({ run, enemies: encounter.enemies, rng, fx: this.fx(), kind: encounter.kind });
+    this.battle = new Battle({ run, enemies: encounter.enemies, rng, fx: this.fx(), kind: encounter.kind, deck: encounter.deck || null, ordered: !!encounter.ordered });
+    if (encounter.tutorial) { this.tut = new Tutorial(this, encounter.tutorial); this.battle.tutorial = { did: (k) => this.tut.did(k), onTurn: async (B) => encounter.tutorial.onTurn?.(B, this) }; } // story agent hook
     for (const e of this.battle.enemies) this.addEnemyView(e);
     this.held = new HeldLayer(this); // PLACE -> MERGE -> End Turn RELEASES (prepared objects wait in the air)
-    this.dodgeQTE = new DodgeQTE(this); // the timed dodge on enemy blows
     // the artifacts that bend the arithmetic hang as leather tags on the HUD (they twitch when they trigger)
-    this.artTags = {}; for (const id of run.items) { const d = ITEMS[id]; if (!d || !(d.math || id === 'talaria')) continue; this.hudB.addLaw(d.name, d.text); this.artTags[id] = this.hudB.laws?.[this.hudB.laws.length - 1]; }
+    this.artTags = {}; for (const id of run.items) { const d = ITEMS[id]; if (!d || !(d.math || ['talaria', 'aegis', 'greaves', 'ram'].includes(id))) continue; this.hudB.addLaw(d.name, d.text); this.artTags[id] = this.hudB.laws?.[this.hudB.laws.length - 1]; }
     this.intents = new IntentLayer(this); this.thinkK = 0; // foes' thought bubbles; the camera's 'thinking' zoom
-    { const names = [...new Set(this.battle.enemies.filter((e) => !e.def.isHead).map((e) => e.def.name))]; this.hudB.setObjective(`Defeat ${names.length > 1 ? names.slice(0, -1).join(', ') + ' & ' + names.at(-1) : names[0] || 'the foe'}`); }
+    { const names = [...new Set(this.battle.enemies.filter((e) => !e.def.isHead && !e.def.minion).map((e) => e.def.name))]; this.hudB.setObjective(`Defeat ${names.length > 1 ? names.slice(0, -1).join(', ') + ' & ' + names.at(-1) : names[0] || 'the foe'}`); }
     this.engine.setWorld(this.scene, this.camera);
-    this.engine.setFx({ rays: this.stage?.sunPos ? { pos: this.stage.sunPos, strength: 0.34, thresh: 0.8, decay: 0.958, density: 0.9, tint: 0xffcf8a } : null, exposure: 1.06, bloom: [0.38, 0.55, 0.86], tilt: false, ao: 1.0, grade: GRADE_DAY });
+    this.engine.setFx({ rays: this.stage?.sunPos ? { pos: this.stage.sunPos, strength: 0.22, thresh: 0.86, decay: 0.955, density: 0.85, tint: 0xffc890 } : null, exposure: EXPOSURE.battle, bloom: [0.22, 0.5, 0.9], tilt: false, ao: 1.15, grade: GRADE_BATTLE });
     this.handler = this.input.push(this.makeInput());
     this.engine.add(this);
-    const kind = encounter.kind; audio.playMusic(kind === 'guardian' ? 'boss' : kind === 'elite' ? 'elite' : vpick(['battle', 'battle2']));
+    const kind = encounter.kind; audio.playMusic(kind === 'guardian' || encounter.boss ? 'boss' : kind === 'elite' ? 'elite' : vpick(['battle', 'battle2']));
     audio.setAmbSet(this.theme === 'marsh' ? ['wilderness', 'stream'] : ['wilderness']);
     for (const e of this.battle.enemies) { const j = this.game.journal; (j.enemies[e.id] ||= { seen: 0, killed: 0, learned: {} }).seen++; }
     this.game.saveJournal();
     await this.intro();
-    await this.battle.start();
+    await this.battle.start(); this.tut?.start();
     return new Promise((res) => (this.resolve = res));
   }
 
@@ -72,16 +76,17 @@ export class BattleScene {
     const held = [this.ui.root, this.hudB.root]; for (const g of held) g.visible = false;
     const reveal = () => held.forEach((g, i) => { if (g.visible) return; g.visible = true; g.position.y = i ? 3.2 : -3.6; tweens.to(g.position, { y: 0 }, 0.6, { ease: 'outBack' }); });
     let cine = null;
+    if (this.encounter.tutorial) { await this.tutorialHook('intro'); reveal(); return; } // story agent: the prologue's tutorial stages its own opening
     try { cine = this.cine = battleIntro(this, { onReveal: reveal }); await cine.done; } catch (e) { console.warn('battle intro skipped', e); cine?.abort(); }
     this.cine = null; reveal();
   }
 
   // ---------------------------------------------------------------- world
   async buildWorld(enc) {
-    const lead = enc.enemies[0]; this.theme = enc.kind === 'guardian' ? 'guardian' : THEME[lead] || 'meadow'; if (lead.startsWith('hydra')) this.theme = 'marsh'; if (lead.startsWith('minotaur')) this.theme = 'labyrinth';
+    const lead = enc.enemies[0]; this.theme = enc.theme || (enc.kind === 'guardian' ? 'guardian' : THEME[lead] || 'meadow'); if (lead.startsWith('hydra')) this.theme = 'marsh'; if (lead.startsWith('minotaur')) this.theme = 'labyrinth';
     const sc = (this.scene = new THREE.Scene());
     let stage = null;
-    try { stage = await realStage(this.theme, 7 + this.runData.stats.floors, this.engine.renderer); sc.environment = stage.env; sc.environmentIntensity = 0.65; sc.background = stage.background; sc.backgroundIntensity = 0.8; }
+    try { stage = await realStage(this.theme, 7 + this.runData.stats.floors, this.engine.renderer); sc.environment = stage.env; sc.environmentIntensity = 0.32; sc.background = stage.background; sc.backgroundIntensity = 0.62; }
     catch (e) { console.warn('realistic stage failed, using fallback', e); stage = buildStage(this.theme, 7 + this.runData.stats.floors); }
     sc.add(stage.group); this.stage = stage;
     this.critters = new Critters(70); this.critters.bounds = { x: [-15, 15], y: [1.5, 8], z: [-10, 1] }; sc.add(this.critters.mesh); this.fx3d = new FX3D(this);
@@ -92,17 +97,18 @@ export class BattleScene {
     this.lights = stageLights(sc, { theme: this.theme, sunDir: stage.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4), mapSize: this.engine.quality === 'low' ? 1024 : this.engine.quality === 'medium' ? 2048 : 4096 }); this.contact = new ContactShadows(sc, { hAt: stage.hAt });
     // 2D pixel-art sun billboard far behind the stage, along the sky dome's setting-sun direction
     // dusk practicals, R.O.O.M.-style: warm braziers that actually light the fighters, a cool arcane rim, Sir Isaac's spirit glow
-    const rim = new THREE.DirectionalLight(0xffb070, 0.9); rim.position.set(6, 5, -9); const arc = new THREE.DirectionalLight(0x9ab8ff, 0.8); arc.position.set(-7, 6, -10); sc.add(rim, arc);
+    const rim = new THREE.DirectionalLight(0xffb070, 0.32); rim.position.set(6, 5, -9); const arc = new THREE.DirectionalLight(0x9ab8ff, 0.26); arc.position.set(-7, 6, -10); sc.add(rim, arc);
     this.fires = [];
     for (const [x, z, s] of [[-6.4, -2.4, 1.6], [7.0, -3.2, 1.7]]) {
-      const l = new THREE.PointLight(0xff8a3a, 26, 12, 1.6); l.position.set(x, 1.5, z + 0.4); sc.add(l); this.fires.push({ l, x, z, s, ph: Math.random() * 9 });
+      const l = new THREE.PointLight(0xff8a3a, 15, 11, 1.8); l.position.set(x, 1.5, z + 0.4); sc.add(l); this.fires.push({ l, x, z, s, ph: Math.random() * 9 });
       { const o = firePit({ seed: Math.round(x * 3 + z) }); o.position.set(x, 0, z); o.scale.multiplyScalar(s); sc.add(o); }
     }
-    this.spirit = new THREE.PointLight(0xa58cff, 5, 6, 2); this.spirit.position.set(-3.5, 2.6, 1.8); sc.add(this.spirit);
+    this.spirit = new THREE.PointLight(0xa58cff, 1.6, 5, 2); this.spirit.position.set(-3.5, 2.6, 1.8); sc.add(this.spirit);
     this.camera = new THREE.PerspectiveCamera(32, this.engine.aspect, 0.1, 400); this.camBase = new THREE.Vector3(-0.1, 3.0, 11.4); this.camLook = new THREE.Vector3(0.3, 1.7, 0);
-    this.camera.position.copy(this.camBase); this.camera.lookAt(this.camLook); this.camOff = new THREE.Vector3(); this.camPunch = 0;
+    this.camera.position.copy(this.camBase); this.camera.lookAt(this.camLook); this.camOff = new THREE.Vector3(); this.camPunch = 0; this.baseFov = 32;
+    this.shotCam = new ShotCam(this); this.prepT = new Prepare(this); this.wt = 0; // cinematic shots; slow-motion prepare
     // professor
-    this.prof = createProfessor(); this.prof.root.position.set(-3.5, 0, 0.9); this.prof.root.rotation.y = 0.55; sc.add(this.prof.root);
+    this.prof = enc.tutorial?.hero?.(this) || createProfessor(); this.prof.root.position.set(-3.5, stage.hAt ? stage.hAt(-3.5, 0.9) : 0, 0.9); this.prof.root.rotation.y = this.profRy = 0.55; sc.add(this.prof.root); // on his feet
     this.wear = wearArtifacts(this.prof, this.runData?.items); // he wears / uses every curio he owns (models/wearables.js)
     this.profHit = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.6, 1.2), new THREE.MeshBasicMaterial({ visible: false })); this.profHit.position.set(-3.5, 1.3, 0.9); this.profHit.userData.target = { type: 'self' }; sc.add(this.profHit);
     // field target (the ground between the fighters)
@@ -113,7 +119,10 @@ export class BattleScene {
     this.ambientT = 0;
   }
   enemySlotPos(e) {
-    const B = this.battle; const main = B.enemies.filter((x) => !x.def.isHead);
+    const B = this.battle; const main = B.enemies.filter((x) => !x.def.isHead && !x.def.minion);
+    if (e.def.minion) { const ms = B.enemies.filter((x) => x.def.minion); const i = Math.max(0, ms.indexOf(e)); return new THREE.Vector3(1.3 + (i % 3) * 1.15, 0, 1.15 - (i % 2) * 0.55 - Math.floor(i / 3) * 0.5); } // the brood crawls in front of its queen
+    if (e.def.brood) return new THREE.Vector3(4.7, 0, -1.5);
+    if (e.def.flying && main.length === 1) return new THREE.Vector3(3.1, 2.0, -0.3);
     if (e.def.isHead) { const body = B.enemies.find((x) => x.uid === e.parent); const bp = body ? this.enemyViews.get(body.uid)?.api.root.position : new THREE.Vector3(5, 0, -1); const heads = B.enemies.filter((x) => x.def.isHead && x.parent === e.parent); const i = heads.indexOf(e); const n = Math.max(3, heads.length); const a = (i / (n - 1) - 0.5) * 2; return new THREE.Vector3((bp?.x ?? 5) - 1.6 + a * 2.0, 2.0 + Math.cos(a * 1.4) * 0.6 + (i % 2) * 0.4, (bp?.z ?? -1) + 1.6 - Math.abs(a) * 0.3); }
     const i = main.indexOf(e); const n = main.length; const xs = n === 1 ? [2.9] : n === 2 ? [2.0, 4.6] : [1.5, 3.6, 5.7];
     if (e.def.heads) return new THREE.Vector3(4.4, 0, -1.6);
@@ -141,9 +150,9 @@ export class BattleScene {
     this.hand = new HandView(ui);
     this.drawPile = new Pile('DRAW', cardBackTex()); this.discardPile = new Pile('USED', cardBackTex()); ui.root.add(this.drawPile.group, this.discardPile.group);
     hud.attach(this.engine, this.input); hud.clear();
-    const enc = this.encounter; this.hudB = new BattleHUD({ floor: (this.runData.stats.floors || 0) + 1, kind: enc.kind, onEnd: () => this.endTurn(), onWell: () => this.toast('Drag cards into Second Thoughts to redraw them. 3 per battle.') });
-    this.tooltip = new HudTip(); this.preview = new HudTip();
-    this.barks = []; this.numbers = new Numbers(ui.scene);
+    const enc = this.encounter; this.hudB = new BattleHUD({ floor: (this.runData.stats.floors || 0) + 1, kind: enc.kind, onEnd: () => this.endTurn() });
+    this.tooltip = new FloatTip({ maxW: 15 }); this.preview = new FloatTip({ maxW: 14 });
+    this.barks = []; this.numbers = new FloatNumbers(ui.scene);
     this.layoutUI(); this.onResize = () => this.layoutUI();
   }
   layoutUI() {
@@ -155,8 +164,11 @@ export class BattleScene {
   // ---------------------------------------------------------------- loop
   update(dt, t) {
     if (!this.battle) return;
-    const B = this.battle;
-    this.prof.update(dt); this.wear?.update(dt);
+    const B = this.battle; const rdt = dt;
+    // PREPARE in slow motion: while you plan, the world (foes, field, fires, particles, critters, grass) crawls
+    const prep = B.phase === 'player' && !this.busy && !this.done && !this.cine && !this.dilemmaOn && !this.choosing;
+    const ws = this.prepT.update(rdt, prep); dt = rdt * ws; this.wt += dt; t = this.wt;
+    this.prof.update(rdt); this.wear?.update(rdt);
     for (const [, v] of this.enemyViews) {
       v.api.update(dt);
       if (v.api.anchorPos) { const body = this.enemyViews.get(v.e.parent); if (body?.api.anchor) body.api.anchor(v.api.anchorIdx ?? 0, v.api.anchorPos); if (!body?.e.alive) v.api.anchorPos = null; }
@@ -171,32 +183,32 @@ export class BattleScene {
       if (Math.random() < dt * 3) this.glowParts.spawn({ pos: [f.x, 1.2, f.z], vel: [vrange(-0.4, 0.4), vrange(1.5, 3), 0], life: vrange(1.2, 2.2), size: vrange(10, 16), color: '#ffd08a', sprite: 'dot', wobble: 0.8 });
     }
     this.spirit.intensity = 5 + Math.sin(t * 2.1) * 1.2;
-    this.parts.update(dt, t); this.glowParts.update(dt, t); this.critters.update(dt, t); this.fx3d?.update(dt);
+    this.parts.update(dt, t); this.glowParts.update(dt, t); this.critters.update(dt, t); this.fx3d?.update(rdt);
     // ambient pixel particles: pollen + fireflies + leaves
     this.ambientT -= dt;
     if (this.ambientT <= 0) { this.ambientT = 0.08; const x = vrange(-12, 12), z = vrange(-6, 4);
       if (Math.random() < 0.6) this.glowParts.spawn({ pos: [x, vrange(0.3, 4), z], vel: [vrange(-0.2, 0.2), vrange(0.05, 0.3), 0], life: vrange(3, 6), size: vrange(14, 24), color: this.theme === 'marsh' ? '#c8ff90' : '#ffe08a', sprite: 'firefly', wobble: 0.6 });
       else this.parts.spawn({ pos: [x, 7, z], vel: [vrange(0.3, 0.9), -0.6, 0], life: 8, size: vrange(20, 30), color: vpick(['#9cb84a', '#cfe07a', '#e0a83a']), sprite: 'leaf', wobble: 1.2, spin: vrange(-2, 2), floor: 0.05 }); }
     // camera drift + punch
-    this.camPunch = Math.max(0, this.camPunch - dt * 2.5);
+    this.camPunch = Math.max(0, this.camPunch - rdt * 2.5); dt = rdt;
     const cx = this.camBase.x + Math.sin(t * 0.21) * 0.25 + this.input.ndc.x * 0.25, cy = this.camBase.y + Math.sin(t * 0.17) * 0.12 + this.input.ndc.y * 0.12;
     this.camera.position.set(cx, cy, this.camBase.z - this.camPunch * 1.6); this.camera.lookAt(this.camLook);
-    this.thinkCam(dt, t);
+    this.thinkCam(dt, t); this.shotCam.apply(rdt, this.camera, this.baseFov);
     // UI
     this.hand.update(dt, t);
-    const P = B.player; this.hudB.setVitals(P.hp, P.maxHp, P.block, this.runData.gold); this.hudB.setRedraws(B.redraws);
+    const P = B.player; this.hudB.setVitals(P.hp, P.maxHp, P.block, this.runData.gold);
     this.hudB.setEnd(B.phase === 'player' && !this.busy && !this.done, B.phase === 'player' || this.done ? 'End Turn' : 'Foes act');
     this.drawPile.set(B.draw.length); this.discardPile.set(B.discard.length); this.drawPile.update(dt); this.discardPile.update(dt);
     this.tooltip.update(dt); this.preview.update(dt); this.numbers.update(dt);
-    for (const b of this.barks) { b.life -= dt; const p = this.engine.worldToUI(b.anchor()); if (!b.note.fall) b.note.at(p.x + b.ox, p.y + b.oy); if (b.life < 0) b.note.drop(); }
-    this.barks = this.barks.filter((b) => b.life >= -0.6);
+    for (const b of this.barks) { const p = this.engine.worldToUI(b.anchor()); b.note.at(p.x + b.ox, p.y + b.oy); b.note.update(dt); }
+    this.barks = this.barks.filter((b) => { if (b.note.dead) { b.note.dispose(); return false; } return true; });
     this.fieldMarker.material.opacity = this.hand.drag && this.dropTarget?.type === 'field' ? 0.85 : 0;
     this.prof.lookAt(this.input.ndc.x * 0.6, this.input.ndc.y * 0.4);
   }
 
   // preparing your turn: the camera eases in on Newton (thinking pose, calm vignette); End Turn pulls back wide to watch
   thinkCam(dt, t) {
-    const B = this.battle; const prep = B.phase === 'player' && !this.busy && !this.done && !this.cine;
+    const B = this.battle; const prep = B.phase === 'player' && !this.busy && !this.done && !this.cine && !this.dilemmaOn;
     this.thinkK += ((prep ? 1 : 0) - this.thinkK) * Math.min(1, dt * (prep ? 1.6 : 3.2)); const k = this.thinkK * this.thinkK * (3 - 2 * this.thinkK);
     if (k > 0.001) {
       let maxX = -1; for (const [, v] of this.enemyViews) if (v.e.alive && !v.e.def.isHead) maxX = Math.max(maxX, v.api.root.position.x + (v.h > 2.6 ? 1.2 : 0.6));
@@ -204,10 +216,6 @@ export class BattleScene {
       const tp = new THREE.Vector3(lookX - 0.4, 2.55, near), tl = new THREE.Vector3(lookX, 1.65, 0.2);
       this.camera.position.lerp(tp.add(new THREE.Vector3(Math.sin(t * 0.21) * 0.12, Math.sin(t * 0.17) * 0.06, 0)), k * 0.9); this.camera.lookAt(this.camLook.clone().lerp(tl, k * 0.9));
     }
-    // a story dilemma: a two-shot of Newton and the foe who speaks
-    this.dlgK = (this.dlgK || 0) + ((this.dilemmaFoe ? 1 : 0) - (this.dlgK || 0)) * Math.min(1, dt * 2.2);
-    if (this.dlgK > 0.001) { const f = this.dilemmaFoe ? this.enemyPos(this.dilemmaFoe, 0.6) : (this.dlgLast || this.camLook); if (this.dilemmaFoe) this.dlgLast = f.clone(); const mx = (f.x + this.prof.root.position.x) / 2; const kk = this.dlgK * this.dlgK * (3 - 2 * this.dlgK);
-      this.camera.position.lerp(new THREE.Vector3(mx + 0.4, 2.5, 8.4), kk * 0.85); this.camera.lookAt(this.camLook.clone().lerp(new THREE.Vector3(mx + 0.6, Math.max(1.6, f.y), 0), kk * 0.85)); }
     const g = this.engine.grade?.uniforms; if (g?.uVignette) { this.vig0 ??= g.uVignette.value; g.uVignette.value = this.vig0 + k * 0.28; }
     if (prep) { this.thinkT = (this.thinkT ?? 0.6) - dt; if (this.thinkT <= 0 && !this.hand.drag) { this.thinkT = 3.2; this.prof.act('think'); } } else this.thinkT = 0.4;
   }
@@ -279,11 +287,10 @@ export class BattleScene {
     const d = this.hand.drag; let tgt = null;
     const other = this.hand.pick(this.rayUI(this.cardMeshes()));
     if (other && other !== d.slot) tgt = null; // (cards merge on the placed object now, not in the hand)
-    else if (this.hudB.wellHit(this.input.x, this.input.y)) tgt = { type: 'bin' };
     else { const w = this.rayWorld(); if (w) tgt = w; }
     const changed = JSON.stringify(tgt && { ...tgt, slot: tgt.slot?.uid }) !== JSON.stringify(this.dropTarget && { ...this.dropTarget, slot: this.dropTarget.slot?.uid });
     this.dropTarget = tgt; this.hand.dropTarget = tgt?.type === 'combine' ? tgt : null;
-    const real = this.resolveDrop(d.slot, tgt); this.hudB.setWellHot(tgt?.type === 'bin'); this.held?.ghost(real?.type === 'air' && !real.aim ? d.slot : null);
+    const real = this.resolveDrop(d.slot, tgt); this.held?.ghost(real?.type === 'air' && !real.aim ? d.slot : null);
     for (const [, v] of this.enemyViews) v.api.root.userData.hl = tgt?.uid === v.e.uid || this.held?.isTargeted(v.e.uid);
     if (changed) { this.hand.layout(); if (tgt) audio.play('ui_hover', { vol: 0.35 }); }
     const p = this.ui.pointerPlane(8);
@@ -296,7 +303,6 @@ export class BattleScene {
     tgt = this.resolveDrop(slotV, tgt); if (tgt?.type === 'none') return [[[tgt.text, '#8f2a2e']]];
     if (tgt.type === 'combine') { const tmp = { uid: 'x', cards: [...tgt.slot.slot.cards, ...s.cards] }; if (tmp.cards.some((c) => c.type === 'power')) return [[['Laws do not combine', '#8f2a2e']]]; const mv = B.moveOf(tmp); const a = mv.attack; return [[['COMBINE → ', '#8f2a2e'], [mv.name, '#3a2410']], [[a.perHit ? `${a.m}kg × ${a.v}m/s = ${a.perHit}${a.hits > 1 ? ' ×' + a.hits : ''}` : describeSelf(mv.self).slice(0, 2).join(', '), '#2a160c']]]; }
     const pv = B.preview(s.uid, tgt);
-    if (pv.kind === 'bin') return [[[pv.text, pv.ok ? '#2a160c' : '#8f2a2e']]];
     if (pv.kind === 'power') return [[[pv.text, pv.ok ? '#2a160c' : '#8f2a2e']]];
     if (!pv.ok) return [[[pv.text || 'No effect', '#8f2a2e']]];
     const mv = pv.move;
@@ -333,11 +339,6 @@ export class BattleScene {
     this.tooltip.show([[[pv.mv.name, '#3a2410']], [[a.perHit ? `${a.m}kg × ${a.v}m/s${a.hits > 1 ? ' ×' + a.hits : ''}` : describeAttack(a)[0] || '', '#2a160c'], [pv.target && pv.est ? `  → ${pv.target.def.name} ${pv.est.total}` : '', '#c8443a']], [['Drop Laws on it to change it. Drag it onto a foe to aim.', '#5a3622']], [['The bell releases it.', '#8a6a44']]], clamp(p.x + 4.5, -this.ui.W + 4, this.ui.W - 4.5), p.y + 2.5, 10);
   }
   toast(text) { hud.toast(text); }
-  // Newton slips aside in mid-air (a perfect dodge goes further) and floats back
-  sidestep(k = 1) {
-    const r = this.prof.root; const z0 = this.prof.homeZ ?? (this.prof.homeZ = r.position.z), y0 = this.prof.homeY ?? (this.prof.homeY = r.position.y);
-    tweens.to(r.position, { z: z0 - 0.9 * k, y: y0 + 0.35 * k }, 0.12, { ease: 'outQuad' }).then(() => tweens.to(r.position, { z: z0, y: y0 }, 0.45, { delay: 0.25, ease: 'inOutQuad' }));
-  }
 
   syncHand(from) { const W = this.ui.W, H = this.ui.H; this.hand.sync(this.battle.hand, this.battle, from || { x: -W + 2.2, y: -H + 2.4 }); }
 
@@ -361,23 +362,33 @@ export class BattleScene {
     this.battle.finish(); await tweens.wait(0.6);
     if (won) { audio.play('sting_victory'); this.prof.act('cheer'); this.bark('player', vpick(PLAYER_BARKS.win), 2.5); this.hudB.setEnd(false); await this.showBanner('Victory', 'THE WILDS GROW QUIET', '', 1.1); }
     else { audio.stopMusic(1); audio.play('sting_defeat'); await this.showBanner('The Universe Resets', 'THE JOURNAL REMEMBERS', 'dread', 1.3); }
-    await tweens.wait(0.5);
+    await tweens.wait(0.5); await this.tutorialHook('finish', won);
     this.resolve({ won, kind: this.encounter.kind, enemies: this.encounter.enemies });
   }
+  /** story agent: the prologue's tutorial (encounter.tutorial = { hero(S), on(event, S, ...args) }; events: intro, battleStart, playerTurn, steal, finish) */
+  async tutorialHook(ev, ...a) { const t = this.encounter?.tutorial; if (!t?.on) return; try { await t.on(ev, this, ...a); } catch (e) { console.warn('tutorial', ev, e); } }
   // the battle opens like a chapter of a storybook (an illuminated leaf slides onto the table, then away)
-  async chapterCard(B) {
-    const foes = B.enemies.filter((e) => !e.def.isHead); const kind = this.encounter.kind;
-    const note = kind === 'guardian' ? 'The last chapter of the Wilds' : kind === 'elite' ? 'A most perilous chapter' : '';
-    await hud.chapter(Math.max(1, this.runData.stats.floors || 1), chapterTitle(foes), note);
+  async chapterCard(B) { // the chapter heading, in big floating letters (no paper leaf in battle)
+    const foes = B.enemies.filter((e) => !e.def.isHead && !e.def.minion); const kind = this.encounter.kind;
+    const note = kind === 'guardian' || this.encounter.boss ? 'THE LAST CHAPTER · A BOSS' : kind === 'elite' ? 'A MOST PERILOUS CHAPTER' : `CHAPTER ${roman(Math.max(1, this.runData.stats.floors || 1))}`;
+    await this.showBanner(chapterTitle(foes), note, kind === 'guardian' ? 'dread' : '', 0.9);
   }
-  async showBanner(title, sub = '', kind = '', hold = 0.7) { audio.play('transition_whoosh', { vol: 0.6 }); await hud.banner(title, sub, kind, hold); }
+  // a banner in big floating letters (Alagard 32), springing up mid-screen, then folding away
+  async showBanner(title, sub = '', kind = '', hold = 0.7) {
+    audio.play('transition_whoosh', { vol: 0.5 }); const col = kind === 'dread' ? '#ff8a7a' : kind === 'arc' ? '#d8b8ff' : '#ffe6a8';
+    const T = new FloatText([[title, col]], { font: 'title', align: 'center', lighten: false }); if (T.w > this.ui.W * 1.8) T.set([[title, col]], { font: 'head' }); // long chapter titles step down a size const U = sub ? new FloatText([[sub, '#d8ccb4']], { font: 'head', align: 'center', lighten: false }) : null;
+    this.ui.scene.add(T.group); T.place(0, this.ui.H * 0.42, 10); T.show(); if (U) { this.ui.scene.add(U.group); U.place(0, this.ui.H * 0.42 - 1.7, 10); setTimeout(() => U.show(), 120); }
+    const up = { update: (dt) => { T.update(dt); U?.update(dt); } }; this.engine.add(up);
+    await tweens.wait(0.45 + hold); T.hide(); U?.hide(); setTimeout(() => { this.engine.remove(up); T.dispose(); U?.dispose(); }, 500);
+  }
   bark(who, text, life = 2.4) {
     if (!text) return;
-    const note = hud.bubble(text, who === 'player' ? 'me' : 'foe', who === 'player' ? 'Newton' : `the ${who.def?.name || 'Foe'}`);
-    const anchor = who === 'player' ? () => this.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, 0.6, 0)) : () => { const v = this.enemyViews.get(who.uid); return v ? v.api.root.position.clone().add(new THREE.Vector3(0, v.h + 0.3, 0)) : new THREE.Vector3(); };
-    const b = { note, anchor, life, ox: who === 'player' ? 0.9 : -0.4, oy: who === 'player' ? 0.5 : 2.3 }; this.barks.push(b);
+    for (const o of this.barks) if (o.who === who) o.note.drop(); // one line per speaker
+    const note = new FloatSpeech(this.ui.scene, text, { who: who === 'player' ? 'Isaac' : who.def?.name || 'Foe', color: who === 'player' ? '#9ad8ff' : '#ff9a7a', life });
+    const anchor = who === 'player' ? () => this.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(0, 0.45, 0)) : () => { const v = this.enemyViews.get(who.uid); return v ? v.api.root.position.clone().add(new THREE.Vector3(0, v.h + 0.15, 0)) : new THREE.Vector3(); };
+    const b = { note, anchor, who, ox: who === 'player' ? 0.6 : -0.6, oy: who === 'player' ? 0.6 : 2.6 }; this.barks.push(b);
     if (who === 'player') { this.prof.talk(Math.min(2, text.length * 0.05)); audio.play('wood_knock', { vol: 0.35 }); } else { const v = this.enemyViews.get(who.uid); v?.api.talk(1.2); }
-    if (this.barks.length > 3) { const old = this.barks.shift(); old.note.drop(); }
+    if (this.barks.filter((b) => !b.note.dropped).length > 3) this.barks.find((b) => !b.note.dropped)?.note.drop();
   }
   snapFX(slotV) { const v = slotV.views[slotV.views.length - 1]; if (!v) return; v.sc.kick(4); v.rz.kick(3); }
 
@@ -406,51 +417,42 @@ export class BattleScene {
     const S = this; const W = () => S.ui.W, H = () => S.ui.H;
     return {
       ...heldFx(S),
-      // a blow is coming: the rings close as the foe strikes (the lunge is timed to land on the ring)
-      async dodge(e, h, it, scale) {
-        if (!S.dodgeQTE.on) return null; const v = S.enemyViews.get(e.uid); const lead = h ? 0.6 : 0.85;
-        const res = S.dodgeQTE.run(e, { lead, scale });
-        setTimeout(() => { if (!v || !S.battle) return; v.api.act('attack'); if ((h || !S.lungedFor) && !it?.charge) S.fx3d.lunge(v.api.root, S.enemySlotPos(e), S.prof.root.position.x); }, Math.max(0, (lead - 0.4) * 1000));
-        S.lungedFor = null; const r = await res; if (r !== 'miss') S.sidestep(r === 'perfect' ? 1 : 0.6); return r;
+      // a blow lands: the foe lunges (the camera has already cut to it in enemyAct)
+      async blow(e, h, it, dmg) {
+        const v = S.enemyViews.get(e.uid); if (!v) return; if (h > 0) { v.api.act('attack'); if (!it?.charge) await S.fx3d.lunge(v.api.root, S.enemySlotPos(e), S.prof.root.position.x); else await tweens.wait(0.15); }
       },
-      // a story dilemma (data/dilemmas.js): the camera turns to the foe, it speaks (voiced, story/dialogue.js), and the
-      // options appear as carved plaques, each with its price written underneath
-      async dilemma(d, e) {
-        S.dilemmaFoe = e; const v = S.enemyViews.get(e.uid); let D = null;
-        try { D = await import('../story/dialogue.js'); } catch (err) { D = null; }
-        await S.showBanner(d.title, d.riddle ? 'A RIDDLE' : 'A DILEMMA', '', 0.5);
-        if (!D) { S.dilemmaFoe = null; return d.options.length - 1; }
-        const spk = 'foe_' + e.id; D.registerSpeaker(spk, { name: e.def.name, color: '#5a1a22' }); S.dlgSpk = spk;
-        const anchor = (w) => w.copy(S.enemyPos(e, 1.05)); v?.api.act?.('cast');
-        for (const line of d.intro) await D.say(spk, line, { anchor });
-        const i = await D.choice(d.options.map((o) => ({ label: o.label, sub: o.sub })), { prompt: d.prompt, speaker: 'narrator' });
-        return i;
-      },
+      // a story dilemma (data/dilemmas.js): a full zoom-in scene (battlecine.js): the camera moves in, the foe speaks, the
+      // options float as 3D letters, and Isaac physically does what you chose
+      async dilemma(d, e) { S.tooltip.hide(); S.preview.hide(); try { return await dilemmaScene(S, d, e); } catch (err) { console.warn('dilemma scene', err); S.dilemmaOn = false; S.hand.hideAll = false; S.shotCam.release(); return d.options.length - 1; } },
       async dilemmaResult(d, opt, e, res) {
-        let D = null; try { D = await import('../story/dialogue.js'); } catch (err) { D = null; }
         const head = S.enemyPos(e, 1.15);
-        if (d.riddle) { S.popNumber(head, opt.right ? 'RIGHT!' : 'WRONG!', { color: opt.right ? '#cfe07a' : '#f6b3a0', stroke: '#1e1408', size: 1.5 }); audio.play(opt.right ? 'magic_sparkle' : 'ui_error'); hud.feed(`${opt.right ? 'Correct' : 'Wrong'}. ${opt.outcome}`, opt.right ? 'arc' : 'foe'); }
-        if (res?.odds != null) { S.popNumber(head, res.odds ? 'LUCKY!' : 'UNLUCKY', { color: res.odds ? '#ffe08a' : '#f6b3a0', stroke: '#3a1f08', size: 1.4 }); audio.play(res.odds ? 'coins_handful' : 'ui_error', { vol: 0.6 }); }
-        if (res?.lost?.length) hud.feed(`Lost for good: ${res.lost.map((id) => BASICS[id]?.name || id).join(', ')}`, 'foe');
+        if (d.riddle) { S.popNumber(head, opt.right ? 'RIGHT!' : 'WRONG!', { color: opt.right ? '#cfe07a' : '#f6b3a0', size: 1.5 }); audio.play(opt.right ? 'magic_sparkle' : 'ui_error'); }
+        if (res?.odds != null) { S.popNumber(head, res.odds ? 'LUCKY!' : 'UNLUCKY', { color: res.odds ? '#ffe08a' : '#f6b3a0', size: 1.4 }); audio.play(res.odds ? 'coins_handful' : 'ui_error', { vol: 0.6 }); }
+        if (res?.lost?.length) S.toast(`Lost for good: ${res.lost.map((id) => BASICS[id]?.name || id).join(', ')}`);
         S.syncHand(); for (const x of S.battle.enemies) S.refreshEnemy(x);
-        if (D && opt.reply) await D.say(S.dlgSpk || 'narrator', opt.reply, { anchor: e.alive || e.fled ? (w) => w.copy(S.enemyPos(e, 1.05)) : null, hold: 0.8 });
-        S.dilemmaFoe = null;
+        try { await dilemmaReply(S, d, opt, e); } catch (err) { console.warn('dilemma reply', err); S.dilemmaOn = false; S.hand.hideAll = false; S.shotCam.release(); S.hand.layout(); }
       },
+      // Recycle / Scratchpad: pick cards in the hand (battlecine.js chooser)
+      async chooseCards(pool, o) { S.choosing = true; S.tooltip.hide(); try { return await chooseCards(S, pool, o); } finally { S.choosing = false; } },
+      async discarded(slot, why) { const to = S.discardPile.group.position; S.hand.removeViews(slot.cards.map((c) => c.uid), { x: to.x, y: to.y, s: 0.35 }); audio.play(why === 'nibble' ? 'paper_crumple' : 'card_slide', { vol: 0.7 }); await tweens.wait(0.12); },
+      async paperPlane(t) { const from = S.prof.handWorld(1, new THREE.Vector3()); await S.throwProjectile({ art: { core: 'paper', fast: true }, attack: {} }, { uid: t.uid }); void from; audio.play('whoosh_soft'); },
+      async nibbled(slots) { S.bark(S.battle.enemies.find((x) => x.def.minion && x.alive) || 'player', 'nibble nibble', 1.2); audio.play('paper_crumple'); await tweens.wait(0.2); },
+      async hexed(slots) { audio.play('magic_shimmer'); S.burst(S.prof.headWorld(new THREE.Vector3()), 'magic', 24); S.syncHand(); S.bark('player', 'My cards! Warts! Rotten warts!', 1.8); await tweens.wait(0.4); },
+      async devoured(e, cards) { audio.play('paper_crumple'); audio.play('monster_growl', { vol: 0.6 }); S.toast(`${e.def.name} devours ${cards.length} card${cards.length > 1 ? 's' : ''} from your draw pile`); await tweens.wait(0.3); },
+      async hypothesis(slot) { audio.play('pencil_scribble', { vol: 0.6 }); S.syncHand(); },
       async mirrored(twin, o, slot) {
         const L = S.held; const src = L.views.get(o.uid); const ui = L.uiOf(o); S.hand.removeViews(slot.cards.map((c) => c.uid), { x: ui.x, y: ui.y, s: 0.2, flip: 0 });
         const v = L.add(twin); if (src) { const to = v.g.position.clone(); v.g.position.copy(src.g.position); tweens.to(v.g.position, { x: to.x, y: to.y, z: to.z }, 0.45, { ease: 'outBack' }); S.burst(src.g.position, 'magic', 16); }
         audio.play('glass_clink'); audio.play('magic_shimmer', { delay: 0.1 }); S.prof.act('cast'); S.bark('player', vpick(['Two of everything. Narcissus would be jealous.', 'A reflection with mass. Unsettling.', 'Mirror, mirror: hit him twice.']), 1.8); await tweens.wait(0.4);
       },
       async cloned(copy, src) { audio.play('string_pluck', { vol: 0.6 }); S.bark('player', `An echo of ${BASICS[src.cards[0].id]?.name || 'that'}. Again!`, 1.6); await tweens.wait(0.15); },
-      async dodged(e, res) { const p = S.prof.headWorld(new THREE.Vector3()); S.popNumber(p, 'DODGE!', { color: '#cfe07a', stroke: '#1e3320', size: 1.3 }); audio.play('whoosh_soft'); await tweens.wait(0.2); },
       artifact(id) { S.wear?.trigger(id); const t = S.artTags?.[id]; if (t) { t.kick?.(1.6); t.pop?.kick?.(3); } if (!String(id).startsWith('law:')) audio.play('chime_soft', { vol: 0.35, minGap: 0.2 }); },
-      async battleStart(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); await S.chapterCard(B); await tweens.wait(0.25); const lead = B.enemies.find((e) => !e.def.isHead); if (lead) S.bark(lead, vpick(lead.def.barks.start), 2.6); await tweens.wait(0.8); S.bark('player', vpick(PLAYER_BARKS.start), 2.4); },
-      async playerTurn(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); S.hudB.setTurn(B.turn); S.showBanner('Your Turn', `TURN ${roman(B.turn)}`); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); },
+      async battleStart(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); await S.chapterCard(B); await tweens.wait(0.25); const lead = B.enemies.find((e) => !e.def.isHead); if (lead) S.bark(lead, vpick(lead.def.barks.start), 2.6); await tweens.wait(0.8); S.bark('player', vpick(PLAYER_BARKS.start), 2.4); await S.tutorialHook('battleStart', B); },
+      async playerTurn(B) { S.shotCam.release(2.2); S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); S.hudB.setTurn(B.turn); S.showBanner('Your Turn', `TURN ${roman(B.turn)} · TIME SLOWS`); audio.play('clockwork', { vol: 0.35 }); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); await S.tutorialHook('playerTurn', B); },
       async drew(slots) { S.syncHand(); audio.play('card_slide', { vol: 0.8 }); for (let i = 0; i < Math.min(slots.length, 6); i++) audio.play('card_slide', { delay: i * 0.07, vol: 0.6 }); await tweens.wait(0.12); },
       async reshuffle() { audio.play('card_shuffle'); },
       async petrified(cards) { audio.play('stone_grind'); S.syncHand(); S.bark('player', 'My cards! They are... gravel now.'); await tweens.wait(0.4); },
       async invalid(text) { audio.play('ui_error'); if (text) S.bark('player', text); },
-      async binned(slot) { audio.play('paper_crumple'); const [wx, wy] = S.hudB.wellUI(); S.hand.removeViews(slot.cards.map((c) => c.uid), { x: wx, y: wy, s: 0.2 }); hud.feed(`And Sir Isaac had second thoughts: ${slot.cards.length} card${slot.cards.length > 1 ? 's were' : ' was'} redrawn.`, 'arc'); await tweens.wait(0.25); },
       async power(c) { audio.play('magic_shimmer'); S.prof.act('cast'); S.burst(S.prof.headWorld(new THREE.Vector3()), 'magic', 40); S.fx3d.cast(S.prof.root.position); S.hand.removeViews([c.uid], { x: 0, y: 2, s: 0.1 }); S.bark('player', `${POWERS[c.id].name}: ${POWERS[c.id].flavor}`, 3); S.addPowerToken(c); await tweens.wait(0.5); },
       async played(slot, mv, target, kind) {
         const p = kind === 'attack' ? S.enemyPos(S.battle.enemies.find((e) => e.uid === target.uid) || S.battle.alive()[0]) : kind === 'self' ? S.prof.headWorld(new THREE.Vector3()) : new THREE.Vector3(-1, 0.5, 1.1);
@@ -492,18 +494,20 @@ export class BattleScene {
       fieldUpdate(f) { const fv = S.fieldViews.get(f.uid); fv?.group.scale.setScalar(1.15); fv && tweens.to(fv.group.scale, { x: 1, y: 1, z: 1 }, 0.4, { ease: 'outBack' }); },
       async enemyAct(e, it) {
         const v = S.enemyViews.get(e.uid); if (!v) return;
-        const qte = it.kind === 'attack' && S.dodgeQTE.on && S.battle.player.dodge > 0; S.lungedFor = qte ? null : e.uid;
-        if (!qte) { v.api.act(it.kind === 'attack' ? 'attack' : 'cast'); if (it.kind === 'attack' && !it.charge) await S.fx3d.lunge(v.api.root, S.enemySlotPos(e), S.prof.root.position.x); } else v.api.act('cast'); hud.feed(`${e.def.name}: ${it.label || (it.kind === 'attack' ? 'attacks' : it.kind)}`, 'foe');
+        // a cut to the foe: over Newton's shoulder for a blow (a harder push-in for a big one), a closer look for a spell
+        const fp = S.enemyPos(e, 0.6), pp = S.prof.root.position; const big = (it.dmg || 0) * (it.hits || 1) >= 14 || e.def.boss || e.def.guardian || e.def.elite;
+        if (it.kind === 'attack' || it.dmg) S.shotCam.shot(new THREE.Vector3(pp.x - 1.4, 2.0 + (big ? -0.2 : 0), pp.z + (big ? 3.4 : 4.6)), new THREE.Vector3((fp.x * 2 + pp.x) / 3, fp.y, fp.z), { snap: big, speed: 7, fov: big ? 28 : 31 });
+        else S.shotCam.shot(new THREE.Vector3(fp.x - 2.2, fp.y + 0.6, fp.z + 4.2), fp, { speed: 5, fov: 30 });
+        S.foeLabel?.(e, it); v.api.act(it.kind === 'attack' ? 'attack' : 'cast'); if (it.kind === 'attack' && !it.charge) await S.fx3d.lunge(v.api.root, S.enemySlotPos(e), S.prof.root.position.x);
         if (it.label) S.bark(e, it.kind === 'attack' ? null : vpick(e.def.barks.special), 1.4);
         audio.play(it.kind === 'attack' ? 'whoosh_heavy' : it.kind === 'buff' ? 'buff' : 'debuff', { vol: 0.8 });
-        const sfx = { satyr: it.kind === 'attack' ? 'drunk_laugh' : 'hiccup', medusa: 'snake_hiss', kobalos: 'goblin_laugh', minotaur: it.charge ? 'bull_roar' : 'bull_snort', minotaur_king: 'bull_roar', hydra: 'monster_growl', hydra_head: 'monster_growl', hydra_elder: 'monster_roar' }[e.id];
+        const sfx = { satyr: it.kind === 'attack' ? 'drunk_laugh' : 'hiccup', medusa: 'snake_hiss', kobalos: 'goblin_laugh', minotaur: it.charge ? 'bull_roar' : 'bull_snort', minotaur_king: 'bull_roar', hydra: 'monster_growl', hydra_head: 'monster_growl', hydra_elder: 'monster_roar', frog_wizard: it.kind === 'attack' ? 'gurgle' : 'magic_shimmer', bookworm_queen: 'monster_growl', bookworm: 'goblin_squeak', sphinx: 'monster_roar', eagle: 'whoosh_heavy' }[e.id];
         if (sfx) audio.play(sfx, { vol: 0.8 });
         if (it.charge) { await tweens.to(v.api.root.position, { x: v.api.root.position.x - 4.5 }, 0.35, { ease: 'inQuad' }); audio.play('hoof_stomp'); S.engine.shake(0.5); setTimeout(() => tweens.to(v.api.root.position, { x: S.enemySlotPos(e).x }, 0.6, { ease: 'outCubic' }), 300); }
-        await tweens.wait(0.35);
+        await tweens.wait(0.35); setTimeout(() => { if (S.battle?.phase === 'enemy') S.shotCam.release(3); }, 700);
       },
       async playerHit(dmg, o) {
-        if (o.dodge === 'good') S.popNumber(S.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(-0.7, 0.6, 0)), 'HALF', { color: '#cfe07a', stroke: '#1e3320', size: 1.0 });
-        S.prof.act('hurt'); const p = S.prof.headWorld(new THREE.Vector3()); if (dmg > 0) S.fx3d.hitPlayer(S.prof.root, p, dmg);
+        S.prof.act('hurt', { k: Math.min(1.6, 0.5 + dmg / 12) }); if (dmg >= 10) { S.camPunch = Math.min(1, dmg / 30); S.engine.hitStop(60); } const p = S.prof.headWorld(new THREE.Vector3()); if (dmg > 0) S.fx3d.hitPlayer(S.prof.root, p, dmg);
         if (dmg > 0) { hud.feed(`Sir Isaac takes ${dmg}`, 'hurt'); S.popNumber(p, dmg, { color: '#f6b3a0', stroke: '#3a0f18', size: 1.5 }); S.burst(p.clone().add(new THREE.Vector3(0, -0.6, 0)), 'wood', 16); audio.play('hit_wood'); S.engine.shake(Math.min(0.55, 0.12 + dmg / 50)); S.engine.flash(0.12, 0xc8443a, 0.25); if (Math.random() < 0.35) S.bark('player', vpick(PLAYER_BARKS.hit), 1.3); }
         if (o.blocked) { S.popNumber(p.clone().add(new THREE.Vector3(0.8, 0.4, 0)), `-${o.blocked}`, { color: '#a8dcef', stroke: '#16304f', size: 1.0 }); audio.play('shield_block'); }
         await tweens.wait(0.22);
@@ -512,7 +516,7 @@ export class BattleScene {
       async stunned(e, k) { S.popNumber(S.enemyPos(e, 1), k === 'prone' ? 'PRONE' : 'STUNNED', { color: '#ffe08a', stroke: '#3a1f08', size: 1.0 }); await tweens.wait(0.35); },
       async reflect(e) { S.bark('player', 'Mirror, mirror!'); S.burst(S.enemyPos(e, 0.9), 'magic', 30); audio.play('glass_shatter', { vol: 0.6 }); audio.play('stone_grind'); await tweens.wait(0.4); },
       async gaze(e) { S.engine.flash(0.3, 0x7dff8a, 0.5); audio.play('stone_grind'); await tweens.wait(0.3); },
-      async steal(e, c) { audio.play('goblin_laugh'); S.bark(e, vpick(e.def.barks.special), 1.5); await tweens.wait(0.3); },
+      async steal(e, c) { S.tutorialHook('steal', e, c); audio.play('goblin_laugh'); S.bark(e, vpick(e.def.barks.special), 1.5); await tweens.wait(0.3); },
       async lootBack(e, c) { audio.play('coin_single'); S.bark('player', 'My card! You pickpocketing parenthesis.'); },
       async flee(e) { const v = S.enemyViews.get(e.uid); if (v) { tweens.to(v.api.root.position, { x: v.api.root.position.x + 14 }, 0.9, { ease: 'inQuad' }); v.hud.setVisible(false); hud.feed(`${e.def.name} flees!`, 'foe'); } S.bark('player', 'Thief! Come back with my... physics.'); await tweens.wait(0.6); },
       async flute(e) { audio.play('pan_flute'); for (let i = 0; i < 8; i++) S.glowParts.spawn({ pos: [S.enemyPos(e).x, S.enemyPos(e).y + 0.6, 0.5], vel: [vrange(-2, 2), vrange(1, 3), 0], life: 1.6, size: 40, color: '#ffe08a', sprite: 'note', wobble: 1 }); await tweens.wait(0.5); },
@@ -534,7 +538,7 @@ export class BattleScene {
       async leyden() { audio.play('thunder'); S.engine.flash(0.35, 0xfff3b0, 0.4); },
       async pendulum(t) { audio.play('clockwork'); },
       async revive() { S.wear?.trigger('golden_apple'); audio.play('apple_crunch'); S.bark('player', 'A golden apple a day keeps the reaper away!', 2.5); S.burst(S.prof.headWorld(new THREE.Vector3()), 'heal', 50); },
-      async endTurn(B) { S.syncHand(); S.hand.removeViews([...S.hand.views.keys()].filter((uid) => !B.hand.some((s) => s.cards.some((c) => c.uid === uid))), { x: W() - 7.4, y: -H() + 2.4, s: 0.4 }); audio.play('card_fan', { vol: 0.6 }); await tweens.wait(0.35); },
+      async endTurn(B) { S.prepT.k = 0; S.syncHand(); S.hand.removeViews([...S.hand.views.keys()].filter((uid) => !B.hand.some((s) => s.cards.some((c) => c.uid === uid))), { x: W() - 7.4, y: -H() + 2.4, s: 0.4 }); audio.play('card_fan', { vol: 0.6 }); await tweens.wait(0.35); },
       async intents(B) { for (const e of B.enemies) S.refreshEnemy(e); },
       won() {}, lost() {},
       async bark(who, text) { S.bark(who, text); },
@@ -578,13 +582,13 @@ export class BattleScene {
 
   eureka(mv) {
     audio.play('eureka'); audio.duckMusic(0.3, 2.5); this.prof.act('cheer'); this.engine.flash(0.18, 0xffe08a, 0.4);
-    hud.banner('Eureka!', mv.name.toUpperCase(), 'arc', 1.4); hud.feed(`Here Sir Isaac discovered ${mv.name}, and wrote it in his Journal.`, 'arc');
+    this.showBanner('Eureka!', mv.name.toUpperCase(), 'arc', 1.0); hud.feed(`Here Sir Isaac discovered ${mv.name}, and wrote it in his Journal.`, 'arc');
     this.bark('player', mv.special?.note || vpick(['EUREKA! ...I am writing that down.', 'Note to self: that was brilliant.', 'Peer review is for cowards.']), 3);
     for (let i = 0; i < 30; i++) this.glowParts.spawn({ pos: [this.prof.headWorld(new THREE.Vector3()).x, 3, 1], vel: [vrange(-4, 4), vrange(2, 7), vrange(-1, 1)], life: 1.5, size: 40, color: vpick(['#ffe08a', '#e8fbff', '#b48cff']), sprite: 'star4', grav: 4 });
   }
 
   dispose() {
-    this.input.remove(this.handler); this.engine.remove(this);
+    this.input.remove(this.handler); this.engine.remove(this); this.prepT?.dispose(); this.tut?.dispose(); for (const b of this.barks || []) b.note.dispose(); this.camera.fov = this.baseFov;
     this.ui.scene.remove(this.ui.root); this.hudB.dispose(); this.tooltip.dispose(); this.preview.dispose(); hud.clear(); for (const [, v] of this.hand.views) this.ui.scene.remove(v.group);
     this.numbers.clear(); this.battle = null;
   }

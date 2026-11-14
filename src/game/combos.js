@@ -22,6 +22,9 @@ export const SPECIALS = [
   { key: 'pendulum+stone', name: 'Wrecking Ball', exact: true, bonus: 1.2, note: 'Demolition, scientifically.' },
   { key: 'sound+water', name: 'Tsunami Note', exact: true, note: 'A wave you can hear coming. Too late.' },
   { key: 'apple+rotation', name: 'Curveball Apple', exact: true, note: 'It goes around corners. And morals.' },
+  { key: 'apple+spin', name: 'Spinning Apple', exact: true, note: 'The first trick the master taught him. Still the best.' },
+  { key: 'apple+force+spin', name: 'Screwball', exact: true, bonus: 1.15, note: 'Push it, spin it, apologise to no one.' },
+  { key: 'apple+force+mass+spin', name: 'Gyroscope Pitch', exact: true, bonus: 1.2, note: 'Heavy, fast and stubbornly upright.' },
   { key: 'apple+inertia', name: 'Rolling Apple', exact: true, note: 'It simply does not stop. A role model.' },
   { key: 'apple+spark', name: 'Fruit Battery', exact: true, selfCharged: 8, note: 'Two wires and a Granny Smith. Electricity!' },
   { key: 'apple+apple+apple', name: 'Fruit Salad', exact: true, selfHealMul: 1.5, note: 'Nutritious. Ballistic.' },
@@ -76,14 +79,14 @@ export function flatten(cards) {
   const out = [];
   for (const c of cards) {
     if (c.type === 'move') for (const k of c.comps) out.push({ id: k.id, up: k.up || c.up || 0 });
-    else if (c.type !== 'power') out.push({ id: c.petrified ? 'stone' : c.id, up: c.petrified ? 0 : c.up || 0 });
+    else if (c.type !== 'power') out.push({ id: c.petrified ? 'stone' : c.id, up: c.petrified ? 0 : c.up || 0, ...(c.bm && !c.petrified ? { bm: c.bm } : {}) }); // bm: +kg from a Hypothesis
   }
   return out;
 }
 
 export function recipeKey(comps) { return comps.map((c) => c.id).sort().join('+'); }
 
-const ROCK = ['stone', 'pumice', 'lodestone', 'earth', 'keystone'];
+const ROCK = ['stone', 'pumice', 'lodestone', 'earth', 'keystone', 'bulwark'];
 function countMap(comps) { const m = {}; for (const c of comps) m[c.id] = (m[c.id] || 0) + 1; return m; }
 
 export function findSpecial(comps) {
@@ -149,11 +152,13 @@ export function computeMove(comps, mods = {}) {
   let m = 0, baseV = 0, dv = 0, hits = 1, charge = 0, burn = 0, wet = 0, persist = 0, bounce = 0, venom = 0, disarm = 0, chill = 0, weakOnHit = 0, goldOnKill = 0, recoil = 0;
   let focus = 1, spread = false, prism = false, fall = false, hard = false, pierce = false, grow = false, bounceFalloff = 0;
   let hasMatter = false, lensCount = 0, forceCount = 0, gravityCount = 0, launched = false, shove = 0, carry = false, float = false, dizzyOnHit = 0, seek = null, lever = false, swing = 0, press = 0, waveMul = 1;
-  const self = { heal: 0, block: 0, cleanse: false, charged: 0, momentum: 0, thorns: 0, retain: false, kindle: 0, draw: 0 };
+  const self = { heal: 0, block: 0, cleanse: false, charged: 0, momentum: 0, thorns: 0, retain: false, kindle: 0, draw: 0, recycle: null, scratch: 0, hypo: 0, keepBlock: false };
+  let impulse = 0;
   const rockN = ec.filter((c) => ROCK.includes(baseOf(c.id))).length; let ksKg = 0;
   for (const { c, k, dead } of eff) {
     const d = BASICS[c.id]; if (!d || dead) continue; K = k;
-    if (d.kind === 'matter') { hasMatter = true; m += S(c, 'm'); baseV = Math.max(baseV, S(c, 'v')); if (d.hard) hard = true; }
+    if (d.kind === 'matter') { hasMatter = true; m += S(c, 'm') + (c.bm || 0); baseV = Math.max(baseV, S(c, 'v')); if (d.hard) hard = true; }
+    impulse += S(c, 'impulse');
     if (d.keystone) { const kg = d.keystone * Math.max(0, rockN - 1) * k; m += kg; ksKg += kg; } // +2 kg for every other stone in the object
     if (d.spread) spread = true; if (d.launch) launched = true; shove += S(c, 'shove'); if (d.carry) carry = true; if (d.float) float = true; dizzyOnHit += S(c, 'dizzyOnHit'); if (d.seek) seek = d.seek;
     if (d.lever) lever = true; swing += S(c, 'swing'); press += S(c, 'pressure'); if (d.waveMul) waveMul *= d.waveMul;
@@ -170,7 +175,8 @@ export function computeMove(comps, mods = {}) {
     // self parts
     self.heal += S(c, 'heal'); self.block += S(c, 'block'); self.charged += S(c, 'charged'); self.momentum += S(c, 'momentum');
     self.thorns += S(c, 'thorns'); self.kindle += S(c, 'kindle'); self.draw += S(c, 'draw');
-    if (d.cleanse) self.cleanse = true; if (d.retain) self.retain = true;
+    if (d.cleanse) self.cleanse = true; if (d.retain) self.retain = true; if (d.keepBlock) self.keepBlock = true;
+    if (d.recycle !== undefined) self.recycle = Math.max(self.recycle ?? 0, S0(c, 'recycle')); if (d.scratch) self.scratch += d.scratch; self.hypo += S0(c, 'hypo');
   }
   K = 1;
   if (swing) dv += swing * (comps.length - 1); // a longer swing for a bigger build
@@ -208,6 +214,8 @@ export function computeMove(comps, mods = {}) {
   let fist = false;
   if (!hasMatter && m === 0 && forceCount > 0) { m = 1; fist = true; }
   if (mods.firstMove) { if (m > 0) m += mods.firstMove.dm; dv += mods.firstMove.dv; }
+  if (impulse && mods.block) dv += impulse * Math.floor(mods.block / 4); // Impulse: your Block becomes the swing
+  if (mods.ramV) dv += mods.ramV;
   let v = m > 0 ? Math.max(0, baseV + dv) : 0;
   if (mods.momentum && m > 0) v += mods.momentum;
   if (lensCount && !prism) spread = false; // a lens focuses a wave into a jet
@@ -252,7 +260,7 @@ export function computeMove(comps, mods = {}) {
   self.block = Math.round((self.block + (special?.selfBlock || 0)) * stackMul * (special?.selfBlockMul || 1));
   self.charged += special?.selfCharged || 0;
   self.moon = moon;
-  self.valid = self.heal > 0 || self.block > 0 || self.charged > 0 || self.momentum > 0 || self.thorns > 0 || self.retain || self.kindle > 0 || self.draw > 0 || self.cleanse || moon || !!self.clone;
+  self.valid = self.heal > 0 || self.block > 0 || self.charged > 0 || self.momentum > 0 || self.thorns > 0 || self.retain || self.kindle > 0 || self.draw > 0 || self.cleanse || moon || !!self.clone || self.recycle != null || self.scratch > 0 || self.keepBlock;
 
   const field = fieldFor(ec, cm, special, { m, v, burn, charge, wet, persist, mods });
   const name = moveName(comps, special);
@@ -329,6 +337,6 @@ export function describeSelf(s) {
   const out = [];
   if (s.block) out.push(`Block ${s.block}`); if (s.heal) out.push(`Heal ${s.heal}`); if (s.cleanse) out.push('Cleanse Burn/Wet/Venom');
   if (s.charged) out.push(`Next hit +${s.charged} zap`); if (s.momentum) out.push(`Next Move +${s.momentum} v`); if (s.thorns) out.push(`Thorns ${s.thorns}`);
-  if (s.kindle) out.push(`Hits Burn +${s.kindle}`); if (s.draw) out.push(`Draw ${s.draw}`); if (s.retain) out.push('Keep hand & Block'); if (s.moon) out.push('Summon a little moon'); if (s.clone) out.push('Clone your leftmost card');
+  if (s.kindle) out.push(`Hits Burn +${s.kindle}`); if (s.draw) out.push(`Draw ${s.draw}`); if (s.scratch) out.push(`Discard ${s.scratch}`); if (s.recycle != null) out.push(`Discard any, draw that many${s.recycle ? ' +' + s.recycle : ''}`); if (s.hypo) out.push(`Matter drawn +${s.hypo} kg`); if (s.keepBlock) out.push('Block is kept'); if (s.retain) out.push('Keep hand & Block'); if (s.moon) out.push('Summon a little moon'); if (s.clone) out.push('Clone your leftmost card');
   return out;
 }

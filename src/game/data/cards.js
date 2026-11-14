@@ -146,6 +146,43 @@ export const BASICS = {
   slinky: card({ name: 'Slinky', kind: 'tool', mutantOf: 'spring', bounce: 3, bounceFalloff: 0.25, launch: true, adj: 'Slinky', noun: 'Slinky', block: 3, draw: 1, field: 'catapult', up: { bounce: 4 },
     text: ['LAUNCHES it', 'Bounces 3 more (-25%)', 'MERGE: slinks it', 'SELF: Block 3, draw 1'],
     desc: { use: 'Merge it as a launcher. On Newton: Block 3, draw 1.', merge: 'Launches and bounces to 3 more foes, 25% weaker each time.', skill: 'Staircase: goes down stairs. And enemies.' }, flavor: 'Goes down stairs. And enemies.' }),
+
+  // ------------------------------------------------------------------ the prologue's third card: Spin (the rotation family's first member)
+  spin: card({ name: 'Spin', kind: 'law', mutantOf: 'rotation', num: 35, hits: 1, dv: 1, launch: true, adj: 'Spinning', noun: 'Spin', thorns: 2, field: 'whirl', art: 'rotation', up: { hits: 1, dv: 2, thorns: 3 },
+    rules: ['+1 {hit} HIT, +1 {v}', '{launch} LAUNCHES', 'SELF: {thorn} Thorns 2'], upRules: ['+1 {hit} HIT, +2 {v}', '{launch} LAUNCHES', 'SELF: {thorn} Thorns 3'],
+    text: ['+1 HIT and +1 v', 'LAUNCHES it', 'MERGE: spins it', 'SELF: Thorns 2'],
+    desc: { use: 'Merge it into a placed object to spin it at a foe. On Newton: Thorns 2 (attackers take 2).', merge: '+1 hit and +1 m/s, and it launches the object: Apple + Spin is an attack on its own.', skill: 'Ricochet: if a hit kills, the next hit finds another foe.' }, flavor: 'The master taught him this one with a top.' }),
+
+  // ------------------------------------------------------------------ card flow: draw and discard (Slay-the-Spire style cycling)
+  notebook: card({ name: 'Notebook', kind: 'tool', num: 36, draw: 2, dv: 1, adj: 'Annotated', noun: 'Notes', art: 'lens', up: { draw: 3 },
+    rules: ['SELF: {draw} DRAW 2', 'MERGE: +1 {v}'], upRules: ['SELF: {draw} DRAW 3', 'MERGE: +1 {v}'],
+    text: ['SELF: draw 2', 'MERGE: +1 v'], desc: { use: 'Drop it on Newton: draw 2 cards.', merge: '+1 m/s for the object it is merged into.', skill: 'Cycling: a thin deck is a fast deck.' }, flavor: 'Every margin full. Every margin right.' }),
+  hypothesis: card({ name: 'Hypothesis', kind: 'tool', num: 37, draw: 1, hypo: 1, drawOnMerge: 1, adj: 'Tested', noun: 'Hypothesis', art: 'superposition', up: { hypo: 2 },
+    rules: ['SELF: {draw} DRAW 1', 'If Matter: +1 {kg}', 'MERGE: {draw} draw 1'], upRules: ['SELF: {draw} DRAW 1', 'If Matter: +2 {kg}', 'MERGE: {draw} draw 1'],
+    text: ['SELF: draw 1', 'if Matter: +1 kg', 'MERGE: draw 1'], desc: { use: 'On Newton: draw 1 card. If it is Matter, it is 1 kg heavier for this battle.', merge: 'Merged into an object: draw 1 card.', skill: 'Tested: a guess that pays for itself.' }, flavor: 'If I am right, it is heavier. If I am wrong, it is also heavier.' }),
+  recycle: card({ name: 'Recycle', kind: 'tool', num: 38, recycle: 0, adj: 'Recycled', noun: 'Rethink', art: 'inertia', up: { recycle: 1 },
+    rules: ['SELF: {disc} DISCARD any', '{draw} DRAW that many'], upRules: ['SELF: {disc} DISCARD any', '{draw} DRAW that many +1'],
+    text: ['SELF: discard any,', 'draw that many'], desc: { use: 'On Newton: choose any cards in your hand to discard, then draw that many.', merge: 'It has no physics of its own: use it on Newton.', skill: 'Second thoughts, scientifically.' }, flavor: 'Nothing is wasted. Especially bad ideas.' }),
+  scratchpad: card({ name: 'Scratchpad', kind: 'tool', num: 39, draw: 3, scratch: 1, adj: 'Scribbled', noun: 'Scribble', art: 'pendulum', up: { draw: 4 },
+    rules: ['SELF: {draw} DRAW 3', 'then {disc} DISCARD 1'], upRules: ['SELF: {draw} DRAW 4', 'then {disc} DISCARD 1'],
+    text: ['SELF: draw 3,', 'then discard 1'], desc: { use: 'On Newton: draw 3 cards, then discard 1 card of your choice.', merge: 'It has no physics of its own: use it on Newton.', skill: 'Rough work: the margin is where ideas are born.' }, flavor: 'Mostly crossed out. The rest is genius.' }),
+  paper_plane: card({ name: 'Paper Plane', kind: 'tool', num: 40, launch: true, dv: 2, plane: 6, adj: 'Folded', noun: 'Glider', art: 'motion', up: { plane: 9, dv: 3 },
+    rules: ['+2 {v}, {launch} LAUNCHES', 'DISCARDED: {hit} 6 to a foe'], upRules: ['+3 {v}, {launch} LAUNCHES', 'DISCARDED: {hit} 9 to a foe'],
+    text: ['+2 v, LAUNCHES it', 'DISCARDED: 6 to a foe'], desc: { use: 'Merge it as a launcher.', merge: '+2 m/s and it launches the object.', skill: 'Glide: whenever you DISCARD it (Recycle, Scratchpad, a foe), it flies at a random foe for 6.' }, flavor: 'Aerodynamics, folded from a failed proof.' }),
+
+  // ------------------------------------------------------------------ Block (brace for the thought bubbles)
+  equilibrium: card({ name: 'Equilibrium', kind: 'law', num: 41, dm: 2, block: 7, keepBlock: true, adj: 'Balanced', noun: 'Balance', art: 'mass', up: { block: 10 },
+    rules: ['SELF: {blk} BLOCK 7', 'Block is KEPT', 'MERGE: +2 {kg}'], upRules: ['SELF: {blk} BLOCK 10', 'Block is KEPT', 'MERGE: +2 {kg}'],
+    text: ['SELF: Block 7, kept', 'next turn', 'MERGE: +2 kg'], desc: { use: 'On Newton: Block 7, and this turn\'s Block is not lost at the start of your next turn.', merge: '+2 kg.', skill: 'Balance: forces that cancel still count.' }, flavor: 'Sum of forces: zero. Sum of worries: also zero.' }),
+  impulse: card({ name: 'Impulse', kind: 'law', num: 42, impulse: 1, block: 4, launch: true, adj: 'Impulsive', noun: 'Impulse', art: 'force', up: { impulse: 2, block: 6 },
+    rules: ['+1 {v} per 4 {blk}', '{launch} LAUNCHES', 'SELF: {blk} BLOCK 4'], upRules: ['+2 {v} per 4 {blk}', '{launch} LAUNCHES', 'SELF: {blk} BLOCK 6'],
+    text: ['+1 v per 4 Block', 'LAUNCHES it', 'SELF: Block 4'], desc: { use: 'Merge it as a launcher. On Newton: Block 4.', merge: 'Launches the object, +1 m/s for every 4 Block you hold: your guard becomes the swing.', skill: 'J = F·t: the shield becomes the hammer.' }, flavor: 'Brace, then shove. Repeat.' }),
+  bulwark: card({ name: 'Bulwark', kind: 'matter', num: 43, m: 3, v: 0, noun: 'Slab', hard: true, block: 9, field: 'boulder', art: 'stone', up: { block: 13 },
+    rules: ['{kg} 3 kg matter', 'SELF: {blk} BLOCK 9'], upRules: ['{kg} 3 kg matter', 'SELF: {blk} BLOCK 13'],
+    text: ['Matter: 3 kg', 'SELF: Block 9'], desc: { use: 'Brace behind it on Newton: Block 9. Or place it to launch.', merge: 'A heavy slab of marble: counts as Stone.', skill: 'Wall: the best answer to a big number.' }, flavor: 'A wall that agreed to be portable.' }),
+  third_reaction: card({ name: 'Reaction', kind: 'law', num: 44, block: 5, thorns: 3, dm: 1, adj: 'Reactive', noun: 'Reaction', art: 'antigravity', up: { block: 7, thorns: 5 },
+    rules: ['SELF: {blk} BLOCK 5', '+ {thorn} THORNS 3', 'MERGE: +1 {kg}'], upRules: ['SELF: {blk} BLOCK 7', '+ {thorn} THORNS 5', 'MERGE: +1 {kg}'],
+    text: ['SELF: Block 5', 'and Thorns 3', 'MERGE: +1 kg'], desc: { use: 'On Newton: Block 5 and Thorns 3 (attackers take 3).', merge: '+1 kg.', skill: 'Every push pushes back.' }, flavor: 'Equal. Opposite. Smug.' }),
 };
 // card-art subjects for the newer science cards (cardart.js draws BASICS[id].art when there is no subject of its own)
 Object.assign(BASICS.motion, { art: 'momentum' }); Object.assign(BASICS.friction, { art: 'lava' }); Object.assign(BASICS.pendulum, { art: 'mass' });
@@ -185,14 +222,15 @@ export function describeCard(card) {
   return { title: d.name + (card.up ? '+' : ''), kind: KIND_LABEL[d.kind], lines, flavor: d.flavor };
 }
 
-export const STARTER_DECK = ['apple', 'force', 'mass', 'motion'];
+// the prologue's three cards (Apple, Force, Spin) plus a brace: Mass
+export const STARTER_DECK = ['apple', 'force', 'spin', 'mass'];
 
 // rarity weights for rewards / shop
 export const CARD_POOL = {
-  basic: ['apple', 'stone', 'water', 'spark', 'gravity', 'mass', 'force', 'motion', 'rotation', 'inertia', 'heat', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound'],
-  uncommonBasics: ['stone', 'water', 'spark', 'heat', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound'],
+  basic: ['apple', 'notebook', 'equilibrium', 'bulwark', 'stone', 'water', 'spark', 'gravity', 'mass', 'force', 'motion', 'rotation', 'inertia', 'heat', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound'],
+  uncommonBasics: ['hypothesis', 'recycle', 'scratchpad', 'paper_plane', 'impulse', 'third_reaction', 'stone', 'water', 'spark', 'heat', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound'],
   // what a discovery may offer: the science cards, a few copies of the core, the occasional mutant or Law of nature
-  discover: ['echo', 'looking_glass', 'resonance', 'catalyst', 'amplifier', 'keystone', 'domino', 'earth', 'stone', 'water', 'spark', 'heat', 'gravity', 'rotation', 'inertia', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound', 'apple', 'apple', 'force', 'motion', 'mass'],
+  discover: ['notebook', 'hypothesis', 'recycle', 'scratchpad', 'paper_plane', 'equilibrium', 'impulse', 'bulwark', 'third_reaction', 'motion', 'spin', 'echo', 'looking_glass', 'resonance', 'catalyst', 'amplifier', 'keystone', 'domino', 'earth', 'stone', 'water', 'spark', 'heat', 'gravity', 'rotation', 'inertia', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound', 'apple', 'apple', 'force', 'motion', 'mass'],
   rare: ['golden_apple', 'ice', 'lodestone', 'antigravity', 'dark_matter', 'torque', 'momentum', 'plasma', 'prism', 'slinky', 'brute_force'],
   powers: Object.keys(POWERS),
 };

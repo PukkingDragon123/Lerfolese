@@ -5,13 +5,14 @@
 import * as THREE from 'three';
 
 // per theme: sun colour / intensity, sky + ground (hemisphere) colours and level, bounce, fill
+// moody, realistic dusk: a believable low sun (not a floodlight), a dim sky dome, little bounce, deep shadows
 export const LIGHT_LOOKS = {
-  meadow: { sun: '#ffc888', k: 3.3, sky: '#9cc2ff', gnd: '#8a7238', hemi: 0.62, bounce: '#ffca7a', bk: 0.42, fill: '#8eb2ff', fk: 0.45 },
-  garden: { sun: '#ffd09a', k: 3.2, sky: '#a2c6ff', gnd: '#7a7442', hemi: 0.64, bounce: '#ffd08a', bk: 0.4, fill: '#9ab8ff', fk: 0.45 },
-  gully: { sun: '#ffbc72', k: 3.5, sky: '#a4bcf0', gnd: '#9a6a3a', hemi: 0.58, bounce: '#ffb870', bk: 0.5, fill: '#8aa8f0', fk: 0.4 },
-  labyrinth: { sun: '#ffb874', k: 3.4, sky: '#a0b4ea', gnd: '#8e6a44', hemi: 0.58, bounce: '#ffbe7c', bk: 0.48, fill: '#90a8ec', fk: 0.4 },
-  marsh: { sun: '#ffd6a6', k: 2.8, sky: '#b4cce0', gnd: '#5e7044', hemi: 0.74, bounce: '#e8d49a', bk: 0.32, fill: '#a4c0e0', fk: 0.5 },
-  guardian: { sun: '#ff9c62', k: 3.0, sky: '#8e86c4', gnd: '#7a4a3a', hemi: 0.6, bounce: '#ff9a62', bk: 0.45, fill: '#8a7ad8', fk: 0.5 },
+  meadow: { sun: '#ffc48a', k: 2.15, sky: '#7e9ccc', gnd: '#4a3e22', hemi: 0.3, bounce: '#e8b070', bk: 0.16, fill: '#6e88c0', fk: 0.18 },
+  garden: { sun: '#ffcc98', k: 2.1, sky: '#82a0cc', gnd: '#46402a', hemi: 0.31, bounce: '#e8b880', bk: 0.15, fill: '#7690c4', fk: 0.18 },
+  gully: { sun: '#ffb874', k: 2.3, sky: '#8296c0', gnd: '#5a3e24', hemi: 0.28, bounce: '#e8a466', bk: 0.2, fill: '#6a84bc', fk: 0.16 },
+  labyrinth: { sun: '#ffb070', k: 2.2, sky: '#7c8cba', gnd: '#523e2a', hemi: 0.28, bounce: '#e8a870', bk: 0.18, fill: '#6c82ba', fk: 0.16 },
+  marsh: { sun: '#f0d0a4', k: 1.8, sky: '#8aa0b4', gnd: '#384428', hemi: 0.36, bounce: '#c8b888', bk: 0.12, fill: '#7c94b0', fk: 0.2 },
+  guardian: { sun: '#ff9460', k: 2.0, sky: '#6a6498', gnd: '#4a2a24', hemi: 0.28, bounce: '#e88a58', bk: 0.18, fill: '#6a5cac', fk: 0.2 },
 };
 
 /** fit a directional light's ortho shadow camera round a world box (8 corners), tight on every side */
@@ -65,6 +66,11 @@ export class ContactShadows {
 // ---------------------------------------------------------------- grades (engine GradeShader params): rich, natural colour
 // sat / vib lift colour without clipping; sel = selective boosts for [greens, golds, skies]; skin is protected in the shader;
 // harmony only nudges hues (no saturation pull) so the painterly unity stays without washing colour out
-export const GRADE_DAY = { sat: 1.1, vib: 0.38, sel: [0.2, 0.12, 0.16], contrast: 1.04, vignette: 0.24, grain: 0.008, warmth: 0.16, lift: [0.024, 0.018, 0.032], gain: [1.03, 1.01, 0.97], rolloff: 0.32, toe: 0.0, harmony: 0.1, hueLight: 0.11, hueShadow: 0.66, satPull: 0 };
-export const GRADE_TRAVEL = { ...GRADE_DAY, vignette: 0.38, warmth: 0.22 };
-export const GRADE_MAP = { ...GRADE_DAY, sat: 1.08, vib: 0.32, vignette: 0.5, warmth: 0.14, harmony: 0.12 };
+// natural, slightly desaturated: highlights protected (roll-off), real blacks (a touch of contrast, almost no lift),
+// vibrance kept low so the colour reads rich but believable rather than candy
+export const GRADE_DAY = { sat: 0.9, vib: 0.12, sel: [0.08, 0.06, 0.06], contrast: 1.1, vignette: 0.36, grain: 0.008, warmth: 0.06, lift: [0.006, 0.004, 0.012], gain: [1.0, 0.98, 0.95], rolloff: 0.48, toe: 0.012, harmony: 0.06, hueLight: 0.1, hueShadow: 0.62, satPull: 0 };
+export const GRADE_BATTLE = { ...GRADE_DAY, sat: 0.88, contrast: 1.12, vignette: 0.4 };
+export const GRADE_TRAVEL = { ...GRADE_DAY, vignette: 0.42, warmth: 0.1 };
+export const GRADE_MAP = { ...GRADE_DAY, sat: 0.92, vib: 0.14, vignette: 0.5, warmth: 0.08, harmony: 0.08 };
+/** tone-mapping exposure per place: expose for the highlights, let the shadows fall */
+export const EXPOSURE = { battle: 0.8, travel: 0.84, event: 0.84, map: 0.9 };
