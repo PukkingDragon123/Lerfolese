@@ -150,6 +150,7 @@ export async function dilemmaScene(S, d, e) {
   const W = S.ui.W, H = S.ui.H;
   // the options: soft clouds beside Newton (hover swells and tilts them; click, or press 1-3)
   d.options.forEach((o, i) => { const B = new CloudButton(`${i + 1}  ${o.label}`, null, { w: 7.5, h: 1.5, sub: o.sub, color: i === 0 ? 'teal' : i === 1 ? 'purple' : 'wood' }); S.ui.scene.add(B.group); const y = H * 0.38 - i * 2.6, x = W * 0.28; uiPos(B.group, x, y, 9); B.group.scale.setScalar((40 - 9) / 40); B.pop.value = 0.05; setTimeout(() => { B.pop.target = 1; B.pop.kick(4); audio.play('whoosh_soft', { vol: 0.25 }); }, 130 * i); opts.push({ B, o, i }); });
+  S.dlgOpts = opts; // (exposed for tests)
   const pick = await new Promise((resolve) => {
     const ray = new THREE.Raycaster(); let hover = null;
     const hitOf = () => { ray.setFromCamera(S.input.ndc, S.engine.ui.camera); const hs = ray.intersectObjects(opts.flatMap((x) => [x.B.hit, x.B.hitFace].filter(Boolean)), false); return hs.length ? opts.find((x) => x.B.hit === hs[0].object || x.B.hitFace === hs[0].object) : null; };

@@ -220,7 +220,7 @@ const ACT = {
 const ACT_DUR = { throw: 1.45, cast: 1.7, eat: 2.1, dodge: 1.0, hurl: 1.6, spin: 1.45, gravity: 1.5, timestop: 1.8, grab: 0.9 };
 const ACT_IMPACT = { throw: 0.6, hurl: 0.85, spin: 0.78, gravity: 0.72, timestop: 0.95, grab: 0.3 };
 const ATTACKS = ['throw', 'hurl', 'spin', 'gravity', 'timestop', 'grab'];
-const IDLES = ['float', 'chill', 'think', 'ponder', 'invent', 'write'];
+const IDLES = ['float', 'chill', 'think', 'ponder', 'invent', 'write', 'heroic'];
 export function createProfessor() {
   const root = new THREE.Group(); root.name = 'professor';
   const body = new THREE.Group(); body.name = 'hero'; root.add(body);
@@ -270,10 +270,14 @@ export function createProfessor() {
     ponder(a, t) { a('uarmR', -1.15, 0, -0.35); a('farmR', -2.0 + Math.sin(t * 5) * 0.08); a('handR', -0.3); a('uarmL', 0.35, 0, 0.1); a('farmL', -1.2); a('head', 0.12 + Math.sin(t * 0.7) * 0.08, Math.sin(t * 0.9) * 0.55, Math.sin(t * 0.6) * 0.08); a('thighL', -0.04); a('shinL', 0.08); },
     invent(a, t) { a('uarmL', -0.95 + Math.sin(t * 3) * 0.06, 0, 0.25); a('uarmR', -0.95 + Math.sin(t * 3.4 + 1) * 0.06, 0, -0.25); a('farmL', -0.95); a('farmR', -1.0); a('handL', 0.3); a('handR', 0.3); a('head', 0.32); a('thighL', -0.05); a('shinL', 0.1); },
     write(a, t) { a('uarmL', -0.75, 0, 0.3); a('farmL', -1.2); a('handL', 0.4); a('uarmR', -0.85 + Math.sin(t * 9) * 0.03, 0, -0.15); a('farmR', -1.05 + Math.sin(t * 13) * 0.05); a('handR', 0.5 + Math.sin(t * 11) * 0.1); a('head', 0.4, -0.05); a('chest', 0.06); a('thighL', -0.06); a('shinL', 0.12); a('footL', -0.06); },
+    heroic(a, t) { // a planted hero's stance: feet wide, right hand on the hip, chin up into the wind, left palm open under the apple
+      a('thighL', -0.04, 0.1, -0.2); a('thighR', 0.02, -0.1, 0.18); a('shinL', 0.08); a('shinR', 0.04); a('footL', -0.03, 0, 0.12); a('footR', 0, 0, -0.12); a('hips', 0, 0.05, 0);
+      a('chest', -0.1, -0.08, 0); a('neck', -0.06); a('head', -0.12, 0.28 + Math.sin(t * 0.3) * 0.05, 0.03);
+      a('uarmR', 0.25, 0, -0.75); a('farmR', -1.7); a('handR', 0.5); a('uarmL', -0.55, 0.1, 0.35); a('farmL', -0.9); a('handL', 0.4); },
     sleep(a, t) { a('uarmL', -2.7, 0, 0.6); a('uarmR', -2.7, 0, -0.6); a('farmL', -2.0); a('farmR', -2.0); a('chest', Math.sin(t * 1.1) * 0.04); a('head', 0.25 + Math.sin(t * 1.1) * 0.02, 0.35, 0.1); a('thighL', -0.7); a('shinL', 1.3); a('thighR', -0.08, 0, 0.12); a('shinR', 0.05); a('footR', 0.3); },
   };
   // body offsets per pose: [lift (m), rotX (recline), posZ, posX]
-  const BODY = { float: [0, 0, 0, 0], chill: [0, -0.06, 0, 0], think: [0, 0, 0, 0], ponder: [0, 0, 0, 0], invent: [0, 0, 0, 0], write: [0, 0.04, 0, 0], sleep: [0.08, -1.42, 0.0, 0] }; // grounded
+  const BODY = { heroic: [0, 0, 0, 0], float: [0, 0, 0, 0], chill: [0, -0.06, 0, 0], think: [0, 0, 0, 0], ponder: [0, 0, 0, 0], invent: [0, 0, 0, 0], write: [0, 0.04, 0, 0], sleep: [0.08, -1.42, 0.0, 0] }; // grounded
   const bonkPose = (a, m) => { // ~2.5 s from lying asleep: jolt -> sit up rubbing head -> look up -> EUREKA finger up -> rise into the float
     const sit = ease((m - 0.12) / 0.5), rub = m > 0.25 && m < 1.0 ? 1 : 0, look = ease((m - 0.9) / 0.3) * (1 - ease((m - 2.0) / 0.4)), eur = ease((m - 1.35) / 0.25) * (1 - ease((m - 2.15) / 0.3));
     a('uarmR', -2.3 * rub - 2.6 * eur, 0, -0.5 * rub); a('farmR', (-1.7 + Math.sin(m * 22) * 0.25) * rub - 0.2 * eur); a('handR', 0.4 * rub - 0.5 * eur);

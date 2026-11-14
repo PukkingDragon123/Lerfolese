@@ -482,7 +482,7 @@ export class Battle {
     if (s.recycle != null) { const pick = await this.chooseSlots({ min: 0, max: 99, title: 'Discard any: draw that many' + (s.recycle ? ' +' + s.recycle : ''), recycle: true }); const n = pick.reduce((k, sl) => k + sl.cards.length, 0); await this.discardSlots(pick, 'recycle'); await this.drawCards(n + (s.recycle || 0)); }
     await this.fx.selfApplied?.(mv);
   }
-  async healPlayer(n) { const P = this.player; const h = Math.min(n, P.maxHp - P.hp); P.hp += h; await this.fx.heal?.('player', h); }
+  async healPlayer(n) { const P = this.player; const h = Math.min(n, P.maxHp - P.hp); P.hp += h; if (h > 0) this.run.stats.healed = (this.run.stats.healed || 0) + h; await this.fx.heal?.('player', h); } // (achievements: 'win without healing')
   async gainBlock(n, src) { const P = this.player; if (P.st.corrode) n = Math.floor(n / 2); if (P.st.frail) n = Math.floor(n * 0.75); P.block += n; await this.fx.block?.('player', n, src); }
 
   addField(type, params) {
@@ -671,7 +671,7 @@ export class Battle {
   checkEnd() {
     if (this.phase === 'lost' || this.phase === 'won') return true;
     if (this.player.hp <= 0) { this.phase = 'lost'; return true; }
-    if (!this.alive().length) { this.phase = 'won'; this.fx.won?.(this); return true; }
+    if (!this.alive().length) { this.phase = 'won'; const st = this.run.stats; st.fastest = Math.min(st.fastest ?? Infinity, this.turn); this.fx.won?.(this); return true; } // (achievements: 'win in 2 turns')
     return false;
   }
   // write results back to the run

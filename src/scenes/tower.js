@@ -46,7 +46,7 @@ export class MenuScene extends UIScreen {
     this.camera = new THREE.PerspectiveCamera(HERO.fov, this.engine.aspect, 0.1, 4000); this.camera.position.copy(HERO.pos); this.look = HERO.look.clone(); this.camera.lookAt(this.look);
     this.lights(sc);
     // Isaac on the prow, turned a little toward us, gazing over the land
-    const prof = (this.prof = createProfessor()); sc.add(prof.root); prof.root.position.copy(T.prow); prof.root.rotation.y = Math.PI + 0.55; prof.setIdleMode?.('still'); // TODO(combat agent): a 'heroic' idle (planted stance, coat in the wind, hand on hip) would suit this shot; it falls back to the float idle
+    const prof = (this.prof = createProfessor()); sc.add(prof.root); prof.root.position.copy(T.prow); prof.root.rotation.y = Math.PI + 0.55; prof.setIdleMode?.('heroic'); // the heroic stance (professor.js: planted, hand on hip, chin into the wind)
     // Halley sits at his side
     const dog = (this.dog = createDog()); dog.hAt = () => 0; dog.area = { x: [-2.4, 2.6], z: [-5.8, 1.6] }; dog.home = V(1.05, 0, -4.65); dog.root.position.set(1.05, 0, -4.65); dog.st.heading = Math.PI + 0.3; sc.add(dog.root); dog.sitFor(6);
     this.motes = new Motes(900, { px: 2 }); sc.add(this.motes.points); this.rnd = mulberry32(31); this.acc = 0;

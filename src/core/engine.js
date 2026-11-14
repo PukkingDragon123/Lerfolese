@@ -179,8 +179,9 @@ const WipeShader = {
       // ================= GALAXY
       vec2 c = vec2((uCenter.x - 0.5) * uAspect, uCenter.y - 0.5); vec2 p = q - c; float r = length(p) + 1e-4; float a = atan(p.y, p.x); float R = r / (0.5 * length(vec2(uAspect, 1.0)));
       float spin = uTime * 0.9 + (uPhase < 0.5 ? T : 2.0 - T) * 3.5; float s = a / 6.2832 + log(r) * 0.55 - spin * 0.16;
-      float arms = 0.5 + 0.5 * cos(6.2832 * 2.0 * s); float v = R * 0.72 + (arms - 0.5) * 0.6 + (fbm3(vec2(s * 6.0, r * 5.0)) - 0.5) * 0.34; // the edge advances along the spiral arms, not as a ring
-      float thr = uPhase < 0.5 ? 1.25 - T * 1.8 : (1.0 - T) * 1.8 - 0.55; float rim = v - thr;
+      float arms = 0.5 + 0.5 * cos(6.2832 * 2.0 * s); float v = R * 0.72 + (arms - 0.5) * (0.6 + 0.55 * R) + (fbm3(vec2(cos(6.2832 * s) * 1.6 + r * 4.0, sin(6.2832 * s) * 1.6 - r * 2.0)) - 0.5) * 0.4; // arms widen outward, so the outer edge is never an oval portal // the edge advances along the spiral arms, not as a ring
+      float thr = 1.25 - T * 1.8; float rim = v - thr;
+      if (uPhase > 0.5) rim = arms * 0.85 + (fbm3(vec2(cos(6.2832 * s) * 1.6 + r * 4.0, sin(6.2832 * s) * 1.6 - r * 2.0)) - 0.5) * 0.3 + R * 0.12 - mix(1.2, -0.3, T); // opening: the arms thin and spin away (no hole, so never an oval portal)
       float alpha = smoothstep(0.0, 0.03, rim); if (alpha <= 0.0) discard;
       vec2 w = vec2(cos(a + log(r) * 2.2 + spin * 0.5), sin(a + log(r) * 2.2 + spin * 0.5)) * r; float n1 = fbm5(w * 3.2 + 4.0), n2 = fbm5(w * 5.0 - uTime * 0.05 + 9.0), n3 = fbm3(w * 2.0 + 21.0);
       vec3 col = vec3(0.008, 0.006, 0.022);
