@@ -33,7 +33,7 @@ const SKIP = Symbol('skip');
 const BEATS = ['title', 'garden', 'cards', 'throw', 'fight', 'snake', 'grab', 'painting', 'sky'];
 const fast = () => (window.__storyFast > 1 ? Math.min(2, window.__storyFast) : 1);
 const GOLDEN = { bloom: [0.45, 0.6, 0.82], exposure: 0.86, grade: { warmth: 0.48, vignette: 0.52, sat: 1.04, contrast: 1.1, lift: [0.02, 0.012, 0.03], gain: [1.04, 0.98, 0.9] } };
-const SPOT = { teacher: V(-1.45, 0, 2.55), kid: V(0.15, 0, 3.95), kidStart: V(-9.5, 0, 8.5), bench: V(-2.35, 0, 1.85), basket: V(1.75, 0, 1.05), con: V(-0.62, 1.25, 3.55), snake: V(6.0, 0, 8.0), drop: V(0.55, 0, 4.55), snakeOut: V(7, 0, 11) };
+const SPOT = { teacher: V(-1.45, 0, 2.55), kid: V(0.15, 0, 3.95), kidStart: V(-9.5, 0, 8.5), bench: V(-2.35, 0, 1.85), basket: V(1.75, 0, 1.05), con: V(-0.66, 1.12, 3.25), snake: V(6.0, 0, 8.0), drop: V(0.55, 0, 4.55), snakeOut: V(7, 0, 11) };
 
 export class PrologueScene extends UIScreen {
   constructor(game, { replay = false } = {}) {
@@ -185,31 +185,31 @@ export class PrologueScene extends UIScreen {
   // CARDS: the first three cards, merging, multipliers
   async b_cards() {
     const k = this.kid, m = this.teacher; this.placeAt(k, SPOT.kid, Math.atan2(SPOT.teacher.x - SPOT.kid.x, SPOT.teacher.z - SPOT.kid.z)); k.lookAtWorld(() => m.headWorld(V())); m.lookAtWorld(() => k.headWorld(V()));
-    this.shot(V(1.3, 1.45, 6.2), V(-0.7, 1.05, 2.9), 32, 0); m.act('present'); audio.play('paper_rustle', { vol: 0.5 });
+    this.shot(V(-3.3, 1.45, 6.3), V(-0.62, 1.0, 3.2), 32, 0); this.shot(V(-3.0, 1.4, 5.9), V(-0.62, 1.0, 3.2), 30, 9); m.act('present'); audio.play('paper_rustle', { vol: 0.5 });
     await this.say('teacher', 'Every law of the world can be written on a card. Here. Your first three.', m);
     // the construct: a brass stand in the air between them, holding whatever the cards make
     this.makeConstruct();
     const ids = ['apple', 'force', 'rotation']; const from = this.engine.worldToUI(m.handWorld(0, V()));
-    this.lesson = ids.map((id, i) => { const v = new Card3D({ uid: 'pro-' + id, id, type: 'basic', up: 0 }); this.root.add(v.group); v.pos.snap(from.x, from.y, 3); v.sc.value = 0.15; v.flip.value = 1; v.id = id; v.home = { x: (i - 1) * 4.3, y: -this.H + 4.9, s: 1.15 }; v.target = { x: from.x, y: from.y, z: 3, rz: 0, s: 0.2 }; return v; });
+    this.lesson = ids.map((id, i) => { const v = new Card3D({ uid: 'pro-' + id, id, type: 'basic', up: 0 }); this.root.add(v.group); v.pos.snap(from.x, from.y, 3); v.sc.value = 0.15; v.flip.value = 1; v.id = id; v.home = { x: (i - 1) * 5.9, y: -this.H + 6.1, s: 1.62 }; v.target = { x: from.x, y: from.y, z: 3, rz: 0, s: 0.2 }; return v; });
     for (const [i, v] of this.lesson.entries()) { await this.wait(0.28); v.target = { x: v.home.x, y: v.home.y, z: 3, rz: (i - 1) * -0.06, s: v.home.s }; v.flip.target = 0; audio.play('card_flip', { vol: 0.8 }); audio.play('card_slide', { delay: 0.05 }); }
     this.cardsLive = true; k.setExpr('happy', 2); await this.say('isaac_kid', 'Cards! Real ones!', k, { wait: false });
     const lift = (id) => { for (const v of this.lesson) v.focus = v.id === id; };
-    this.shot(V(0.6, 1.5, 6.4), SPOT.con.clone().add(V(0, -0.1, 0)), 30, 1.2);
+    this.shot(V(-2.6, 1.35, 5.4), SPOT.con.clone().add(V(0, -0.1, 0)), 30, 1.2);
     lift('apple'); this.conSet('apple'); await this.say('teacher', 'APPLE. Matter: a thing with weight. Eat it to mend yourself, or hold it to throw.', m);
     lift('force'); await this.say('teacher', 'FORCE. On its own, a push with nothing to push. Merged with matter, it is a blow.', m);
     lift('rotation'); await this.say('teacher', 'SPIN. It makes a thing strike, and strike again.', m); lift(null);
     // MERGE: drag Force onto the Apple
-    this.mergeStep = 'force'; this.cap = fcaption('Drag FORCE onto the APPLE', { x: 0, y: -this.H + 9.3, style: 'gold' });
+    this.mergeStep = 'force'; this.cap = fcaption('Drag FORCE onto the APPLE', { x: 0, y: -this.H + 10.7, style: 'gold' });
     await this.say('teacher', 'Now. Take FORCE, and lay it on the APPLE. That is a merge.', m, { wait: false });
     await this.w(new Promise((r) => (this.onMerged = r))); this.cap?.remove();
     const a1 = computeMove(flatten(['apple', 'force'].map((id) => ({ id, type: 'basic', up: 0 })))).attack;
     this.conSet('force'); k.setExpr('surprised', 1.5);
     await this.say('teacher', `Matter and force: a thrown thing. ${a1.m} kilo, ${a1.v} metres a second: ${a1.m * a1.v} damage. Mass times velocity, always.`, m);
-    this.mergeStep = 'rotation'; this.cap = fcaption('Drag SPIN onto them', { x: 0, y: -this.H + 9.3, style: 'gold' });
+    this.mergeStep = 'rotation'; this.cap = fcaption('Drag SPIN onto them', { x: 0, y: -this.H + 10.7, style: 'gold' });
     await this.say('teacher', 'And SPIN on top. Watch the numbers.', m, { wait: false });
     await this.w(new Promise((r) => (this.onMerged = r))); this.cap?.remove(); this.mergeStep = null;
     const a2 = computeMove(flatten(['apple', 'force', 'rotation'].map((id) => ({ id, type: 'basic', up: 0 })))).attack;
-    this.conSet('rotation'); this.shot(V(0.2, 1.6, 5.6), SPOT.con, 28, 1.6);
+    this.conSet('rotation'); this.shot(V(-2.0, 1.3, 4.8), SPOT.con, 28, 1.6);
     await this.say('teacher', `${a2.hits} strikes of ${a2.perHit}. Laws do not add, child: they MULTIPLY. Some boost each other, some quarrel. Finding the best combination is the whole art.`, m);
     this.face(m, { d: 1.6, side: 0.5, fov: 28 });
     await this.say('teacher', 'Prepare your merges, aim them, and only when you end your turn does any of it move. Think first. Throw last.', m);
@@ -224,7 +224,7 @@ export class PrologueScene extends UIScreen {
     this.shot(V(2.2, 0.7, 6.4), at.clone().add(V(-0.2, 0.6, -0.4)), 32, 0); await this.w(k.walkTo(at.clone().add(V(-0.3, 0, -0.25)), 1.6));
     k.act('grab'); audio.play('wood_creak', { vol: 0.2, rate: 1.6 }); await this.wait(0.42); ap.parent.remove(ap); ap.scale.setScalar(0.085 / k.sc * 0 + 0.085); k.hand(1).add(ap); ap.position.set(0, -0.02, 0.03); await this.wait(0.55);
     k.st.faceYaw = Math.atan2(SPOT.basket.x - k.root.position.x, SPOT.basket.z - k.root.position.z); await this.wait(0.5);
-    this.shot(k.root.position.clone().add(V(-1.4, 0.8, 1.6)), SPOT.basket.clone().add(V(0, 0.4, 0)), 34, 0);
+    { const kp = k.root.position.clone(), d = SPOT.basket.clone().sub(kp).setY(0).normalize(); const sd = V(-d.z, 0, d.x); if (sd.z < 0) sd.negate(); this.shot(kp.clone().addScaledVector(d, -2.1).addScaledVector(sd, 1.2).add(V(0, 1.3, 0)), SPOT.basket.clone().add(V(0, 0.35, 0)).lerp(kp.clone().add(V(0, 0.9, 0)), 0.35), 36, 0); }
     k.act('throw'); audio.play('whoosh_soft', { vol: 0.6, delay: THROW_RELEASE * 0.8 }); await this.wait(THROW_RELEASE);
     const p0 = ap.getWorldPosition(V()); ap.parent.remove(ap); this.gardenScene.add(ap); ap.position.copy(p0); const target = SPOT.basket.clone().add(V(0, 0.35, 0)); const T = 0.7; const vel = target.clone().sub(p0).add(V(0, 0.5 * 9.8 * T * T, 0)).divideScalar(T);
     this.track(() => ({ p: V(p0.x - 0.6, p0.y + 0.5, p0.z + 2.4).lerp(target.clone().add(V(-0.8, 0.5, 2.2)), Math.min(1, (this.flight || 0) / T)), l: ap.position, fov: 34 }), 6);
@@ -369,8 +369,8 @@ export class PrologueScene extends UIScreen {
   conSet(what) {
     const C = this.con; if (!C) return; C.pop = 1; audio.play('glass_clink', { vol: 0.6 }); this.burst(C.g.position, '#ffe8a0', 14);
     if (what === 'apple' && !C.apple) { const a = P3.apple({ kind: 'red' }); a.scale.setScalar(0.12); C.hold.add(a); C.apple = a; }
-    if (what === 'force' && !C.arrow) { const ar = P3.arrow(0xd8a040, 0.5); ar.rotation.z = Math.PI / 2; ar.position.set(-0.28, 0, 0); C.hold.add(ar); C.arrow = ar; audio.play('whoosh_soft'); }
-    if (what === 'rotation' && !C.swirl) { const sw = P3.swirl(0.3, 0xf0e0b0); sw.rotation.x = Math.PI / 2; C.hold.add(sw); C.swirl = sw; audio.play('spin_whoosh'); }
+    if (what === 'force' && !C.arrow) { const ar = P3.arrow(0xd8a040, 0.5); ar.scale.setScalar(0.32); ar.rotation.z = Math.PI / 2; ar.position.set(-0.24, 0, 0); C.hold.add(ar); C.arrow = ar; audio.play('whoosh_soft'); }
+    if (what === 'rotation' && !C.swirl) { const sw = P3.swirl(0.3, 0xf0e0b0); sw.scale.setScalar(0.5); sw.rotation.x = Math.PI / 2; C.hold.add(sw); C.swirl = sw; audio.play('spin_whoosh'); }
   }
   dropConstruct() { const C = this.con; if (!C) return; this.tween(0.6, (u) => C.g.scale.setScalar(Math.max(0.001, 1 - ease(u)))).then(() => { this.gardenScene.remove(C.g); }); this.con = null; }
   cloudBank(sc) { // soft cel cloud billboards under the camera's path (warm tops, violet undersides)
@@ -389,7 +389,7 @@ export class PrologueScene extends UIScreen {
   onDragEnd() { const v = this.dragging; if (!v) return; this.dragging = null; const tg = this.lesson.find((x) => x.id === 'apple'); tg.glowK = 0; if (Math.hypot(v.pos.x.value - tg.pos.x.value, v.pos.y.value - tg.pos.y.value) < 3.2) this.mergeCard(v.id); else { v.target = { x: v.home.x, y: v.home.y, z: 3, rz: 0, s: v.home.s }; audio.play('card_place', { vol: 0.5 }); } }
   mergeCard(id) {
     if (!this.mergeStep || id !== this.mergeStep) return; const v = this.lesson.find((x) => x.id === id), tg = this.lesson.find((x) => x.id === 'apple'); if (!v || !tg) return;
-    const n = this.lesson.filter((x) => x.gone).length + 1; v.gone = true; v.target = { x: tg.home.x + 0.25 * n, y: tg.home.y + 0.3 * n, z: 3 - 0.05 * n, rz: -0.08 * n, s: tg.home.s * 0.96 }; tg.target = { ...tg.target, s: tg.home.s * 1.12 }; tg.rz.kick?.(6);
+    const n = this.lesson.filter((x) => x.gone).length + 1; v.gone = true; v.target = { x: tg.home.x + 0.5 * n, y: tg.home.y + 0.62 * n, z: 3 - 0.06 * n, rz: -0.07 * n, s: tg.home.s * 0.97 }; tg.target = { ...tg.target, s: tg.home.s * 1.12 }; tg.rz.kick?.(6);
     audio.play('card_snap'); audio.play('magic_shimmer', { vol: 0.4 }); this.engine.flash(0.12, 0xffe8a0, 0.3);
     setTimeout(() => { tg.target = { ...tg.target, s: tg.home.s }; }, 260);
     const r = this.onMerged; this.onMerged = null; r?.();
@@ -417,7 +417,7 @@ export class PrologueScene extends UIScreen {
     if (!this.paused && this.sc === this.gardenScene) {
       for (const a of this.actors) a.update(sdt); this.raccoon?.update(sdt); this.snake?.update(sdt); if (sdt > 0) this.O?.update?.(sdt, t); this.parts?.update(sdt, t); this.dust?.update(sdt, t);
       if (this.gold) { this.gold.rotation.y += sdt * 1.2; const l = this.gold.userData.light; if (l) l.intensity = (this.goldHover ? 1.6 : 0.7) + Math.sin(c.t * 3) * 0.15; if (this.goldGround && Math.random() < sdt * 6) { const p = this.gold.getWorldPosition(V()); this.parts.burst(1, { pos: [p.x + (Math.random() - 0.5) * 0.2, p.y + Math.random() * 0.15, p.z + (Math.random() - 0.5) * 0.2], vel: [0, 0.25, 0], life: 1.2, size: 6, color: '#ffd860', sprite: 'star4', drag: 0.5 }); } }
-      if (this.con) { const C = this.con; C.pop = Math.max(0, C.pop - sdt * 3); C.spin *= Math.exp(-sdt * 1.5); C.hold.rotation.y += sdt * (0.6 + C.spin + C.hover * 2 + (C.swirl ? 3 : 0)); C.hold.position.y = Math.sin(c.t * 1.6) * 0.04 + C.hover * 0.05; C.hold.scale.setScalar(1 + Math.sin(C.pop * Math.PI) * 0.2); if (C.arrow) C.arrow.position.x = -0.28 - Math.sin(c.t * 4) * 0.03; }
+      if (this.con) { const C = this.con; C.pop = Math.max(0, C.pop - sdt * 3); C.spin *= Math.exp(-sdt * 1.5); C.hold.rotation.y += sdt * (0.6 + C.spin + C.hover * 2 + (C.swirl ? 3 : 0)); C.hold.position.y = Math.sin(c.t * 1.6) * 0.04 + C.hover * 0.05; C.hold.scale.setScalar(1 + Math.sin(C.pop * Math.PI) * 0.2); if (C.arrow) C.arrow.position.x = -0.24 - Math.sin(c.t * 4) * 0.03; }
     } else if (this.sc === this.paint?.scene) this.paint.update(rdt);
     if (this.clouds) for (const m of this.clouds) { m.quaternion.copy(this.cam.quaternion); m.position.x += rdt * 0.4; }
     for (const v of this.lesson) { if (!v.gone && v.home && this.cardsLive) { const hv = v.hover || v.focus; v.target = this.dragging === v ? v.target : { x: v.home.x, y: v.home.y + (hv ? 0.7 : 0) + (v.glowK ? 0.3 : 0), z: hv ? 4.2 : 3, rz: v.target.rz * 0.9, s: v.home.s * (hv ? 1.12 : v.focus === false && this.lesson.some((x) => x.focus) ? 0.94 : 1) }; if (v.hover) { const p = this.ptr(3); v.tilt.x = -(p.y - v.home.y) * 0.05; v.tilt.y = (p.x - v.home.x) * 0.05; } else { v.tilt.x = 0; v.tilt.y = 0; } } v.update(rdt, c.t); }

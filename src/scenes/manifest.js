@@ -11,7 +11,7 @@ import { Card3D } from '../ui3d/cards3d.js';
 import { describeCard, BASICS } from '../game/data/cards.js';
 import { mkCard } from '../game/run.js';
 import { audio } from '../core/audio.js';
-import { tweens } from '../core/tween.js';
+import { tweens, Spring } from '../core/tween.js';
 import { baseOf, flatten } from '../game/combos.js';
 import { FloatText } from '../ui3d/floatlabel.js';
 import { attackStyle, Vignette } from './battlecine.js';

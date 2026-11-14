@@ -96,7 +96,7 @@ function anchorUI(a, out) {
 function step(dt, t) {
   const E = eng(); if (!E) return; const W = E.uiW, H = E.uiH; const band = window.__storyBand ? H * 0.165 : 0;
   for (const L of [...lines]) {
-    const b = L.block; if (L.h) L.n = Math.max(L.n, L.h.progress() * b.total); else L.n += dt * 16; b.reveal(L.n, dt);
+    const b = L.block; if (b.w == null) b.place(E, 0, 0); if (L.h) L.n = Math.max(L.n, L.h.progress() * b.total); else L.n += dt * 16; b.reveal(L.n, dt);
     let x, y;
     if (L.kind === 'narr') { x = 0; y = -H + band + b.h / 2 + 0.55; }
     else if (L.kind === 'choice') { x = L.x; y = L.y; }

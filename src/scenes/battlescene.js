@@ -321,8 +321,9 @@ export class BattleScene {
     if (c.type === 'power') lines = [[[POWERS[c.id].name, '#3a2410']], [['Drop on Newton to enact this Law.', '#2a160c']], [[POWERS[c.id].flavor, '#8a6a44']]];
     else if (s.slot.cards.length > 1) lines = [[[mv.name, '#3a2410']], [['Drag to a target. Shake to split.', '#2a160c']], [[`ATK ${mv.attack.perHit}${mv.attack.hits > 1 ? '×' + mv.attack.hits : ''} · SELF ${describeSelf(mv.self).slice(0, 2).join(', ')}`, '#5a3622']]];
     else lines = [[[mv.name, '#3a2410']], [['Stack cards to combine. m × v = damage.', '#2a160c']], [[(c.petrified ? 'PETRIFIED: acts as Stone this battle.' : '') || flavorOf(c), '#8a6a44']]];
-    const W = 17; const lore = s.slot.cards.length === 1 && !c.petrified ? loreLines(c, W) : null; if (lore) lines = lore; // use / merged / skill / flavour
-    const b = s.base; this.tooltip.show(lines, clamp(b.x + (lore ? 9 : 6.4), -this.ui.W + 4, this.ui.W - 4.5), b.y + (lore ? 6.5 : 3.5), 10, lore ? { maxW: W } : {});
+    // the card itself shows the big rules; the tip explains its keywords (Slay-the-Spire style): the skill, launcher, flavour
+    const d = BASICS[c.id]; if (s.slot.cards.length === 1 && d?.desc && !c.petrified) lines = [[[d.name + (c.up ? '+' : ''), '#ffe6a8']], [['SKILL ', '#ff9a7a'], [d.desc.skill, '#f2ead8']], ...(d.launch ? [[['LAUNCHER ', '#ff9a7a'], ['launches the object it is merged into', '#f2ead8']]] : []), [[d.flavor || '', '#c8b494']]];
+    const b = s.base; this.tooltip.show(lines, clamp(b.x + 5.2 + 3.4, -this.ui.W + 4, this.ui.W - 4), b.y + 4.6, 10, { maxW: 11 });
   }
   // hovering something held in the air: its Move, its target, how to aim and release it
   // hovering a foe: its nature (what it resists, what breaks it), so the merge can be planned against it

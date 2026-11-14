@@ -72,24 +72,24 @@ class Game {
   async toSky() { const { SkyScene } = await import('./scenes/sky.js'); await this.swap(async () => { this.scene = new SkyScene(this); await this.scene.enter(); }, { color: 0x0a0c20 }); }
   async toGallery(opts = {}) { const { GalleryScene } = await import('./scenes/gallery.js'); await this.swap(async () => { this.scene = new GalleryScene(this); await this.scene.enter(opts); }, { color: 0x0a0a18, ...(opts.wipe || {}) }); }
   /** the Hall of Memories inside the tower (achievements and challenges as memory shards; swipe right to go back up) */
-  async toHall(opts = {}) { const { HallScene } = await import('./scenes/hall.js'); if (!this.scene) { this.scene = new HallScene(this); return this.scene.enter(opts); } await this.swap(async () => { this.scene = new HallScene(this); await this.scene.enter(opts); }, { color: 0x0a0604, dur: 0.45, ...(opts.wipe || {}) }); }
+  async toHall(opts = {}) { const { HallScene } = await import('./scenes/hall.js'); if (!this.scene) { this.scene = new HallScene(this); return this.scene.enter(opts); } await this.swap(async () => { this.scene = new HallScene(this); await this.scene.enter(opts); }, { style: 'galaxy', ...(opts.wipe || {}) }); }
   /** the tower-top menu (scenes/tower.js); the story agent ends the prologue here: game.toMenu({ from: 'prologue' }) */
   async toMenu(opts = {}) {
     const { MenuScene } = await import('./scenes/menu.js');
-    if (this.scene) return this.swap(async () => { this.scene = new MenuScene(this); await this.scene.enter(opts); }, { color: 0x07050d, ...(opts.wipe || {}) });
+    if (this.scene) return this.swap(async () => { this.scene = new MenuScene(this); await this.scene.enter(opts); }, { style: 'galaxy', ...(opts.wipe || {}) });
     this.scene = new MenuScene(this); await this.scene.enter(opts);
   }
   async newRun() {
     if (!this.journal.seenPrologue) { await this.playPrologue(); return; } // story agent: the prologue plays once, on the first New Run, and ends in the tower-top menu (New Adventure then starts the run)
     save.clearRun(); this.run = newRun(); this.journal.loops++; this.saveJournal();
-    await this.toMap(true);
+    await this.toMap(true, 'galaxy');
   }
   /** the prologue (src/scenes/prologue.js); { replay: true } from the gallery */
   async playPrologue(opts = {}) { try { const { playPrologue } = await import('./scenes/prologue.js'); await playPrologue(this, opts); } catch (e) { console.warn('prologue skipped', e); await this.toMenu().catch(() => {}); } this.journal.seenPrologue = true; this.saveJournal(); }
-  async continueRun() { const d = save.loadRun(); if (!d) return this.newRun(); this.run = restoreRun(d); await this.toMap(); }
-  async toMap(first = false) {
+  async continueRun() { const d = save.loadRun(); if (!d) return this.newRun(); this.run = restoreRun(d); await this.toMap(false, 'galaxy'); }
+  async toMap(first = false, style = 'cloud') { // galaxy from the menu into a run; clouds between the nodes of a run
     const { MapScene } = await import('./scenes/mapscene.js');
-    await this.swap(async () => { this.scene = new MapScene(this); await this.scene.enter(first); });
+    await this.swap(async () => { this.scene = new MapScene(this); await this.scene.enter(first); }, { style });
   }
   async enterNode(nodeId) {
     const run = this.run; const node = run.map.nodes[nodeId]; run.pos = nodeId; run.floor = node.row; run.stats.floors++; this.saveRun();
@@ -129,14 +129,14 @@ class Game {
     j.history.unshift({ loop: r.loop, floor: r.floor + 1, area: r.area, kills: r.stats.kills, bestHit: r.stats.bestHit, combos: r.stats.combos, healed: r.stats.healed ?? null, fastest: r.stats.fastest ?? null, won: false, date: Date.now(), cause: res.enemies?.join(', ') || 'hubris' });
     j.history = j.history.slice(0, 30); this.saveJournal(); save.clearRun();
     const { EndScene } = await import('./scenes/end.js');
-    await this.swap(async () => { this.scene = new EndScene(this); await this.scene.enter(false); }, { color: 0x0b0716 });
+    await this.swap(async () => { this.scene = new EndScene(this); await this.scene.enter(false); }, { style: 'galaxy' }); // death: the cosmos takes him apart
   }
   async areaComplete() {
     const j = this.journal; const r = this.run; j.wins++;
     j.history.unshift({ loop: r.loop, floor: r.floor + 1, area: r.area, kills: r.stats.kills, bestHit: r.stats.bestHit, combos: r.stats.combos, healed: r.stats.healed ?? null, fastest: r.stats.fastest ?? null, won: true, date: Date.now() });
     this.saveJournal(); save.clearRun();
     const { EndScene } = await import('./scenes/end.js');
-    await this.swap(async () => { this.scene = new EndScene(this); await this.scene.enter(true); }, { color: 0xfff6cf });
+    await this.swap(async () => { this.scene = new EndScene(this); await this.scene.enter(true); }, { style: 'galaxy' });
   }
 }
 

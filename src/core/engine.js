@@ -89,28 +89,83 @@ const RaysShader = {
   }`,
 };
 
+// Scene-change transitions (engine.wipe): one full-screen pass on the art-pixel grid (k x k screen pixels per art
+// pixel, ~240 art rows), quantised to hand-picked ramps with 4x4 ordered dithering, so it is pixel art that moves.
+//   style 'cloud'  : three parallax layers of billowing cumulus sweep in from the sides and below and fill the screen;
+//                    sunlight catches their tops (a gold lining on the lit rims), violet shadow in the folds. On the way
+//                    out the clouds part from the middle and drift away outward and up, revealing the new scene.
+//   style 'galaxy' : the screen is swallowed from the edges by a turning spiral galaxy: stars stream down the arms into
+//                    the vortex, violet / teal / rose nebula blooms, a golden apple-light core and glints, a gold rim on
+//                    the advancing edge. On the way out it unfurls from the centre outward into the next scene.
+// uT: 0 = clear .. 1 = fully covered; uPhase: 0 closing, 1 opening (the motion differs, the coverage is symmetric).
 const WipeShader = {
-  uniforms: { uT: { value: 0 }, uCenter: { value: new THREE.Vector2(0.5, 0.5) }, uAspect: { value: 1.7 }, uColor: { value: new THREE.Color(0x120d1c) }, uTime: { value: 0 }, uMode: { value: 0 } },
+  uniforms: { uT: { value: 0 }, uPhase: { value: 0 }, uStyle: { value: 0 }, uCenter: { value: new THREE.Vector2(0.5, 0.5) }, uAspect: { value: 1.7 }, uRes: { value: new THREE.Vector2(1280, 720) }, uK: { value: 3 }, uColor: { value: new THREE.Color(0x120d1c) }, uTime: { value: 0 }, uMode: { value: 0 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
-  fragmentShader: `uniform float uT, uAspect, uTime, uMode; uniform vec2 uCenter; uniform vec3 uColor; varying vec2 vUv;
-  float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
-  float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mix(hash(i),hash(i+vec2(1,0)),f.x), mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x), f.y); }
+  fragmentShader: `uniform float uT, uPhase, uStyle, uAspect, uTime, uMode, uK; uniform vec2 uCenter, uRes; uniform vec3 uColor; varying vec2 vUv;
+  float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+  float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
+  float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++){ s += a * vn(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return s; }
+  float bayer(vec2 p){ p = mod(p, 4.0); int x = int(p.x), y = int(p.y); float b;
+    if (y == 0) b = x == 0 ? 0.0 : x == 1 ? 8.0 : x == 2 ? 2.0 : 10.0; else if (y == 1) b = x == 0 ? 12.0 : x == 1 ? 4.0 : x == 2 ? 14.0 : 6.0;
+    else if (y == 2) b = x == 0 ? 3.0 : x == 1 ? 11.0 : x == 2 ? 1.0 : 9.0; else b = x == 0 ? 15.0 : x == 1 ? 7.0 : x == 2 ? 13.0 : 5.0; return (b + 0.5) / 16.0; }
+  vec3 ramp6(float l, vec3 c0, vec3 c1, vec3 c2, vec3 c3, vec3 c4, vec3 c5){ int i = int(clamp(l, 0.0, 5.0)); return i == 0 ? c0 : i == 1 ? c1 : i == 2 ? c2 : i == 3 ? c3 : i == 4 ? c4 : c5; }
+  // ---- clouds: one layer's coverage value and its light (density toward the sun minus away from it)
+  float cloudD(vec2 q, float sc, float seed){ return fbm(q * sc + seed) * 0.75 + fbm(q * sc * 2.3 + seed * 1.7) * 0.25; }
   void main(){
-    vec2 p = vUv - uCenter; p.x *= uAspect;
-    // pixelate the edge so the wipe matches the pixel-art style
-    vec2 q = floor(vUv * vec2(uAspect, 1.0) * 120.0) / 120.0;
-    float n = noise(q * 9.0 + uTime * 0.6) * 0.18 + noise(q * 23.0) * 0.08;
-    float r = (1.0 - uT) * 1.25;
-    float d = length(p) + n * (uMode > 0.5 ? 0.0 : 1.0);
-    float a = uMode > 0.5 ? step(1.0 - uT, vUv.x + n * 0.5 - 0.15 + (1.0-vUv.y)*0.15) : step(r, d);
-    if (a < 0.5) discard;
-    // a thin glowing rim like a gravity string
-    gl_FragColor = vec4(uColor, 1.0);
+    vec2 P = floor(gl_FragCoord.xy / uK); vec2 uv = (P * uK + 0.5 * uK) / uRes; float th = bayer(P); float T = clamp(uT, 0.0, 1.0);
+    vec2 q = vec2((uv.x - 0.5) * uAspect, uv.y - 0.5);
+    if (uStyle < 0.5) {
+      // ================= CLOUDS: billowing cumulus built from sphere-lit puffs on a jittered grid (three parallax layers);
+      // a puff appears (growing from nothing) when T passes its key: edges and the bottom first, the middle last
+      vec3 col = vec3(0.0); float got = 0.0; vec3 L = normalize(vec3(-0.45, 0.75, 0.5));
+      for (int li = 0; li < 3; li++) { float fl = float(li); // 0 = front, 2 = back
+        float g = 0.27 - fl * 0.055; float zoom = 1.0 + (1.0 - T) * (0.9 - fl * 0.2); vec2 drift = vec2(uTime * (0.012 + fl * 0.008), 0.0) + (uPhase < 0.5 ? vec2(0.0, -0.18) : vec2(0.0, 0.3)) * (1.0 - T);
+        vec2 qq = q * zoom + drift + vec2(fl * 3.7, fl * 1.9); vec2 cell = floor(qq / g); float best = -1.0; vec3 bc = vec3(0.0);
+        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) { vec2 cid = cell + vec2(float(i), float(j)); float r1 = h21(cid + fl * 13.1), r2 = h21(cid * 1.7 + 3.3 + fl), r3 = h21(cid * 2.3 + 7.7 + fl);
+          vec2 cpos = (cid + 0.5 + (vec2(r1, r2) - 0.5) * 0.85) * g; vec2 sp = (cpos - drift - vec2(fl * 3.7, fl * 1.9)) / zoom; // the puff centre back in screen space
+          float ex = 1.0 - min(1.0, abs(sp.x / (0.5 * uAspect)) * 1.05); float key = min(ex, (sp.y + 0.5) * 1.6) * 0.85 + r3 * 0.2 + fl * 0.03;
+          float grow = smoothstep(key, key + 0.18, T * 1.2); if (grow <= 0.0) continue;
+          float rr = g * (0.55 + r1 * r1 * 0.75 + r2 * 0.12) * grow; vec2 d = (qq - cpos) / rr; float dd = dot(d, d); if (dd >= 1.0) continue;
+          float z = sqrt(1.0 - dd); float hgt = z * rr + r2 * 0.02; if (hgt <= best) continue; best = hgt;
+          vec3 n = normalize(mix(vec3(d.x, d.y, z), vec3(0.0, 0.45, 0.9), 0.38)); float dif = dot(n, L); float lv = 1.0 + dif * 3.2 - fl * 0.7 - (1.0 - uv.y) * 0.6 + r3 * 0.3 + d.y * 0.4;
+          vec3 cc = ramp6(floor(lv + th), vec3(0.12, 0.09, 0.19), vec3(0.23, 0.18, 0.31), vec3(0.42, 0.33, 0.47), vec3(0.66, 0.53, 0.66), vec3(0.88, 0.77, 0.78), vec3(1.0, 0.94, 0.88));
+          if (dif > 0.6 && dd > 0.7 && d.y > 0.1) cc = mix(cc, vec3(1.0, 0.8, 0.52), fl < 0.5 ? 0.8 : 0.45); // sunlight catching the tops
+          if (dd > 0.94 && d.y < -0.2) cc *= 0.86; // a darker fold where puffs meet
+          bc = cc; }
+        if (best > 0.0) { col = bc; got = 1.0; break; } }
+      if (got < 0.5) { if (T < 0.985) discard; col = vec3(0.12, 0.09, 0.19); }
+      gl_FragColor = vec4(col, 1.0);
+    } else {
+      // ================= GALAXY
+      vec2 c = vec2((uCenter.x - 0.5) * uAspect, uCenter.y - 0.5); vec2 p = q - c; float r = length(p) + 1e-4; float a = atan(p.y, p.x); float R = r / (0.5 * length(vec2(uAspect, 1.0)));
+      float spin = uTime * 0.9 + (uPhase < 0.5 ? T : 2.0 - T) * 3.5; float s = a / 6.2832 + log(r) * 0.55 - spin * 0.16;
+      float arms = 0.5 + 0.5 * cos(6.2832 * 2.0 * s); float v = R + (arms - 0.5) * 0.32 + (fbm(vec2(s * 6.0, r * 5.0)) - 0.5) * 0.22;
+      float thr = uPhase < 0.5 ? 1.08 - T * 1.42 : (1.0 - T) * 1.42 - 0.34; float rim = v - thr;
+      if (rim < 0.0) discard;
+      // nebula in swirled coordinates (violet veils, teal streams, rose bloom), quantised to ramps with dithering
+      vec2 w = vec2(cos(a + log(r) * 2.2 + spin * 0.5), sin(a + log(r) * 2.2 + spin * 0.5)) * r; float n1 = fbm(w * 3.2 + 4.0), n2 = fbm(w * 5.0 - uTime * 0.05 + 9.0);
+      vec3 col = vec3(0.012, 0.008, 0.03); float dv = smoothstep(0.38, 0.85, n1) * (0.55 + arms * 0.6); float dt2 = smoothstep(0.5, 0.9, n2) * arms;
+      if (dv > 0.06) col = ramp6(floor(dv * 4.5 + th), vec3(0.04, 0.02, 0.09), vec3(0.1, 0.05, 0.21), vec3(0.18, 0.09, 0.34), vec3(0.3, 0.14, 0.47), vec3(0.45, 0.22, 0.6), vec3(0.66, 0.4, 0.72));
+      if (dt2 > 0.12) col = ramp6(floor(dt2 * 4.0 + th + 1.0), vec3(0.02, 0.07, 0.1), vec3(0.03, 0.16, 0.21), vec3(0.05, 0.28, 0.32), vec3(0.09, 0.44, 0.43), vec3(0.16, 0.61, 0.56), vec3(0.45, 0.82, 0.71));
+      float rose = smoothstep(0.62, 0.95, fbm(w * 2.0 + 21.0)) * arms; if (rose > 0.2) col = mix(col, vec3(0.85, 0.35, 0.5), step(0.5, rose + th * 0.3) * 0.6);
+      // stars streaming down the arms into the vortex (log-polar cells drifting inward and turning)
+      vec2 lp = vec2(log(r) * 9.0 + uTime * 2.2, (a + uTime * 0.6 / max(0.15, r)) * 9.0); vec2 cell = floor(lp); float hs = h21(cell); vec2 f = fract(lp);
+      if (hs > 0.93) { float tail = smoothstep(0.0, 0.9, f.x) * step(abs(f.y - 0.5), 0.12); float head = step(0.8, f.x) * step(abs(f.y - 0.5), 0.2); col = mix(col, mix(vec3(0.75, 0.8, 1.0), vec3(1.0, 0.92, 0.7), step(0.97, hs)), max(tail * 0.6, head)); }
+      if (h21(P * 1.31 + floor(uTime * 3.0)) > 0.9985) col = vec3(1.0);
+      // the golden apple-light core and its glints
+      float core = smoothstep(0.17, 0.0, r) * (0.75 + 0.25 * arms); if (core > 0.0) col = mix(col, ramp6(floor(core * 5.5 + th), vec3(0.2, 0.08, 0.03), vec3(0.43, 0.22, 0.08), vec3(0.69, 0.4, 0.12), vec3(0.9, 0.64, 0.23), vec3(1.0, 0.82, 0.42), vec3(1.0, 0.96, 0.78)), step(0.12, core + (th - 0.5) * 0.08));
+      vec2 gl = floor(q * 18.0); float gh = h21(gl + 7.0); float tw = fract(uTime * 0.7 + gh * 9.0); if (gh > 0.985 && tw < 0.35) { vec2 fp = fract(q * 18.0) - 0.5; float cr = step(abs(fp.x), 0.04) * step(abs(fp.y), 0.3) + step(abs(fp.y), 0.04) * step(abs(fp.x), 0.3); col = mix(col, vec3(1.0, 0.86, 0.5), min(1.0, cr)); }
+      // a gold rim on the advancing edge
+      if (rim < 0.035) col = mix(vec3(1.0, 0.8, 0.42), vec3(1.0, 0.97, 0.85), step(rim, 0.012));
+      else if (rim < 0.07 && th > 0.5) col = mix(col, vec3(0.8, 0.5, 0.2), 0.6);
+      gl_FragColor = vec4(col, 1.0);
+    }
   }`,
 };
 
-// render resolution: supersample on 1x screens, full device resolution (capped at 2x) on hi-dpi ones
-const hiRes = (q) => { const d = window.devicePixelRatio || 1; return q === 'low' ? Math.max(1, Math.min(d, 1.25)) : q === 'medium' ? Math.min(2, Math.max(1.25, d)) : Math.min(2, Math.max(1.5, d)); };
+// render resolution: supersample on 1x screens, full device resolution (capped at 2x) on hi-dpi ones. Never below the
+// screen's own resolution (user: no low-res look) - auto quality drops shadows/AO samples instead of pixels.
+const hiRes = (q) => { const d = window.devicePixelRatio || 1; return q === 'low' ? Math.min(2, Math.max(1, d)) : q === 'medium' ? Math.min(2, Math.max(1.25, d)) : Math.min(2, Math.max(1.5, d)); };
 
 export class Engine {
   constructor(canvas) {
@@ -235,14 +290,15 @@ export class Engine {
     tweens.to(u.uFlash, { value: 0 }, time, { ease: 'outQuad' });
   }
 
-  // cinematic wipe: closes to color, runs fn, opens. center in 0..1 screen coords
-  async wipe(fn, { center = [0.5, 0.5], color = 0x120d1c, dur = 0.55, mode = 0 } = {}) {
-    const u = this.wipeMat.uniforms; u.uCenter.value.set(center[0], 1 - center[1]); u.uColor.value.set(color); u.uMode.value = mode;
-    this.wipeActive = true;
-    await tweens.to(u.uT, { value: 1 }, dur, { ease: 'inCubic' });
+  // scene-change transition: covers the screen (clouds or galaxy), runs fn, uncovers. center in 0..1 screen coords
+  // (the galaxy's vortex). style: 'cloud' (default) | 'galaxy'; color / mode are kept for old callers (ignored).
+  async wipe(fn, { center = [0.5, 0.5], color = 0x120d1c, dur = null, mode = 0, style = 'cloud' } = {}) {
+    const u = this.wipeMat.uniforms; u.uCenter.value.set(center[0], 1 - center[1]); u.uColor.value.set(color); u.uMode.value = mode; u.uStyle.value = style === 'galaxy' ? 1 : 0;
+    const d = dur ?? (style === 'galaxy' ? 0.85 : 0.72); this.wipeActive = true; this.wipeStyle = style;
+    u.uPhase.value = 0; await tweens.to(u.uT, { value: 1 }, Math.max(0.6, d), { ease: 'inOutQuad' });
     if (fn) await fn();
-    await tweens.wait(0.08);
-    await tweens.to(u.uT, { value: 0 }, dur * 1.1, { ease: 'outCubic' });
+    await tweens.wait(0.1);
+    u.uPhase.value = 1; await tweens.to(u.uT, { value: 0 }, Math.max(0.65, d * 1.08), { ease: 'inOutQuad' });
     this.wipeActive = false;
   }
 
@@ -286,7 +342,7 @@ export class Engine {
     this.composer.render(rdt);
     cam.position.sub(this.shakeOffset); cam.rotation.z = rz;
     if (this.uiVisible) { this.renderer.clearDepth(); this.renderer.render(this.ui.scene, this.ui.camera); }
-    if (this.wipeActive) { this.wipeMat.uniforms.uTime.value = this.time; this.renderer.clearDepth(); this.renderer.render(this.wipeScene, this.wipeCam); }
+    if (this.wipeActive) { const wu = this.wipeMat.uniforms; wu.uTime.value = this.time; this.renderer.getDrawingBufferSize(wu.uRes.value); wu.uK.value = Math.max(2, Math.round(wu.uRes.value.y / 240)); this.renderer.clearDepth(); this.renderer.render(this.wipeScene, this.wipeCam); }
   }
 
   // project a world position to UI plane coordinates (z=0)

@@ -7,6 +7,7 @@
 - Artifacts, items, furniture and props: sharp very-low-poly with detailed pixel-art textures (same as everything now).
 - LIGHTING (latest): realistic and MOODY, NOT bright: natural exposure, deep shadows, darker ambient, subtle bounce, desaturated-realistic grade; no cartoon cel bands.
 - UI must be COOL and INTERACTIVE (alive objects reacting to hover/press/drag with motion, sound and light), never 'a detailed block with text'.
+- Rendering: ALWAYS full native resolution: no screen effect that lowers resolution (no pixel-grid/dither screen passes; auto-quality drops shadows/AO, never pixels). Subtle MOTION BLUR on fast motion. Grass is the same colour as the ground it grows from.
 - Rendering: high resolution and crisp (supersampled, no tilt-shift blur, no chromatic aberration, minimal grain).
 - UI: detailed PHYSICAL 3D objects (hourglass health, gold jar, etc.), realistic and polished; text is crisp 3D floating text (no paper notes); never glowing DOM text or flat rectangles.
 - HERO: a real young Isaac Newton (20s, cool), built on the Limbo Phobia human engine (src/models/limbo). He WALKS (no levitation) and fights with the magic apple. Fluid, human-like procedural animation.
@@ -22,7 +23,8 @@
 ## Game design (current — big remake, user-confirmed)
 - HERO: young Isaac Newton WALKS (no levitation/flying). His weapon is the MAGIC APPLE (bends physics, stops time); attacks revolve around it (grab, throw, time-stop, gravity bends). Fluid, believable animation.
 - Cards: Slay the Spire / Balatro feel, BIG easy-to-read card text. Card kinds include draw-more and discard cards. Merge into attacks; when cards become an attack, show an illustration of Isaac performing it. Cool cinematic attack animations.
-- Preparing your turn: the world freezes into slow motion; End Turn resolves. Removed: dodge QTE, "Second Thoughts" redraw basket.
+- Preparing your turn: TIME IS STOPPED (world frozen). END TURN is a physical GOLDEN APPLE: clicking it makes time flow again and all your queued actions play out.
+- Deaths: procedural RAGDOLL (weighted crumple, killing-blow impulse); procedural animation everywhere (hit reactions, staggers, breathing). Removed: dodge QTE, "Second Thoughts" redraw basket.
 - Battle UI: health = an HOURGLASS (sand pours when hurt); gold = a JAR. No paper notes: text is crisp 3D FLOATING TEXT. Lighting/UI less saturated, more realistic, polished, detailed; no ugly big text.
 - Combat dilemmas: full zoom-in interactive scenes showing Isaac doing the action. Bosses include the wizard FROG, the BOOKWORMS, and some events become optional boss fights (e.g. Prometheus' eagle, the Sphinx).
 - GAME NAME: LERFOLESE (renamed from Apple of Discord) in all user-visible text.

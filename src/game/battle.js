@@ -13,7 +13,7 @@ export const HELD_MAX = 3; // things manifested in mid-air at once
 // VERY HARD difficulty, tuned with tools/sim.mjs against a synergy-hunting player that blocks the telegraphed blows
 // (no dodging any more): normals ~55-65% won, elites ~12-20%, bosses ~5-10%. Foes' HP and blows scale by tier and grow
 // every floor; several foes also ramp (Strength each round) or swing harder every cycle (enemies.js).
-export const DIFF = { hp: { normal: 2.4, elite: 3.0, guardian: 3.1 }, dmg: { normal: 2.9, elite: 1.9, guardian: 1.3 }, hpFloor: 0.03, dmgFloor: 0.025, per: { hydra: 0.9, hydra_elder: 0.75, hydra_head: 0.8, bookworm: 0.4, bookworm_queen: 0.9 }, dmgPer: { hydra_head: 0.7, bookworm: 0.8 } };
+export const DIFF = { hp: { normal: 2.4, elite: 3.0, guardian: 3.1 }, dmg: { normal: 2.9, elite: 1.97, guardian: 1.42 }, hpFloor: 0.03, dmgFloor: 0.025, per: { hydra: 0.9, hydra_elder: 0.75, hydra_head: 0.8, bookworm: 0.4, bookworm_queen: 0.9 }, dmgPer: { hydra_head: 0.7, bookworm: 0.8 } };
 
 export class Battle {
   constructor({ run, enemies, rng, fx, kind = 'normal', deck = null, ordered = false }) {

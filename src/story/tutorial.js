@@ -9,6 +9,10 @@ import { createKidIsaac, createTeacher, THROW_RELEASE } from '../models/npcs/sto
 import { fsay, fstop } from './floattext.js';
 import { audio } from '../core/audio.js';
 import { computeMove, flatten } from '../game/combos.js';
+import { DIFF } from '../game/battle.js';
+
+// the tutorial raccoon is not scaled by the run's HARD difficulty (about 22 HP, 3-4 per blow)
+DIFF.per.raccoon = 1 / DIFF.hp.normal; DIFF.dmgPer.raccoon = 1.25 / DIFF.dmg.normal;
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000 / Math.max(1, Math.min(2, window.__storyFast || 1))));

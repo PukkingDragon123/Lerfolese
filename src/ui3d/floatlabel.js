@@ -104,11 +104,15 @@ export class FloatText {
   set(lines, opts = {}) {
     Object.assign(this.opts, opts); const key = JSON.stringify(lines) + '|' + (this.opts.chars ?? '') + this.opts.font + (this.opts.fonts || ''); if (key === this.key) return this; this.key = key;
     const P = ftPaint(lines, this.opts); const k = this.opts.texel ?? uiTexel(); this.k = k;
-    for (const m of [this.faceM, this.sideM]) if (m) { this.pivot.remove(m); m.geometry.dispose(); m.material.map.dispose(); m.material.dispose(); }
+    for (const m of [this.faceM, this.sideM, this.shadeM]) if (m) { this.pivot.remove(m); m.geometry.dispose(); m.material.map.dispose(); m.material.dispose(); } this.shadeM = null;
     const ax = this.opts.anchor === 'left' ? P.W / 2 : this.opts.anchor === 'right' ? -P.W / 2 : 0, ay = this.opts.anchorY === 'top' ? -P.H / 2 : this.opts.anchorY === 'bottom' ? P.H / 2 : 0;
     const geo = () => { const g = new THREE.PlaneGeometry(P.W * k, P.H * k); g.translate(ax * k, ay * k, 0); return g; };
     this.sideM = new THREE.Mesh(geo(), ftMat(ftTex(P.side), this.U, 1)); this.sideM.position.set(k * 1.5, -k * 1.5, -this.opts.depth); this.faceM = new THREE.Mesh(geo(), ftMat(ftTex(P.face), this.U));
     for (const m of [this.sideM, this.faceM]) { m.castShadow = false; m.receiveShadow = false; m.renderOrder = 20; this.pivot.add(m); }
+    // legibility over a busy scene: a dark 50% ordered-dither plate with ragged pixel corners (pixel art, no soft glow)
+    if (this.opts.shade) { const c = document.createElement('canvas'); c.width = P.W + 8; c.height = P.H + 6; const g = c.getContext('2d'); g.fillStyle = '#08060c';
+      for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) { const edge = Math.min(x, y, c.width - 1 - x, c.height - 1 - y); if (edge < 2 && (x + y) % 2) continue; if (edge === 0 && ((x * 7 + y * 3) % 5 === 0)) continue; if (edge >= 2 || (x + y) % 2 === 0) { if (edge >= 3 && (x + y) % 2 === 1 && this.opts.shade !== 'solid') { g.fillRect(x, y, 1, 1); continue; } g.fillRect(x, y, 1, 1); } }
+      const sg = new THREE.PlaneGeometry(c.width * k, c.height * k); sg.translate(ax * k, ay * k, 0); this.shadeM = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ map: ftTex(c), transparent: true, opacity: 0.62, depthWrite: false, toneMapped: false })); this.shadeM.position.z = -this.opts.depth * 2; this.shadeM.renderOrder = 19; this.pivot.add(this.shadeM); }
     this.w = P.W * k; this.h = P.H * k; return this;
   }
   place(x, y, z = 6) { uiPos(this.group, x, y, z); this.group.scale.setScalar((40 - z) / 40); return this; }
@@ -116,17 +120,17 @@ export class FloatText {
   hide() { this.on = false; this.unf.target = 0; return this; }
   update(dt, ptr = null) {
     this.fade.target = this.on ? 1 : 0; for (const s of [this.fade, this.unf, this.tx, this.ty, this.pop]) s.update(dt);
-    const f = Math.max(0, Math.min(1, this.fade.value)); this.U.uFade.value = f; this.group.visible = f > 0.02;
+    const f = Math.max(0, Math.min(1, this.fade.value)); this.U.uFade.value = f; this.group.visible = f > 0.02; if (this.shadeM) this.shadeM.material.opacity = 0.62 * f;
     if (this.hover && ptr) { this.group.getWorldPosition(_ftw); this.tx.target = Math.max(-0.4, Math.min(0.4, -(ptr.y - _ftw.y) * 0.08)); this.ty.target = Math.max(-0.5, Math.min(0.5, (ptr.x - _ftw.x) * 0.08)); } else { this.tx.target = 0; this.ty.target = 0; }
     const u = Math.max(0.02, this.unf.value); this.pivot.scale.set(Math.max(0.02, this.pop.value) * (0.96 + 0.04 * u), Math.max(0.02, this.pop.value) * u, 1); this.pivot.rotation.set(this.tx.value + (1 - u) * 0.9, this.ty.value, 0);
   }
-  dispose() { for (const m of [this.faceM, this.sideM]) if (m) { m.geometry.dispose(); m.material.map.dispose(); m.material.dispose(); } this.group.parent?.remove(this.group); }
+  dispose() { for (const m of [this.faceM, this.sideM, this.shadeM]) if (m) { m.geometry.dispose(); m.material.map.dispose(); m.material.dispose(); } this.group.parent?.remove(this.group); }
 }
 const _ftw = new THREE.Vector3();
 
 /** tooltip in floating text (the HudTip API: show(lines, x, y, z, { maxW }) / hide() / update() / dispose()); wraps long runs */
 export class FloatTip {
-  constructor(opts = {}) { const E = window.__game?.engine; this.E = E; this.opts = opts; this.T = new FloatText(null, { font: 'body', ...opts }); this.T.group.visible = false; E?.ui.scene.add(this.T.group); this.on = false; E?.add(this); this.x = 0; this.y = 0; this.z = 9; this.cur = null; }
+  constructor(opts = {}) { const E = window.__game?.engine; this.E = E; this.opts = opts; this.T = new FloatText(null, { font: 'body', shade: true, ...opts }); this.T.group.visible = false; E?.ui.scene.add(this.T.group); this.on = false; E?.add(this); this.x = 0; this.y = 0; this.z = 9; this.cur = null; }
   get group() { return this.T.group; }
   show(lines, x, y, z = 9, o = {}) {
     const maxW = Math.round((o.maxW || this.opts.maxW || 15) * 22); const out = [];
@@ -160,10 +164,10 @@ export class FloatNumbers {
 export class FloatSpeech {
   constructor(scene, text, { who = '', color = '#ffe6a8', life = 2.4 } = {}) {
     this.scene = scene; this.text = String(text); this.who = who; this.color = color; this.t = 0; this.life = life; this.dropped = false; this.n = 0;
-    this.T = new FloatText(null, { font: 'body', align: 'center' }); scene.add(this.T.group); this.render(); this.T.show();
+    this.T = new FloatText(null, { font: 'body', align: 'center', shade: true }); scene.add(this.T.group); this.render(); this.T.show();
   }
   render() { const maxW = 210; const ws = wrapText(this.text, 'body', maxW); const lines = [...(this.who ? [[[this.who.toUpperCase(), this.color]]] : []), ...ws.map((w) => [[w, '#f6efe0']])]; this.T.set(lines, { chars: (this.who ? this.who.length : 0) + this.n, fonts: lines.map((_, i) => (i === 0 && this.who ? 'tiny' : 'body')), anchorY: 'bottom', lighten: false }); }
-  at(x, y) { const z = 8.5; this.T.place(x, y, z); }
+  at(x, y) { const z = 8.5; const E = window.__game?.engine; const W = E?.uiW ?? 20, H = E?.uiH ?? 11; const hw = this.T.w / 2 + 0.3; this.T.place(Math.max(-W + hw, Math.min(W - hw, x)), Math.min(H - this.T.h - 0.3, y), z); } // kept on screen
   drop() { this.dropped = true; this.T.hide(); }
   update(dt) { this.t += dt; const n = Math.min(this.text.length + 40, Math.floor(this.t * 55)); if (n !== this.n && this.n <= this.text.length + 20) { this.n = n; this.render(); } if (this.t > this.life && !this.dropped) this.drop(); this.T.update(dt); }
   get dead() { return this.dropped && this.T.fade.value < 0.03; }

@@ -83,7 +83,7 @@ export class EndScene extends UIScreen {
       this.engine.setWorld(ds, cam); sc.remove(frag); ds.add(frag); this.world.scene = ds; this.engine.setFx({ bloom: [0.85, 0.65, 0.6], grade: { warmth: 0.2, vignette: 0.5 } });
       const tgt = bodyPoints(h2, n); const sky = V(0, 12, -6); this.fr.forEach((f, i) => { f.p.copy(sky).add(V((Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 4)); f.to = tgt[i]; f.t0 = Math.random() * 0.5; }); this.mode = 'gather'; this.gT = 0;
       this.camT = { p: V(3.4, 1.6, 5.6), l: V(0, 2.4, 0.4) }; cam.position.copy(this.camT.p); cam.lookAt(this.camT.l);
-    }, { color: 0x05040a, mode: 1 }));
+    }, { style: 'galaxy' })); // reconstruction: the galaxy transition
     audio.play('magic_shimmer'); this.camT = { p: V(2.6, 1.5, 4.2), l: V(0, 1.4, 0.6), d: 5 };
     await this.wait(2.4);
     await this.say('master', lines[3], m);
