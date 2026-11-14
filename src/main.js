@@ -33,7 +33,7 @@ class Game {
     bootMsg('Loading fonts…', 10);
     await Promise.all(['16px "Alagard"', '32px "Alagard"', '700 40px "Pixelify"', '32px "VT323"', '700 22px "Silkscreen"', '400 22px "Silkscreen"', '40px "Caveat"', '700 18px "Caveat"', '40px "HomemadeApple"', '40px "Jacquard"', '24px "Jacquard"', '8px "Tiny5"', '400 8px "Silkscreen"', '11px "PixelSans"', '13px "NanoPlus"', '12px "RuneMono"', '24px "RuneMono"', '9px "MicroPixel"', '48px "Alagard"'].map((f) => document.fonts.load(f).catch(() => {})));
     const q = new URLSearchParams(location.search);
-    if (!q.get('battle') && !q.get('node') && !q.get('scene')) { // the loading time-lapse: an apple lives and dies while everything preloads
+    if (!q.get('battle') && !q.get('node') && !q.get('scene') && !q.get('prologue')) { // the loading time-lapse: an apple lives and dies while everything preloads
       bootMsg('Planting the apple…', 60); const pre = this.preload();
       const { LoadingScene } = await import('./scenes/menu.js'); this.scene = new LoadingScene(this); await this.scene.enter({ preload: pre });
       requestAnimationFrame(() => setTimeout(() => $('boot').classList.add('gone'), 200)); return;
@@ -43,6 +43,7 @@ class Game {
     $('boot').classList.add('gone');
     if (q.get('scene')) { const k = q.get('scene'); if (k === 'sky') return this.toSky(); if (k === 'gallery') return this.toGallery(); return this.toMenu({ from: k === 'loading-end' ? 'loading' : null }); } // debug: ?scene=garden|sky|gallery
     if (q.get('battle')) return this.debugBattle(q.get('battle').split(','), q.get('kind') || 'normal');
+    if (q.get('prologue')) { this.journal.seenPrologue = false; return this.newRun(); } // story: ?prologue=1 (&beat=...)
     if (q.get('node')) { this.run = newRun(Number(q.get('seed')) || 1234); attachRun?.(this.run, this.journal); const n = Object.values(this.run.map.nodes).find((x) => x.type === q.get('node')); if (n) return this.enterNode(n.id); }
     return this.toMenu();
   }
@@ -50,7 +51,6 @@ class Game {
   async debugBattle(enemies, kind) {
     this.run = newRun(Number(new URLSearchParams(location.search).get('seed')) || 1234);
     const q = new URLSearchParams(location.search); if (q.get('deck')) this.run.deck = q.get('deck').split(',').map((id) => ({ uid: 'd' + Math.random(), id, type: 'basic', up: 0 })); if (q.get('items')) this.run.items.push(...q.get('items').split(',')); // debug: ?items=statues,tyche
-    if (q.get('items')) this.run.items.push(...q.get('items').split(',').filter(Boolean)); // debug: &items=statues,lead_boots,prism
     const bs = new BattleScene(this); this.scene = bs;
     const res = await bs.run(this.run, { enemies, kind });
     console.info('battle result', res);
@@ -76,9 +76,12 @@ class Game {
     this.scene = new MenuScene(this); await this.scene.enter(opts);
   }
   async newRun() {
+    if (!this.journal.seenPrologue) await this.playPrologue(); // story agent: the prologue plays once, on the first New Run
     save.clearRun(); this.run = newRun(); this.journal.loops++; this.saveJournal();
     await this.toMap(true);
   }
+  /** the prologue (src/scenes/prologue.js); { replay: true } from the gallery */
+  async playPrologue(opts = {}) { try { const { playPrologue } = await import('./scenes/prologue.js'); await playPrologue(this, opts); } catch (e) { console.warn('prologue skipped', e); } this.journal.seenPrologue = true; this.saveJournal(); }
   async continueRun() { const d = save.loadRun(); if (!d) return this.newRun(); this.run = restoreRun(d); await this.toMap(); }
   async toMap(first = false) {
     const { MapScene } = await import('./scenes/mapscene.js');

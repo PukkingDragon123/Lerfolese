@@ -23,7 +23,7 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 export const MOON = V(36, 34, -110);
-export const SPOTS = { tree: V(0, 0, 0), sleep: V(1.95, 0, 0.9), float: V(0.45, 0, 1.95), ripe: V(0.28, 2.05, 0.9), signNew: V(-1.95, 0, 4.4), signRes: V(2.35, 0, 4.3), journal: V(4.35, 0, 2.6), settings: V(5.35, 0, 0.6), telescope: V(-4.35, 0, 1.7), credits: V(-4.05, 0, 4.2), title: V(-0.15, 3.7, 4.3), prompt: V(2.35, 1.65, 2.3) };
+export const SPOTS = { tree: V(0, 0, 0), sleep: V(1.95, 0, 0.9), float: V(0.45, 0, 1.95), ripe: V(0.28, 2.05, 0.9), signNew: V(-1.95, 0, 4.4), signRes: V(2.35, 0, 4.3), journal: V(4.35, 0, 2.6), settings: V(5.35, 0, 0.6), telescope: V(-4.35, 0, 1.7), credits: V(-0.55, 0, 5.5), title: V(-0.15, 3.7, 4.3), prompt: V(2.35, 1.65, 2.3) };
 
 // ---------------------------------------------------------------- an apple: turned body with striations and blush, stem, leaf
 let APPLE = null;
@@ -316,14 +316,19 @@ export function appleTimelapse() {
         { float e = 0.012; float h0 = aoW(position); vec3 g = vec3(aoW(position + vec3(e, 0, 0)) - h0, aoW(position + vec3(0, e, 0)) - h0, aoW(position + vec3(0, 0, e)) - h0) / e; g -= objectNormal * dot(g, objectNormal); objectNormal = normalize(objectNormal - g * aDisp); }`)
       .replace('#include <begin_vertex>', `vec3 transformed = vec3(position) + normal * aDisp * aoW(position);
         transformed.y = mix(transformed.y, transformed.y * 0.58 + 0.03, uCollapse); transformed.xz *= 1.0 + 0.17 * uCollapse * smoothstep(0.85, 0.05, position.y); vAP = position;`);
-    sh.fragmentShader = 'uniform float uRipe, uBruise, uRot, uMold, uHoleK; uniform vec3 uGreen, uRed; uniform vec3 uHole[3]; varying vec3 vAP;\n' + NOISE_GLSL + sh.fragmentShader.replace('#include <color_fragment>', `
+    sh.fragmentShader = 'uniform float uRipe, uBruise, uRot, uMold, uHoleK; uniform vec3 uGreen, uRed; uniform vec3 uHole[3]; varying vec3 vAP; float aoWet = 0.0;\n' + NOISE_GLSL + sh.fragmentShader.replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, vec3(1.0, 0.86, 0.66), step(0.95, dot(normalize(vNormal), normalize(vec3(-0.35, 0.6, 0.7)))) * step(0.35, aoWet) * 0.75); // a wet, juicy gleam on the rot\n#include <opaque_fragment>').replace('#include <color_fragment>', `
         vec3 c = mix(uGreen, uRed, uRipe); c = mix(c, c * vec3(1.15, 1.05, 0.7), smoothstep(0.3, 0.0, vAP.x) * 0.35 * uRipe);
         float sp = aoN3(vAP * 4.5 + 3.0) * 0.65 + aoN3(vAP * 11.0) * 0.35;
-        c = mix(c, vec3(0.055, 0.028, 0.012), smoothstep(1.0 - uBruise * 0.55, 1.04 - uBruise * 0.55, sp) * 0.92);
-        float rt = sp * 0.6 + aoN3(vAP * 6.0 + 7.0) * 0.4; c = mix(c, vec3(0.03, 0.018, 0.009), smoothstep(1.0 - uRot * 1.1, 1.05 - uRot * 1.1, rt));
-        c = mix(c, vec3(0.025, 0.014, 0.008), smoothstep(1.0 - uRot * 0.8, 1.04 - uRot * 0.8, aoN3(vAP * 3.0 + 1.0)) * 0.8);
-        c = mix(c, vec3(0.5, 0.56, 0.42), step(0.74, aoN3(vAP * 46.0)) * step(0.45, aoN3(vAP * 5.0 + 11.0)) * uMold);
-        for (int i = 0; i < 3; i++) c = mix(c, vec3(0.06, 0.03, 0.02), (1.0 - smoothstep(0.035, 0.055, distance(vAP, uHole[i]))) * uHoleK);
+        // soft brown patches spread from a few bruises (a darker water-soaked rim at their edge), merging into wet rot
+        float th = 1.0 - uBruise * 0.62; float br = smoothstep(th, th + 0.09, sp); float rim = smoothstep(th - 0.025, th + 0.01, sp) * (1.0 - smoothstep(th + 0.02, th + 0.07, sp));
+        c = mix(c, vec3(0.21, 0.085, 0.025), br * 0.95); c = mix(c, vec3(0.1, 0.035, 0.012), rim * 0.8 * uBruise);
+        float rt = sp * 0.6 + aoN3(vAP * 6.0 + 7.0) * 0.4; float rot = smoothstep(1.0 - uRot * 1.05, 1.1 - uRot * 1.05, rt);
+        c = mix(c, vec3(0.12, 0.05, 0.016), rot); c = mix(c, vec3(0.065, 0.028, 0.01), smoothstep(1.0 - uRot * 0.8, 1.08 - uRot * 0.8, aoN3(vAP * 3.0 + 1.0)) * 0.85);
+        aoWet = max(rot, br * 0.5) * (0.55 + 0.45 * aoN3(vAP * 9.0 + 4.0));
+        // mould: pale green-white rings clustered on the rot
+        float md = aoN3(vAP * 30.0 + 2.0); float mz = step(0.4, aoN3(vAP * 5.0 + 11.0)) * uMold * max(rot, br);
+        c = mix(c, vec3(0.42, 0.48, 0.34), step(0.76, md) * mz); c = mix(c, vec3(0.62, 0.66, 0.5), step(0.84, md) * mz);
+        for (int i = 0; i < 3; i++) c = mix(c, vec3(0.03, 0.015, 0.008), (1.0 - smoothstep(0.035, 0.055, distance(vAP, uHole[i]))) * uHoleK);
         diffuseColor.rgb = c * vColor;`);
   };
   m.customProgramCacheKey = () => 'appleTimelapse';

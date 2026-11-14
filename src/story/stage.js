@@ -64,8 +64,8 @@ export function construct(kind, seed = 1) {
     merge() { st.merged = 1; if (kind !== 'apple') { held = makeApple({ s: 0.2, ripe: 1 }); held.position.set(kind === 'force' ? -0.62 : 0, kind === 'force' ? 0 : 0.42, 0); body.add(held); } else { st.merged = 1; } return held; },
     held: () => held || apple,
     /** End Turn: the construct does what its law says */
-    play(onHit) {
-      return new Promise((res) => { st.play = { t: 0, res, onHit, hit: false }; });
+    play(onHit, target = null) {
+      return new Promise((res) => { st.play = { t: 0, res, onHit, hit: false, target }; });
     },
     update(dt, t) {
       st.t += dt; st.glow += (st.want - st.glow) * Math.min(1, dt * 6); B.sig.rotation.z += dt * (0.3 + st.glow * 2); B.sig.material.opacity = 0.45 + st.glow * 0.5 + st.merged * 0.2; halo.material.opacity = st.glow * 0.8 + st.merged * 0.35; halo.rotation.z -= dt * 0.8;

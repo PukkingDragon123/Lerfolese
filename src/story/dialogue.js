@@ -162,8 +162,10 @@ function kill(L) { if (L.dead) return; L.dead = true; lines.delete(L); ui?.remov
 let adv = null;
 function ensureAdvance() {
   const G = window.__game; if (adv || !G?.input) return;
-  adv = G.input.push({ click: () => { const cur = [...lines].filter((L) => L.advance && !L.fall && !L.finished); if (!cur.length) return false; for (const L of cur) L.skip(); return true; } });
+  adv = G.input.push({ click: () => advance() });
 }
+/** finish the lines that may be advanced (click / Space): reveal the rest at once, or drop a finished one */
+export function advance() { const cur = [...lines].filter((L) => L.advance && !L.fall && !L.dead); if (!cur.length) return false; for (const L of cur) L.skip(); return true; }
 
 // ---------------------------------------------------------------- say / narrate
 /** a character speaks: voiced, inked onto a scrap beside them. */
@@ -231,4 +233,4 @@ export function choice(options, { prompt = null, speaker = 'newton', y = null } 
     E.add(upd); (window.__story ||= {}).pick = pick;
   });
 }
-window.__story = Object.assign(window.__story || {}, { say, narrate, choice, stopAll });
+window.__story = Object.assign(window.__story || {}, { say, narrate, choice, stopAll, advance });

@@ -3,27 +3,24 @@ import * as THREE from 'three';
 import { Signboard, Strip } from '../ui3d/objects.js';
 import { uiPos } from '../ui3d/craft.js';
 import { UIScreen, Button3D, Panel, tabletopWorld } from '../ui3d/widgets.js';
-import { textPlane, Pouch, canvasTexture, UIF } from '../ui3d/kit.js';
-import { itemIcon } from '../models/items3d.js';
-import { safeDrawn, pixelTex } from '../ui3d/standee.js';
+import { Pouch } from '../ui3d/kit.js';
+import { CurioDisplay, rarityOf, RARITY } from '../models/items3d.js';
 import { ITEMS } from '../game/data/items.js';
-import { artifactIcon } from '../gfx/art/artifacts.js';
 import { BASICS, POWERS } from '../game/data/cards.js';
 import { tweens, Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
-import * as S from '../models/sculpt.js';
 
+// a curio on display: the detailed 3D model floating over a marble pedestal (rarity aura, astral rune band, glints;
+// idle spin and bob, lifts and brightens on hover, spins up when taken). Small tokens (map inventory) float bare.
+const RAR_INK = { common: '#5a4a3a', uncommon: '#1e6a4a', rare: '#4e2e9e', legendary: '#8a5a08' };
 export class ItemToken {
   constructor(id, { size = 2.2 } = {}) {
-    this.id = id; const g = (this.group = new THREE.Group());
-    const disc = new THREE.Mesh(S.facet(new THREE.CylinderGeometry(size * 0.5, size * 0.52, 0.22, 12)), UIF({ color: 0xd9a64a, metalness: 0.85, roughness: 0.3 })); disc.rotation.x = Math.PI / 2; disc.castShadow = true; g.add(disc);
-    const inner = new THREE.Mesh(new THREE.CircleGeometry(size * 0.43, 12), UIF({ color: 0x22183f, roughness: 0.6 })); inner.position.z = 0.12; g.add(inner);
-    const art = artifactIcon(id) || safeDrawn('item_' + id); const tex = art ? pixelTex(art) : canvasTexture(itemIcon(id)); tex.magFilter = THREE.NearestFilter;
-    const icon = new THREE.Mesh(new THREE.PlaneGeometry(size * 0.9, size * 0.9), new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })); icon.position.z = 0.2; g.add(icon);
-    this.hit = disc; disc.userData.item = this; this.s = new Spring(1, 16, 0.4); this.spin = 0; this.hover = false;
+    this.id = id; const g = (this.group = new THREE.Group()); const ped = size >= 2;
+    this.disp = new CurioDisplay(id, { size: ped ? size : size * 1.1, pedestal: ped }); const d = this.disp.group; d.position.y = -size * (ped ? 0.58 : 0.42); d.rotation.x = 0.3; g.add(d);
+    this.hit = this.disp.hit; this.hit.userData.item = this; this.s = new Spring(1, 16, 0.4); this.spin = 0; this.hover = false;
   }
-  update(dt, t) { this.s.target = this.hover ? 1.18 : 1; this.s.update(dt); this.group.scale.setScalar(this.s.value); this.group.rotation.y = Math.sin(t * 1.3 + this.id.length) * 0.25 + this.spin; this.spin *= 0.92; this.group.position.y += Math.sin(t * 2 + this.id.length) * 0.002; }
-  tipLines() { const d = ITEMS[this.id]; return [[[d.name, '#3a2410']], ...wrap(d.text, 46).map((l) => [[l, '#2a160c']]), [[d.flavor, '#8a6a44']]]; }
+  update(dt, t) { this.s.target = this.hover ? 1.1 : 1; this.s.update(dt); this.group.scale.setScalar(this.s.value); if (this.spin > 1) { this.disp.pop(); this.spin = 0; } this.disp.update(dt, t, this.hover); }
+  tipLines() { const d = ITEMS[this.id] || { name: this.id, text: '', flavor: '' }; const r = rarityOf(this.id); return [[[d.name, '#3a2410']], [[`${RARITY[r].name} curio`, RAR_INK[r]]], ...wrap(d.text, 46).map((l) => [[l, '#2a160c']]), [[d.flavor, '#8a6a44']]]; }
 }
 export function wrap(t, n) { const w = t.split(' '); const out = []; let c = ''; for (const x of w) { if ((c + ' ' + x).trim().length > n) { out.push(c.trim()); c = x; } else c += ' ' + x; } if (c.trim()) out.push(c.trim()); return out; }
 

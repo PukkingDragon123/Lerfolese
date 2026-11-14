@@ -10,6 +10,7 @@ Made for Apple of Discord. Card illustrations are rendered from the game's own 3
 - Pixelify Sans, VT323, Silkscreen, Caveat, Jacquard 24, Tiny5: SIL Open Font License 1.1.
 - Homemade Apple: Apache License 2.0.
 - Alagard by Hewett Tsoi (main title and UI font), supplied by the project owner; no licence file was included in the provided zip.
+- Pixel font pack (`assets/fonts/pack/`: PixelSans for body text and dialogue, NanoPlus for numbers and damage, RuneMono for magic and astral text, MicroPixel for micro captions, and the other pack fonts): pixel font pack supplied by the project owner (fonts-ttf.zip); licence not included.
 
 ## Audio
 Real recordings only, nothing synthesised. Full per-file table: [`assets/audio/CREDITS.md`](assets/audio/CREDITS.md).

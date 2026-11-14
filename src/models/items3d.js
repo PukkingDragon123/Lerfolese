@@ -106,12 +106,14 @@ export const ITEM_MODELS = {
     const arcs = grp(g, 0, 0.96, 0); arcs.userData.flicker = 9;
     for (let i = 0; i < 4; i++) { const a = (i / 4) * TAU; const pts = [[0, 0, 0]]; for (let j = 1; j <= 5; j++) pts.push([Math.cos(a) * j * 0.07 + Math.sin(j * 3 + i) * 0.03, Math.sin(j * 2.1 + i) * 0.05 + j * 0.02, Math.sin(a) * j * 0.07]); add(arcs, tube(pts, 0.008, { seg: 14, rad: 3 }), glow(0xfff0a0, 2.6)); }
     return g; },
-  wings() { const g = grp(); const wax = tm(C.wax);
-    for (const s of [-1, 1]) { const w = grp(g, s * 0.08, 0, 0); w.scale.x = s; w.userData.flap = [2.2, 0.18, s];
-      add(w, tube([[0.02, 0.05, 0], [0.35, 0.3, 0.02], [0.75, 0.32, 0], [1.0, 0.15, -0.02]], 0.035, { seg: 24, rad: 8, taper: (u) => 1 - u * 0.6 }), wax);
-      for (let i = 0; i < 9; i++) { const u = i / 8; feather(w, 0.95 - u * 0.3 + (i % 2) * 0.06, 0.18, tm(i % 2 ? C.feather : 0xf2e2c4, { soft: true }), { x: 0.08 + u * 0.88, y: 0.22 - u * 0.12 + Math.sin(u * 3) * 0.08, z: -0.01 * i, rz: Math.PI + 0.15 - u * 0.5 }); }
-      for (let i = 0; i < 5; i++) feather(w, 0.35, 0.12, tm(0xe8d2a8, { soft: true }), { x: 0.12 + i * 0.16, y: 0.2, z: 0.03, rz: Math.PI + 0.3 - i * 0.12 }); }
-    for (const [x, y] of [[0.3, 0.12], [0.55, 0.2]]) add(g, lathe(curvy([[0.0005, 0.06], [0.025, 0.03], [0.03, -0.02], [0.0005, -0.045]], 12), 14), tm(C.wax), x, y - 0.05, 0.03);
+  wings() { const g = grp(); const wax = tm(C.wax); // Daedalus' wax wings: a bent wax-and-willow arm, primaries lengthening to the tip, a row of coverts
+    for (const s of [-1, 1]) { const w = grp(g, s * 0.06, 0, 0); w.scale.x = s; w.userData.flap = [2.2, 0.18, s];
+      const arm = [[0.0, 0.0, 0], [0.3, 0.22, 0.02], [0.62, 0.36, 0], [0.95, 0.42, -0.02]];
+      add(w, tube(arm, 0.035, { seg: 24, rad: 8, taper: (u) => 1 - u * 0.65 }), wax);
+      const curve = new THREE.CatmullRomCurve3(V3(arm));
+      for (let i = 0; i < 11; i++) { const u = 0.08 + (i / 10) * 0.92; const p = curve.getPointAt(u); const len = 0.32 + 0.62 * Math.pow(u, 1.3); feather(w, len, 0.13 + u * 0.06, tm(i % 2 ? C.feather : 0xf4e6c8, { soft: true }), { x: p.x, y: p.y, z: p.z - 0.012 * i, rz: Math.PI + 0.55 - u * 1.25 }); }
+      for (let i = 0; i < 7; i++) { const u = 0.06 + (i / 6) * 0.8; const p = curve.getPointAt(u); feather(w, 0.22 + u * 0.12, 0.11, tm(0xe2c89a, { soft: true }), { x: p.x, y: p.y + 0.01, z: p.z + 0.03, rz: Math.PI + 0.4 - u * 0.9 }); } }
+    for (const [x, y] of [[0.32, 0.18], [0.6, 0.3]]) add(g, lathe(curvy([[0.0005, 0.06], [0.025, 0.03], [0.03, -0.02], [0.0005, -0.045]], 12), 14), tm(C.wax), x, y - 0.08, 0.04);
     return g; },
   antikythera() { const g = grp(); const bz = tm(C.bronze, { metal: true }), vg = tm(C.verd, { metal: true });
     add(g, rbox(1.25, 1.0, 0.12, 0.05), tm(C.walnut), 0.1, -0.05, -0.12);

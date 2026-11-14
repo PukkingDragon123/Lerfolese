@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import * as S from '../models/sculpt.js';
 import { canvasTexture, UIF } from '../ui3d/kit.js';
-import { SurfTex, leather as craftLeather, inscribeLines, slab as craftSlab, frontMat, sideMat } from '../ui3d/craft.js';
+import { SurfTex, leather as craftLeather, inscribeLines, slab as craftSlab, frontMat, sideMat, drawPixelText, wrapText, FONT, measure } from '../ui3d/craft.js';
 import { Button3D } from '../ui3d/widgets.js';
 import { SPECIALS } from '../game/combos.js';
 import { ENEMIES } from '../game/data/enemies.js';
@@ -31,8 +31,11 @@ function paper(g) {
   g.strokeStyle = 'rgba(190,60,60,0.25)'; g.beginPath(); g.moveTo(78, 0); g.lineTo(78, PH); g.stroke();
   const gr = g.createRadialGradient(PW / 2, PH / 2, 200, PW / 2, PH / 2, 620); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(110,70,20,0.25)'); g.fillStyle = gr; g.fillRect(0, 0, PW, PH);
 }
-function hand(g, text, x, y, { size = 38, color = '#2a1a4a', font = 'Caveat', rot = 0, weight = 600 } = {}) { g.save(); g.translate(x, y); g.rotate(rot); g.font = `${weight} ${size}px "${font}"`; g.fillStyle = color; g.fillText(text, 0, 0); g.restore(); }
-function wrapHand(g, text, x, y, maxW, opts = {}) { const size = opts.size || 34; g.font = `${opts.weight || 500} ${size}px "Caveat"`; const words = text.split(' '); let line = '', yy = y; for (const w of words) { const t = line ? line + ' ' + w : w; if (g.measureText(t).width > maxW && line) { hand(g, line, x, yy, opts); line = w; yy += size * 1.05; } else line = t; } if (line) hand(g, line, x, yy, opts); return yy + size * 1.05; }
+// lettering: the pixel fonts at whole multiples of native size (crisp blocks on the page canvas). Display hands
+// (HomemadeApple sizes) -> Alagard 32 / 48; body hand (Caveat sizes) -> PixelSans x2..x4 by size. (x, y) = baseline.
+const handFont = (font, size) => (font === 'HomemadeApple' ? [size >= 50 ? 'cap' : 'title', 1] : ['body', Math.max(2, Math.round(size / 11))]);
+function hand(g, text, x, y, { size = 38, color = '#2a1a4a', font = 'Caveat' } = {}) { const [f, k] = handFont(font, size); return drawPixelText(g, text, x, y, f, { color, k, shadow: f === 'body' ? null : 'rgba(58,36,16,0.18)' }); }
+function wrapHand(g, text, x, y, maxW, opts = {}) { const [f, k] = handFont(opts.font, opts.size || 34); const lh = Math.round(FONT[f].lineH * k * 1.12); let yy = y; for (const l of wrapText(text, f, maxW / k)) { hand(g, l, x, yy, opts); yy += lh; } return yy; }
 
 export class Journal {
   constructor(game, parent) {
@@ -88,7 +91,11 @@ export class Journal {
         else wrapHand(g, 'Not yet encountered in any loop.', 110, 200, 440, { size: 38, color: '#8a6a44' }); });
     }
     // curios
-    P.push((g) => { paper(g); hand(g, 'Curios', 100, 90, { size: 56, font: 'HomemadeApple', color: '#3a2410' }); let n = 0; for (const id of Object.keys(ITEMS)) { if (ITEMS[id].starter) continue; const found = j.items?.[id]; const x = 90 + (n % 2) * 260, y = 140 + Math.floor(n / 2) * 105; if (found) { try { const d = safeDrawn('item_' + id); g.imageSmoothingEnabled = false; g.drawImage(d ? d.commit() : itemIcon(id, 64), x, y, 80, 80); } catch (err) { /* */ } } hand(g, found ? ITEMS[id].name.slice(0, 20) : '???', x + 86, y + 50, { size: 26, color: found ? '#2a1a4a' : '#8a6a44' }); n++; } });
+    const cur = Object.keys(ITEMS).filter((id) => !ITEMS[id].starter); const PER = 12;
+    for (let pg = 0; pg * PER < cur.length; pg++) P.push((g) => { paper(g); hand(g, pg ? 'Curios (cont.)' : 'Curios', 100, 90, { size: 56, font: 'HomemadeApple', color: '#3a2410' });
+      cur.slice(pg * PER, pg * PER + PER).forEach((id, n) => { const found = j.items?.[id]; const x = 92 + (n % 2) * 262, y = 128 + Math.floor(n / 2) * 116;
+        if (found) { try { g.imageSmoothingEnabled = false; g.drawImage(itemIcon(id, 48), x, y, 96, 96); } catch (err) { /* */ } } else { g.fillStyle = 'rgba(90,60,30,0.12)'; g.fillRect(x + 12, y + 12, 72, 72); }
+        const nm = found ? ITEMS[id].name : '???'; const ls = wrapText(nm, 'body', 150 / 2).slice(0, 2); ls.forEach((l, i) => hand(g, l, x + 100, y + 48 + i * 28 - (ls.length - 1) * 14, { size: 22, color: found ? '#2a1a4a' : '#8a6a44' })); }); });
     if (P.length % 2) P.push((g) => { paper(g); wrapHand(g, 'More pages for the Trojan War, Mount Olympus, and whatever is above that. Bring ink.', 110, 200, 440, { size: 38, color: '#5a3622' }); });
     this.P = P;
   }

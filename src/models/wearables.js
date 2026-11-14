@@ -18,7 +18,7 @@ const W = {
   lever: [{ slot: 'back', model: 'lever', size: 0.85, pos: [0.0, 0.0, -0.2], rot: [0, Math.PI / 2, 0.9] }],
   pendulum: [{ slot: 'belt', model: 'pendulum', size: 0.24, pos: [0.17, -0.1, 0.07], rot: [0, -0.4, 0], hang: true }],
   leyden: [{ slot: 'belt', model: 'leyden', size: 0.17, pos: [-0.19, -0.06, 0.03], rot: [0, 0.5, 0.08] }],
-  wings: [{ slot: 'back', model: 'wings', size: 1.15, pos: [0, 0.1, -0.2], rot: [0.12, Math.PI, 0] }],
+  wings: [{ slot: 'back', model: 'wings', size: 0.95, pos: [0, 0.12, -0.2], rot: [0.25, Math.PI, 0] }],
   antikythera: [{ slot: 'belt', model: 'antikythera', size: 0.15, pos: [0.04, 0.0, 0.15], rot: [0, 0, 0] }],
   schrodinger: [{ slot: 'belt', model: 'schrodinger', size: 0.17, pos: [-0.15, -0.08, -0.13], rot: [0, -2.4, 0] }],
   owl: [{ slot: 'coat', model: 'owl', size: 0.22, pos: [0.19, 0.24, -0.01], rot: [0, 0.4, 0] }],
