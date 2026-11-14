@@ -80,6 +80,29 @@ export const BASICS = {
     text: ['Matter: 4 kg, at rest', 'Counts as Stone', 'SELF: Block 7', 'Hides a Law...'], upText: ['Matter: 5 kg, at rest', 'Counts as Stone', 'SELF: Block 9', 'Hides a Law...'],
     desc: { use: 'Place a clod of the very planet to launch, or brace behind it: Block 7.', merge: 'The heaviest matter you can hold. It counts as Stone for every synergy.', skill: 'Gravitas: an apple and the Earth, under Gravity, are said to obey a hidden Law.' }, flavor: 'A small sample of everywhere.' }),
 
+  // ------------------------------------------------------------------ combinators: clone, boost, position (the playground)
+  echo: card({ name: 'Echo', kind: 'tool', num: 28, echo: true, adj: 'Echoing', noun: 'Echo', art: 'sound',
+    text: ['REPEATS the card', 'merged just before it', '(its left neighbour)', 'SELF: clone a hand card'],
+    desc: { use: 'Merge it right after the card you want twice. On Newton: the leftmost card in your hand is cloned (a copy for this battle).', merge: 'It becomes a perfect copy of its left neighbour in the merge: a second Force, a second Mass, a second Heat...', skill: 'Echo of an Echo: two Echoes in a row repeat the same card twice.' }, flavor: 'Say it again. Louder.' }),
+  looking_glass: card({ name: 'Looking-Glass', kind: 'tool', num: 29, twin: true, adj: 'Mirrored', noun: 'Reflection', block: 3, art: 'prism',
+    text: ['CLONES the object:', 'a twin appears beside it', 'with the same cards', 'SELF: Block 3'],
+    desc: { use: 'Drop it on a placed object: a twin object appears beside it, made of the same cards (if there is room for it).', merge: 'Two of everything. The twin keeps growing separately if you feed it.', skill: 'Narcissus’ trick: the twin is exactly as strong as the original.' }, flavor: 'Two of you. The universe is concerned.' }),
+  resonance: card({ name: 'Resonance', kind: 'law', num: 30, resonance: 1.5, adj: 'Resonant', noun: 'Resonance', block: 2, art: 'rotation',
+    text: ['×1.5 for every card', 'that appears twice', 'in the same object', 'SELF: Block 2'],
+    desc: { use: 'Merge it into an object built from repeats: two Forces, three Masses...', merge: 'Each extra copy of a card in the object multiplies the strike ×1.5 (Echoes count).', skill: 'Sympathy: like calls to like.' }, flavor: 'The right note shatters the glass.' }),
+  catalyst: card({ name: 'Catalyst', kind: 'energy', num: 31, catalyst: true, adj: 'Catalysed', noun: 'Catalyst', kindle: 1, art: 'heat',
+    text: ['Heat in this object', '×2 while WATER is', 'in your hand', 'SELF: hits Burn +1'],
+    desc: { use: 'Merge it into a hot object while you hold a Water card.', merge: 'While Water waits in your hand, every Heat in the object doubles: ×2 damage and double Burn.', skill: 'Reaction: it is never used up, only the water nearby matters.' }, flavor: 'Speeds everything up. Including regret.' }),
+  amplifier: card({ name: 'Amplifier', kind: 'tool', num: 32, amplify: 2, adj: 'Amplified', noun: 'Amplifier', draw: 1, art: 'lens',
+    text: ['DOUBLES the card', 'merged right after it', '(its right neighbour)', 'SELF: draw 1'],
+    desc: { use: 'Merge it, then merge the card you want doubled.', merge: 'The next card merged into the object counts twice as much: double kg, double m/s, double Burn or zap.', skill: 'Order matters: an Amplifier as the last card does nothing.' }, flavor: 'Turns it up. All the way.' }),
+  keystone: card({ name: 'Keystone', kind: 'matter', num: 33, m: 1, v: 0, keystone: 2, noun: 'Keystone', block: 4, hard: true, art: 'stone',
+    text: ['Matter: 1 kg', '+2 kg for every', 'Stone in the object', 'SELF: Block 4'],
+    desc: { use: 'Place it or merge it into a stony object.', merge: '+2 kg for each Stone, Earth, Pumice or Lodestone in the same object.', skill: 'The arch holds: the more stone, the heavier it gets.' }, flavor: 'Take it out and the whole arch falls.' }),
+  domino: card({ name: 'Domino', kind: 'law', num: 34, domino: 0.2, adj: 'Toppling', noun: 'Domino', block: 2, art: 'inertia',
+    text: ['+20% for every time', 'the card kind changes', 'along the merge', 'SELF: Block 2'],
+    desc: { use: 'Merge it into an object built in alternation: Matter, Law, Energy, Tool, Matter...', merge: 'Walk the merge left to right: every neighbour of a different kind adds ×0.2 to the multiplier.', skill: 'Chain reaction: order your merges to keep it toppling.' }, flavor: 'One push. Then physics does the rest.' }),
+
   // ------------------------------------------------------------------ mutants (events, the lab, discoveries)
   superposition: card({ name: 'Superposition', kind: 'matter', mutantOf: 'apple', m: 1, v: 0, charge: 5, launch: true, noun: 'Quantum Apple', heal: 4, charged: 4, field: 'sapling',
     text: ['Apple AND Spark', '1 kg + ZAP 5', 'Self-launching', 'EAT: heal 4'],
@@ -169,7 +192,7 @@ export const CARD_POOL = {
   basic: ['apple', 'stone', 'water', 'spark', 'gravity', 'mass', 'force', 'motion', 'rotation', 'inertia', 'heat', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound'],
   uncommonBasics: ['stone', 'water', 'spark', 'heat', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound'],
   // what a discovery may offer: the science cards, a few copies of the core, the occasional mutant or Law of nature
-  discover: ['earth', 'stone', 'water', 'spark', 'heat', 'gravity', 'rotation', 'inertia', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound', 'apple', 'apple', 'force', 'motion', 'mass'],
+  discover: ['echo', 'looking_glass', 'resonance', 'catalyst', 'amplifier', 'keystone', 'domino', 'earth', 'stone', 'water', 'spark', 'heat', 'gravity', 'rotation', 'inertia', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound', 'apple', 'apple', 'force', 'motion', 'mass'],
   rare: ['golden_apple', 'ice', 'lodestone', 'antigravity', 'dark_matter', 'torque', 'momentum', 'plasma', 'prism', 'slinky', 'brute_force'],
   powers: Object.keys(POWERS),
 };

@@ -302,7 +302,7 @@ function convo(F, t, partner, beats) {
     else cam = F.close(sp, { d: 1.95 * k, side: sp === 'newton' ? 0.45 : -0.4, up: 0.06, fov: 27 });
     const dur = Math.max(1.8, estimate(text, nar ? 'narrator' : VO(who)) + 0.35);
     F.shot(t, t + dur, cam, { cut: true });
-    if (nar) F.say(t + 0.1, text); else { F.speak(t + 0.12, who, text); if (Math.random() < 0.5) F.act(t + 0.3, who, who === 'newton' ? 'think' : 'talk'); }
+    if (nar) F.say(t + 0.1, text); else { F.speak(t + 0.12, who, text); if (who === 'newton' && /\?|think|why|law/i.test(text)) F.act(t + 0.3, 'newton', 'think'); }
     t += dur;
   }
   return t;

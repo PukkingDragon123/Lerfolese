@@ -83,6 +83,7 @@ export function flatten(cards) {
 
 export function recipeKey(comps) { return comps.map((c) => c.id).sort().join('+'); }
 
+const ROCK = ['stone', 'pumice', 'lodestone', 'earth', 'keystone'];
 function countMap(comps) { const m = {}; for (const c of comps) m[c.id] = (m[c.id] || 0) + 1; return m; }
 
 export function findSpecial(comps) {
@@ -127,26 +128,43 @@ export function moveName(comps, special) {
 }
 
 // mods: { gravityDv, firstMove:{dm,dv}, leverForce, hornForce, thermo, firstLaw, momentum, charged, kindle, bonusMul }
+// The combinators read the merge ORDER (left = merged earlier): an Echo becomes a copy of its left neighbour, an
+// Amplifier doubles its right neighbour. effective() resolves that into the cards that actually count, each with a k.
+export function effective(comps) {
+  const eff = []; let amp = 1;
+  for (const c of comps) {
+    let cc = c, echoed = false;
+    if (baseOf(c.id) === 'echo') { const prev = eff[eff.length - 1]; if (!prev || prev.dead) { eff.push({ c, k: 1, dead: true }); amp = 1; continue; } cc = { ...prev.c }; echoed = true; }
+    const k = amp; amp = 1;
+    if (baseOf(cc.id) === 'amplifier') amp = 2 * k; // an amplified Amplifier amplifies ×4
+    eff.push({ c: cc, k, echoed });
+  }
+  return eff;
+}
+
 export function computeMove(comps, mods = {}) {
-  const cm = countMap(comps); const special = findSpecial(comps);
-  const S = (c, k) => stat(c.id, c.up, k) || 0;
+  const eff = effective(comps); const ec = eff.map((x) => x.c); // ec: the cards that count (Echoes resolved)
+  const cm = countMap(ec); const special = findSpecial(ec);
+  const S0 = (c, k) => stat(c.id, c.up, k) || 0; let K = 1; const S = (c, k) => S0(c, k) * K;
   let m = 0, baseV = 0, dv = 0, hits = 1, charge = 0, burn = 0, wet = 0, persist = 0, bounce = 0, venom = 0, disarm = 0, chill = 0, weakOnHit = 0, goldOnKill = 0, recoil = 0;
   let focus = 1, spread = false, prism = false, fall = false, hard = false, pierce = false, grow = false, bounceFalloff = 0;
   let hasMatter = false, lensCount = 0, forceCount = 0, gravityCount = 0, launched = false, shove = 0, carry = false, float = false, dizzyOnHit = 0, seek = null, lever = false, swing = 0, press = 0, waveMul = 1;
   const self = { heal: 0, block: 0, cleanse: false, charged: 0, momentum: 0, thorns: 0, retain: false, kindle: 0, draw: 0 };
-  for (const c of comps) {
-    const d = BASICS[c.id]; if (!d) continue;
+  const rockN = ec.filter((c) => ROCK.includes(baseOf(c.id))).length;
+  for (const { c, k, dead } of eff) {
+    const d = BASICS[c.id]; if (!d || dead) continue; K = k;
     if (d.kind === 'matter') { hasMatter = true; m += S(c, 'm'); baseV = Math.max(baseV, S(c, 'v')); if (d.hard) hard = true; }
+    if (d.keystone) m += d.keystone * Math.max(0, rockN - 1) * k; // +2 kg for every other stone in the object
     if (d.spread) spread = true; if (d.launch) launched = true; shove += S(c, 'shove'); if (d.carry) carry = true; if (d.float) float = true; dizzyOnHit += S(c, 'dizzyOnHit'); if (d.seek) seek = d.seek;
     if (d.lever) lever = true; swing += S(c, 'swing'); press += S(c, 'pressure'); if (d.waveMul) waveMul *= d.waveMul;
     m += S(c, 'dm') * (mods.massMul && ['mass', 'dark_matter'].includes(baseOf(c.id)) ? mods.massMul : 1);
     let thisDv = S(c, 'dv');
-    if (baseOf(c.id) === 'gravity') { gravityCount++; thisDv += mods.gravityDv || 0; if (mods.plumb) thisDv += comps.filter((x) => baseOf(x.id) === 'mass').length; }
+    if (baseOf(c.id) === 'gravity') { gravityCount++; thisDv += mods.gravityDv || 0; if (mods.plumb) thisDv += ec.filter((x) => baseOf(x.id) === 'mass').length; }
     if (baseOf(c.id) === 'force') { forceCount++; if (mods.leverForce && forceCount === 1) thisDv *= 2; thisDv += mods.hornForce || 0; }
     dv += thisDv;
     hits += S(c, 'hits'); charge += S(c, 'charge'); burn += S(c, 'burn'); wet += S(c, 'wet'); persist += S(c, 'persist'); bounce += S(c, 'bounce');
     venom += S(c, 'venom'); disarm += S(c, 'disarm'); chill += S(c, 'chill'); weakOnHit += S(c, 'weakOnHit'); goldOnKill += S(c, 'goldOnKill'); recoil += S(c, 'recoil');
-    if (d.focus) { focus *= S(c, 'focus'); lensCount++; }
+    if (d.focus) { focus *= S0(c, 'focus') ** k; lensCount++; }
     if (d.prism) prism = true; if (d.fall) fall = true; if (d.pierce) pierce = true; if (d.grow) grow = true; if (d.bounceFalloff) bounceFalloff = d.bounceFalloff;
     if (baseOf(c.id) === 'heat') burn += mods.thermo || 0;
     // self parts
@@ -154,11 +172,35 @@ export function computeMove(comps, mods = {}) {
     self.thorns += S(c, 'thorns'); self.kindle += S(c, 'kindle'); self.draw += S(c, 'draw');
     if (d.cleanse) self.cleanse = true; if (d.retain) self.retain = true;
   }
+  K = 1;
   if (swing) dv += swing * (comps.length - 1); // a longer swing for a bigger build
   if (press) m += press * (comps.length - 1);   // packed dense
   // the synergy matrix: anti-synergies cancel parts of the merge, synergies multiply (see data/synergy.js)
-  const syn = synergiesOf(comps, special); const has = (id) => syn.some((r) => r.id === id);
-  if (has('melt')) { for (const c of comps) if (c.id === 'ice') m -= S(c, 'm'); m = Math.max(0, m); burn = 0; chill = 0; }
+  const syn = synergiesOf(ec, special); const has = (id) => syn.some((r) => r.id === id);
+  if (has('melt')) { for (const c of ec) if (c.id === 'ice') m -= S(c, 'm'); m = Math.max(0, m); burn = 0; chill = 0; }
+  // the combinators: Resonance (repeats), Catalyst (Heat while Water waits in the hand), Domino (alternating kinds)
+  const combo = [];
+  const has1 = (b) => ec.some((c) => baseOf(c.id) === b);
+  if (has1('resonance')) {
+    const cnt = {}; for (const c of ec) cnt[baseOf(c.id)] = (cnt[baseOf(c.id)] || 0) + 1;
+    const reps = Math.min(5, Object.values(cnt).reduce((a, x) => a + Math.max(0, x - 1), 0));
+    combo.push(reps ? { text: `Resonance: ${reps} repeated card${reps > 1 ? 's' : ''} (×1.5 each)`, mul: +(1.5 ** reps).toFixed(3), kind: 'syn', id: 'resonance' } : { text: 'Resonance: no card appears twice', mul: 1, kind: 'anti', id: 'resonance' });
+  }
+  if (has1('catalyst')) {
+    const heat = ec.filter((c) => ['heat', 'plasma'].includes(baseOf(c.id))).length;
+    if (heat && mods.waterInHand) { combo.push({ text: `Catalyst: Heat ×2 (Water waits in your hand)`, mul: 2, kind: 'syn', id: 'catalyst' }); burn *= 2; }
+    else combo.push({ text: heat ? 'Catalyst: no Water in your hand' : 'Catalyst: no Heat to speed up', mul: 1, kind: 'anti', id: 'catalyst' });
+  }
+  const dom = ec.reduce((a, c) => a + (BASICS[c.id]?.domino || 0), 0);
+  if (dom) {
+    let ch = 0; for (let i = 1; i < ec.length; i++) if (BASICS[ec[i].id]?.kind !== BASICS[ec[i - 1].id]?.kind) ch++;
+    combo.push(ch ? { text: `Domino: the kind changes ${ch} time${ch > 1 ? 's' : ''} along the merge`, mul: +(1 + dom * ch).toFixed(2), kind: 'syn', id: 'domino' } : { text: 'Domino: nothing topples (one kind only)', mul: 1, kind: 'anti', id: 'domino' });
+  }
+  const echoes = eff.filter((x) => x.echoed).length, amps = eff.filter((x) => x.k > 1);
+  if (echoes) combo.push({ text: `Echo: ${eff.filter((x) => x.echoed).map((x) => BASICS[x.c.id]?.name).join(', ')} again`, kind: 'note', id: 'echo' });
+  if (amps.length) combo.push({ text: `Amplifier: ${amps.map((x) => `${BASICS[x.c.id]?.name} ×${x.k}`).join(', ')}`, kind: 'note', id: 'amplifier' });
+  if (comps.length > 1 && eff.some((x) => x.dead)) combo.push({ text: 'Echo first: nothing to repeat yet', mul: 1, kind: 'anti', id: 'echo' });
+  if (has1('keystone') && rockN > 1) combo.push({ text: `Keystone: +${(rockN - 1) * 2} kg from ${rockN - 1} other stone${rockN > 2 ? 's' : ''}`, kind: 'note', id: 'keystone' });
   if (has('insulated')) charge = 0;
   if (has('darklens')) { focus = 1; lensCount = 0; }
   for (const r of syn) burn += r.burn || 0;
@@ -176,6 +218,7 @@ export function computeMove(comps, mods = {}) {
   if (waveMul !== 1) lines.push({ text: 'Sound: a wave, at half strength', mul: waveMul, kind: 'note' });
   if (special?.bonus && special.bonus !== 1) lines.push({ text: special.law ? `${special.name} (a Law of Nature!)` : `${special.name} (named discovery)`, mul: special.bonus, kind: special.law ? 'law' : 'named' });
   for (const r of syn) lines.push({ text: r.text, mul: r.mul, kind: r.anti ? 'anti' : 'syn', id: r.id });
+  lines.push(...combo);
   if (mods.bonusMul && mods.bonusMul !== 1) lines.push({ text: 'Bonus', mul: mods.bonusMul, kind: 'syn' });
   const compMul = lines.reduce((k, l) => k * (l.mul ?? 1), 1); const fizzle = syn.find((r) => r.fizzle)?.fizzle || null;
   const perHit = fizzle ? 0 : Math.round(m * v * compMul);
@@ -187,6 +230,7 @@ export function computeMove(comps, mods = {}) {
 
   // lone-law effects on a foe
   const alone = n === 1 ? baseOf(comps[0].id) : null;
+  if (alone === 'echo') self.clone = 1; // on Newton: the leftmost card in the hand is cloned
   const attack = {
     m, v, hits, perHit, focus, spread: spread || allFoes, fall, hard, pierce, charge: charge + (mods.charged || 0), burn: burn + (burn > 0 || perHit > 0 ? (mods.kindle || 0) : 0), wet, persist: persist ? persist + (mods.firstLaw || 0) : 0, grow,
     bounce, bounceFalloff, venom, disarm, chill, weakOnHit, goldOnKill, recoil, steam, fist, launched, shove, carry, float, dizzyOnHit, seek,
@@ -208,11 +252,11 @@ export function computeMove(comps, mods = {}) {
   self.block = Math.round((self.block + (special?.selfBlock || 0)) * stackMul * (special?.selfBlockMul || 1));
   self.charged += special?.selfCharged || 0;
   self.moon = moon;
-  self.valid = self.heal > 0 || self.block > 0 || self.charged > 0 || self.momentum > 0 || self.thorns > 0 || self.retain || self.kindle > 0 || self.draw > 0 || self.cleanse || moon;
+  self.valid = self.heal > 0 || self.block > 0 || self.charged > 0 || self.momentum > 0 || self.thorns > 0 || self.retain || self.kindle > 0 || self.draw > 0 || self.cleanse || moon || !!self.clone;
 
-  const field = fieldFor(comps, cm, special, { m, v, burn, charge, wet, persist, mods });
+  const field = fieldFor(ec, cm, special, { m, v, burn, charge, wet, persist, mods });
   const name = moveName(comps, special);
-  return { comps, n, key: recipeKey(comps), name, special, attack, self, field, art: artSpec(comps, cm, special), tags: tagsOf(comps), syn };
+  return { comps, n, key: recipeKey(comps), name, special, attack, self, field, art: artSpec(ec, cm, special), tags: tagsOf(ec), syn, combo };
 }
 
 const FIELD_INFO = {
@@ -285,6 +329,6 @@ export function describeSelf(s) {
   const out = [];
   if (s.block) out.push(`Block ${s.block}`); if (s.heal) out.push(`Heal ${s.heal}`); if (s.cleanse) out.push('Cleanse Burn/Wet/Venom');
   if (s.charged) out.push(`Next hit +${s.charged} zap`); if (s.momentum) out.push(`Next Move +${s.momentum} v`); if (s.thorns) out.push(`Thorns ${s.thorns}`);
-  if (s.kindle) out.push(`Hits Burn +${s.kindle}`); if (s.draw) out.push(`Draw ${s.draw}`); if (s.retain) out.push('Keep hand & Block'); if (s.moon) out.push('Summon a little moon');
+  if (s.kindle) out.push(`Hits Burn +${s.kindle}`); if (s.draw) out.push(`Draw ${s.draw}`); if (s.retain) out.push('Keep hand & Block'); if (s.moon) out.push('Summon a little moon'); if (s.clone) out.push('Clone your leftmost card');
   return out;
 }

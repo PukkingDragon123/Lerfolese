@@ -22,7 +22,7 @@ const TIER = {
 };
 const list = [...E.easy.map((g) => ['normal', g]), ...E.hard.map((g) => ['normal', g]), ...E.elite.map((g) => ['elite', g]), ...E.guardian.map((g) => ['guardian', g])];
 const ARTS = Object.keys(ITEMS).filter((id) => ITEMS[id].math || id === 'talaria' || ['lever', 'horn_shard', 'plumb_bob', 'gorgon_scale', 'wine_flask'].includes(id)).filter(unlocked);
-const stats = {}; const tiers = {}; const dodges = {}; let errors = 0, placed = 0, laws = 0, fizzles = 0, best = 0;
+const stats = {}; const tiers = {}; const dodges = {}; let errors = 0, placed = 0, laws = 0, fizzles = 0, best = 0, dilemmas = 0, twins = 0, clones = 0; const picks = {};
 
 for (let i = 0; i < N; i++) {
   const [tier, enemies] = list[i % list.length]; const T = TIER[tier]; const key = enemies.join('+');
@@ -35,6 +35,9 @@ for (let i = 0; i < N; i++) {
     async dodge() { const x = r.next(); return x < 0.2 ? 'perfect' : x < 0.5 ? 'good' : 'miss'; }, // ~50% of blows dodged
     async discoverPick(mv, opts) { if (mv.special?.law) laws++; return r.pick(opts); },
     async fizzle() { fizzles++; },
+    async dilemma(d) { dilemmas++; const i = d.riddle ? (r.chance(0.7) ? d.options.findIndex((o) => o.right) : r.int(0, d.options.length - 1)) : r.int(0, d.options.length - 1); const k = `${d.title}: ${d.options[i].label}`; picks[k] = (picks[k] || 0) + 1; return i; },
+    async mirrored() { twins++; },
+    async cloned() { clones++; },
   };
   const b = new Battle({ run, enemies, rng: new RNG(i * 7 + 1), fx, kind: tier });
   try {
@@ -56,6 +59,8 @@ for (let i = 0; i < N; i++) {
 async function playTurn(b, r) {
   const P = b.player; const kindOf = (s) => BASICS[s.cards[0]?.id]?.kind; const id = (s) => s.cards[0]?.id;
   const threat = b.alive().reduce((k, e) => k + b.threatOf(e), 0);
+  // an Echo on Newton clones the leftmost card first (so it is played like the original)
+  for (const s of [...b.hand]) if (id(s) === 'echo' && s.cards.length === 1 && b.hand.length > 1 && r.chance(0.5)) await b.play(s.uid, { type: 'self' });
   // powers are enacted at once
   for (const s of [...b.hand]) if (s.cards[0].type === 'power') await b.play(s.uid, { type: 'self' });
   // eat when hurt; brace when the bubbles promise a beating
@@ -71,7 +76,7 @@ async function playTurn(b, r) {
       if (s.cards[0].type === 'power' || kindOf(s) === 'matter') continue;
       for (const o of b.held) {
         const cur = b.heldPreview(o).est?.ev || 0; const pv = b.preview(s.uid, { type: 'held', uid: o.uid }); const nxt = pv.est?.ev || 0;
-        const gain = nxt - cur + (pv.move?.attack.launched && !b.heldMove(o).attack.launched ? 3 : 0);
+        const gain = pv.kind === 'mirror' ? (pv.ok && b.heldMove(o).attack.launched ? cur * 0.9 : 0) : nxt - cur + (pv.move?.attack.launched && !b.heldMove(o).attack.launched ? 3 : 0); // a twin doubles a launched object
         if (gain > bestGain) { bestGain = gain; move = [s, o]; }
       }
     }
@@ -86,5 +91,7 @@ const pct = (a, b) => `${(100 * a / Math.max(1, b)).toFixed(0)}%`;
 if (!quiet) for (const k in stats) { const s = stats[k]; console.log(`${s.tier.padEnd(9)} ${k.padEnd(24)} win ${pct(s.won, s.n).padStart(4)}  turns ${(s.turns / s.n).toFixed(1)}  hpLeft ${(s.hpLeft / s.n).toFixed(0)}  (n=${s.n})`); }
 for (const t of ['normal', 'elite', 'guardian']) if (tiers[t]) console.log(`TIER ${t.padEnd(9)} win ${pct(tiers[t].won, tiers[t].n)}  (n=${tiers[t].n})`);
 const dn = Object.values(dodges).reduce((a, b) => a + b, 0);
+console.log(`dilemmas ${dilemmas} (${(dilemmas / Math.max(1, N)).toFixed(2)} per fight) · twins ${twins} · clones ${clones}`);
+if (process.argv.includes('--picks')) for (const [k, n] of Object.entries(picks).sort()) console.log('  ', k, n);
 console.log(`objects placed ${placed} · laws discovered ${laws} · fizzles ${fizzles} · best hit ${best} · dodges perfect ${pct(dodges.perfect || 0, dn)} good ${pct(dodges.good || 0, dn)} missed ${pct(dodges.miss || 0, dn)}`);
 console.log('errors', errors);

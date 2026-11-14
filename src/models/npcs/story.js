@@ -77,20 +77,25 @@ function storyHuman({ app, outfit, height, headScale = 1, hook = null, overrides
 }
 
 // ---------------------------------------------------------------- kid Isaac (about ten)
-const KID_APP = { skin: 0xf4cfae, hair: 0x6a3e22, hairStyle: 'curly', build: 'slim', bodyShape: 0.22, age: 0, face: 3, nose: 0, brows: 2, mouth: 1, ears: 1, eyeColor: 0x4a86c0, facialHair: 'none', height: 1 };
+const KID_APP = { skin: 0xf4cfae, hair: 0x6a3e22, hairStyle: 'short', build: 'slim', bodyShape: 0.22, age: 0, face: 3, nose: 0, brows: 2, mouth: 1, ears: 1, eyeColor: 0x4a86c0, facialHair: 'none', height: 1 };
 const KID_OUT = { torso: { tex: 'c_shirt_button', color: 0xf4eee0 }, torsoOuter: { tex: 'c_jacket', color: 0x3e5a34 }, legs: { tex: 'c_slacks', color: 0x3a2c24 }, feet: { tex: 'c_shoes', color: 0x24160e } }; // olive wool doublet, linen shirt, dark breeches
-function tousle(P, seed = 5) { // short chestnut tufts over the Limbo cap: a boy's untidy fringe and crown
+function tousle(P, seed = 5) { // a boy's chin-length chestnut locks over the Limbo cap: wavy lofted strands, a fringe, a cowlick
   const g = new THREE.Group(); let s = seed; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  const m = K.uvMat('kid-locks', 32, 128, (u, v, o) => { const lit = Math.cos(u * TAU); const c = lit > 0.45 && v > 0.15 && v < 0.3 ? [178, 116, 66] : lit < -0.2 ? [62, 34, 20] : [112, 64, 36]; o.col[0] = c[0]; o.col[1] = c[1]; o.col[2] = c[2]; });
-  const c = V(0, (P.hairY + P.eyeY) / 2 + 0.018, P.hcz - 0.005);
-  for (let i = 0; i < 30; i++) {
-    const az = (rnd() - 0.5) * 2 * Math.PI, el = 0.25 + rnd() * 1.1; const dir = V(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
-    if (dir.z > 0.55 && dir.y < 0.5) continue; // keep the face clear
-    const p0 = c.clone().add(V(dir.x * P.hw * 1.0, dir.y * 0.09, dir.z * P.hd * 0.95)); const out = V(dir.x, dir.y * 0.4 + 0.25, dir.z).normalize();
-    const len = 0.03 + rnd() * 0.035, r0 = 0.011 + rnd() * 0.006, curl = (rnd() - 0.5) * 0.04;
-    const pts = [0, 0.5, 1].map((t) => p0.clone().addScaledVector(out, t * len).add(V(curl * t, -t * t * len * 0.8, 0)));
-    K.mesh(new K.Loft(6, 6).set(K.curve(pts), (t) => r0 * (1 - t * 0.8)).geo, m, g);
+  const m = K.uvMat('kid-locks', 64, 256, (u, v, o) => { const lit = Math.cos(u * TAU); const ring = lit > 0.4 && v > 0.12 && v < 0.22; const c = ring ? [196, 132, 80] : lit < -0.2 ? [70, 40, 24] : [124, 76, 44]; o.col[0] = c[0]; o.col[1] = c[1]; o.col[2] = c[2]; });
+  const c = V(0, (P.hairY + P.eyeY) / 2 + 0.014, P.hcz - 0.01);
+  for (let i = 0; i < 54; i++) {
+    const side = i % 2 ? 1 : -1; const front = i < 10; const az = front ? (rnd() - 0.5) * 1.3 : side * (0.7 + rnd() * 2.4), el = front ? 0.55 + rnd() * 0.35 : -0.1 + rnd() * 1.3;
+    const dir = V(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)); if (!front && Math.cos(az) > 0.3 && el < 0.9) continue;
+    const p0 = c.clone().add(V(dir.x * P.hw * 1.04, dir.y * 0.1, dir.z * P.hd * 1.0));
+    const out = front ? V(dir.x * 0.6, -0.1, 1).normalize() : V(dir.x * 1.2, 0, Math.min(0, dir.z) - 0.15).normalize();
+    const fall = front ? 0.035 + rnd() * 0.02 : Math.max(0.05, p0.y - P.mouthY + 0.01 + rnd() * 0.03); const ph = rnd() * 6.28, amp = 0.006 + rnd() * 0.008, r0 = 0.013 + rnd() * 0.007;
+    const pts = []; for (let j = 0; j <= 5; j++) { const t = j / 5; pts.push(p0.clone().addScaledVector(out, 0.006 + t * (front ? 0.03 : 0.022) + Math.sin(t * 7 + ph) * amp).add(V(0, -t * fall, 0))); }
+    K.mesh(new K.Loft(10, 7).set(K.curve(pts), (t) => { const r = r0 * (1 - t * 0.65) * (t < 0.12 ? 0.6 + t * 3.4 : 1); return [r * 1.25, r * 0.8]; }, { ref: () => out }).geo, m, g);
   }
+  // the crown: broad locks laid over the cap from a parting, so the head reads round, not boxed
+  for (let i = 0; i < 26; i++) { const az = (i / 26) * TAU + rnd() * 0.2; const p0 = c.clone().add(V(0.012, P.hairY - c.y + 0.004, -0.01)); const out = V(Math.sin(az), 0, Math.cos(az) * 1.1); const reach = 0.085 + rnd() * 0.02; const r0 = 0.02 + rnd() * 0.008;
+    const pts = [0, 0.35, 0.7, 1].map((t) => p0.clone().addScaledVector(out, t * reach).add(V(0, 0.012 * Math.sin(t * Math.PI) - t * t * 0.05, 0)));
+    K.mesh(new K.Loft(10, 7).set(K.curve(pts), (t) => { const r = r0 * (1 - t * 0.55); return [r * 1.3, r * 0.55]; }, { ref: () => V(0, 1, 0) }).geo, m, g); }
   return g;
 }
 export function createKidIsaac() {
@@ -100,7 +105,7 @@ export function createKidIsaac() {
 }
 
 // ---------------------------------------------------------------- the Master
-const M_APP = { skin: 0xe8b894, hair: 0xd8d4cc, hairStyle: 'receding', build: 'slim', bodyShape: 0.05, age: 1, face: 1, nose: 2, brows: 3, mouth: 0, ears: 1, eyeColor: 0x6a8aa0, facialHair: 'beard', height: 1 };
+const M_APP = { skin: 0xe8b894, hair: 0xd8d4cc, hairStyle: 'bald', build: 'slim', bodyShape: 0.05, age: 1, face: 1, nose: 2, brows: 3, mouth: 0, ears: 1, eyeColor: 0x6a8aa0, facialHair: 'beard', height: 1 };
 const M_OUT = { torso: { tex: 'c_shirt_button', color: 0xe8e0cc }, torsoOuter: { tex: 'c_coat', color: 0x2e2a5a }, legs: { tex: 'c_slacks', color: 0x2a2440 }, feet: { tex: 'c_shoes_boot', color: 0x2a1a14 } };
 const SILVER = (u, v, o, dark = false) => { const lit = Math.cos(u * TAU); const streak = Math.sin(u * 60 + v * 8) > 0.7; const c = lit > 0.5 && streak ? [252, 250, 244] : lit > 0.1 ? [222, 218, 210] : lit > -0.4 ? [176, 172, 168] : [120, 118, 126]; if (dark && v > 0.85) c.forEach((x, i) => (c[i] = x * 0.85)); o.col[0] = c[0]; o.col[1] = c[1]; o.col[2] = c[2]; };
 function longBeard(P) { // a long combed beard: a broad tapering mass from the chin to the chest, with locks over it and a moustache

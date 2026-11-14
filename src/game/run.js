@@ -46,11 +46,19 @@ export function attachRun(run) {
     j.bestHit = Math.max(j.bestHit || 0, mv.attack.total);
     save.saveJournal();
   };
+  // the Best Combinations leaderboard: the hardest hits (one per recipe) and the longest merge chain
+  run.onRecord = (mv, dmg) => {
+    const j = save.journal; const R = (j.records ||= { hits: [], chain: null }); const row = { name: mv.name, key: mv.key, dmg, n: mv.n, loop: run.loop, law: !!mv.special?.law };
+    const old = R.hits.find((x) => x.key === mv.key); if (old) { if (dmg <= old.dmg) row.skip = true; else Object.assign(old, row); } else R.hits.push(row);
+    R.hits.sort((a, b) => b.dmg - a.dmg); R.hits.length = Math.min(R.hits.length, 8);
+    if (!R.chain || mv.n > R.chain.n || (mv.n === R.chain.n && dmg > R.chain.dmg)) R.chain = { name: mv.name, key: mv.key, n: mv.n, dmg, loop: run.loop };
+    run.stats.bestCombo = Math.max(run.stats.bestCombo || 0, dmg); save.saveJournal();
+  };
   run.onLearn = (enemyId, key) => { const j = save.journal; const e = (j.enemies[enemyId] ||= { seen: 0, killed: 0, learned: {} }); if (!e.learned[key]) { e.learned[key] = run.loop; save.saveJournal(); } };
   return run;
 }
 
-export function serializeRun(run) { const { rng, journal, onDiscover, onLearn, ...rest } = run; return { ...rest, rngSeed: rng.seed, rngCalls: rng.calls }; }
+export function serializeRun(run) { const { rng, journal, onDiscover, onLearn, onRecord, ...rest } = run; return { ...rest, rngSeed: rng.seed, rngCalls: rng.calls }; }
 export function restoreRun(data) { const run = { ...data }; run.rng = RNG.restore(data.rngSeed, data.rngCalls); return attachRun(run); }
 
 // ---------------------------------------------------------------- map
@@ -139,6 +147,9 @@ export function itemChoices(run, pool, n = 1) {
   return run.rng.shuffle([...avail]).slice(0, n);
 }
 // a won battle pays only what the foes carried: gold, and their own drops (cards come from discoveries)
+// the card a foe may carry (added straight to the deck with the rest of the loot)
+export const CARD_LOOT = { satyr: 'catalyst', kobalos: 'echo', medusa: 'looking_glass', harpy: 'amplifier', wolf: 'resonance', spartoi: 'keystone', centaur: 'domino',
+  minotaur: 'keystone', minotaur_king: 'domino', hydra: 'echo', hydra_elder: 'resonance', cyclops: 'amplifier', chimera: 'catalyst', talos: 'looking_glass' };
 export function battleRewards(run, kind, enemies = []) {
   const r = run.rng; const gm = run.items.includes('sack') ? 1.25 : 1; const loot = [];
   let gold = 0;
@@ -150,7 +161,11 @@ export function battleRewards(run, kind, enemies = []) {
     if (drop.length && r.chance(chance)) loot.push(r.pick(drop)); else gold += Math.round(r.int(4, 9) * gm);
   }
   if (kind === 'guardian') for (const x of itemChoices(run, 'guardian', 2)) if (!loot.includes(x)) loot.push(x);
-  return { gold, cards: [], items: loot, loot: true };
+  // a foe sometimes carries a card of its own nature (the combinators: clone, boost, position)
+  const lootCards = [];
+  for (const id of new Set(enemies)) { const c = CARD_LOOT[id]; if (c && unlocked(c) && !lootCards.includes(c) && r.chance(ENEMIES[id]?.guardian || ENEMIES[id]?.elite ? 0.8 : 0.3)) lootCards.push(c); }
+  const cards = lootCards.slice(0, 2).map((id) => mkCard(id)); for (const c of cards) run.deck.push(c);
+  return { gold, cards: [], lootCards: cards, items: loot, loot: true };
 }
 
 export function upgradeCard(c) { if (c.type === 'move') c.up = 1; else c.up = 1; }

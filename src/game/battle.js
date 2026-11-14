@@ -5,6 +5,7 @@ import { computeMove, flatten, baseOf } from './combos.js';
 import { uid } from '../core/util.js';
 import { mkCard, discoveryChoices } from './run.js';
 import { foeLines, artifactLines, immuneTo } from './data/synergy.js';
+import { dilemmaFor } from './data/dilemmas.js';
 
 const NOOP = new Proxy({}, { get: () => async () => {} });
 export const HAND_MAX = 10;
@@ -77,6 +78,7 @@ export class Battle {
     P.retain = false;
     await this.drawCards(n);
     if (P.st.petrify) { await this.petrifyHand(P.st.petrify); delete P.st.petrify; }
+    if (this.turn === 2 && !this.flags.dilemma) await this.dilemma(); if (this.checkEnd()) return;
     await this.fx.playerTurn?.(this);
   }
   handCount() { return this.hand.reduce((s, sl) => s + sl.cards.length, 0); }
@@ -97,6 +99,44 @@ export class Battle {
     const cands = this.hand.flatMap((s) => s.cards).filter((c) => c.type !== 'power' && c.id !== 'stone' && !c.petrified);
     const picked = this.rng.shuffle(cands).slice(0, n); for (const c of picked) c.petrified = true;
     if (picked.length) await this.fx.petrified?.(picked);
+  }
+
+  // ------------------------------------------------------------------ story dilemmas (data/dilemmas.js)
+  // once per fight a foe makes an offer, a bargain or a riddle; fx.dilemma(d, foe) resolves the chosen index
+  async dilemma() {
+    const d = dilemmaFor(this); this.flags.dilemma = true; if (!d || !d.options.length) return null;
+    const i = await this.fx.dilemma?.(d, d.foe); const opt = d.options[Number.isInteger(i) ? i : d.options.length - 1] || d.options[d.options.length - 1];
+    const res = await this.applyDilemma(opt.fx || {}, d.foe);
+    (this.run.flags.dilemmas ||= []).push({ title: d.title, pick: opt.label, foe: d.foe.id, right: opt.right });
+    await this.fx.dilemmaResult?.(d, opt, d.foe, res);
+    this.checkEnd(); return { d, opt, res };
+  }
+  async applyDilemma(f, e) {
+    const P = this.player; const out = {};
+    if (f.odds) { const yes = this.rng.next() < f.odds.p; out.odds = yes; await this.applyDilemma(yes ? f.odds.yes : f.odds.no, e); }
+    if (f.gold) this.run.gold = Math.max(0, (this.run.gold || 0) + f.gold);
+    if (f.maxHp) { this.run.player.maxHp = Math.max(10, this.run.player.maxHp + f.maxHp); P.maxHp = this.run.player.maxHp; P.hp = Math.min(P.hp, P.maxHp); }
+    if (f.heal) await this.healPlayer(f.heal);
+    if (f.hurt) await this.hurtPlayer(f.hurt, { pure: true, kind: 'dilemma' });
+    if (this.over) return out;
+    if (f.block) await this.gainBlock(f.block);
+    for (const [k, n] of Object.entries(f.st || {})) { if (k === 'petrify') await this.petrifyHand(n); else this.addSt(P, k, n); }
+    for (const [k, n] of Object.entries(f.foeSt || {})) if (e.alive) this.addSt(e, k, n);
+    for (const [k, n] of Object.entries(f.foesSt || {})) for (const x of this.alive()) this.addSt(x, k, n);
+    if (f.foeDmg) await this.damageEnemy(e, f.foeDmg, { kind: 'dilemma', pierce: true });
+    if (f.foePct) await this.damageEnemy(e, Math.round(e.maxHp * f.foePct), { kind: 'dilemma', pierce: true });
+    if (f.brawl) { const al = this.alive(); if (al.length > 1) { for (const x of al) { const by = this.rng.pick(al.filter((y) => y !== x)); await this.fx.friendlyFire?.(by, x); await this.damageEnemy(x, f.brawl, { kind: 'kinetic', pierce: true }); } } else if (al[0]) this.addSt(al[0], 'vulnerable', 2); }
+    if (f.loseHand) { let n = f.loseHand.n; for (const s of [...this.hand]) { if (n <= 0) break; if (s.cards.some((c) => c.type === 'power')) continue; const ok = f.loseHand.base === 'any' || s.cards.some((c) => baseOf(c.id) === f.loseHand.base); if (!ok) continue; this.hand = this.hand.filter((x) => x !== s); for (const c of s.cards) if (!c.temp) this.discard.push(c); await this.fx.binned?.(s); n--; } }
+    if (f.loseDeck) { for (let k = 0; k < f.loseDeck; k++) { const pool = this.run.deck.filter((c) => !['apple', 'force'].includes(c.id)); if (pool.length <= 4) break; const c = this.rng.pick(pool); this.run.deck = this.run.deck.filter((x) => x !== c); this.lost.push(c); out.lost = [...(out.lost || []), c.id]; } }
+    if (f.steal && e.alive) { const pool = this.discard.length ? this.discard : this.draw; if (pool.length) { const c = pool.splice(this.rng.int(0, pool.length - 1), 1)[0]; e.loot = c; e.lootTurns = 0; await this.fx.steal?.(e, c); } }
+    if (f.flee && e.alive) { e.alive = false; e.fled = true; if (e.loot) { this.lost.push(e.loot); e.loot = null; } await this.fx.flee?.(e); }
+    const add = [];
+    for (const id of f.deck || []) { const c = mkCard(id); this.run.deck.push(c); add.push(this.slotOf([{ ...c }])); }
+    for (const id of f.cards || []) add.push(this.slotOf([{ ...mkCard(id), temp: true }]));
+    const got = []; for (const sl of add) { if (this.handCount() < this.handMax()) { this.hand.push(sl); got.push(sl); } else if (!sl.cards[0].temp) this.discard.push(sl.cards[0]); }
+    if (got.length) await this.fx.drew?.(got); out.cards = got.map((sl) => sl.cards[0].id);
+    if (f.draw) await this.drawCards(f.draw);
+    return out;
   }
 
   // ------------------------------------------------------------------ combining
@@ -125,6 +165,7 @@ export class Battle {
     if (this.has('horn_shard')) m.hornForce = (m.hornForce || 0) + 1;
     if (this.has('plumb_bob')) m.plumb = true;
     if (this.has('lead_boots')) m.massMul = 2;
+    if (this.hand.some((sl) => flatten(sl.cards).some((c) => baseOf(c.id) === 'water'))) m.waterInHand = true; // Catalyst
     const P = this.player; if (P.st.momentum) m.momentum = P.st.momentum; if (P.st.charged) m.charged = P.st.charged; if (P.st.kindle) m.kindle = P.st.kindle;
     return m;
   }
@@ -138,6 +179,7 @@ export class Battle {
     if (power) return { ok: s.cards.length === 1, kind: 'power', text: s.cards.length === 1 ? 'Enact this Law' : 'Laws cannot be mixed' };
     const mv = this.moveOf(s); if (!mv) return { ok: false };
     if (target.type === 'air') { const why = this.manifestBlock(s); return { ok: !why, move: mv, kind: 'manifest', text: why || `Manifest: ${mv.name}` }; }
+    if (target.type === 'held' && s.cards.length === 1 && BASICS[s.cards[0].id]?.twin) { const o = this.held.find((x) => x.uid === target.uid); if (!o) return { ok: false }; const room = this.held.length < HELD_MAX; const hp = this.heldPreview(o); return { ok: room, kind: 'mirror', held: o, move: hp.mv, target: hp.target, est: hp.est, text: room ? `Looking-Glass: a twin ${hp.mv.name}` : `No room for a twin (${HELD_MAX} things already hang in the air)` }; }
     if (target.type === 'held') { const o = this.held.find((x) => x.uid === target.uid); if (!o) return { ok: false }; const nm = this.heldMove(o, flatten(s.cards)); const t = this.heldTarget(o, target.aim, nm); const obj = { ...o, golden: this.nextMergeGolden() }; return { ok: true, move: nm, kind: 'manipulate', held: o, target: t, est: t && nm.attack.valid ? this.calc(nm, t, { obj }) : null, text: nm.name }; }
     if (target.type === 'enemy') { const e = this.enemies.find((x) => x.uid === target.uid && x.alive); if (!e || !mv.attack.valid) return { ok: false, move: mv, kind: 'attack', text: 'Nothing to throw' }; return { ok: true, move: mv, kind: 'attack', est: this.estimate(mv, e) }; }
     if (target.type === 'self') return { ok: mv.self.valid, move: mv, kind: 'self' };
@@ -150,6 +192,7 @@ export class Battle {
   // rolled: odds already decided (at release); otherwise odds are shown as a range (lo..hi) and an expectation.
   calc(mv, e, { obj = null, rolled = null } = {}) {
     const a = mv.attack; const lines = a.lines.map((l) => ({ ...l })); const art = artifactLines(this, mv, e, obj); lines.push(...art.lines); if (e) lines.push(...foeLines(e, mv, this));
+    if (this.player.st.weak) lines.push({ text: 'You are Weak', mul: 0.75, kind: 'anti' });
     let mul = 1; for (const l of lines) if (l.kind !== 'base') mul *= l.mul ?? 1;
     let lo = mul, hi = mul, ev = mul;
     if (rolled) for (const r of rolled) { lines.push({ text: `${r.text}: ${r.label}`, mul: r.mul, kind: 'odds', rolled: true }); mul *= r.mul; lo = hi = ev = mul; }
@@ -171,6 +214,7 @@ export class Battle {
     const pv = this.preview(slotId, target); if (!pv.ok) { await this.fx.invalid?.(pv.text); return false; }
     if (pv.kind === 'manifest') return !!(await this.manifest(slotId, target.pos, target.aim));
     if (pv.kind === 'manipulate') return this.manipulate(target.uid, slotId, target.aim);
+    if (pv.kind === 'mirror') return this.mirror(target.uid, slotId);
     const s = this.findSlot(slotId); this.hand = this.hand.filter((x) => x !== s);
     if (pv.kind === 'bin') {
       this.redraws--; for (const c of s.cards) if (!c.temp) this.discard.push(c);
@@ -263,6 +307,14 @@ export class Battle {
     await this.checkDiscovery(this.heldMove(o));
     return true;
   }
+  // the Looking-Glass: a twin of a held object appears beside it, made of the same cards (and grows on its own)
+  async mirror(objId, slotId) {
+    const o = this.held.find((x) => x.uid === objId), s = this.findSlot(slotId); if (!o || !s || this.held.length >= HELD_MAX) return false;
+    this.hand = this.hand.filter((x) => x !== s); for (const c of s.cards) if (!c.temp) this.discard.push(c);
+    const twin = { uid: uid('h'), comps: o.comps.map((c) => ({ ...c })), cards: [...o.cards], wind: o.wind, pos: null, target: o.target, aimed: o.aimed, golden: o.golden, twinOf: o.uid };
+    this.held.push(twin); this.run.flags.clones = (this.run.flags.clones || 0) + 1;
+    await this.fx.mirrored?.(twin, o, s); return twin;
+  }
   aim(objId, enemyUid) { const o = this.held.find((x) => x.uid === objId); const e = this.enemies.find((x) => x.uid === enemyUid && x.alive); if (!o || !e) return false; o.target = e.uid; o.aimed = true; this.fx.aimed?.(o, e); return true; }
   // a merge never made before in this run: the game offers three new cards right away (one pick per turn)
   async checkDiscovery(mv) {
@@ -322,6 +374,7 @@ export class Battle {
     if (zap) { for (const e of this.alive()) if (!targets.includes(e) && e.st.wet) { await this.fx.chain?.(e); await this.damageEnemy(e, zap * 2, { kind: 'zap', pierce: true }); } }
     if (a.persist && a.perHit > 0) this.addField('momentum', { turns: a.persist, target: target.uid, m: a.m, v: a.v, hits: a.hits, grow: a.grow, fall: a.fall, name: mv.name, art: mv.art });
     if (planned > (this.run.stats.bestHit || 0)) this.run.stats.bestHit = planned;
+    if (mv.n >= 2 && planned > 0) this.run.onRecord?.(mv, planned);
   }
   // one target, full hits
   async strike(mv, t, mul = 1, opts = {}) {
@@ -388,6 +441,11 @@ export class Battle {
     if (s.thorns) this.addSt(P, 'thorns', s.thorns);
     if (s.kindle) this.addSt(P, 'kindle', s.kindle);
     if (s.retain) { P.retain = true; P.keepBlock = true; }
+    if (s.clone) { // Echo on Newton: the leftmost card of the hand is cloned (a copy for this battle only)
+      const src = this.hand.find((sl) => !sl.cards.some((c) => c.type === 'power'));
+      if (src && this.handCount() + src.cards.length <= this.handMax()) { const copy = this.slotOf(src.cards.map((c) => ({ ...c, uid: uid('c'), temp: true, petrified: false }))); this.hand.splice(this.hand.indexOf(src) + 1, 0, copy); this.run.flags.clones = (this.run.flags.clones || 0) + 1; await this.fx.drew?.([copy]); await this.fx.cloned?.(copy, src); }
+      else await this.fx.bark?.('player', src ? 'No room in my hand for an echo.' : 'An echo of... nothing. Profound.');
+    }
     if (s.moon && !this.field.some((f) => f.type === 'moon')) this.addField('moon', {});
     if (s.draw) await this.drawCards(s.draw + (this.has('owl') && mv.comps.some((c) => baseOf(c.id) === 'lens') ? 1 : 0));
     await this.fx.selfApplied?.(mv);

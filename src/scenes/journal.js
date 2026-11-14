@@ -69,6 +69,11 @@ export class Journal {
       wrapHand(g, 'Note: the universe resets whenever I die. This book does not. Neither does my spite.', 110, 660, 440, { size: 36, color: '#5a1a22', rot: -0.02 }); });
     // loop log
     P.push((g) => { paper(g); hand(g, 'Loop Log', 110, 100, { size: 60, font: 'HomemadeApple', color: '#3a2410' }); let y = 170; for (const h of (j.history || []).slice(0, 14)) { hand(g, `#${h.loop}  ${h.won ? 'Topped the Wilds!' : 'Died on floor ' + h.floor}  ·  ${h.kills} kills · best ${h.bestHit}`, 100, y, { size: 32, color: h.won ? '#2d6e6a' : '#2a1a4a' }); y += 46; } if (!j.history?.length) wrapHand(g, 'No loops recorded yet. Go and die interestingly.', 110, 200, 440, { size: 38 }); });
+    // the Best Combinations leaderboard (run.onRecord): the hardest hits, one per recipe, and the longest chain
+    P.push((g) => { paper(g); hand(g, 'Best Combinations', 100, 90, { size: 54, font: 'HomemadeApple', color: '#3a2410' }); const R = j.records || { hits: [] }; let y = 160;
+      if (!R.hits.length) wrapHand(g, 'No record yet. Merge something outrageous and let it fly.', 110, 200, 440, { size: 36, color: '#8a6a44' });
+      R.hits.forEach((h, i) => { hand(g, `${i + 1}.  ${h.dmg}`, 96, y, { size: 38, color: i ? '#2a1a4a' : '#8a1a1c' }); hand(g, `${h.name}${h.law ? ' ★' : ''}`, 236, y, { size: 30, color: h.law ? '#7a2a6a' : '#2a1a4a' }); hand(g, `${h.key.split('+').join(' + ')}  ·  loop ${h.loop}`, 236, y + 30, { size: 22, color: '#8a6a44' }); y += 70; });
+      if (R.chain) { y = Math.max(y + 10, 760); hand(g, `Longest chain: ${R.chain.n} cards`, 96, y, { size: 36, color: '#4e2e7e' }); hand(g, `${R.chain.name}  (${R.chain.dmg})`, 110, y + 38, { size: 28, color: '#5a3622' }); } });
     // combinations: 6 per page
     const combos = Object.entries(j.combos).sort((a, b) => (b[1].special ? 1 : 0) - (a[1].special ? 1 : 0) || b[1].count - a[1].count);
     const undiscovered = SPECIALS.filter((s) => !j.combos[s.key]);
@@ -95,7 +100,7 @@ export class Journal {
     for (let pg = 0; pg * PER < cur.length; pg++) P.push((g) => { paper(g); hand(g, pg ? 'Curios (cont.)' : 'Curios', 100, 90, { size: 56, font: 'HomemadeApple', color: '#3a2410' });
       cur.slice(pg * PER, pg * PER + PER).forEach((id, n) => { const found = j.items?.[id]; const x = 92 + (n % 2) * 262, y = 128 + Math.floor(n / 2) * 116;
         if (found) { try { g.imageSmoothingEnabled = false; g.drawImage(itemIcon(id, 48), x, y, 96, 96); } catch (err) { /* */ } } else { g.fillStyle = 'rgba(90,60,30,0.12)'; g.fillRect(x + 12, y + 12, 72, 72); }
-        const nm = found ? ITEMS[id].name : '???'; const ls = wrapText(nm, 'body', 150 / 2).slice(0, 2); ls.forEach((l, i) => hand(g, l, x + 100, y + 48 + i * 28 - (ls.length - 1) * 14, { size: 22, color: found ? '#2a1a4a' : '#8a6a44' })); }); });
+        const nm = found ? ITEMS[id].name : '???'; const ls = wrapText(nm, 'body', 158 / 2).slice(0, 3); ls.forEach((l, i) => hand(g, l, x + 100, y + 54 + i * 26 - (ls.length - 1) * 13, { size: 22, color: found ? '#2a1a4a' : '#8a6a44' })); }); });
     if (P.length % 2) P.push((g) => { paper(g); wrapHand(g, 'More pages for the Trojan War, Mount Olympus, and whatever is above that. Bring ink.', 110, 200, 440, { size: 38, color: '#5a3622' }); });
     this.P = P;
   }

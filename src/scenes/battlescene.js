@@ -204,6 +204,10 @@ export class BattleScene {
       const tp = new THREE.Vector3(lookX - 0.4, 2.55, near), tl = new THREE.Vector3(lookX, 1.65, 0.2);
       this.camera.position.lerp(tp.add(new THREE.Vector3(Math.sin(t * 0.21) * 0.12, Math.sin(t * 0.17) * 0.06, 0)), k * 0.9); this.camera.lookAt(this.camLook.clone().lerp(tl, k * 0.9));
     }
+    // a story dilemma: a two-shot of Newton and the foe who speaks
+    this.dlgK = (this.dlgK || 0) + ((this.dilemmaFoe ? 1 : 0) - (this.dlgK || 0)) * Math.min(1, dt * 2.2);
+    if (this.dlgK > 0.001) { const f = this.dilemmaFoe ? this.enemyPos(this.dilemmaFoe, 0.6) : (this.dlgLast || this.camLook); if (this.dilemmaFoe) this.dlgLast = f.clone(); const mx = (f.x + this.prof.root.position.x) / 2; const kk = this.dlgK * this.dlgK * (3 - 2 * this.dlgK);
+      this.camera.position.lerp(new THREE.Vector3(mx + 0.4, 2.5, 8.4), kk * 0.85); this.camera.lookAt(this.camLook.clone().lerp(new THREE.Vector3(mx + 0.6, Math.max(1.6, f.y), 0), kk * 0.85)); }
     const g = this.engine.grade?.uniforms; if (g?.uVignette) { this.vig0 ??= g.uVignette.value; g.uVignette.value = this.vig0 + k * 0.28; }
     if (prep) { this.thinkT = (this.thinkT ?? 0.6) - dt; if (this.thinkT <= 0 && !this.hand.drag) { this.thinkT = 3.2; this.prof.act('think'); } } else this.thinkT = 0.4;
   }
@@ -409,6 +413,35 @@ export class BattleScene {
         setTimeout(() => { if (!v || !S.battle) return; v.api.act('attack'); if ((h || !S.lungedFor) && !it?.charge) S.fx3d.lunge(v.api.root, S.enemySlotPos(e), S.prof.root.position.x); }, Math.max(0, (lead - 0.4) * 1000));
         S.lungedFor = null; const r = await res; if (r !== 'miss') S.sidestep(r === 'perfect' ? 1 : 0.6); return r;
       },
+      // a story dilemma (data/dilemmas.js): the camera turns to the foe, it speaks (voiced, story/dialogue.js), and the
+      // options appear as carved plaques, each with its price written underneath
+      async dilemma(d, e) {
+        S.dilemmaFoe = e; const v = S.enemyViews.get(e.uid); let D = null;
+        try { D = await import('../story/dialogue.js'); } catch (err) { D = null; }
+        await S.showBanner(d.title, d.riddle ? 'A RIDDLE' : 'A DILEMMA', '', 0.5);
+        if (!D) { S.dilemmaFoe = null; return d.options.length - 1; }
+        const spk = 'foe_' + e.id; D.registerSpeaker(spk, { name: e.def.name, color: '#5a1a22' }); S.dlgSpk = spk;
+        const anchor = (w) => w.copy(S.enemyPos(e, 1.05)); v?.api.act?.('cast');
+        for (const line of d.intro) await D.say(spk, line, { anchor });
+        const i = await D.choice(d.options.map((o) => ({ label: o.label, sub: o.sub })), { prompt: d.prompt, speaker: 'narrator' });
+        return i;
+      },
+      async dilemmaResult(d, opt, e, res) {
+        let D = null; try { D = await import('../story/dialogue.js'); } catch (err) { D = null; }
+        const head = S.enemyPos(e, 1.15);
+        if (d.riddle) { S.popNumber(head, opt.right ? 'RIGHT!' : 'WRONG!', { color: opt.right ? '#cfe07a' : '#f6b3a0', stroke: '#1e1408', size: 1.5 }); audio.play(opt.right ? 'magic_sparkle' : 'ui_error'); hud.feed(`${opt.right ? 'Correct' : 'Wrong'}. ${opt.outcome}`, opt.right ? 'arc' : 'foe'); }
+        if (res?.odds != null) { S.popNumber(head, res.odds ? 'LUCKY!' : 'UNLUCKY', { color: res.odds ? '#ffe08a' : '#f6b3a0', stroke: '#3a1f08', size: 1.4 }); audio.play(res.odds ? 'coins_handful' : 'ui_error', { vol: 0.6 }); }
+        if (res?.lost?.length) hud.feed(`Lost for good: ${res.lost.map((id) => BASICS[id]?.name || id).join(', ')}`, 'foe');
+        S.syncHand(); for (const x of S.battle.enemies) S.refreshEnemy(x);
+        if (D && opt.reply) await D.say(S.dlgSpk || 'narrator', opt.reply, { anchor: e.alive || e.fled ? (w) => w.copy(S.enemyPos(e, 1.05)) : null, hold: 0.8 });
+        S.dilemmaFoe = null;
+      },
+      async mirrored(twin, o, slot) {
+        const L = S.held; const src = L.views.get(o.uid); const ui = L.uiOf(o); S.hand.removeViews(slot.cards.map((c) => c.uid), { x: ui.x, y: ui.y, s: 0.2, flip: 0 });
+        const v = L.add(twin); if (src) { const to = v.g.position.clone(); v.g.position.copy(src.g.position); tweens.to(v.g.position, { x: to.x, y: to.y, z: to.z }, 0.45, { ease: 'outBack' }); S.burst(src.g.position, 'magic', 16); }
+        audio.play('glass_clink'); audio.play('magic_shimmer', { delay: 0.1 }); S.prof.act('cast'); S.bark('player', vpick(['Two of everything. Narcissus would be jealous.', 'A reflection with mass. Unsettling.', 'Mirror, mirror: hit him twice.']), 1.8); await tweens.wait(0.4);
+      },
+      async cloned(copy, src) { audio.play('string_pluck', { vol: 0.6 }); S.bark('player', `An echo of ${BASICS[src.cards[0].id]?.name || 'that'}. Again!`, 1.6); await tweens.wait(0.15); },
       async dodged(e, res) { const p = S.prof.headWorld(new THREE.Vector3()); S.popNumber(p, 'DODGE!', { color: '#cfe07a', stroke: '#1e3320', size: 1.3 }); audio.play('whoosh_soft'); await tweens.wait(0.2); },
       artifact(id) { S.wear?.trigger(id); const t = S.artTags?.[id]; if (t) { t.kick?.(1.6); t.pop?.kick?.(3); } if (!String(id).startsWith('law:')) audio.play('chime_soft', { vol: 0.35, minGap: 0.2 }); },
       async battleStart(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); await S.chapterCard(B); await tweens.wait(0.25); const lead = B.enemies.find((e) => !e.def.isHead); if (lead) S.bark(lead, vpick(lead.def.barks.start), 2.6); await tweens.wait(0.8); S.bark('player', vpick(PLAYER_BARKS.start), 2.4); },

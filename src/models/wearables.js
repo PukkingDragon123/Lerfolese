@@ -69,7 +69,7 @@ export class Wearables {
         const holder = new THREE.Group(); holder.name = 'wear:' + id; const inner = new THREE.Group(); holder.add(inner);
         const m = itemModel(spec.model); m.scale.setScalar(spec.size); inner.add(m); if (spec.rot) m.rotation.set(...spec.rot);
         if (spec.hang) m.position.y = -spec.size * 0.45; // hangs from its strap at the holder origin
-        const fl = flashSprite(FLASH[id] || 0xfff0c8); fl.scale.setScalar(spec.size * 2.2); inner.add(fl);
+        const fl = flashSprite(FLASH[id] || 0xfff0c8); fl.scale.setScalar(spec.size * 1.2); inner.add(fl);
         let parent = null;
         if (!parent) {
           if (spec.slot === 'orbit' || spec.slot === 'shoulder') { this.prof.body.add(holder); parent = this.prof.body; }
@@ -96,7 +96,7 @@ export class Wearables {
       if (p.id === 'lead_boots') inner.position.y = -Math.abs(Math.sin(b * 6)) * 0.03 * b / p.ps; // a stomp
       if (p.id === 'wings' || p.id === 'talaria') inner.rotation.x = Math.sin(t * 9) * 0.25 * b;
       inner.scale.setScalar(1 + 0.45 * e * Math.max(0, Math.sin(b * Math.PI)) + 0.25 * e);
-      p.fl.material.opacity = Math.min(1, e * 1.4); p.fl.scale.setScalar(spec.size * (2.2 + (1 - b) * 1.5));
+      p.fl.material.opacity = Math.min(0.55, e * 0.8); p.fl.scale.setScalar(spec.size * (1.2 + (1 - b) * 0.8)); // a small, quick pop of light (combat VFX stay minimal)
       animateModel(m, t + p.ph, b);
     }
   }

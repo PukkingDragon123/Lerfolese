@@ -36,13 +36,17 @@ export class RewardScene extends UIScreen {
     tweens.run(1.2, (e) => { this.pouch.set(Math.round(this.shownGold + rewards.gold * e)); }, { delay: 0.4 }); for (let i = 0; i < 8; i++) audio.play('coin_single', { delay: 0.4 + i * 0.12, vol: 0.6, minGap: 0 });
     this.picked = false; this.items = [];
     if (rewards.loot) { // only what the foes carried: gold, and their own drops, laid out on the table and pocketed
-      this.lbl = new Strip([[[rewards.items.length ? 'The foes carried:' : 'The foes carried only gold.', '#2a160c']]], { maxW: 16 }); uiPos(this.lbl.group, 0, 3.6, 3.5); this.root.add(this.lbl.group);
+      const lc = rewards.lootCards || [];
+      this.lbl = new Strip([[[rewards.items.length || lc.length ? 'The foes carried:' : 'The foes carried only gold.', '#2a160c']]], { maxW: 16 }); uiPos(this.lbl.group, 0, 3.6, 3.5); this.root.add(this.lbl.group);
       const n = rewards.items.length; rewards.items.forEach((id, i) => {
         const t = new ItemToken(id, { size: 2.6 }); t.group.position.set((i - (n - 1) / 2) * 4.2, 0.6, 3); this.root.add(t.group); this.items.push(t);
         if (!run.items.includes(id)) run.items.push(id); const j = this.game.journal; j.items[id] = (j.items[id] || 0) + 1;
         const nm = new Strip([[[ITEMS[id]?.name || id, '#7a4a14']]], { maxW: 7.5, tacks: 1 }); uiPos(nm.group, (i - (n - 1) / 2) * 4.2, -1.9, 3.4); this.root.add(nm.group); (this.names ||= []).push(nm);
         audio.play('magic_shimmer', { delay: 0.6 + i * 0.3 });
       });
+      // a card of the foe's own nature (already in the deck): it lies face up beside the curios, then slides into the deck
+      lc.forEach((c, i) => { const x = (n ? this.W - 4.2 : (i - (lc.length - 1) / 2) * 4.4) - (n ? i * 3.6 : 0); const v = this.addCard(c, x, n ? -0.2 : 0.4, { scale: 0.85, tip: cardTip(c) }); setTimeout(() => { if (!this.leaving) { v.target = { ...v.target, x: -this.W + 3, y: -this.H - 4, rz: 2, s: 0.4 }; audio.play('card_flip'); } }, 2600 + i * 400); audio.play('card_flip', { delay: 0.8 + i * 0.3 }); });
+      if (lc.length) { this.cardLbl = new Strip([[['A card for your deck: ', '#2a160c'], [lc.map((c) => BASICS[c.id]?.name || c.id).join(', '), '#4e2e7e']]], { maxW: 14 }); uiPos(this.cardLbl.group, n ? this.W - 6 : 0, n ? -3.2 : -2.8, 3.4); this.root.add(this.cardLbl.group); }
       this.game.saveJournal(); this.itemTaken = true; this.picked = true; this.lootMode = true;
     } else {
     const cy = rewards.items.length ? 0.2 : -0.6;

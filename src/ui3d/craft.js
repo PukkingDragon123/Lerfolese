@@ -253,7 +253,7 @@ export const FONT = {
   tiny: { font: 'MicroPixel', size: 9, weight: 400, lineH: 8, base: 6, space: 2 },
   num: { font: 'NanoPlus', size: 13, weight: 400, lineH: 11, base: 9, space: 3 }, num2: { font: 'NanoPlus', size: 13, scale: 2, weight: 400, lineH: 20, base: 18, space: 3 },
   bold: { font: 'NanoPlus', size: 13, weight: 400, lineH: 12, base: 10, space: 3 }, big: { font: 'NanoPlus', size: 13, scale: 2, weight: 400, lineH: 22, base: 18, space: 3 },
-  rune: { font: 'RuneMono', size: 12, weight: 400, lineH: 9, base: 7 }, runeL: { font: 'RuneMono', size: 24, weight: 400, lineH: 15, base: 12 },
+  rune: { font: 'RuneMono', size: 12, weight: 400, lineH: 9, base: 7, space: 4 }, runeL: { font: 'RuneMono', size: 24, weight: 400, lineH: 15, base: 12, space: 8 },
   numg: { bitmap: NUMG, scale: 1, lineH: 11, base: 9 },
 };
 const CAPH = { Alagard: 11 / 16, PixelSans: 7, NanoPlus: 8, RuneMono: 5 / 12, MicroPixel: 5 };

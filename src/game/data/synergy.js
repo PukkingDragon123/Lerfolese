@@ -18,7 +18,7 @@ export function tagsOf(comps) {
   if (any('heat', 'plasma')) t.add('hot');
   if (any('water', 'ice')) t.add('wet');
   if (any('spark', 'plasma', 'superposition')) t.add('electric');
-  if (any('stone', 'pumice', 'lodestone', 'earth')) t.add('rock');
+  if (any('stone', 'pumice', 'lodestone', 'earth', 'keystone')) t.add('rock');
   if (any('lens', 'prism', 'spark')) t.add('light');
   if (any('gravity', 'antigravity', 'buoyancy')) t.add('falling');
   if (any('mass', 'dark_matter', 'pressure')) t.add('heavy');

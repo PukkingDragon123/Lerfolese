@@ -54,14 +54,14 @@ export function construct(kind, seed = 1) {
   const B = constructBase(seed + kind.length); const g = B.g; const st = { glow: 0, want: 0, merged: 0, t: 0, play: null };
   const body = new THREE.Group(); body.position.y = 0.7; g.add(body); let apple = null; const dots = [];
   if (kind === 'force') { const a = arrow(); body.add(a); const gim = brassRing(0.42, 0.012); gim.rotation.x = Math.PI / 2; body.add(gim); const gim2 = brassRing(0.38, 0.01); body.add(gim2); st.arrow = a; st.gims = [gim, gim2]; }
-  if (kind === 'apple') { apple = makeApple({ s: 0.2, ripe: 1 }); apple.position.set(0, 0.55, 0); body.add(apple); for (let i = 1; i <= 14; i++) { const u = i / 14; const d = new THREE.Mesh(turned([[0, -0.018], [0.014, -0.006], [0.014, 0.006], [0, 0.018]], 8), new THREE.MeshToonMaterial({ color: 0xfff0b0, emissive: 0xffc860, emissiveIntensity: 0.6 })); d.position.set(u * 0.55, 0.55 - u * u * 1.15, 0); d.userData.noInk = true; body.add(d); dots.push(d); } }
+  if (kind === 'apple') { apple = makeApple({ s: 0.1, ripe: 1 }); apple.position.set(0, 0.55, 0); body.add(apple); for (let i = 1; i <= 14; i++) { const u = i / 14; const d = new THREE.Mesh(turned([[0, -0.018], [0.014, -0.006], [0.014, 0.006], [0, 0.018]], 8), new THREE.MeshToonMaterial({ color: 0xfff0b0, emissive: 0xffc860, emissiveIntensity: 0.6 })); d.position.set(u * 0.55, 0.55 - u * u * 1.15, 0); d.userData.noInk = true; body.add(d); dots.push(d); } }
   if (kind === 'mass') { const stack = new THREE.Group(); [[0.2, 0.28], [0.15, 0.22], [0.11, 0.17]].reduce((y, [r, h]) => { const w = weight(r, h); w.position.y = y; stack.add(w); return y + h * 1.08; }, -0.55); body.add(stack); st.stack = stack; }
   const halo = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), new THREE.MeshBasicMaterial({ map: sigilTex(seed + 9, '#ffe7a0'), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })); halo.rotation.x = -Math.PI / 2; halo.position.y = 0.02; halo.userData.noInk = true; g.add(halo);
   let held = null; // the apple the card placed onto this construct
   const api = {
     group: g, hit: B.hit, kind, body,
     glow(on) { st.want = on ? 1 : 0; },
-    merge() { st.merged = 1; if (kind !== 'apple') { held = makeApple({ s: 0.2, ripe: 1 }); held.position.set(kind === 'force' ? -0.62 : 0, kind === 'force' ? 0 : 0.42, 0); body.add(held); } else { st.merged = 1; } return held; },
+    merge() { st.merged = 1; if (kind !== 'apple') { held = makeApple({ s: 0.1, ripe: 1 }); held.position.set(kind === 'force' ? -0.62 : 0, kind === 'force' ? 0 : 0.42, 0); body.add(held); } else { st.merged = 1; } return held; },
     held: () => held || apple,
     /** End Turn: the construct does what its law says */
     play(onHit, target = null) {
@@ -74,7 +74,7 @@ export function construct(kind, seed = 1) {
       for (let i = 0; i < dots.length; i++) { const k = (st.t * 0.8 - i / dots.length) % 1; dots[i].scale.setScalar(0.6 + 0.6 * Math.max(0, 1 - Math.abs(k) * 6)); }
       const P = st.play; if (P) {
         P.t += dt; const u = P.t;
-        if (kind === 'force' && held) { const k = ss(0, 0.5, u); held.position.set(-0.62 + k * 0.4, 0, 0); if (u > 0.5) { if (!P.launched) { P.launched = true; P.from = held.getWorldPosition(V()); body.remove(held); g.parent.add(held); held.position.copy(P.from); held.scale.setScalar(1); } const f = Math.min(1, (u - 0.5) / 0.9); const to = P.target || P.from.clone().add(V(4, 0, 0)); held.position.lerpVectors(P.from, to, f); held.position.y += Math.sin(f * Math.PI) * 0.9; held.rotation.z -= dt * 14; if (f >= 1 && !P.hit) { P.hit = true; P.onHit?.(held.position.clone()); } } }
+        if (kind === 'force' && held) { const k = ss(0, 0.5, u); held.position.set(-0.62 + k * 0.4, 0, 0); if (u > 0.5) { if (!P.launched) { P.launched = true; P.from = held.getWorldPosition(V()); body.remove(held); g.parent.add(held); held.position.copy(P.from); held.scale.setScalar(1); } const f = Math.min(1, (u - 0.5) / 0.9); const to = P.target || P.from.clone().add(V(4, 0, 0)); held.position.lerpVectors(P.from, to, f); held.position.y += Math.sin(f * Math.PI) * 0.9; held.rotation.z -= dt * 14; if (f >= 1 && !P.hit) { P.hit = true; P.onHit?.(held.position.clone()); held.visible = false; } } }
         if (kind === 'apple') { const f = ss(0.1, 1.2, u); const a2 = apple; const k = f; a2.position.set(k * 0.55, 0.55 - k * k * 1.15, 0); a2.rotation.z -= dt * 6; if (f >= 1 && !P.hit) { P.hit = true; P.onHit?.(a2.getWorldPosition(V())); } }
         if (kind === 'mass') { const k = ss(0.05, 0.6, u); st.stack.scale.setScalar(1 + k * 0.45); body.position.y -= k * 0.25; if (u > 0.6 && !P.hit) { P.hit = true; P.onHit?.(g.getWorldPosition(V())); } }
         if (u > 1.9) { st.play = null; P.res(); }
@@ -147,7 +147,7 @@ export function popBook() {
   const pages = []; for (const s of [-1, 1]) { const geo = new THREE.PlaneGeometry(W, D, 16, 1); const p = geo.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i) * s + W / 2; p.setZ(i, Math.sin(Math.min(1, x / W) * Math.PI * 0.5) * 0.12 * (1 - x / W) + 0.02 * Math.sin(x * 3)); } geo.computeVertexNormals(); const m = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ map: pageTex(7 + s, s > 0), side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.set(s * W / 2, 0.16, 0); m.receiveShadow = true; g.add(m); pages.push(m); }
   const pops = []; const rnd = R(77);
   const add = (o, x, z, s, ry = 0) => { const hinge = new THREE.Group(); hinge.position.set(x, 0.17, z); o.scale.multiplyScalar(s); o.rotation.y = ry; hinge.add(o); hinge.rotation.x = -Math.PI / 2; hinge.scale.setScalar(0.001); g.add(hinge); pops.push({ hinge, t0: pops.length * 0.45, s: 1 }); return o; };
-  for (let i = 0; i < 6; i++) add(miniTree(['oak', 'pine', 'birch', 'oak', 'pine', 'oak'][i] || 'oak', rnd, 1), -2.5 + (i % 3) * 0.55, -1.2 + Math.floor(i / 3) * 0.7, 0.45);
+  for (let i = 0; i < 6; i++) add(miniTree(['oak', 'pine', 'olive', 'oak', 'cypress', 'oak'][i] || 'oak', rnd, 1), -2.5 + (i % 3) * 0.55, -1.2 + Math.floor(i / 3) * 0.7, 0.45);
   try { add(PROPS.cottage(3, { w: 3.4, d: 3, h: 2.6 }), -0.9, 0.9, 0.22, 0.4); } catch (e) { /* */ }
   try { add(PROPS.windmill(2), -2.2, 0.8, 0.2, -0.3); } catch (e) { /* */ }
   try { add(PROPS.tholos(5, { R: 1.6, n: 8, h: 2.4 }), 1.6, -0.6, 0.32); } catch (e) { /* */ }

@@ -173,8 +173,8 @@ export class PrologueScene extends UIScreen {
     const k = this.kid, m = this.master; if (!this.gardenScene) return;
     let skyMat = null; this.gardenScene.traverse((o) => { if (!skyMat && o.isMesh && o.material?.uniforms?.uNight && o.material.side === THREE.BackSide) { skyMat = o.material; this.skyMesh = o; } });
     const S = skyShards(V(0, 0, 2), { r: 62, skyMat }); this.gardenScene.add(S.group); this.shards = S; if (this.skyMesh) this.skyMesh.visible = false;
-    this.gardenScene.background = new THREE.Color(0xfff2d0); if (this.gardenScene.fog) this.gardenScene.fog.far = 400;
-    this.shot(V(-1.5, 1.2, 8.8), V(0.3, 6.5, -6), 44, 0); audio.play('glass_break', { vol: 0.8 }); audio.play('thunder', { vol: 0.6 }); this.engine.shake(0.4);
+    this.gardenScene.background = new THREE.Color(0xfff2d0);
+    this.shot(V(0.4, 0.9, 9.6), V(2.5, 17, -9), 52, 0); this.shot(V(0.4, 0.9, 9.6), V(1.5, 19, -12), 50, 3.5); audio.play('glass_break', { vol: 0.8 }); audio.play('thunder', { vol: 0.6 }); this.engine.shake(0.4);
     await this.w(this.tween(1.6, (u) => S.crack(u)));
     await this.narr('And the sky above the garden cracked, like the glaze of an old painting…');
     audio.play('rumble', { vol: 0.8 }); S.drop(0.4); this.engine.shake(0.5);

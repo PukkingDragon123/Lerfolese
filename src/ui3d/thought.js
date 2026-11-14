@@ -40,7 +40,7 @@ export class ThoughtBubble extends Body {
     if (!sc) { this.st.target = 0; return; }
     // lettering: NanoPlus x2 for the number, PixelSans for the label and the hint (ink on the parchment cloud)
     const numW = sc.num ? measure(sc.num, 'num2') : 0, hintW = sc.hint ? measure(sc.hint, 'body') : 0, labW = sc.label ? measure(sc.label, 'body') : 0;
-    const rowW = 16 + (numW ? numW + 4 : 0) + 9 + 11; const Wt = Math.max(rowW + 26, hintW + 44, labW + 36); const rowY = 8;
+    const rowW = 16 + (numW ? numW + 4 : 0) + 9 + 11; const Wt = Math.max(rowW + 26, hintW + 58, labW + 40); const rowY = 8;
     const labY = rowY + 16 + 12, hintY = (sc.label ? labY : rowY + 16) + 12; const bodyH = (sc.hint ? hintY : sc.label ? labY : rowY + 16) + 9, Ht = bodyH + 13; const S = new Surf(Wt, Ht);
     const cx = Wt / 2, cy = bodyH / 2 + 1, rx = Wt / 2 - 4, ry = bodyH / 2 - 4; const bumps = [];
     const nb = Math.max(8, Math.round(Wt / 9)); for (let i = 0; i < nb; i++) { const a = (i / nb) * Math.PI * 2; bumps.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, 4.6 + ((i * 7) % 3) * 0.6]); }

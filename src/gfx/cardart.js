@@ -99,7 +99,8 @@ export function renderCardFace(card, move) {
     T(v, (x + 0.5) * CS, (y + 0.25) * CS, 'num', '#fff6cf', { k: v.length > 2 ? 2 : 3, outline: '#1a0c14', shadow: '#0a0408' });
   });
   const typeLabel = card.petrified ? 'PETRIFIED' : isPower ? 'POWER · LAW' : isMove ? `MOVE · ${move.n} CARDS` : `BASIC · ${KIND_LABEL[def.kind].toUpperCase()}`;
-  T(typeLabel, (CW / 2) * CS, 90.75 * CS, 'body', '#3a1c0c', { k: measure(typeLabel, 'body') * 2 <= 52 * CS ? 2 : 1 });
+  if (isPower) T('POWER · LAW', (CW / 2) * CS, 90.75 * CS, 'rune', '#3a1660', { k: 2 }); // Laws are magic: RuneMono
+  else T(typeLabel, (CW / 2) * CS, 90.75 * CS, 'body', '#3a1c0c', { k: measure(typeLabel, 'body') * 2 <= 52 * CS ? 2 : 1 });
   let lines;
   if (isPower) lines = up ? def.upText : def.text;
   else if (isMove) {
