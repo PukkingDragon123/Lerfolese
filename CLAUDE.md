@@ -1,32 +1,29 @@
 # Apple of Discord — project rules for Claude
 
-## Art direction (non-negotiable, from the user)
-- NEVER use simple/lazy shapes as visible art: no plain circles/spheres, cubes/boxes, cylinders, cones or blobs stuck together.
-- LATEST (overrides everything older): NEVER LOW-POLY. 3D = DETAILED smooth models with real structure (trees with real branches and many leaves, detailed props, smooth organic characters), rendered ANIME/CARTOON: cel/toon shading with 2–4 hard bands + black ink outlines. Not photoreal, not faceted, not voxel.
-- UI (LATEST, user is furious about this): EVERY UI element must be a DETAILED PHYSICAL object (real 3D thickness/bevels, smooth bevelled detailed forms (never low-poly), detailed pixel-art textures: wood grain, brass engraving, parchment fibres, wax, leather stitching; lit, shadowed, springy). NEVER glowing text, NEVER floating DOM/HUD overlays, NEVER plain blocks/flat rectangles. Text = ink on parchment, engraved/stamped brass, carved/burnt wood, chalk on slate. Lighting = warm practicals + GTAO + camcorder grade.
-- Look: anime/cartoon BLACK INK OUTLINES on all 3D (engine InkPass, src/core/ink.js); clean cel-like banded textures.
-- (superseded) Map living layer: removed per user; NO TREES or grass on the map.
-- Humans may reuse the user's Limbo Phobia human generator (repo PukkingDragon123/fictional-octo-train).
-- HERO (FINAL, overrides all puppet/marionette notes): a REAL YOUNG ISAAC NEWTON (cool, 20s, anime cel-shaded, built on the Limbo Phobia character engine). He LEVITATES and fights with a glowing APPLE that orbits him. No puppet, no strings, no spectral hand.
-- PLANTS (LATEST): NO pixel-art grass. Beautiful CEL-SHADED 3D grass/flowers. Scenes big and detailed: whole forests, pond, lake, houses, village; every encounter as detailed and cinematic as the Icarus event.
-- GAMEPLAY (FINAL): start deck = 4 simple cards (Apple: eat to heal / matter; Force: combine with Apple to attack; Mass: buff, makes things heavier; Motion: turns objects into projectiles). Prepare during your turn (camera zooms into a 'thinking' state), nothing fires until End Turn. Placing matter shows its 3D model; drag cards onto it; click toggles 3D object <-> card; zoom in to read info. One objective: merge. Smart targeting. Discovering something new = choose 1 of 3 new cards right there; battle wins give only enemy loot. More science cards to discover. Enemy intents = thought bubbles.
-- LOADING + MENU: one cel-shaded moonlit apple ORCHARD by Newton's study. Loading = Newton asleep under the hero apple tree; on click an apple falls and bonks him awake (eureka) and the camera glides into the menu, where he floats cycling chill/ponder/invent/write. Menu buttons are physical scene objects (apple crate, journal, telescope, scroll).
-- FONT: Alagard (assets/fonts/alagard.ttf) is the game font for titles, labels, buttons, banners and card names; render it at 16/32/48 px so it stays pixel-crisp.
-- STYLE (USER CHOSE, FINAL): ANIME CEL-SHADED for EVERYTHING (environment AND characters): detailed smooth models, hard 2–3 tone toon shading, black ink outlines, saturated colours, beautiful painted anime sky with stylized clouds and god rays, wind, little animals, polished road. NEVER photoreal (the user never wanted realistic). Characters keep believable anatomy/proportions but are PAINTED/SHADED anime-style (cel bands, crisp shapes). Cinematic travel and 3D cinematic events stay.
-- Presentation: MEDIEVAL STORYTELLING (illuminated-manuscript storybook / puppet theatre): sun and moon WITH FACES (personified, gilded), lapis manuscript sky with curly medieval clouds, layered painted backdrops (castles, towns, stepped mountains), chapter cards with drop caps. Gore welcome: physical blood droplets, splatter decals, severed hydra heads; Sir Isaac splinters (wood), never bleeds.
-- Rendering: HIGH RESOLUTION and CRISP: no tilt-shift blur, no chromatic aberration, minimal grain; supersampled. Card backdrops = detailed nature or space scenes, no cartoon effects.
-- MAP (LATEST): big polished MINIATURE DIORAMA (not chess pieces): enemy figurines fighting at nodes, miniature trees, rivers, ground paths, mysterious fog, chests.
-- Sir Isaac = WIZARD-WARRIOR (battle-mage class) BROKEN jointed wooden marionette with a REALISTIC carved face (true anatomy, realistic eyes; never cartoon) and realistic flowing hair; no spheres or round blobs (cracks, nails, twine, one arm is a TABLE LEG), moved by a magical translucent INVISIBLE HAND holding the control cross with glowing strings. COMBAT FEEL (LATEST): physical, minimal VFX: real attack animations (anticipation, lunge, strike, follow-through, knockback), 3D debris and dust, magic only as tasteful 3D shader effects, plus a few small super-polished fine pixel particles. NO big low-res sprite effects, CRIT sprites, speed lines or sprite smoke balls.
-- Card art for Laws/Powers, Rotation, Force: magical effects (sigils, vortices, arcs), NO hands.
-- Draw CUSTOM art yourself: detailed high-resolution pixel art (shading ramps, selective outlines, highlights, animation frames), like `src/gfx/critters.js` birds and the card illustrations, and/or detailed high-poly models with real structure (trees with branches and leaves).
-- Style: HD-2D. Detailed 3D world plus detailed 2D pixel-art life and objects.
-- Characters, monsters and the game look: PROJECT ZOMBOID style, but more realistic and detailed. Low-poly meshes with correct human/creature anatomy (a proper base mesh, never primitives stuck together), carrying detailed painted 2D textures (faces, clothes, skin, fur, scales). Sir Isaac is a wooden marionette in that style.
-- Pixel art = DETAILED hand-placed pixel art at LOW resolution (like the user's gem/rock reference sheet: ~32–48px objects, 5–7-tone hue-shifted ramps, crisp highlights/glints, tinted outlines, clean clusters, texture detail). NOT high-res images, NOT downscaled 3D renders, NOT crude shape fills.
-- Pixel art: LOWER resolution (chunky pixels), GEOMETRIC stylized shapes (angular facets, flat colour planes, 3–5 colours per material, hard light/shadow splits, strong silhouettes; refs: Sword & Sworcery, Hyper Light Drifter, Celeste). NO round blob / pillow / gradient "AI slop" shading.
-- UI is physical but custom-drawn: pixel-art objects presented in 3D (lit, shadowed, springy), not primitive meshes.
+## Art direction (current, from the user — newest decisions win)
+- NEVER simple/lazy shapes as visible art: no plain spheres/cubes/cylinders/cones, no blobs stuck together, no round "AI slop" gradient shading, no circle textures.
+- NEVER low-poly / faceted / voxel. NEVER photoreal ("realistic" from the user means detailed and believable, never the art style).
+- STYLE: detailed smooth 3D models with real structure, anime CEL shading (hard 2–3 bands) + black ink outlines (src/core/ink.js), wrapped in HD-2D PIXEL-ART TEXTURES: leaves, bark, ground, cloth, stone are crisp hand-drawn pixel art (NearestFilter, 5–7-tone hue-shifted ramps, tinted outlines, clean clusters). Grass and flowers = gorgeous pixel-art. Colours harmonised like a painting, bright and cozy, not oversaturated.
+- Rendering: high resolution and crisp (supersampled, no tilt-shift blur, no chromatic aberration, minimal grain).
+- UI: every element is a detailed PHYSICAL object (3D thickness, bevels, pixel-art textures: wood, brass, parchment, wax, leather; lit, shadowed, springy). Never glowing DOM/HUD text, never flat rectangles. Text = ink, engraving, carving. Font: Alagard (assets/fonts/alagard.ttf) at 16/32/48 px.
+- HERO: a real young Isaac Newton (20s, cool), built on the Limbo Phobia human engine (src/models/limbo, user's repo PukkingDragon123/fictional-octo-train). He levitates and fights with an orbiting apple. Animations must be fluid, human-like and procedural. No puppet/strings.
+- Monsters: Greek mythology, custom rigs (src/models/beasts), weighted physical animations. Gore welcome (blood droplets, splatter, severed hydra heads).
+- Combat feel: physical, minimal VFX (real attack animations, knockback, 3D debris and dust), magic as tasteful 3D shader effects plus a few fine polished pixel particles. No big low-res sprite FX.
+- World: big detailed places (forest, pond, lake, village), wind, little animals, beautiful painted anime sky. Events are full cinematic cutscenes with visible characters.
+- Map: big miniature diorama (enemy figurines, miniature trees, rivers, paths, fog, chests). Not chess pieces.
+- Cards: hand-pixelled illustrations; backdrops are nature or space scenes; Laws/Force/Rotation art is magic effects, no hands.
 
-- WORKFLOW: ASK THE USER FIRST (short question with options) before any big or ambiguous change or before launching agents; the user pays for every token.
+## Game design (current)
+- Start deck: 4 simple cards (Apple: eat to heal or use as matter; Force: + Apple = attack; Mass: heavier/buff; Motion: makes projectiles). Damage = mass x velocity.
+- Prepare during your turn (camera zooms into Newton thinking); nothing fires until End Turn. Placed matter shows a 3D model; drag cards onto it; click flips 3D <-> card info. One objective: merge. Smart targeting.
+- Roguelike depth: discovery offers 1 of 3 new cards; synergies AND anti-synergies; big multipliers from artifacts (e.g. Statues x3); odds and number play. Battle wins give only enemy loot. Hard difficulty.
+- Enemy intents are thought bubbles. Skill element: a dodge QTE when enemies hit you (timed click reduces damage); the game is mostly about thinking.
+- Meta: loading screen = 3D apple rotting with worms, rewinding to a seed. Menu = apple garden (two wooden signs with birds: New Run / Resume, an old mop dog that fetches thrown apples, birds) -> night sky with 3D astral UI, 4 character constellations (only Isaac playable) -> star gallery hub with a walkable achievement museum and a wizard frog who unlocks NEW CONTENT ONLY (artifacts, story stages, cards, events), never stat boosts.
+
+## Workflow
+- ASK THE USER FIRST (short question with options) before any big or ambiguous change or before launching agents; the user pays for every token.
 
 ## Tech
 - Static site, three.js r170 vendored, ES modules, no build. Serve the repo root (`python3 -m http.server`).
-- Tests: `node tools/sim.mjs 300` (rules); `node tools/play.mjs "<url>?q=test" out.png 9000 "<actions @@-separated>"` (Playwright, fast mode).
+- Tests: `node tools/sim.mjs 300` (rules); `node tools/play2.mjs "<url>?q=test" out.png 30000 "<actions @@-separated>"` (Playwright, long timeouts). Battle intro skip: `click:640:360@@key:Space@@wait:3000@@key:Space@@wait:15000`. Debug: `?battle=a,b&kind=elite`, `?node=event&event=icarus`, `&ink=1`.
+- Hosted artifact: https://claude.ai/artifact/QV1BdMLkQoY2fbe5JLMmJ5 (.glb/.hdr ship as .b64.json via src/core/binfetch.js).
