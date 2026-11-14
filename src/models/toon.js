@@ -29,10 +29,10 @@ const WIND_VERT = `{ vec4 wq = modelMatrix * vec4(position, 1.0); float hk = cla
   transformed.y += sin(uTime * 7.0 + ph * 11.0 + position.x * 9.0 + position.z * 7.0) * 0.012 * hk * uWindAmp; }`;
 const SAT_FRAG = `{ float l = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)); diffuseColor.rgb = max(mix(vec3(l), diffuseColor.rgb, uSat) * uTint, 0.0);
   diffuseColor.rgb = mix(diffuseColor.rgb, uPaint * (0.55 + 1.6 * l), uPaintK); }`;
-// HD-2D: photo albedo maps of the CC0 models become pixel art: box-downscaled to <=160px, luminance posterised into 6
+// HD-2D: photo albedo maps of the CC0 models become pixel art: box-downscaled to <=384px, luminance posterised into 6
 // hue-shifted bands (cool shadows, warm lights), NearestFilter up close. Hand-made pixel textures pass through as they are.
 const PXC = new Map();
-export function pixelMap(tex, max = 160) {
+export function pixelMap(tex, max = 384) {
   if (!tex || tex.magFilter === THREE.NearestFilter) return tex || null; if (PXC.has(tex.uuid)) return PXC.get(tex.uuid);
   const img = tex.image; const w0 = img?.width, h0 = img?.height; if (!w0 || !h0 || typeof document === 'undefined' || img.data) return tex;
   const k = Math.min(1, max / Math.max(w0, h0)); const w = Math.max(8, Math.round(w0 * k)), h = Math.max(8, Math.round(h0 * k));
