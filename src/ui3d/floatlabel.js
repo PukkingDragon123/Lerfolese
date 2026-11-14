@@ -90,9 +90,8 @@ function ftPaint(lines, { font = 'body', color = '#f2ead8', align = 'left', font
     y += lh; });
   return { face, side, W, H };
 }
-const ftMat = (tex, U, z = 0) => { const m = new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: z ? 0.15 : 0.62, side: THREE.DoubleSide, toneMapped: false });
-  m.onBeforeCompile = (sh) => { sh.uniforms.uFade = U.uFade; sh.fragmentShader = 'uniform float uFade;\n' + DITHER + sh.fragmentShader.replace('#include <alphatest_fragment>', '#include <alphatest_fragment>\n if (fl_bayer(gl_FragCoord.xy / 2.0) > uFade) discard;'); };
-  m.customProgramCacheKey = () => 'floatText'; return m; };
+// (fades by plain opacity: no screen-space dithering or reduced-resolution grids in the battle)
+const ftMat = (tex, U, z = 0) => new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.02, transparent: true, depthWrite: false, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: z ? 0.15 : 0.62, side: THREE.DoubleSide, toneMapped: false });
 const ftTex = (c) => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return t; };
 export class FloatText {
   constructor(lines = '', opts = {}) {
@@ -120,7 +119,7 @@ export class FloatText {
   hide() { this.on = false; this.unf.target = 0; return this; }
   update(dt, ptr = null) {
     this.fade.target = this.on ? 1 : 0; for (const s of [this.fade, this.unf, this.tx, this.ty, this.pop]) s.update(dt);
-    const f = Math.max(0, Math.min(1, this.fade.value)); this.U.uFade.value = f; this.group.visible = f > 0.02; if (this.shadeM) this.shadeM.material.opacity = 0.62 * f;
+    const f = Math.max(0, Math.min(1, this.fade.value)); this.U.uFade.value = f; this.group.visible = f > 0.02; if (this.shadeM) this.shadeM.material.opacity = 0.62 * f; if (this.faceM) { this.faceM.material.opacity = f; this.sideM.material.opacity = f; }
     if (this.hover && ptr) { this.group.getWorldPosition(_ftw); this.tx.target = Math.max(-0.4, Math.min(0.4, -(ptr.y - _ftw.y) * 0.08)); this.ty.target = Math.max(-0.5, Math.min(0.5, (ptr.x - _ftw.x) * 0.08)); } else { this.tx.target = 0; this.ty.target = 0; }
     const u = Math.max(0.02, this.unf.value); this.pivot.scale.set(Math.max(0.02, this.pop.value) * (0.96 + 0.04 * u), Math.max(0.02, this.pop.value) * u, 1); this.pivot.rotation.set(this.tx.value + (1 - u) * 0.9, this.ty.value, 0);
   }

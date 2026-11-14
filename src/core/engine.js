@@ -29,6 +29,22 @@ const TiltShiftShader = {
   }`,
 };
 
+// Camera motion blur: every pixel's world position (from depth, or a mid-distance plane when no depth is available) is
+// reprojected with last frame's view-projection; the frame is smeared along that screen velocity (8 taps, clamped). A
+// still camera gives zero velocity, so the image stays exactly as crisp as before.
+const MotionBlurShader = {
+  uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, uHasDepth: { value: 0 }, uInvVP: { value: new THREE.Matrix4() }, uPrevVP: { value: new THREE.Matrix4() }, uStrength: { value: 0.5 }, uMax: { value: 0.035 }, uNear: { value: 0.1 }, uFar: { value: 400 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `uniform sampler2D tDiffuse, tDepth; uniform float uHasDepth, uStrength, uMax; uniform mat4 uInvVP, uPrevVP; varying vec2 vUv;
+  void main(){
+    float d = uHasDepth > 0.5 ? texture2D(tDepth, vUv).x : 0.985; d = min(d, 0.9995);
+    vec4 wp = uInvVP * vec4(vUv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0); wp /= wp.w; vec4 pp = uPrevVP * wp; pp /= pp.w;
+    vec2 vel = (vUv - (pp.xy * 0.5 + 0.5)) * uStrength; float L = length(vel); if (L > uMax) vel *= uMax / L;
+    vec4 c = texture2D(tDiffuse, vUv); if (L < 0.0006) { gl_FragColor = c; return; }
+    vec4 acc = c; for (int i = 1; i < 8; i++) { float f = float(i) / 7.0 - 0.5; acc += texture2D(tDiffuse, vUv + vel * f); } gl_FragColor = acc / 8.0;
+  }`,
+};
+
 const GradeShader = {
   uniforms: {
     tDiffuse: { value: null }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) },
@@ -38,16 +54,19 @@ const GradeShader = {
     uGamma: { value: new THREE.Vector3(1, 1, 1) }, uRolloff: { value: 0.5 }, uToe: { value: 0.02 },
     uHarmony: { value: 0.0 }, uHueLight: { value: 0.1 }, uHueShadow: { value: 0.7 }, uSatTarget: { value: 0.42 }, uSatPull: { value: 0.0 },
     uVib: { value: 0.3 }, uSel: { value: new THREE.Vector3(0.15, 0.1, 0.12) },
+    uRipC: { value: new THREE.Vector2(0.5, 0.5) }, uRipR: { value: 0 }, uRipK: { value: 0 },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uSat, uContrast, uVignette, uGrain, uCA, uFlash, uWarmth, uRolloff, uToe, uHarmony, uHueLight, uHueShadow, uSatTarget, uSatPull, uVib; uniform vec3 uSel; uniform vec3 uLift, uGain, uGamma, uVigColor, uFlashColor; uniform vec2 uRes; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uSat, uContrast, uVignette, uGrain, uCA, uFlash, uWarmth, uRolloff, uToe, uHarmony, uHueLight, uHueShadow, uSatTarget, uSatPull, uVib; uniform vec3 uSel; uniform vec3 uLift, uGain, uGamma, uVigColor, uFlashColor; uniform vec2 uRes; uniform vec2 uRipC; uniform float uRipR, uRipK; varying vec2 vUv;
   float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
   vec3 rgb2hsv(vec3 c){ vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0); vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g)); vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r)); float d = q.x - min(q.w, q.y); return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)), d / (q.x + 1e-10), q.x); }
   vec3 hsv2rgb(vec3 c){ vec3 p = abs(fract(c.xxx + vec3(1.0, 2.0/3.0, 1.0/3.0)) * 6.0 - 3.0); return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y); }
   void main(){
     vec2 cc = vUv - 0.5; float dist = length(cc);
     vec2 off = cc * dist * uCA * 8.0;
-    vec3 col; col.r = texture2D(tDiffuse, vUv + off).r; col.g = texture2D(tDiffuse, vUv).g; col.b = texture2D(tDiffuse, vUv - off).b;
+    // a time ripple (the golden apple lets time go): a ring that refracts the frame as it races outward
+    vec2 uv0 = vUv; float ring = 0.0; if (uRipK > 0.0) { float asp = uRes.x / max(uRes.y, 1.0); vec2 rd = (vUv - uRipC) * vec2(asp, 1.0); float rr = length(rd); ring = exp(-pow((rr - uRipR) * 14.0, 2.0)) * uRipK; uv0 -= (rd / max(rr, 1e-4)) * ring * 0.022 / vec2(asp, 1.0); }
+    vec3 col; col.r = texture2D(tDiffuse, uv0 + off).r; col.g = texture2D(tDiffuse, uv0).g; col.b = texture2D(tDiffuse, uv0 - off).b; col += vec3(1.0, 0.86, 0.5) * ring * 0.12;
     // camcorder grade (from R.O.O.M.): highlight roll-off, lift/gamma/gain, a soft toe that keeps blacks velvety
     col = mix(col, col / (1.0 + col * 0.35) * 1.35, uRolloff);
     col = col * uGain + uLift * (1.0 - col);
@@ -89,76 +108,72 @@ const RaysShader = {
   }`,
 };
 
-// Scene-change transitions (engine.wipe): one full-screen pass on the art-pixel grid (k x k screen pixels per art
-// pixel, ~240 art rows), quantised to hand-picked ramps with 4x4 ordered dithering, so it is pixel art that moves.
-//   style 'cloud'  : three parallax layers of billowing cumulus sweep in from the sides and below and fill the screen;
-//                    sunlight catches their tops (a gold lining on the lit rims), violet shadow in the folds. On the way
-//                    out the clouds part from the middle and drift away outward and up, revealing the new scene.
-//   style 'galaxy' : the screen is swallowed from the edges by a turning spiral galaxy: stars stream down the arms into
-//                    the vortex, violet / teal / rose nebula blooms, a golden apple-light core and glints, a gold rim on
-//                    the advancing edge. On the way out it unfurls from the centre outward into the next scene.
+// Scene-change transitions (engine.wipe): one smooth full-resolution pass (no pixel grid, no dithering).
+//   style 'cloud'  : two parallax layers of soft volumetric cumulus roll in from the sides and below and fill the
+//                    screen. Each pixel's density comes from domain-warped fbm; light is marched a few steps toward a
+//                    low warm sun (Beer-Lambert self-shadowing), so tops glow cream and gold, bellies sink into violet
+//                    shade, and thin edges catch a bright silver lining. On the way out the clouds part from the middle
+//                    and drift away outward and upward, revealing the new scene.
+//   style 'galaxy' : the screen is swallowed from the edges by a turning spiral galaxy: fine stars stream down the arms
+//                    into the vortex, violet / teal / rose nebula blooms, a golden apple-light core with soft glints, a
+//                    glowing gold rim on the advancing edge. On the way out it unfurls from the centre outward.
 // uT: 0 = clear .. 1 = fully covered; uPhase: 0 closing, 1 opening (the motion differs, the coverage is symmetric).
 const WipeShader = {
-  uniforms: { uT: { value: 0 }, uPhase: { value: 0 }, uStyle: { value: 0 }, uCenter: { value: new THREE.Vector2(0.5, 0.5) }, uAspect: { value: 1.7 }, uRes: { value: new THREE.Vector2(1280, 720) }, uK: { value: 3 }, uColor: { value: new THREE.Color(0x120d1c) }, uTime: { value: 0 }, uMode: { value: 0 } },
+  uniforms: { uT: { value: 0 }, uPhase: { value: 0 }, uStyle: { value: 0 }, uCenter: { value: new THREE.Vector2(0.5, 0.5) }, uAspect: { value: 1.7 }, uRes: { value: new THREE.Vector2(1280, 720) }, uColor: { value: new THREE.Color(0x120d1c) }, uTime: { value: 0 }, uMode: { value: 0 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
-  fragmentShader: `uniform float uT, uPhase, uStyle, uAspect, uTime, uMode, uK; uniform vec2 uCenter, uRes; uniform vec3 uColor; varying vec2 vUv;
+  fragmentShader: `uniform float uT, uPhase, uStyle, uAspect, uTime, uMode; uniform vec2 uCenter, uRes; uniform vec3 uColor; varying vec2 vUv;
   float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
   float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
-  float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++){ s += a * vn(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return s; }
-  float bayer(vec2 p){ p = mod(p, 4.0); int x = int(p.x), y = int(p.y); float b;
-    if (y == 0) b = x == 0 ? 0.0 : x == 1 ? 8.0 : x == 2 ? 2.0 : 10.0; else if (y == 1) b = x == 0 ? 12.0 : x == 1 ? 4.0 : x == 2 ? 14.0 : 6.0;
-    else if (y == 2) b = x == 0 ? 3.0 : x == 1 ? 11.0 : x == 2 ? 1.0 : 9.0; else b = x == 0 ? 15.0 : x == 1 ? 7.0 : x == 2 ? 13.0 : 5.0; return (b + 0.5) / 16.0; }
-  vec3 ramp6(float l, vec3 c0, vec3 c1, vec3 c2, vec3 c3, vec3 c4, vec3 c5){ int i = int(clamp(l, 0.0, 5.0)); return i == 0 ? c0 : i == 1 ? c1 : i == 2 ? c2 : i == 3 ? c3 : i == 4 ? c4 : c5; }
-  // ---- clouds: one layer's coverage value and its light (density toward the sun minus away from it)
-  float cloudD(vec2 q, float sc, float seed){ return fbm(q * sc + seed) * 0.75 + fbm(q * sc * 2.3 + seed * 1.7) * 0.25; }
+  float fbm5(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++){ s += a * vn(p); p = mat2(1.6, 1.2, -1.2, 1.6) * p + vec2(1.7, 9.2); a *= 0.5; } return s; }
+  float fbm3(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 3; i++){ s += a * vn(p); p = mat2(1.6, 1.2, -1.2, 1.6) * p + vec2(1.7, 9.2); a *= 0.5; } return s / 0.875; }
+  // one cloud layer: density at q (0 = clear) given the coverage field cov (how far T has advanced past this point)
+  float cloud(vec2 q, float sc, float seed, float cov, out float base){ vec2 w = vec2(fbm3(q * sc * 0.6 + seed), fbm3(q * sc * 0.6 + seed + 5.2)); base = fbm5(q * sc + w * 0.9 + seed); return clamp((base - 0.62 + cov) * 2.6, 0.0, 1.0); }
+  float cloudL(vec2 q, float sc, float seed, float cov){ vec2 w = vec2(fbm3(q * sc * 0.6 + seed), fbm3(q * sc * 0.6 + seed + 5.2)); return clamp((fbm3(q * sc + w * 0.9 + seed) - 0.62 + cov) * 2.6, 0.0, 1.0); }
   void main(){
-    vec2 P = floor(gl_FragCoord.xy / uK); vec2 uv = (P * uK + 0.5 * uK) / uRes; float th = bayer(P); float T = clamp(uT, 0.0, 1.0);
-    vec2 q = vec2((uv.x - 0.5) * uAspect, uv.y - 0.5);
+    vec2 uv = vUv; float T = clamp(uT, 0.0, 1.0); vec2 q = vec2((uv.x - 0.5) * uAspect, uv.y - 0.5);
     if (uStyle < 0.5) {
-      // ================= CLOUDS: billowing cumulus built from sphere-lit puffs on a jittered grid (three parallax layers);
-      // a puff appears (growing from nothing) when T passes its key: edges and the bottom first, the middle last
-      vec3 col = vec3(0.0); float got = 0.0; vec3 L = normalize(vec3(-0.45, 0.75, 0.5));
-      for (int li = 0; li < 3; li++) { float fl = float(li); // 0 = front, 2 = back
-        float g = 0.27 - fl * 0.055; float zoom = 1.0 + (1.0 - T) * (0.9 - fl * 0.2); vec2 drift = vec2(uTime * (0.012 + fl * 0.008), 0.0) + (uPhase < 0.5 ? vec2(0.0, -0.18) : vec2(0.0, 0.3)) * (1.0 - T);
-        vec2 qq = q * zoom + drift + vec2(fl * 3.7, fl * 1.9); vec2 cell = floor(qq / g); float best = -1.0; vec3 bc = vec3(0.0);
-        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) { vec2 cid = cell + vec2(float(i), float(j)); float r1 = h21(cid + fl * 13.1), r2 = h21(cid * 1.7 + 3.3 + fl), r3 = h21(cid * 2.3 + 7.7 + fl);
-          vec2 cpos = (cid + 0.5 + (vec2(r1, r2) - 0.5) * 0.85) * g; vec2 sp = (cpos - drift - vec2(fl * 3.7, fl * 1.9)) / zoom; // the puff centre back in screen space
-          float ex = 1.0 - min(1.0, abs(sp.x / (0.5 * uAspect)) * 1.05); float key = min(ex, (sp.y + 0.5) * 1.6) * 0.85 + r3 * 0.2 + fl * 0.03;
-          float grow = smoothstep(key, key + 0.18, T * 1.2); if (grow <= 0.0) continue;
-          float rr = g * (0.55 + r1 * r1 * 0.75 + r2 * 0.12) * grow; vec2 d = (qq - cpos) / rr; float dd = dot(d, d); if (dd >= 1.0) continue;
-          float z = sqrt(1.0 - dd); float hgt = z * rr + r2 * 0.02; if (hgt <= best) continue; best = hgt;
-          vec3 n = normalize(mix(vec3(d.x, d.y, z), vec3(0.0, 0.45, 0.9), 0.38)); float dif = dot(n, L); float lv = 1.0 + dif * 3.2 - fl * 0.7 - (1.0 - uv.y) * 0.6 + r3 * 0.3 + d.y * 0.4;
-          vec3 cc = ramp6(floor(lv + th), vec3(0.12, 0.09, 0.19), vec3(0.23, 0.18, 0.31), vec3(0.42, 0.33, 0.47), vec3(0.66, 0.53, 0.66), vec3(0.88, 0.77, 0.78), vec3(1.0, 0.94, 0.88));
-          if (dif > 0.6 && dd > 0.7 && d.y > 0.1) cc = mix(cc, vec3(1.0, 0.8, 0.52), fl < 0.5 ? 0.8 : 0.45); // sunlight catching the tops
-          if (dd > 0.94 && d.y < -0.2) cc *= 0.86; // a darker fold where puffs meet
-          bc = cc; }
-        if (best > 0.0) { col = bc; got = 1.0; break; } }
-      if (got < 0.5) { if (T < 0.985) discard; col = vec3(0.12, 0.09, 0.19); }
-      gl_FragColor = vec4(col, 1.0);
+      // ================= CLOUDS
+      float ex = abs(q.x) / (0.5 * uAspect); float edge = max(ex * 0.9, (0.5 - q.y) * 0.55); // 1 at the sides / bottom, 0 in the middle
+      vec3 acc = vec3(0.0); float alpha = 0.0; vec2 sun = normalize(vec2(-0.55, 0.85));
+      for (int li = 0; li < 2; li++) { float fl = float(li); // 0 = back, 1 = front (drawn over)
+        float zoom = 1.0 + (1.0 - T) * (0.55 + fl * 0.45); vec2 drift = vec2(uTime * (0.025 + fl * 0.02), 0.0) + (uPhase < 0.5 ? vec2(0.0, -0.22) : vec2(0.0, 0.35)) * (1.0 - T) * (0.7 + fl * 0.5);
+        vec2 qq = q * zoom + drift + vec2(fl * 4.1, fl * 2.3); float sc = 2.1 - fl * 0.5; float seed = 3.0 + fl * 11.0;
+        float cov = T * 1.45 + edge * 0.55 - 0.95 + fl * 0.04;
+        float base; float d = cloud(qq, sc, seed, cov, base); if (d <= 0.001) continue;
+        // light: march toward the sun through the layer (self-shadowing), plus a little ambient from the sky above
+        float sh = 0.0; for (int k = 1; k <= 4; k++) sh += cloudL(qq + vec2(sun.x, sun.y) * 0.035 * float(k), sc, seed, cov);
+        float light = exp(-sh * 0.85); float thin = 1.0 - smoothstep(0.0, 0.55, d);
+        vec3 shade = mix(vec3(0.24, 0.19, 0.34), vec3(0.42, 0.36, 0.55), clamp(uv.y + 0.2, 0.0, 1.0)); vec3 lit = vec3(1.0, 0.93, 0.84);
+        vec3 c = mix(shade, lit, light) + vec3(1.0, 0.72, 0.42) * pow(light, 3.0) * thin * 0.9; // the gold silver-lining on thin sunlit edges
+        c *= 0.86 + 0.14 * fl; float a = smoothstep(0.0, 0.35, d);
+        acc = mix(acc, c, a); alpha = a + alpha * (1.0 - a); }
+      if (T > 0.985) { acc = mix(vec3(0.3, 0.25, 0.4), acc, alpha); alpha = 1.0; }
+      if (alpha < 0.003) discard;
+      gl_FragColor = vec4(acc, alpha);
     } else {
       // ================= GALAXY
       vec2 c = vec2((uCenter.x - 0.5) * uAspect, uCenter.y - 0.5); vec2 p = q - c; float r = length(p) + 1e-4; float a = atan(p.y, p.x); float R = r / (0.5 * length(vec2(uAspect, 1.0)));
       float spin = uTime * 0.9 + (uPhase < 0.5 ? T : 2.0 - T) * 3.5; float s = a / 6.2832 + log(r) * 0.55 - spin * 0.16;
-      float arms = 0.5 + 0.5 * cos(6.2832 * 2.0 * s); float v = R + (arms - 0.5) * 0.32 + (fbm(vec2(s * 6.0, r * 5.0)) - 0.5) * 0.22;
+      float arms = 0.5 + 0.5 * cos(6.2832 * 2.0 * s); float v = R + (arms - 0.5) * 0.3 + (fbm3(vec2(s * 6.0, r * 5.0)) - 0.5) * 0.2;
       float thr = uPhase < 0.5 ? 1.08 - T * 1.42 : (1.0 - T) * 1.42 - 0.34; float rim = v - thr;
-      if (rim < 0.0) discard;
-      // nebula in swirled coordinates (violet veils, teal streams, rose bloom), quantised to ramps with dithering
-      vec2 w = vec2(cos(a + log(r) * 2.2 + spin * 0.5), sin(a + log(r) * 2.2 + spin * 0.5)) * r; float n1 = fbm(w * 3.2 + 4.0), n2 = fbm(w * 5.0 - uTime * 0.05 + 9.0);
-      vec3 col = vec3(0.012, 0.008, 0.03); float dv = smoothstep(0.38, 0.85, n1) * (0.55 + arms * 0.6); float dt2 = smoothstep(0.5, 0.9, n2) * arms;
-      if (dv > 0.06) col = ramp6(floor(dv * 4.5 + th), vec3(0.04, 0.02, 0.09), vec3(0.1, 0.05, 0.21), vec3(0.18, 0.09, 0.34), vec3(0.3, 0.14, 0.47), vec3(0.45, 0.22, 0.6), vec3(0.66, 0.4, 0.72));
-      if (dt2 > 0.12) col = ramp6(floor(dt2 * 4.0 + th + 1.0), vec3(0.02, 0.07, 0.1), vec3(0.03, 0.16, 0.21), vec3(0.05, 0.28, 0.32), vec3(0.09, 0.44, 0.43), vec3(0.16, 0.61, 0.56), vec3(0.45, 0.82, 0.71));
-      float rose = smoothstep(0.62, 0.95, fbm(w * 2.0 + 21.0)) * arms; if (rose > 0.2) col = mix(col, vec3(0.85, 0.35, 0.5), step(0.5, rose + th * 0.3) * 0.6);
-      // stars streaming down the arms into the vortex (log-polar cells drifting inward and turning)
-      vec2 lp = vec2(log(r) * 9.0 + uTime * 2.2, (a + uTime * 0.6 / max(0.15, r)) * 9.0); vec2 cell = floor(lp); float hs = h21(cell); vec2 f = fract(lp);
-      if (hs > 0.93) { float tail = smoothstep(0.0, 0.9, f.x) * step(abs(f.y - 0.5), 0.12); float head = step(0.8, f.x) * step(abs(f.y - 0.5), 0.2); col = mix(col, mix(vec3(0.75, 0.8, 1.0), vec3(1.0, 0.92, 0.7), step(0.97, hs)), max(tail * 0.6, head)); }
-      if (h21(P * 1.31 + floor(uTime * 3.0)) > 0.9985) col = vec3(1.0);
-      // the golden apple-light core and its glints
-      float core = smoothstep(0.17, 0.0, r) * (0.75 + 0.25 * arms); if (core > 0.0) col = mix(col, ramp6(floor(core * 5.5 + th), vec3(0.2, 0.08, 0.03), vec3(0.43, 0.22, 0.08), vec3(0.69, 0.4, 0.12), vec3(0.9, 0.64, 0.23), vec3(1.0, 0.82, 0.42), vec3(1.0, 0.96, 0.78)), step(0.12, core + (th - 0.5) * 0.08));
-      vec2 gl = floor(q * 18.0); float gh = h21(gl + 7.0); float tw = fract(uTime * 0.7 + gh * 9.0); if (gh > 0.985 && tw < 0.35) { vec2 fp = fract(q * 18.0) - 0.5; float cr = step(abs(fp.x), 0.04) * step(abs(fp.y), 0.3) + step(abs(fp.y), 0.04) * step(abs(fp.x), 0.3); col = mix(col, vec3(1.0, 0.86, 0.5), min(1.0, cr)); }
-      // a gold rim on the advancing edge
-      if (rim < 0.035) col = mix(vec3(1.0, 0.8, 0.42), vec3(1.0, 0.97, 0.85), step(rim, 0.012));
-      else if (rim < 0.07 && th > 0.5) col = mix(col, vec3(0.8, 0.5, 0.2), 0.6);
-      gl_FragColor = vec4(col, 1.0);
+      float alpha = smoothstep(0.0, 0.03, rim); if (alpha <= 0.0) discard;
+      vec2 w = vec2(cos(a + log(r) * 2.2 + spin * 0.5), sin(a + log(r) * 2.2 + spin * 0.5)) * r; float n1 = fbm5(w * 3.2 + 4.0), n2 = fbm5(w * 5.0 - uTime * 0.05 + 9.0), n3 = fbm3(w * 2.0 + 21.0);
+      vec3 col = vec3(0.008, 0.006, 0.022);
+      col += vec3(0.42, 0.18, 0.62) * smoothstep(0.35, 0.9, n1) * (0.45 + arms * 0.75);
+      col += vec3(0.08, 0.5, 0.48) * smoothstep(0.5, 0.95, n2) * arms * 0.9;
+      col += vec3(0.85, 0.3, 0.45) * smoothstep(0.6, 0.95, n3) * arms * 0.55;
+      col *= 0.5 + 0.7 * smoothstep(1.2, 0.0, R);
+      // fine stars: a static field plus streaks streaming down the arms into the vortex (log-polar cells)
+      vec2 sp = gl_FragCoord.xy; vec2 sc = floor(sp / 3.0); float hs = h21(sc + floor(uTime * 0.5) * 0.0); vec2 sf = fract(sp / 3.0) - 0.5;
+      if (hs > 0.992) col += vec3(0.85, 0.9, 1.0) * smoothstep(0.5, 0.0, length(sf)) * (0.6 + 0.4 * sin(uTime * 4.0 + hs * 90.0));
+      vec2 lp = vec2(log(r) * 12.0 + uTime * 2.4, (a + uTime * 0.6 / max(0.15, r)) * 14.0); vec2 cell = floor(lp); float h = h21(cell); vec2 f = fract(lp);
+      if (h > 0.9) { float tail = smoothstep(0.0, 1.0, f.x) * smoothstep(0.09, 0.0, abs(f.y - 0.5)); col += mix(vec3(0.7, 0.8, 1.0), vec3(1.0, 0.9, 0.65), step(0.97, h)) * tail * 0.9; }
+      // the golden apple-light core and soft glints
+      col += vec3(1.0, 0.72, 0.32) * (exp(-r * r * 90.0) * 1.6 + exp(-r * r * 14.0) * 0.45) * (0.8 + 0.2 * arms);
+      vec2 gl = floor(q * 14.0); float gh = h21(gl + 7.0); float tw = sin(uTime * 2.5 + gh * 40.0); if (gh > 0.975 && tw > 0.0) { vec2 fp = (fract(q * 14.0) - 0.5) * 2.0; float fl2 = exp(-abs(fp.x) * 22.0) * exp(-fp.y * fp.y * 3.0) + exp(-abs(fp.y) * 22.0) * exp(-fp.x * fp.x * 3.0) + exp(-dot(fp, fp) * 30.0); col += vec3(1.0, 0.82, 0.48) * fl2 * tw; }
+      // the glowing gold rim on the advancing edge
+      col += vec3(1.0, 0.75, 0.38) * exp(-rim * rim * 4000.0) * 1.6 + vec3(1.0, 0.55, 0.2) * exp(-rim * 30.0) * 0.25;
+      gl_FragColor = vec4(col, alpha);
     }
   }`,
 };
@@ -201,6 +216,7 @@ export class Engine {
     // anime/cartoon black ink lines on the 3D world
     this.inkForced = new URLSearchParams(location.search).get('ink') === '1';
     this.ink = new InkPass(this.world.scene, this.world.camera, size.x, size.y); this.ink.u.uThick.value = Math.max(0.75, this.pixelRatio * 0.55); this.composer.addPass(this.ink); // thin: about 1 screen px
+    this.mblur = new ShaderPass(MotionBlurShader); this.composer.addPass(this.mblur); this._prevVP = new THREE.Matrix4(); this._vp = new THREE.Matrix4(); this._mbPos = new THREE.Vector3(); this._mbInit = false; this.motionBlur = 0.5; // subtle camera motion blur
     this.rays = new ShaderPass(RaysShader); this.rays.enabled = false; this.composer.addPass(this.rays);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.55, 0.55, 0.82);
     this.composer.addPass(this.bloom);
@@ -326,6 +342,8 @@ export class Engine {
     if (this._lowFrames >= 4) { this._lowFrames = 0; this.setQuality(this.quality === 'high' ? 'medium' : 'low'); console.info('[engine] auto quality ->', this.quality); }
   }
 
+  /** the golden apple's time ripple from a screen point (uv 0..1, y up) */
+  ripple(uv = [0.5, 0.5], dur = 1.1, k = 1) { const u = this.grade.uniforms; u.uRipC.value.set(uv[0], uv[1]); u.uRipR.value = 0; u.uRipK.value = k; tweens.to(u.uRipR, { value: 1.7 }, dur, { ease: 'outQuad' }); tweens.to(u.uRipK, { value: 0 }, dur, { ease: 'inQuad' }); }
   render(rdt) {
     const cam = this.world.camera;
     // screen shake (trauma^2), applied temporarily to the world camera
@@ -337,12 +355,16 @@ export class Engine {
     const rz = cam.rotation.z; cam.rotation.z += Math.sin(t * 0.9 + 4) * 0.02 * s;
     this.grade.uniforms.uTime.value = this.time;
     if (this.rays.enabled && this.raysPos) { const p = this._sunP || (this._sunP = new THREE.Vector3()); p.copy(this.raysPos).project(cam); const u = this.rays.uniforms; u.uSun.value.set(p.x * 0.5 + 0.5, p.y * 0.5 + 0.5); u.uAspect.value = this.aspect; u.uFade.value = p.z > 1 ? 0 : 1 - Math.min(1, Math.max(0, Math.max(Math.abs(p.x), Math.abs(p.y)) - 1.1) / 0.8); }
+    // motion blur: this frame's inverse view-projection against last frame's (the shake is part of the motion)
+    if (this.mblur) { const mu = this.mblur.uniforms; cam.updateMatrixWorld(); this._vp.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); if (!this._mbInit || this._mbCam !== cam || cam.position.distanceTo(this._mbPos) > 1.2) { this._prevVP.copy(this._vp); this._mbInit = true; this._mbCam = cam; } this._mbPos.copy(cam.position); // (a hard cut is not motion)
+      mu.uInvVP.value.copy(this._vp).invert(); mu.uPrevVP.value.copy(this._prevVP); const dep = this.ink?.enabled ? this.ink.rt?.depthTexture : null; mu.tDepth.value = dep; mu.uHasDepth.value = dep ? 1 : 0; mu.uStrength.value = (this.motionBlur ?? 0.5) * Math.min(1, (1 / 60) / Math.max(1 / 240, rdt)); this.mblur.enabled = this.motionBlur > 0; }
     this.renderer.setRenderTarget(null);
     this.renderer.clear();
     this.composer.render(rdt);
+    if (this.mblur) this._prevVP.copy(this._vp);
     cam.position.sub(this.shakeOffset); cam.rotation.z = rz;
     if (this.uiVisible) { this.renderer.clearDepth(); this.renderer.render(this.ui.scene, this.ui.camera); }
-    if (this.wipeActive) { const wu = this.wipeMat.uniforms; wu.uTime.value = this.time; this.renderer.getDrawingBufferSize(wu.uRes.value); wu.uK.value = Math.max(2, Math.round(wu.uRes.value.y / 240)); this.renderer.clearDepth(); this.renderer.render(this.wipeScene, this.wipeCam); }
+    if (this.wipeActive) { const wu = this.wipeMat.uniforms; wu.uTime.value = this.time; this.renderer.getDrawingBufferSize(wu.uRes.value); this.renderer.clearDepth(); this.renderer.render(this.wipeScene, this.wipeCam); }
   }
 
   // project a world position to UI plane coordinates (z=0)
