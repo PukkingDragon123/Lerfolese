@@ -164,7 +164,7 @@ function horn(s, king) {
   const m = mat(king ? 'mino-horn-k' : 'mino-horn', 64, 128, (u, v, o) => {
     const ring = Math.sin(v * 70) > 0.4 && v < 0.6; const tip = K.sstep(0.62, 0.95, v); const lit = Math.cos(u * Math.PI * 2);
     K.tone(hex('#e6d6b2'), K.band(0.5 + lit * 0.22 + (ring ? -0.18 : 0.04) - v * 0.1, 4), o.col); K.mixc(o.col, hex('#3a2a24'), tip * 0.9); o.ro = 0.45;
-    if (king && (v > 0.86 || Math.abs(v - 0.1) < 0.035)) { K.tone(hex('#f2c040'), K.band(0.55 + lit * 0.3, 4), o.col); o.me = 0.6; o.ro = 0.3; }
+    if (king && (v > 0.86 || Math.abs(v - 0.1) < 0.035)) { K.tone(hex('#c8a046'), K.band(0.55 + lit * 0.3, 4), o.col); o.me = 0.6; o.ro = 0.3; }
   });
   return K.mesh(l.geo, m);
 }
@@ -188,9 +188,9 @@ function tail(B, mats) {
 function labrys(king) { // turned haft, leather grip, double crescent blades with bevelled edges (local: haft +Y, blades +-X)
   const g = new THREE.Group(); const L0 = -0.42, L1 = 1.08, hk = king ? 1.15 : 1;
   const haft = new K.Loft(30, 10).set((t, p) => p.set(0, L0 + t * (L1 - L0), 0), (t) => { const y = L0 + t * (L1 - L0); return 0.028 * (y < -0.36 ? 1.5 : Math.abs(y) < 0.16 ? 1.12 : 1) * (y > 0.95 ? 1.3 : 1); });
-  K.mesh(haft.geo, mat(king ? 'labrys-haft-k' : 'labrys-haft', 32, 128, (u, v, o) => { const y = L0 + v * (L1 - L0); const grip = Math.abs(y) < 0.16; const cap = y < -0.36 || y > 0.95; if (cap) { K.tone(king ? hex('#f2c040') : hex('#c8862e'), K.band(0.55 + Math.cos(u * 6.28) * 0.25, 4), o.col); o.me = 0.6; return; } if (grip) { K.tone(hex('#3a2416'), K.band(0.5 + Math.cos(u * 6.28) * 0.2 + (Math.sin((y + u * 0.05) * 160) > 0.6 ? -0.2 : 0), 4), o.col); return; } K.tone(hex('#8a5a32'), K.band(0.5 + Math.cos(u * 6.28) * 0.22 + (Math.sin(u * 40 + y * 3) > 0.9 ? -0.15 : 0), 4), o.col); }), g);
+  K.mesh(haft.geo, mat(king ? 'labrys-haft-k' : 'labrys-haft', 32, 128, (u, v, o) => { const y = L0 + v * (L1 - L0); const grip = Math.abs(y) < 0.16; const cap = y < -0.36 || y > 0.95; if (cap) { K.tone(king ? hex('#c8a046') : hex('#9a6a30'), K.band(0.55 + Math.cos(u * 6.28) * 0.25, 4), o.col); o.me = 0.6; return; } if (grip) { K.tone(hex('#3a2416'), K.band(0.5 + Math.cos(u * 6.28) * 0.2 + (Math.sin((y + u * 0.05) * 160) > 0.6 ? -0.2 : 0), 4), o.col); return; } K.tone(hex('#8a5a32'), K.band(0.5 + Math.cos(u * 6.28) * 0.22 + (Math.sin(u * 40 + y * 3) > 0.9 ? -0.15 : 0), 4), o.col); }), g);
   const s = new THREE.Shape(); s.moveTo(0, -0.08); s.lineTo(0.12, -0.1); s.quadraticCurveTo(0.22, -0.2, 0.34, -0.32); s.quadraticCurveTo(0.44, 0, 0.34, 0.32); s.quadraticCurveTo(0.22, 0.2, 0.12, 0.1); s.lineTo(0, 0.08); s.closePath();
-  const bm = mat(king ? 'labrys-blade-k' : 'labrys-blade', 128, 128, (u, v, o) => { const edge = u > 0.55 || u < 0.08; const etch = Math.abs(((u * 10 + v * 3) % 1) - 0.5) < 0.05 && !edge; K.tone(king ? hex('#f0c24a') : hex('#d8963a'), K.band(0.5 + (edge ? 0.3 : 0) + (etch ? -0.25 : 0) + (v - 0.5) * 0.2, 4), o.col); o.me = 0.65; o.ro = 0.3; });
+  const bm = mat(king ? 'labrys-blade-k' : 'labrys-blade', 128, 128, (u, v, o) => { const edge = u > 0.55 || u < 0.08; const etch = Math.abs(((u * 10 + v * 3) % 1) - 0.5) < 0.05 && !edge; K.tone(king ? hex('#c8a048') : hex('#a8783e'), K.band(0.5 + (edge ? 0.3 : 0) + (etch ? -0.25 : 0) + (v - 0.5) * 0.2, 4), o.col); o.me = 0.6; o.ro = 0.5; });
   for (const sg of [-1, 1]) {
     const bg = new THREE.ExtrudeGeometry(s, { depth: 0.03, bevelEnabled: true, bevelSize: 0.022, bevelThickness: 0.016, bevelSegments: 1, curveSegments: 6 }); bg.translate(0, 0, -0.015);
     const uv = bg.attributes.uv, p = bg.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, p.getX(i) / 0.46, p.getY(i) / 0.7 + 0.5);
@@ -205,12 +205,12 @@ function labrys(king) { // turned haft, leather grip, double crescent blades wit
 function loincloth(B, king, mats) {
   const g = new THREE.Group(); const cm = mats.own(mat(king ? 'mino-cloth-k' : 'mino-cloth', 64, 128, (u, v, o) => {
     const trim = v > 0.86 || u < 0.08 || u > 0.92; const fold = Math.cos(u * Math.PI * 6) * 0.12;
-    if (king) { if (trim) { K.tone(hex('#f2c040'), K.band(0.6 + fold, 4), o.col); o.me = 0.5; } else K.tone(hex('#8e1e2e'), K.band(0.5 + fold - v * 0.12, 4), o.col); }
+    if (king) { if (trim) { K.tone(hex('#c8a046'), K.band(0.6 + fold, 4), o.col); o.me = 0.5; } else K.tone(hex('#8e1e2e'), K.band(0.5 + fold - v * 0.12, 4), o.col); }
     else K.tone(trim ? hex('#4e2c18') : hex('#7c4a28'), K.band(0.5 + fold - v * 0.1 + (Math.abs(((v * 12) % 1) - 0.5) < 0.05 ? -0.15 : 0), 4), o.col);
   }));
   const belt = new K.Loft(4, 40).set((t, p) => p.set(0, 1.47 + t * 0.09, 0), () => [0.29, 0.345], { ref: (t, n) => n.set(1, 0, 0) });
   const bp = belt.geo.attributes.position; for (let i = 0; i < bp.count; i++) bp.setZ(i, bp.getZ(i) - 0.03); belt.geo.computeVertexNormals();
-  const beltM = mats.own(mat(king ? 'mino-belt-k' : 'mino-belt', 128, 16, (u, v, o) => { const stud = Math.hypot(((u * 16) % 1) - 0.5, (v - 0.5) * 0.6) < 0.18; K.tone(stud ? (king ? hex('#f2c040') : hex('#c8862e')) : hex('#3e2414'), K.band(0.5 + Math.cos(u * 6.28 - 1.5) * 0.15 + (stud ? 0.2 : 0) + (v < 0.15 || v > 0.85 ? -0.15 : 0), 4), o.col); if (stud) o.me = 0.6; }));
+  const beltM = mats.own(mat(king ? 'mino-belt-k' : 'mino-belt', 128, 16, (u, v, o) => { const stud = Math.hypot(((u * 16) % 1) - 0.5, (v - 0.5) * 0.6) < 0.18; K.tone(stud ? (king ? hex('#c8a046') : hex('#9a6a30')) : hex('#3e2414'), K.band(0.5 + Math.cos(u * 6.28 - 1.5) * 0.15 + (stud ? 0.2 : 0) + (v < 0.15 || v > 0.85 ? -0.15 : 0), 4), o.col); if (stud) o.me = 0.6; }));
   skinAttrs(belt.geo, B, (i) => [['hips', 0.7], ['spine1', 0.3]]); const beltMesh = skinned(belt.geo, beltM, B);
   const flaps = [];
   for (const [ang, w, len] of [[0, 0.17, 0.5], [Math.PI, 0.18, 0.44], [0.95, 0.07, 0.36], [-0.95, 0.07, 0.36], [2.1, 0.07, 0.33], [-2.1, 0.07, 0.33]]) {
@@ -221,7 +221,7 @@ function loincloth(B, king, mats) {
   return { beltMesh, flaps };
 }
 function kingRegalia(B, mats) {
-  const gm = mats.own(mat('mino-gold', 64, 64, (u, v, o) => { const ridge = Math.abs(((v * 5) % 1) - 0.5) < 0.08; K.tone(hex('#f2c040'), K.band(0.55 + Math.cos(u * 6.28) * 0.22 + (ridge ? -0.25 : 0) - v * 0.1, 4), o.col); o.me = 0.65; o.ro = 0.3; })); gm.side = THREE.DoubleSide;
+  const gm = mats.own(mat('mino-gold', 64, 64, (u, v, o) => { const ridge = Math.abs(((v * 5) % 1) - 0.5) < 0.08; K.tone(hex('#c8a046'), K.band(0.55 + Math.cos(u * 6.28) * 0.22 + (ridge ? -0.25 : 0) - v * 0.1, 4), o.col); o.me = 0.6; o.ro = 0.5; })); gm.side = THREE.DoubleSide;
   // crown: a spiked circlet seated on the poll between the horns
   const crown = new THREE.Group(); const ring = new K.Loft(4, 28).set((t, p) => p.set(0, t * 0.05, 0), () => [0.13, 0.11]); K.mesh(ring.geo, gm, crown);
   for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; const sp = new K.Loft(8, 8).set(K.curve([[Math.sin(a) * 0.125, 0.03, Math.cos(a) * 0.105], [Math.sin(a) * 0.14, 0.12, Math.cos(a) * 0.12], [Math.sin(a) * 0.15, 0.17 + (i % 2) * 0.04, Math.cos(a) * 0.13]]), (t) => 0.026 * (1 - t) + 0.003); K.mesh(sp.geo, gm, crown); }
@@ -237,7 +237,7 @@ function kingRegalia(B, mats) {
   // harness strap with a sun medallion
   const strap = new K.Loft(24, 8).set(K.curve([[0.5, 2.3, 0.08], [0.25, 2.12, 0.29], [0, 1.95, 0.33], [-0.22, 1.75, 0.3], [-0.36, 1.58, 0.15]]), () => [0.045, 0.012], { ref: (t, n) => n.set(0, 0, 1) });
   skinAttrs(strap.geo, B, (i) => { const v = Math.floor(i / (strap.M + 1)) / (strap.R - 1); return [['spine3', 1 - v], ['spine2', v]]; });
-  const sm = mats.own(mat('mino-strap', 64, 64, (u, v, o) => { const stud = ((v * 14) % 1) < 0.25 && Math.abs(u - 0.5) > 0.2; K.tone(stud ? hex('#f2c040') : hex('#3a2014'), K.band(0.5 + (stud ? 0.2 : 0), 4), o.col); if (stud) o.me = 0.6; }));
+  const sm = mats.own(mat('mino-strap', 64, 64, (u, v, o) => { const stud = ((v * 14) % 1) < 0.25 && Math.abs(u - 0.5) > 0.2; K.tone(stud ? hex('#c8a046') : hex('#3a2014'), K.band(0.5 + (stud ? 0.2 : 0), 4), o.col); if (stud) o.me = 0.6; }));
   const strapM = skinned(strap.geo, sm, B);
   const med = new THREE.LatheGeometry([[0, 0.034], [0.03, 0.032], [0.05, 0.026], [0.07, 0.024], [0.082, 0.03], [0.092, 0.018], [0.094, 0]].map(([x, y]) => new THREE.Vector2(x, y)), 10); med.rotateX(Math.PI / 2); const mm = K.mesh(med, gm); mm.position.set(0, 1.95, 0.33); mm.rotation.x = -0.15; onBone(B, 'spine2', mm);
   return [strapM];
@@ -245,12 +245,12 @@ function kingRegalia(B, mats) {
 function bracer(s, B, king, mats) {
   const L = s > 0 ? 'L' : 'R'; const F = handFrame(s); const c = new THREE.Vector3(0.95 * s, 1.42, 0.03);
   const l = new K.Loft(10, 20).set((t, p) => p.copy(c).addScaledVector(new THREE.Vector3(FA.x * s, FA.y, FA.z), (t - 0.5) * 0.2), (t) => 0.098 - t * 0.022 + (Math.abs(t - 0.5) > 0.4 ? 0.008 : 0));
-  const m = mats.own(mat(king ? 'mino-bracer-k' : 'mino-bracer', 64, 32, (u, v, o) => { const edge = v < 0.12 || v > 0.88; const lace = Math.abs(((u * 8) % 1) - 0.5) < 0.08; K.tone(edge ? (king ? hex('#f2c040') : hex('#5a3420')) : hex('#6e4024'), K.band(0.5 + Math.cos(u * 6.28) * 0.2 + (lace && !edge ? -0.2 : 0), 4), o.col); if (edge && king) o.me = 0.6; }));
+  const m = mats.own(mat(king ? 'mino-bracer-k' : 'mino-bracer', 64, 32, (u, v, o) => { const edge = v < 0.12 || v > 0.88; const lace = Math.abs(((u * 8) % 1) - 0.5) < 0.08; K.tone(edge ? (king ? hex('#c8a046') : hex('#5a3420')) : hex('#6e4024'), K.band(0.5 + Math.cos(u * 6.28) * 0.2 + (lace && !edge ? -0.2 : 0), 4), o.col); if (edge && king) o.me = 0.6; }));
   return onBone(B, 'forearm_' + L, K.mesh(l.geo, m));
 }
 function noseRing(king) {
   const l = new K.Loft(24, 10).set((t, p) => { const a = t * Math.PI * 2 * 0.86 + 0.45; return p.set(0, 2.43 - Math.cos(a) * 0.05 + 0.02, 0.628 + Math.sin(a) * 0.035); }, () => 0.011);
-  return K.mesh(l.geo, mat(king ? 'ring-k' : 'ring', 16, 16, (u, v, o) => { K.tone(king ? hex('#f2c040') : hex('#d0a040'), K.band(0.55 + Math.cos(u * 6.28) * 0.3, 4), o.col); o.me = 0.7; o.ro = 0.25; }));
+  return K.mesh(l.geo, mat(king ? 'ring-k' : 'ring', 16, 16, (u, v, o) => { K.tone(king ? hex('#c8a046') : hex('#b08a40'), K.band(0.55 + Math.cos(u * 6.28) * 0.3, 4), o.col); o.me = 0.7; o.ro = 0.25; }));
 }
 
 // ---------------------------------------------------------------- build (geometry + texture cached per variant)

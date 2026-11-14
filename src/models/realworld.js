@@ -11,6 +11,7 @@ import { mulberry32 } from '../core/util.js';
 import { makeNoise } from '../gfx/pixel.js';
 import { Particles } from '../gfx/particles.js';
 import * as T from './toon.js';
+import { lowpolyGeometry } from '../gfx/lowpoly.js';
 import { plantField } from '../gfx/plants.js';
 import { groundTex, soilTex, gravelTex, earthTex, cobbleTex as pixelCobble, surfaceTex, dragonflyTex } from '../gfx/pixeltex.js';
 import * as F from './flora.js';
@@ -44,7 +45,16 @@ function lookFor(name) {
   if (/grass|celandine|gazania|dandelion/.test(name)) return LOOK.grass; if (/rock|boulder|cliff/.test(name)) return LOOK.rock;
   if (/column|wall|marble|statue|bust|lion|bull|horse|fire_pit/.test(name)) return LOOK.stone; return LOOK.prop;
 }
-export async function toonModel(name, rnd = Math.random, look = null) { const o = await variant(name, rnd); return T.toonify(o, look || lookFor(name)); }
+// realistic low poly: every loaded model is decimated into clean flat-shaded facets (cached per source geometry);
+// leaf cards, glass, flames and shader FX are left alone
+const LPG = new Map();
+export function lowpolyModel(o, detail = 0.4) {
+  o.traverse((m) => { if (!m.isMesh || m.isSkinnedMesh) return; const m0 = Array.isArray(m.material) ? m.material[0] : m.material; if (!m0 || m0.isShaderMaterial || m0.alphaTest > 0 || m0.transparent || m0.userData?.glass || m0.userData?.flame) return;
+    const k = m.geometry.uuid + '|' + detail; let g = LPG.get(k); if (!g) { g = lowpolyGeometry(m.geometry, { detail }); LPG.set(k, g); } if (!g.attributes.position?.count) return;
+    m.geometry = g; if (Array.isArray(m.material)) m.material = m.material[0]; if (!m.material.flatShading) { m.material.flatShading = true; m.material.needsUpdate = true; } });
+  return o;
+}
+export async function toonModel(name, rnd = Math.random, look = null) { const o = await variant(name, rnd); return lowpolyModel(T.toonify(o, look || lookFor(name)), /rock|boulder|cliff/.test(name) ? 0.3 : 0.42); }
 
 /** realistic model with wind in its leaves (events, map props) */
 export async function envModel(name, rnd = Math.random, wind = 1) { const o = await variant(name, rnd); return T.windify(o, { amp: wind, h: /olive|umbrella|othonna/.test(name) ? 0.16 : 0.9 }); }
@@ -198,13 +208,14 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   for (const w of waters) { const hs = []; for (let i = 0; i < 64; i++) { const p = w.mesh.userData.edgePoint((i / 64) * Math.PI * 2, 0.97); hs.push(land(p.x, p.z)); } hs.sort((a, b) => a - b); w.level = hs[Math.floor(hs.length * (w.pct ?? 0.6))] - 0.06; w.mesh.position.y = w.level; g.add(w.mesh); }
 
   // ---- ground: a warped grid, fine around the action and coarse at the horizon; painted cel field over a soft splat
-  const S = 201, H = 112, X0 = -4, Z0 = 0; const pos = new Float32Array(S * S * 3), uvs = new Float32Array(S * S * 2); const idx = [];
+  const S = 129, H = 112, X0 = -4, Z0 = 0; // low-poly terrain: faceted, flat-shaded
+  const pos = new Float32Array(S * S * 3), uvs = new Float32Array(S * S * 2); const idx = [];
   const warp = (u) => Math.sign(u) * Math.pow(Math.abs(u), 1.7) * H;
   for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) { const x = X0 + warp((i / (S - 1)) * 2 - 1), z = Z0 + warp((j / (S - 1)) * 2 - 1); const k = j * S + i; pos[k * 3] = x; pos[k * 3 + 1] = hAt(x, z); pos[k * 3 + 2] = z; uvs[k * 2] = (x + 110) / 220; uvs[k * 2 + 1] = 1 - (z + 110) / 220; }
   for (let j = 0; j < S - 1; j++) for (let i = 0; i < S - 1; i++) { const a = j * S + i, b = a + 1, c = a + S, d = c + 1; idx.push(a, c, b, b, c, d); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2)); geo.setIndex(idx); geo.computeVertexNormals();
   const dryTheme = theme === 'gully' || theme === 'labyrinth' || theme === 'guardian';
-  const ground = new THREE.Mesh(geo, splatGround(geo, new THREE.MeshToonMaterial({ map: groundMat.map, gradientMap: T.gradientMap([0.55, 0.8, 1.0]) }), dirtMat, gravelMat, { tint: '#ffffff', dirt: theme === 'gully' ? 0.6 : 0.72, gravel: 0.74, green: dryTheme && theme !== 'gully' ? 0.2 : theme === 'marsh' ? 0.45 : 0.75, field: FIELD[theme] || FIELD.meadow, fieldK: theme === 'gully' ? 0.6 : dryTheme ? 0.35 : 0.55 }));
+  const ground = new THREE.Mesh(geo, splatGround(geo, new THREE.MeshToonMaterial({ map: groundMat.map, gradientMap: T.gradientMap([0.55, 0.8, 1.0]), flatShading: true }), dirtMat, gravelMat, { tint: '#ffffff', dirt: theme === 'gully' ? 0.6 : 0.72, gravel: 0.74, green: dryTheme && theme !== 'gully' ? 0.2 : theme === 'marsh' ? 0.45 : 0.75, field: FIELD[theme] || FIELD.meadow, fieldK: theme === 'gully' ? 0.6 : dryTheme ? 0.35 : 0.55 }));
   ground.receiveShadow = true; ground.name = 'ground'; g.add(ground);
   if (arenaClear) { const am = arenaMat.clone(); am.alphaMap = softMask(); ditherAlpha(am, 64, 3.5); const ag = new THREE.PlaneGeometry(22, 9, 44, 18); ag.rotateX(-Math.PI / 2); const ap = ag.attributes.position; for (let i = 0; i < ap.count; i++) ap.setY(i, hAt(ap.getX(i) + 0.3, ap.getZ(i) + 0.8) + 0.03); ag.computeVertexNormals(); const arena = new THREE.Mesh(ag, am); arena.position.set(0.3, 0, 0.8); arena.receiveShadow = true; arena.renderOrder = 1; arena.userData.noInk = true; g.add(arena); }
 

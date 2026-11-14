@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { Signboard, Paper, Tag } from '../ui3d/objects.js';
 import { uiPos } from '../ui3d/craft.js';
-import * as S from '../models/sculpt.js';
+import { prop } from '../models/lowprops.js';
 import { UIScreen, Button3D, tabletopWorld } from '../ui3d/widgets.js';
 import { textPlane, Pouch } from '../ui3d/kit.js';
 import { cardChoices, mkCard, upgradeCard } from '../game/run.js';
@@ -18,8 +18,7 @@ const F = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness:
 export default class ShopScene extends UIScreen {
   async enter() {
     const run = (this.run = this.game.run); this.world = tabletopWorld('shop'); await this.world.ready; this.engine.setWorld(this.world.scene, this.world.camera);
-    const barrel = new THREE.Mesh(S.turn([[0.001, -1.4], [1.2, -1.4], [1.45, 0], [1.2, 1.4], [0.001, 1.4]], { sides: 10, seed: 3 }), F({ map: null, color: 0x8a5634 })); barrel.rotation.z = Math.PI / 2; barrel.position.set(-8, 1.3, -3); barrel.castShadow = true; this.world.scene.add(barrel);
-    for (const x of [-1.1, 0, 1.1]) { const hoop = new THREE.Mesh(S.facet(new THREE.TorusGeometry(1.42, 0.07, 3, 10)), F({ color: 0x3a3a42, metalness: 0.6 })); hoop.rotation.y = Math.PI / 2; hoop.position.set(-8 + x, 1.3, -3); this.world.scene.add(hoop); }
+    { const barrel = prop('barrel', { h: 2.8, r: 1.45, sides: 10 }); barrel.rotation.z = Math.PI / 2; barrel.position.set(-6.6, 1.3, -3); this.world.scene.add(barrel); } // Diogenes' barrel, on its side (low-poly prop kit)
     this.engine.setFx({ bloom: [0.6, 0.6, 0.75], tilt: { focus: 0.5, width: 0.22, amount: 2.5 }, grade: { warmth: 0.6, vignette: 0.55 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('shop');
     const W = this.W, H = this.H;
@@ -28,8 +27,8 @@ export default class ShopScene extends UIScreen {
     this.bubble = new Paper({ font: 'hand', maxW: 11, tail: true, pin: false, kind: 'scrap', tone: 3 }); this.root.add(this.bubble.group); this.quip(vpick(QUIPS));
     this.tags = []; const wares = cardChoices(run, 5, 0.5); this.removeCost = 60 + (run.flags.removals || 0) * 25; this.upCost = 80;
     wares.forEach((c, i) => { const price = c.type === 'power' ? 110 + run.rng.int(0, 30) : c.type === 'move' ? 80 + run.rng.int(0, 25) : (c.up ? 70 : 45) + run.rng.int(0, 20); const x = (i - 2) * 3.7; const v = this.addCard(c, x, 0.4, { scale: 0.86, tip: [...cardTip(c), [[`Price: ${price} gold`, '#7a4a14']]], onClick: (vv) => this.buy(vv, c, price) }); v.price = price; const tag = new Tag(String(price), { icon: 'coin' }); uiPos(tag.group, x, -1.95, 3.2); this.root.add(tag.group); v.tag = tag; this.tags.push(tag); });
-    this.rem = this.addButton(new Button3D(`Remove a card · ${this.removeCost}g`, () => this.serviceRemove(), { w: 8, h: 1.2, size: 46, color: 'red' }), -5, -H + 3.2, 2);
-    this.up = this.addButton(new Button3D(`Upgrade a card · ${this.upCost}g`, () => this.serviceUpgrade(), { w: 8, h: 1.2, size: 46, color: 'teal' }), 4, -H + 3.2, 2);
+    this.rem = this.addButton(new Button3D(`Remove a card · ${this.removeCost}g`, () => this.serviceRemove(), { w: 8, h: 1.2, size: 46, color: 'red' }), -5.6, -H + 3.2, 2);
+    this.up = this.addButton(new Button3D(`Upgrade a card · ${this.upCost}g`, () => this.serviceUpgrade(), { w: 8, h: 1.2, size: 46, color: 'teal' }), 4.8, -H + 3.2, 2);
     this.addButton(new Button3D('Leave', () => this.leave(), { w: 4, h: 1.2, size: 56 }), W - 3.2, -H + 1.5, 2);
   }
   quip(t) { const W = this.W, H = this.H; this.bubble.show([[[t, '#2a160c']]], -W + 1.2, H - 6.6, 4); const k = 36 / 40; this.bubble.baseScale = k; this.bubble.group.position.set((-W + 0.8 + this.bubble.w / 2) * k, (H - 4.0) * k, 4); this.bubble.kick(0.8); audio.play('paper_rustle', { vol: 0.35 }); }

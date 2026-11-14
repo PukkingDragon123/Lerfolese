@@ -35,7 +35,7 @@ function spineAtlas() {
 }
 function bookGeometry() {
   const g = new THREE.BoxGeometry(1, 1, 1); const uv = g.attributes.uv; // faces: px nx py ny pz nz (4 verts each); +z is the spine
-  for (let f = 0; f < 6; f++) for (let k = 0; k < 4; k++) { const i = f * 4 + k; const u = uv.getX(i), v = uv.getY(i); uv.setXY(i, f === 4 ? u * (12.5 / 16) : (13.2 + u * 2.6) / 16, v); }
+  for (let f = 0; f < 6; f++) for (let k = 0; k < 4; k++) { const i = f * 4 + k; const u = uv.getX(i), v = uv.getY(i); uv.setXY(i, f === 4 ? u * (12.5 / 16) : f <= 1 ? (10.6 + u * 0.8) / 16 : (13.2 + u * 2.6) / 16, f <= 1 ? 0.1 + v * 0.8 : v); // spine, boards (covers), page edges }
   g.translate(0, 0.5, 0); return g;
 }
 class Books {

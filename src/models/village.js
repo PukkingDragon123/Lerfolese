@@ -85,7 +85,8 @@ export class Kit {
 // ---------------------------------------------------------------- terracotta barrel tiles (instanced), laid in pan / cover courses
 let TILEG = null;
 function tileGeometry() {
-  if (TILEG) return TILEG; const segs = 7, R = 0.11, L = 0.46; const pos = [], nrm = [], uv = [], idx = [];
+  if (TILEG) return TILEG; const segs = 4, R = 0.11, L = 0.46; // faceted barrel tiles
+  const pos = [], nrm = [], uv = [], idx = [];
   for (let i = 0; i <= 1; i++) for (let j = 0; j <= segs; j++) { const a = (j / segs) * Math.PI; const r = R * (i ? 0.86 : 1); pos.push(Math.cos(a) * r, Math.sin(a) * r * 0.85, i * L); nrm.push(Math.cos(a), Math.sin(a), 0); uv.push(j / segs, i); }
   for (let j = 0; j < segs; j++) { const a = j, b = j + 1, c = segs + 1 + j, d = c + 1; idx.push(a, c, b, b, c, d); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); TILEG = g; return g;
@@ -186,16 +187,16 @@ export function cottage(seed = 1, { w = null, d = null, h = null, roof = null, p
 export function windmill(seed = 3) {
   const r = mulberry32(seed); const G = new THREE.Group(); G.name = 'windmill'; const K = new Kit();
   const prof = [[0.01, -0.6], [1.95, -0.6], [1.95, 0.35], [1.72, 0.45], [1.62, 1.2], [1.52, 3.4], [1.42, 5.1], [1.56, 5.22], [1.56, 5.42], [0.01, 5.42]].map(([a, b]) => new THREE.Vector2(a, b));
-  const lathe = new THREE.LatheGeometry(prof, 40); lathe.computeVertexNormals(); { const lu = lathe.attributes.uv; for (let i = 0; i < lu.count; i++) lu.setXY(i, lu.getX(i) * 7, lu.getY(i) * 2.5); } const body = new THREE.Mesh(lathe, mat('plaster')); body.castShadow = body.receiveShadow = true; G.add(body);
-  const plinth = new THREE.LatheGeometry([[0.01, -0.6], [2.05, -0.6], [2.05, 0.38], [1.9, 0.48], [0.01, 0.48]].map(([a, b]) => new THREE.Vector2(a, b)), 40); worldUV(plinth, 0.7); const pm = new THREE.Mesh(plinth, mat('rubble')); pm.castShadow = pm.receiveShadow = true; G.add(pm);
+  const lathe = new THREE.LatheGeometry(prof, 12); lathe.computeVertexNormals(); { const lu = lathe.attributes.uv; for (let i = 0; i < lu.count; i++) lu.setXY(i, lu.getX(i) * 7, lu.getY(i) * 2.5); } const body = new THREE.Mesh(lathe, mat('plaster')); body.castShadow = body.receiveShadow = true; G.add(body);
+  const plinth = new THREE.LatheGeometry([[0.01, -0.6], [2.05, -0.6], [2.05, 0.38], [1.9, 0.48], [0.01, 0.48]].map(([a, b]) => new THREE.Vector2(a, b)), 12); worldUV(plinth, 0.7); const pm = new THREE.Mesh(plinth, mat('rubble')); pm.castShadow = pm.receiveShadow = true; G.add(pm);
   door(K, 0, 0.48, 1.72, 0, { w: 0.9, h: 1.85 }); for (const [a, y] of [[0.55, 2.6], [-0.7, 3.6], [2.4, 2.9]]) windowSet(K, Math.sin(a) * 1.58, y, Math.cos(a) * 1.58, a, { w: 0.45, h: 0.55, open: 0.35 });
-  const cap = new THREE.LatheGeometry([[1.68, 5.3], [1.62, 5.5], [1.1, 6.35], [0.5, 7.0], [0.06, 7.35], [0.01, 7.38]].map(([a, b]) => new THREE.Vector2(a, b)), 40); cap.computeVertexNormals(); const cu = cap.attributes.uv; for (let i = 0; i < cu.count; i++) cu.setXY(i, cu.getX(i) * 6, cu.getY(i) * 2.2);
+  const cap = new THREE.LatheGeometry([[1.68, 5.3], [1.62, 5.5], [1.1, 6.35], [0.5, 7.0], [0.06, 7.35], [0.01, 7.38]].map(([a, b]) => new THREE.Vector2(a, b)), 12); cap.computeVertexNormals(); const cu = cap.attributes.uv; for (let i = 0; i < cu.count; i++) cu.setXY(i, cu.getX(i) * 6, cu.getY(i) * 2.2);
   const cm = new THREE.Mesh(cap, mat('thatch')); cm.castShadow = cm.receiveShadow = true; G.add(cm);
-  K.add('woodDark', new THREE.TorusGeometry(1.62, 0.07, 6, 48).rotateX(Math.PI / 2), V(0, 5.32, 0));
+  K.add('woodDark', new THREE.TorusGeometry(1.62, 0.07, 4, 16).rotateX(Math.PI / 2), V(0, 5.32, 0));
   K.build(G);
   // the sail cross: hub, axle, 8 spars, triangular canvas sails, rigging to a bowsprit; it turns
   const S = new THREE.Group(); S.position.set(0, 6.0, 1.75); G.add(S); const SK = new Kit();
-  SK.add('woodDark', new THREE.CylinderGeometry(0.24, 0.3, 0.55, 12).rotateX(Math.PI / 2), V(0, 0, 0)); SK.add('woodDark', new THREE.CylinderGeometry(0.05, 0.08, 2.4, 8).rotateX(Math.PI / 2), V(0, 0, 1.15));
+  SK.add('woodDark', new THREE.CylinderGeometry(0.24, 0.3, 0.55, 8).rotateX(Math.PI / 2), V(0, 0, 0)); SK.add('woodDark', new THREE.CylinderGeometry(0.05, 0.08, 2.4, 8).rotateX(Math.PI / 2), V(0, 0, 1.15));
   const sailGeo = []; const N = 8, L = 4.1;
   for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 2 + 0.2; const dir = V(Math.cos(a), Math.sin(a), 0); SK.box('woodRaw', 0.09, L, 0.09, dir.clone().multiplyScalar(L / 2 + 0.2), new THREE.Euler(0, 0, a - Math.PI / 2), 0.02);
     const nx = V(Math.cos(a + (Math.PI * 2) / N * 0.62), Math.sin(a + (Math.PI * 2) / N * 0.62), 0); // sail sheet out to the next spar's side
@@ -311,12 +312,12 @@ export function shrine(seed = 8) {
 /** a small round temple (tholos) with fluted columns, a stepped base and a tiled cone roof (the oracle's shrine) */
 export function tholos(seed = 12, { R = 2.4, n = 10, h = 3.4 } = {}) {
   const r = mulberry32(seed); const G = new THREE.Group(); G.name = 'tholos'; const K = new Kit();
-  for (let i = 0; i < 3; i++) K.add('marble', new THREE.CylinderGeometry(R + 0.9 - i * 0.3, R + 0.95 - i * 0.3, 0.22, 40), V(0, 0.11 + i * 0.22, 0));
+  for (let i = 0; i < 3; i++) K.add('marble', new THREE.CylinderGeometry(R + 0.9 - i * 0.3, R + 0.95 - i * 0.3, 0.22, 12), V(0, 0.11 + i * 0.22, 0));
   const col = new THREE.LatheGeometry([[0.01, 0], [0.3, 0], [0.3, 0.1], [0.24, 0.16], [0.22, 0.3], [0.19, h - 0.4], [0.24, h - 0.26], [0.3, h - 0.18], [0.3, h - 0.08], [0.01, h - 0.08]].map(([a, b]) => new THREE.Vector2(a, b)), 16);
   const cp = col.attributes.position; for (let i = 0; i < cp.count; i++) { const x = cp.getX(i), z = cp.getZ(i), y = cp.getY(i); if (y > 0.3 && y < h - 0.4) { const a = Math.atan2(z, x); const k = 1 - 0.07 * Math.max(0, Math.cos(a * 8)); cp.setX(i, x * k); cp.setZ(i, z * k); } } col.computeVertexNormals();
   for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; const broken = r() < 0.15; const g2 = broken ? col.clone().scale(1, 0.55 + r() * 0.2, 1) : col; K.add('marble|keepuv', g2, V(Math.cos(a) * R, 0.66, Math.sin(a) * R)); }
-  K.add('marble', new THREE.CylinderGeometry(R + 0.42, R + 0.42, 0.42, 40, 1, true), V(0, 0.66 + h - 0.08 + 0.21, 0)); K.add('marble', new THREE.CylinderGeometry(R + 0.5, R + 0.5, 0.12, 40), V(0, 0.66 + h + 0.18, 0));
-  K.add('stone', new THREE.CylinderGeometry(R - 0.5, R - 0.5, h, 30, 1, true), V(0, 0.66 + h / 2, 0)); // cella wall
-  const roof = new THREE.LatheGeometry([[R + 0.55, 0], [R * 0.6, 0.7], [0.3, 1.25], [0.01, 1.32]].map(([a, b]) => new THREE.Vector2(a, b)), 40); const ru = roof.attributes.uv; for (let i = 0; i < ru.count; i++) ru.setXY(i, ru.getX(i) * 24, ru.getY(i) * 6);
+  K.add('marble', new THREE.CylinderGeometry(R + 0.42, R + 0.42, 0.42, 12, 1, true), V(0, 0.66 + h - 0.08 + 0.21, 0)); K.add('marble', new THREE.CylinderGeometry(R + 0.5, R + 0.5, 0.12, 12), V(0, 0.66 + h + 0.18, 0));
+  K.add('stone', new THREE.CylinderGeometry(R - 0.5, R - 0.5, h, 10, 1, true), V(0, 0.66 + h / 2, 0)); // cella wall
+  const roof = new THREE.LatheGeometry([[R + 0.55, 0], [R * 0.6, 0.7], [0.3, 1.25], [0.01, 1.32]].map(([a, b]) => new THREE.Vector2(a, b)), 12); const ru = roof.attributes.uv; for (let i = 0; i < ru.count; i++) ru.setXY(i, ru.getX(i) * 24, ru.getY(i) * 6);
   K.build(G); const rm = new THREE.Mesh(roof, mat('tile', { side: THREE.DoubleSide })); rm.position.y = 0.66 + h + 0.24; rm.castShadow = rm.receiveShadow = true; G.add(rm); return G;
 }

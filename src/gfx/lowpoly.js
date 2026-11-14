@@ -23,6 +23,10 @@ vec3 getGradientIrradiance( vec3 normal, vec3 lightDirection ) {
 	return vec3( max( dotNL, 0.0 ) ); // realistic Lambert: soft terminator, no cel bands
 }`;
 
+// MeshToonMaterial has no declared flatShading, so `new MeshToonMaterial({ flatShading: true })` warned and was ignored;
+// declaring it lets every agent's toon materials go flat-shaded (the shader already supports FLAT_SHADED)
+if (THREE.MeshToonMaterial.prototype.flatShading === undefined) THREE.MeshToonMaterial.prototype.flatShading = false;
+
 export function flatten(obj) {
   obj.traverse((o) => { if (!o.isMesh) return; for (const m of Array.isArray(o.material) ? o.material : [o.material]) { if (m && !m.isShaderMaterial && !m.flatShading) { m.flatShading = true; m.needsUpdate = true; } } });
   return obj;

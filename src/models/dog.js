@@ -34,7 +34,7 @@ function cords(list, seed = 1, { sides = 5, rings = 6 } = {}) { // list: [{ p, o
 // cords swing with the part they hang from: uSwing is that part's lagged motion in its own space
 function cordMat() {
   const U = { uSwing: { value: V() }, uTime: T.WIND.time };
-  const m = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: T.gradientMap([0.48, 0.76, 1.0]) });
+  const m = new THREE.MeshToonMaterial({ flatShading: true, vertexColors: true, gradientMap: T.gradientMap([0.48, 0.76, 1.0]) });
   m.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, U); sh.vertexShader = 'uniform vec3 uSwing; uniform float uTime; attribute float aT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n float k = aT * aT; transformed += uSwing * k + vec3(sin(uTime * 2.1 + position.x * 31.0 + position.z * 17.0), 0.0, cos(uTime * 1.7 + position.z * 23.0)) * 0.006 * k;'); };
   m.customProgramCacheKey = () => 'dogCords'; m.userData.U = U; return m;
 }
@@ -42,8 +42,8 @@ const sphereDir = (r) => { let x, y, z, d; do { x = r() * 2 - 1; y = r() * 2 - 1
 
 export function createDog({ seed = 1687 } = {}) {
   const r = mulberry32(seed); const root = new THREE.Group(); root.name = 'dog'; root.userData.grassPush = true; root.userData.grassPushR = 0.7;
-  const skin = new THREE.MeshToonMaterial({ color: '#cbb994', gradientMap: T.gradientMap([0.48, 0.76, 1.0]) });
-  const black = new THREE.MeshToonMaterial({ color: '#141010', gradientMap: T.gradientMap([0.3, 0.7, 1.0]) });
+  const skin = new THREE.MeshToonMaterial({ flatShading: true, color: '#cbb994', gradientMap: T.gradientMap([0.48, 0.76, 1.0]) });
+  const black = new THREE.MeshToonMaterial({ flatShading: true, color: '#141010', gradientMap: T.gradientMap([0.3, 0.7, 1.0]) });
   black.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', 'outgoingLight += vec3(0.75) * step(0.9, dot(normalize(vNormal), normalize(vec3(-0.3, 0.8, 0.5))));\n#include <opaque_fragment>'); };
   const body = new THREE.Group(); body.position.y = 0.5; root.add(body);
   // torso: a long barrel under the coat
@@ -56,7 +56,7 @@ export function createDog({ seed = 1687 } = {}) {
   const muzzle = new THREE.Mesh(turned([[0.001, 0], [0.085, 0.02], [0.09, 0.1], [0.07, 0.17], [0.001, 0.19]], 24), skin); muzzle.rotation.x = Math.PI / 2; muzzle.position.set(0, -0.04, 0.1); head.add(muzzle);
   const nose = new THREE.Mesh(turned([[0.001, 0], [0.04, 0.0], [0.05, 0.025], [0.035, 0.05], [0.001, 0.055]], 20), black); nose.rotation.x = Math.PI / 2; nose.position.set(0, -0.025, 0.28); head.add(nose);
   for (const s of [-1, 1]) { const eye = new THREE.Mesh(turned([[0.001, 0], [0.022, 0.004], [0.026, 0.014], [0.001, 0.022]], 16), black); eye.rotation.x = Math.PI / 2; eye.position.set(s * 0.07, 0.035, 0.12); head.add(eye); }
-  const tongue = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.06, 4, 8), new THREE.MeshToonMaterial({ color: '#d86a7a', gradientMap: T.gradientMap([0.5, 0.8, 1.0]) })); tongue.scale.set(1, 1, 0.4); tongue.position.set(0, -0.11, 0.2); tongue.rotation.x = 0.4; head.add(tongue);
+  const tongue = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.06, 4, 8), new THREE.MeshToonMaterial({ flatShading: true, color: '#d86a7a', gradientMap: T.gradientMap([0.5, 0.8, 1.0]) })); tongue.scale.set(1, 1, 0.4); tongue.position.set(0, -0.11, 0.2); tongue.rotation.x = 0.4; head.add(tongue);
   const mouth = new THREE.Group(); mouth.position.set(0, -0.09, 0.26); head.add(mouth);
   const hc = []; for (let i = 0; i < 120; i++) { const d = sphereDir(r); if (d.y < -0.2 && d.z > 0.3) continue; const p = V(d.x * 0.15, d.y * 0.14 + 0.03, d.z * 0.15); const front = d.z > 0.45 && d.y > 0; tc.length; hc.push({ p, out: V(d.x, Math.max(0, d.y) * 0.3, Math.max(d.z, 0.1)), len: front ? 0.14 + r() * 0.06 : 0.2 + r() * 0.12, r: 0.02 + r() * 0.007, dirt: 0.25, hang: front ? 0.75 : 1 }); }
   for (const s of [-1, 1]) for (let i = 0; i < 14; i++) hc.push({ p: V(s * (0.13 + r() * 0.03), 0.05 + r() * 0.05, -0.02 + r() * 0.06), out: V(s, 0.1, 0), len: 0.28 + r() * 0.1, r: 0.022, dirt: 0.4 });
@@ -65,7 +65,7 @@ export function createDog({ seed = 1687 } = {}) {
   const tail = new THREE.Group(); tail.position.set(0, 0.08, -0.44); body.add(tail); const tlc = []; for (let i = 0; i < 34; i++) tlc.push({ p: V((r() - 0.5) * 0.08, r() * 0.06, -r() * 0.12), out: V((r() - 0.5) * 0.6, 0.2, -1), len: 0.22 + r() * 0.12, r: 0.022, dirt: 0.5 });
   const tailM = cordMat(); const tailC = new THREE.Mesh(cords(tlc, seed + 2), tailM); tailC.castShadow = true; tail.add(tailC);
   // legs: hip pivot -> upper -> knee -> lower -> paw, each sleeved in cords
-  const legs = []; const legM = cordMat(); const pad = new THREE.MeshToonMaterial({ color: '#4a3a2e', gradientMap: T.gradientMap([0.4, 0.75, 1.0]) });
+  const legs = []; const legM = cordMat(); const pad = new THREE.MeshToonMaterial({ flatShading: true, color: '#4a3a2e', gradientMap: T.gradientMap([0.4, 0.75, 1.0]) });
   for (const [x, z, front] of [[0.12, 0.3, 1], [-0.12, 0.3, 1], [0.12, -0.3, 0], [-0.12, -0.3, 0]]) {
     const hip = new THREE.Group(); hip.position.set(x, -0.08, z); body.add(hip);
     const up = new THREE.Mesh(turned([[0.001, -0.22], [0.05, -0.2], [0.06, -0.08], [0.055, 0.0], [0.001, 0.02]], 16), skin); hip.add(up);

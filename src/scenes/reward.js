@@ -41,7 +41,7 @@ export class RewardScene extends UIScreen {
       const n = rewards.items.length; rewards.items.forEach((id, i) => {
         const t = new ItemToken(id, { size: 2.6 }); t.group.position.set((i - (n - 1) / 2) * 4.2, 0.6, 3); this.root.add(t.group); this.items.push(t);
         if (!run.items.includes(id)) run.items.push(id); const j = this.game.journal; j.items[id] = (j.items[id] || 0) + 1;
-        const nm = new Strip([[[ITEMS[id]?.name || id, '#7a4a14']]], { maxW: 7.5, tacks: 1 }); uiPos(nm.group, (i - (n - 1) / 2) * 4.2, -1.9, 3.4); this.root.add(nm.group); (this.names ||= []).push(nm);
+        const nm = new Strip([[[ITEMS[id]?.name || id, '#7a4a14']]], { maxW: 3.9, tacks: 1 }); uiPos(nm.group, (i - (n - 1) / 2) * 4.2, -1.9, 3.4); this.root.add(nm.group); (this.names ||= []).push(nm);
         audio.play('magic_shimmer', { delay: 0.6 + i * 0.3 });
       });
       // a card of the foe's own nature (already added to the deck): it lies face up on the table beside the curios

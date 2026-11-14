@@ -98,7 +98,7 @@ export function paintWounds(surf, { sites, select = null, seed = 1 }) {
   };
 }
 /** hook a toon material so wounds fade in where the wound map's threshold is below uWounds */
-export function woundTex(canvas) { const t = new THREE.CanvasTexture(canvas); t.flipY = false; t.colorSpace = THREE.NoColorSpace; return t; }
+export function woundTex(canvas) { const t = new THREE.CanvasTexture(canvas); t.flipY = false; t.colorSpace = THREE.NoColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapLinearFilter; return t; }
 export function woundMat(m, tex, blood = [0.13, 0.004, 0.006]) {
   m.userData.uW = { value: 0 }; const uB = { value: new THREE.Color(...blood) };
   m.onBeforeCompile = (sh) => {

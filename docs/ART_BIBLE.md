@@ -167,3 +167,10 @@ This section follows the user's latest direction and overrides section 9 for the
 - Texel density targets: ~0.024 world units per art pixel for plants and leaves, ~0.03-0.04 for walls and ground.
 - Never soft blends: alpha edges (arena patch, road, lane) are cut with a per-texel hash threshold (`ditherAlpha` in realworld.js); splat transitions use the same dither; water patterns are evaluated on a pixel grid.
 - Cel lighting bands still apply on top (MeshToon + gradient maps); creatures get clustered 3D-grid detail in their paint (fur flecks, lit scale rims), Newton's coat a wool twill and his waistcoat a damask diamond (`pixelCloth` in professor.js).
+
+## 12. Realistic low-poly + realistic light (current rule)
+- No cel bands: `src/gfx/lowpoly.js` (imported by the engine) turns three's toon gradient into plain Lambert diffuse, so every MeshToonMaterial is lit realistically by the stage rig. Gradient maps are ignored.
+- Light rig: `src/gfx/lighting.js` `stageLights()` places a golden-hour sun with a PCF-soft shadow frustum fitted round the action, a sky/ground hemisphere, a warm ground bounce and a cool sky fill, with per-theme looks. `ContactShadows` adds pixel-banded contact shadows under characters. The grade presets (`GRADE_DAY`, `GRADE_TRAVEL`, `GRADE_MAP`) give rich, natural colour: vibrance, selective green/gold/sky boosts, skin protected, no saturation pull.
+- Geometry: faceted and flat-shaded. To convert any model call `lowpolyify(obj, { detail })` (0 coarse .. 1 fine). It decimates by vertex clustering, keeps each corner's UVs and gives every cluster one set of skin weights, so skinned meshes still animate. `flatten(obj)` only switches to flat shading.
+- Limbo humans: pass `lowpoly: true` to `LimboBody` for octagonal rings with at most one bulge ring per segment (Newton uses it).
+- Ink outlines stay, but thin (about 1 screen px).

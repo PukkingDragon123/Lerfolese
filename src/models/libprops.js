@@ -91,7 +91,7 @@ export function armchair() {
     L.push(sbox(0.12, 0.62, 0.36, s * 0.38, 0.92, -0.18, -0.08, s * 0.32, 0)); }
   L.push(sbox(0.68, 0.12, 0.2, 0, 1.2, -0.36, -0.2));
   for (const s of [-1, 1]) for (const z of [-0.26, 0.3]) Wd.push(at(facet([[0.035, 0], [0.028, 0.1], [0.038, 0.17], [0.03, 0.18]], 4, Math.PI / 4), s * 0.36, 0, z));
-  const lm = fuse(L, TEXM.leather, 3.2); g.add(lm, fuse(Wd, TEXM.walnut, 2)); return g;
+  const lm = fuse(L, TEXM.leather, 8); g.add(lm, fuse(Wd, TEXM.walnut, 2)); return g;
 }
 /** a banker's lamp: octagonal brass foot, stem, a half-hexagon green glass shade glowing underneath (front = +z) */
 export function bankerLamp() {

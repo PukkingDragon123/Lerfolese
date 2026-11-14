@@ -9,6 +9,7 @@ import { createCreature } from './creatures.js';
 import { createProfessor } from './professor.js';
 import { wearArtifacts } from './wearables.js';
 import * as T from './toon.js';
+import { lowpolyify } from '../gfx/lowpoly.js';
 import { loadModel } from '../gfx/assets.js';
 import { firePit } from './realworld.js';
 import { ENCOUNTERS } from '../game/data/enemies.js';
@@ -165,11 +166,11 @@ export class NodeMini {
     const ids = groupFor(this.nd, this.run); const big = t !== 'battle';
     if (t === 'battle') { const b = miniBase(this.R, this.R * 0.8); this.body.add(b); droppedGear(this.body, rnd); }
     else if (t === 'elite') { const b = miniBase(this.R, this.R * 0.85, { rim: 'rim', h: 0.09 }); this.body.add(b);
-      loadModel('rock_moss_set_01#' + (strHash(this.nd.id) % 6)).then((o) => { T.toonify(o, { sat: 1.15, tint: '#f2e6ff', wind: 0 }); o.scale.setScalar(0.26); o.position.set(0, 0.04, -0.05); this.body.add(o); this.standOn(o); }).catch(() => {});
+      loadModel('rock_moss_set_01#' + (strHash(this.nd.id) % 6)).then((o) => { lowpolyify(T.toonify(o, { sat: 1.15, tint: '#f2e6ff', wind: 0 }), { detail: 0.35 }); o.scale.setScalar(0.26); o.position.set(0, 0.04, -0.05); this.body.add(o); this.standOn(o); }).catch(() => {});
       const bn = banner('horns', { h: 1.9, w: 0.48 }); bn.position.set(-this.R * 0.62, 0.08, -this.R * 0.4); bn.rotation.y = 0.5; this.body.add(bn); this.chest(this.R * 0.62, 0.08, -this.R * 0.35, -0.5); }
     else { // the guardian's crag between braziers and banners
-      for (let k = 0; k < 5; k++) { const a = (k / 5) * TAU + 0.3; loadModel('rock_face_02').then((o) => { T.toonify(o, { sat: 1.1, tint: '#efe4ff', wind: 0 }); o.scale.setScalar(0.42 + (k % 2) * 0.1); o.position.set(Math.cos(a) * 0.75, -0.25, Math.sin(a) * 0.6 - 0.2); o.rotation.y = a + Math.PI / 2; this.body.add(o); }).catch(() => {}); }
-      loadModel('rock_face_02').then((o) => { T.toonify(o, { sat: 1.1, tint: '#efe4ff', wind: 0 }); o.scale.setScalar(0.5); o.position.set(0, -0.32, -0.05); this.body.add(o); this.standOn(o); }).catch(() => {});
+      for (let k = 0; k < 5; k++) { const a = (k / 5) * TAU + 0.3; loadModel('rock_face_02').then((o) => { lowpolyify(T.toonify(o, { sat: 1.1, tint: '#efe4ff', wind: 0 }), { detail: 0.35 }); o.scale.setScalar(0.42 + (k % 2) * 0.1); o.position.set(Math.cos(a) * 0.75, -0.25, Math.sin(a) * 0.6 - 0.2); o.rotation.y = a + Math.PI / 2; this.body.add(o); }).catch(() => {}); }
+      loadModel('rock_face_02').then((o) => { lowpolyify(T.toonify(o, { sat: 1.1, tint: '#efe4ff', wind: 0 }), { detail: 0.35 }); o.scale.setScalar(0.5); o.position.set(0, -0.32, -0.05); this.body.add(o); this.standOn(o); }).catch(() => {});
       for (const s of [-1, 1]) { const br = brazier(); br.position.set(s * 1.55, 0, 0.7); this.body.add(br); this.flames.push(br.userData.flame); const bn = banner('horns', { h: 2.5, w: 0.55, field: '#6a1018' }); bn.position.set(s * 1.25, 0, -0.9); bn.rotation.y = s > 0 ? Math.PI : 0; this.body.add(bn); }
       const l = new THREE.PointLight(0xff7a3a, 4, 7, 1.6); l.position.set(0, 1.6, 1.0); this.body.add(l); this.glows.push(l);
     }
@@ -184,7 +185,7 @@ export class NodeMini {
   }
   /** put the figurines on top of a loaded rock (its bounding box, near the middle) */
   standOn(o) { this.body.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(o); const inv = new THREE.Matrix4().copy(this.body.matrixWorld).invert(); b.applyMatrix4(inv); this.standY = b.max.y - 0.06; for (const f of this.figs) f.home.y = this.standY; }
-  chest(x, y, z, ry) { loadModel('treasure_chest').then((o) => { T.toonify(o, { sat: 1.3, wind: 0 }); o.scale.setScalar(0.42); o.position.set(x, y, z); o.rotation.y = ry; this.body.add(o); this.chestLid = o.getObjectByName('treasure_chest_lid'); }).catch(() => {}); }
+  chest(x, y, z, ry) { loadModel('treasure_chest').then((o) => { lowpolyify(T.toonify(o, { sat: 1.3, wind: 0 }), { detail: 0.35 }); o.scale.setScalar(0.42); o.position.set(x, y, z); o.rotation.y = ry; this.body.add(o); this.chestLid = o.getObjectByName('treasure_chest_lid'); }).catch(() => {}); }
   // ---- events: the "?" rune shrine
   buildShrine(rnd) {
     const pl = [[0.001, 0], [0.82, 0], [0.86, 0.03], [0.84, 0.07], [0.62, 0.08], [0.6, 0.12], [0.001, 0.12]].map(([r, y]) => new THREE.Vector2(r, y)); M(new THREE.LatheGeometry(pl, 40), propMats().stone, this.body);
@@ -197,9 +198,9 @@ export class NodeMini {
   // ---- shop: Diogenes' barrel stall
   buildShop(rnd) {
     const Mt = propMats(); const b = miniBase(this.R, this.R * 0.8, { rim: 'rim' }); this.body.add(b);
-    loadModel('wine_barrel_01').then((o) => { T.toonify(o, { sat: 1.25, wind: 0 }); o.scale.setScalar(0.95); o.rotation.z = Math.PI / 2; o.rotation.y = 0.35; o.position.set(-0.32, 0.07 + 0.36, -0.12); this.body.add(o); }).catch(() => {});
-    loadModel('wooden_crate_01').then((o) => { T.toonify(o, { sat: 1.2, wind: 0 }); o.scale.setScalar(0.6); o.position.set(0.45, 0.07, 0.2); o.rotation.y = -0.4; this.body.add(o); const o2 = o.clone(); o2.position.set(0.5, 0.29, 0.18); o2.rotation.y = 0.2; o2.scale.setScalar(0.5); this.body.add(o2); }).catch(() => {});
-    loadModel('lantern_01').then((o) => { T.toonify(o, { sat: 1.2, wind: 0 }); o.traverse((m) => { if (m.isMesh && /glass/i.test(m.name)) { m.material = new THREE.MeshToonMaterial({ color: '#ffd890', emissive: '#ffa040', emissiveIntensity: 1.6, gradientMap: T.gradientMap([1, 1]) }); this.lamp = m.material; } }); o.scale.setScalar(1.25); o.position.set(0.18, 1.0, 0.34); this.body.add(o); }).catch(() => {});
+    loadModel('wine_barrel_01').then((o) => { lowpolyify(T.toonify(o, { sat: 1.25, wind: 0 }), { detail: 0.35 }); o.scale.setScalar(0.95); o.rotation.z = Math.PI / 2; o.rotation.y = 0.35; o.position.set(-0.32, 0.07 + 0.36, -0.12); this.body.add(o); }).catch(() => {});
+    loadModel('wooden_crate_01').then((o) => { lowpolyify(T.toonify(o, { sat: 1.2, wind: 0 }), { detail: 0.35 }); o.scale.setScalar(0.6); o.position.set(0.45, 0.07, 0.2); o.rotation.y = -0.4; this.body.add(o); const o2 = o.clone(); o2.position.set(0.5, 0.29, 0.18); o2.rotation.y = 0.2; o2.scale.setScalar(0.5); this.body.add(o2); }).catch(() => {});
+    loadModel('lantern_01').then((o) => { lowpolyify(T.toonify(o, { sat: 1.2, wind: 0 }), { detail: 0.35 }); o.traverse((m) => { if (m.isMesh && /glass/i.test(m.name)) { m.material = new THREE.MeshToonMaterial({ color: '#ffd890', emissive: '#ffa040', emissiveIntensity: 1.6, gradientMap: T.gradientMap([1, 1]) }); this.lamp = m.material; } }); o.scale.setScalar(1.25); o.position.set(0.18, 1.0, 0.34); this.body.add(o); }).catch(() => {});
     // striped awning on two poles leaning from the barrel
     for (const s of [-1, 1]) M(bevelBox(0.035, 1.1, 0.035, 0.01), Mt.darkWood, this.body, s * 0.62, 0.62, 0.42).rotation.x = -0.08;
     const aw = clothSheet(1.4, 0.8, (u, v, p) => p.set((u - 0.5) * 1.4, 1.18 - v * 0.32 - Math.sin(u * Math.PI) * 0.04 * v, 0.46 - v * 0.82)); const am = M(aw, toonM({ map: TX.cloth('#c83a3a', '#f4e6c4'), side: THREE.DoubleSide }), this.body); am.material.map.repeat.set(1.5, 1);
@@ -212,7 +213,7 @@ export class NodeMini {
     const tent = pavilion(); tent.position.set(-0.12, 0.07, -0.3); this.body.add(tent);
     const fp = firePit({ seed: 4 }); fp.scale.setScalar(0.3); fp.position.set(0.3, 0.07, 0.38); this.body.add(fp);
     const cd = cauldron(); cd.position.set(0.3, 0.12, 0.38); this.body.add(cd); this.brew = cd.userData.brew; this.brewAt = new V3(0.3, 0.42, 0.38);
-    loadModel('wine_bottles_01#' + (strHash(this.nd.id) % 4)).then((o) => { T.toonify(o, { sat: 1.3, wind: 0 }); for (let k = 0; k < 3; k++) { const c = k ? o.clone() : o; c.scale.setScalar(0.85); c.position.set(-0.62 + k * 0.1, 0.07, 0.42 - k * 0.05); this.body.add(c); } }).catch(() => {});
+    loadModel('wine_bottles_01#' + (strHash(this.nd.id) % 4)).then((o) => { lowpolyify(T.toonify(o, { sat: 1.3, wind: 0 }), { detail: 0.35 }); for (let k = 0; k < 3; k++) { const c = k ? o.clone() : o; c.scale.setScalar(0.85); c.position.set(-0.62 + k * 0.1, 0.07, 0.42 - k * 0.05); this.body.add(c); } }).catch(() => {});
     void rnd;
   }
   /** reachable / visited / hovered state from the sheet */
@@ -247,7 +248,7 @@ export function heroMini({ items = null } = {}) {
   let api = null; try { api = createProfessor(); api.root.scale.setScalar(0.68); api.root.position.y = 0.06; body.add(api.root); } catch (e) { console.warn('hero mini', e); }
   const wear = api && items ? wearArtifacts(api, items() || []) : null; // his curios, worn on the figurine (models/wearables.js)
   const orbit = new THREE.Group(); orbit.position.y = 1.15; body.add(orbit); const apple = new THREE.Group(); apple.position.set(0.5, 0, 0); orbit.add(apple);
-  if (!api?.appleWorld) loadModel('food_apple_01').then((o) => { T.toonify(o, { sat: 1.45, wind: 0 }); o.scale.setScalar(3.2); apple.add(o); }).catch(() => {}); // the young hero carries his own orbiting apple
+  if (!api?.appleWorld) loadModel('food_apple_01').then((o) => { lowpolyify(T.toonify(o, { sat: 1.45, wind: 0 }), { detail: 0.35 }); o.scale.setScalar(3.2); apple.add(o); }).catch(() => {}); // the young hero carries his own orbiting apple
   return {
     root, body, api, walk: 0,
     update(dt, t) { api?.update(dt); if (wear) { wear.set(items() || []); wear.update(dt); } orbit.rotation.y = t * 1.8; orbit.rotation.z = Math.sin(t * 0.9) * 0.25; apple.rotation.y = -t * 3; apple.position.y = Math.sin(t * 3.6) * 0.05; glow.material.uniforms.uTime.value = t; glow.material.uniforms.uK.value = 0.5 + Math.sin(t * 2.5) * 0.15; WAVE.value = t; },
