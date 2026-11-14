@@ -216,15 +216,20 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
 
   // ---- the living layer: woods, bushes, reeds, lilies, flowers and the cel grass
   g.add(ctx.grove.build()); for (const p of ctx.grove.perches(10)) { g.add(p); trees.push(p); }
-  if (ctx.padSpots.length) g.add(F.lilyPads(ctx.padSpots)); if (ctx.reedSpots.length) g.add(F.reeds(ctx.reedSpots));
-  const grass = grassField(ctx, theme, L); g.add(grass);
-  for (const [kind, spots] of Object.entries(ctx.flowerSpots)) if (spots.length) g.add(F.celFlowers(kind, spots));
+  if (ctx.padSpots.length) g.add(F.lilyPads(ctx.padSpots));
+  const plants = grassField(ctx, theme, L); // pixel-art tufts, flower drifts, reeds and cattails: one instanced billboard field
+  for (const [kind, spots] of Object.entries(ctx.flowerSpots)) { const [a, b] = FLOWER_SIZE[kind] || [0.3, 0.5]; for (const [x, y, z, h] of spots) plants.push({ kind: FLOWER_SPRITE[kind] || kind, x, y, z, s: 0.8 + ((h - a) / (b - a || 1)) * 0.35 }); }
+  for (const [x, y, z, h] of ctx.reedSpots) plants.push({ kind: Math.abs(Math.sin(x * 91.7 + z * 37.3)) < 0.3 ? 'cattail' : 'reeds', x, y, z, s: 0.7 + Math.min(1.8, h) * 0.22, flex: 1.1 });
   g.add(windMotes(theme, hAt));
   await Promise.all(jobs);
   // vertex AO on the ground: darker under trees, rocks, houses and ruins
   { const pp = geo.attributes.position; const cc = new Float32Array(pp.count * 3); const grid = new Map(); for (const s of ctx.aoSpots) { const key = Math.floor(s[0] / 6) + ',' + Math.floor(s[1] / 6); if (!grid.has(key)) grid.set(key, []); grid.get(key).push(s); }
     for (let i = 0; i < pp.count; i++) { const x = pp.getX(i), z = pp.getZ(i); let k = 1; const gx = Math.floor(x / 6), gz = Math.floor(z / 6); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const list = grid.get((gx + a) + ',' + (gz + b)); if (list) for (const [ax, az, r] of list) { const d = Math.hypot(x - ax, z - az); if (d < r) k -= (1 - d / r) * 0.36; } } k = Math.max(0.5, k); cc[i * 3] = k; cc[i * 3 + 1] = k * 0.98; cc[i * 3 + 2] = k * 0.96; }
     geo.setAttribute('color', new THREE.BufferAttribute(cc, 3)); }
+  { const c = new THREE.Color(); const grid = new Map(); for (const sp of ctx.aoSpots) { const key = Math.floor(sp[0] / 6) + ',' + Math.floor(sp[1] / 6); if (!grid.has(key)) grid.set(key, []); grid.get(key).push(sp); }
+    for (const it of plants) { let k = 1; const gx = Math.floor(it.x / 6), gz = Math.floor(it.z / 6); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const list = grid.get((gx + a) + ',' + (gz + b)); if (list) for (const [ax, az, rr] of list) { const d = Math.hypot(it.x - ax, it.z - az); if (d < rr) k -= (1 - d / rr) * 0.3; } }
+      const j = Math.sin(it.x * 12.9898 + it.z * 78.233) * 0.5; c.setRGB(1, 1, 1).offsetHSL(j * 0.02, 0, j * 0.04).multiplyScalar(Math.max(0.62, k) * (it.dry ? 1.04 : 1)); it.tint = c.clone(); }
+    g.add(plantField(plants, { wind: T.WIND, tick: T.tickWind, push: { value: F.GRASS_PUSH }, onScene: F.updatePushers, cam: CAM, tint: PLANT_TINT[theme] || PLANT_TINT.meadow })); }
   const rockTops = ctx.rocks.map(([x, z, s]) => new V3(x, hAt(x, z) + 0.4 * s, z));
   const animals = (cr) => { if (!cr) return; if (theme !== 'marsh') { cr.spawnGrazers?.(4, ctx.pasture || { x: [-15, -9.5], z: [-6.5, -3.8] }, ['sheep', 'sheep', 'goat']); cr.spawnGrazers?.(4, { x: [-24, -15], z: [9, 17] }); } cr.spawnLizards?.(3, rockTops); cr.spawnButterflies?.(5, new V3(-13, 0.8, 11), 7); };
   return { group: g, theme, trees, env: hdr?.envMap ?? T.gradientEnv(renderer, 'stage:' + theme), background: null, sunDir: SUN_KEY.clone(), sunPos, road, fog: new THREE.Fog(L.haze, L.fog[0], L.fog[1]), animals, hAt, waters };
@@ -277,16 +282,21 @@ function makeCtx({ g, theme, seed, rnd, hAt, jobs, trees, waters, hills, skyKey 
   return ctx;
 }
 
-// cel grass: dense tufts near the action and along the road, sparser and taller towards the hills; short at the arena rim
+// pixel-art grass: layered tufts near the action and along the road, sparser and taller towards the hills, short and
+// clover-dotted at the arena rim; the sprite family follows the tuft height and the field's dryness
+const PLANT_TINT = { meadow: '#fff4e2', garden: '#fff2e8', gully: '#fff2dc', labyrinth: '#ffeedc', marsh: '#eef2e6', guardian: '#ffe6d6' };
+const FLOWER_SPRITE = { daisy: 'chamomile', poppy: 'poppy', cornflower: 'cornflower', lavender: 'lavender', clover: 'clover', buttercup: 'buttercup', narcissus: 'narcissus', thistle: 'thistle' };
 function grassField(ctx, theme, L) {
-  const r = mulberry32(ctx.seed * 3 + 1); const nP = makeNoise(ctx.seed + 77); const spots = []; const hAt = ctx.hAt; const MAX = 7200; const dry = L.grass;
+  const r = mulberry32(ctx.seed * 3 + 1); const nP = makeNoise(ctx.seed + 77); const items = []; const hAt = ctx.hAt; const MAX = 7600; const dry = L.grass;
   const add = (x, z, hk = 1) => { if (!ctx.grassOk(x, z)) return; const ad = arenaD(x, z); const rim = ad < 1.45; const patch = nP.fbm(x * 0.12, z * 0.12, 3); if (r() > 0.3 + patch * 1.1) return;
-    const fore = z > 3 ? 0.62 : 1; const h = (rim ? 0.24 + r() * 0.14 : (0.42 + r() * 0.38) * (0.75 + patch * 0.5)) * fore * hk; spots.push([x, hAt(x, z) - 0.03, z, h, r() < dry * (0.4 + patch) ? 0.5 + r() * 0.5 : r() * 0.15, rim ? 0.9 : 1.15]); };
-  for (let gz = -24; gz < 7 && spots.length < MAX * 0.72; gz += 0.42) for (let gx = -24; gx < 24; gx += 0.42) { const x = gx + (r() - 0.5) * 0.42, z = gz + (r() - 0.5) * 0.42; const far = z < -12 ? (z < -18 ? 0.35 : 0.6) : 1; if (r() > far) continue; add(x, z, z < -14 ? 1.3 : 1); }
-  for (let i = 0; i < 9000 && spots.length < MAX; i++) { const q = ctx.roadPts[Math.floor(r() * ctx.roadPts.length)]; if (!q) break; const x = q.x + (r() - 0.5) * 22, z = q.z + (r() - 0.5) * 22; if (z < 7) continue; add(x, z, 1.1); }
+    const fore = z > 3 ? 0.8 : 1; const h = (rim ? 0.3 : (0.5 + r() * 0.5) * (0.75 + patch * 0.5)) * hk; const isDry = r() < dry * (0.4 + patch); const k = r();
+    const kind = rim ? (k < 0.62 ? 'short' : k < 0.8 ? 'wide' : 'clover') : isDry ? (k < 0.3 ? 'seed' : 'dry') : h > 0.72 ? (k < 0.45 ? 'tall' : k < 0.7 ? 'wispy' : k < 0.88 ? 'wide' : 'seed') : h > 0.5 ? (k < 0.45 ? 'wide' : k < 0.75 ? 'tall' : k < 0.92 ? 'wispy' : 'fern') : (k < 0.55 ? 'short' : k < 0.85 ? 'wide' : 'clover');
+    items.push({ kind, x, y: hAt(x, z) - 0.02, z, s: (0.82 + r() * 0.3) * fore * (rim ? 0.9 : 1), v: r(), dry: isDry }); };
+  for (let gz = -24; gz < 7 && items.length < MAX * 0.72; gz += 0.42) for (let gx = -24; gx < 24; gx += 0.42) { const x = gx + (r() - 0.5) * 0.42, z = gz + (r() - 0.5) * 0.42; const far = z < -12 ? (z < -18 ? 0.35 : 0.6) : 1; if (r() > far) continue; add(x, z, z < -14 ? 1.3 : 1); }
+  for (let i = 0; i < 9000 && items.length < MAX; i++) { const q = ctx.roadPts[Math.floor(r() * ctx.roadPts.length)]; if (!q) break; const x = q.x + (r() - 0.5) * 22, z = q.z + (r() - 0.5) * 22; if (z < 7) continue; add(x, z, 1.1); }
   // wildflowers sprinkled through the grass in loose patches
-  const nF = makeNoise(ctx.seed + 19); const wild = WILD[theme] || WILD.meadow; for (const [x, , z] of spots) { const f = nF.fbm(x * 0.18 + 5, z * 0.18, 3); if (f > 0.58 && r() < 0.16 * (f - 0.5) * 6) ctx.flower(wild[Math.floor(nF.fbm(x * 0.05, z * 0.05 + 9, 2) * wild.length * 1.6) % wild.length], x + (r() - 0.5) * 0.3, z + (r() - 0.5) * 0.3); }
-  return F.celGrass(spots, { pal: F.GRASS_PAL[GRASS[theme] || 'meadow'], seed: ctx.seed, sun: SUN_SKY, lodAt: (x, z) => Math.hypot(x - CAM.x, z - CAM.z) < 19 || (z > 6 && ctx.roadD(x, z) < 7) });
+  const nF = makeNoise(ctx.seed + 19); const wild = WILD[theme] || WILD.meadow; for (const { x, z } of items.slice()) { const f = nF.fbm(x * 0.18 + 5, z * 0.18, 3); if (f > 0.58 && r() < 0.16 * (f - 0.5) * 6) ctx.flower(wild[Math.floor(nF.fbm(x * 0.05, z * 0.05 + 9, 2) * wild.length * 1.6) % wild.length], x + (r() - 0.5) * 0.3, z + (r() - 0.5) * 0.3); }
+  return items;
 }
 
 // ---------------------------------------------------------------- background preload (loading screen): the CC0 models, ground sets and
