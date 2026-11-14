@@ -110,7 +110,7 @@ export class BattleScene {
     this.camera.position.copy(this.camBase); this.camera.lookAt(this.camLook); this.camOff = new THREE.Vector3(); this.camPunch = 0; this.baseFov = 32;
     this.shotCam = new ShotCam(this); this.prepT = new Prepare(this); this.wt = 0; // cinematic shots; slow-motion prepare
     // professor
-    this.prof = enc.tutorial?.hero?.(this) || createProfessor(); this.prof.root.position.set(-3.5, stage.hAt ? stage.hAt(-3.5, 0.9) : 0, 0.9); this.prof.root.rotation.y = this.profRy = 0.55; sc.add(this.prof.root); // on his feet
+    this.prof = enc.tutorial?.hero?.(this) || createProfessor(); this.prof.root.position.set(-3.5, stage.hAt ? stage.hAt(-3.5, 0.9) : 0, 0.9); this.prof.root.rotation.y = this.profRy = 0.55; this.profHome = this.prof.root.position.clone(); sc.add(this.prof.root); // on his feet
     this.wear = wearArtifacts(this.prof, this.runData?.items); // he wears / uses every curio he owns (models/wearables.js)
     this.profHit = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.6, 1.2), new THREE.MeshBasicMaterial({ visible: false })); this.profHit.position.set(-3.5, 1.3, 0.9); this.profHit.userData.target = { type: 'self' }; sc.add(this.profHit);
     // field target (the ground between the fighters)

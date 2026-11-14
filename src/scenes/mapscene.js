@@ -64,9 +64,9 @@ export class MapScene extends UIScreen {
     const W = this.W, H = this.H; const r = this.run;
     this.runHud = new BattleHUD({ mode: 'map', sub: `LOOP ${roman(r.loop)} &middot; FLOOR ${Math.max(0, r.floor + 1)}/${this.map.rows}` }); this.runHud.setVitals(r.player.hp, r.player.maxHp, 0, r.gold);
     this.items = r.items.map((id, i) => { const t = new ItemToken(id, { size: 1.5 }); t.group.position.set(-W + 1.6 + i * 1.7, H - 6.7, 2); this.root.add(t.group); return t; });
-    this.addButton(new Button3D('Journal', () => this.openJournal(), { w: 3.6, h: 1.1, size: 50, color: 'purple' }), W - 3.2, H - 4.4, 2);
-    this.addButton(new Button3D(`Deck (${r.deck.length})`, () => this.openDeck(), { w: 3.6, h: 1.1, size: 46 }), W - 3.2, H - 5.8, 2);
-    this.addButton(new Button3D('Menu', () => this.game.toMenu(), { w: 3.6, h: 1.1, size: 50, color: 'red' }), W - 3.2, H - 7.2, 2);
+    this.addButton(new Button3D('Journal', () => this.openJournal(), { w: 3.6, h: 1.1, size: 50, color: 'purple' }), W - 3.9, H - 4.4, 2); // clouds need more air between them
+    this.addButton(new Button3D(`Deck (${r.deck.length})`, () => this.openDeck(), { w: 3.6, h: 1.1, size: 46 }), W - 3.9, H - 6.5, 2);
+    this.addButton(new Button3D('Menu', () => this.game.toMenu(), { w: 3.6, h: 1.1, size: 50, color: 'red' }), W - 3.9, H - 8.6, 2);
     this.hint = new Strip(['Drag to pan · wheel to scroll · right-drag to turn · click a glowing piece to travel'], { maxW: 22, font: 'handS', tone: 3 }); uiPos(this.hint.group, 0, -H + 0.8, 2); this.root.add(this.hint.group);
   }
   async openJournal() { const { Journal } = await import('./journal.js'); if (!this.journal) { this.journal = new Journal(this.game, this.root); } this.journal.open(); }

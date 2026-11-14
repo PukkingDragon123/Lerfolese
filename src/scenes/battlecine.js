@@ -132,24 +132,24 @@ export class Vignette {
 // ================================================================ the ZOOM-IN DILEMMA: camera in, voiced foe, 3D options, Isaac acts it out
 const ACT_FOR = (o) => o.act || (o.fx?.heal ? 'drink' : o.fx?.cards || o.fx?.deck ? 'grab' : o.fx?.gold < 0 || o.fx?.loseHand || o.fx?.loseDeck ? 'give' : o.fx?.block ? 'brace' : 'answer');
 export async function dilemmaScene(S, d, e) {
-  const prof = S.prof, cam = S.shotCam; const fv = S.enemyViews.get(e.uid); const foeP = S.enemyPos(e, 0.75), pp = prof.root.position.clone();
+  const prof = S.prof, cam = S.shotCam; const fv = S.enemyViews.get(e.uid); const foeP = S.enemyPos(e, 0.75), pp = (S.profHome || prof.root.position).clone();
   S.dilemmaOn = true; S.hand.hideAll = true; S.hand.layout(); audio.play('transition_whoosh', { vol: 0.5 }); audio.duckMusic?.(0.4, 6);
   // 1. a slow push over Newton's shoulder at the foe
   const mid = pp.clone().lerp(foeP, 0.5); cam.shot(V(pp.x - 1.6, 2.3, pp.z + 3.2), V(foeP.x, foeP.y + 0.2, foeP.z), { speed: 2.4, fov: 30 });
   const title = new FloatText([[d.title, '#ffe6a8']], { font: 'title', align: 'center', lighten: false }); S.ui.scene.add(title.group); title.place(0, S.ui.H - 1.6, 9); title.show();
   const sub = new FloatText([[d.riddle ? 'A RIDDLE' : 'A DILEMMA', '#c8b494']], { font: 'head', align: 'center', lighten: false }); S.ui.scene.add(sub.group); sub.place(0, S.ui.H - 3.1, 9); sub.show();
-  const loop = { update: (dt) => { title.update(dt); sub.update(dt); const pp9 = S.ui.pointerPlane(9); for (const o of opts) o.B.update(dt, pp9); speech?.update(dt); speech?.at(0, -S.ui.H * 0.42); } }; // the spoken line sits low and central, like a subtitle
+  const loop = { update: (dt) => { title.update(dt); sub.update(dt); const pp9 = S.ui.pointerPlane(9); for (const o of opts) o.B.update(dt, pp9); speech?.update(dt); speech?.at(0, -S.ui.H * 0.42); for (const o of olds) o.update(dt); } }; const olds = []; // the spoken line sits low and central, like a subtitle
   let speech = null; const opts = []; S.engine.add(loop);
   await tweens.wait(0.9); fv?.api.act?.('cast');
   // 2. the foe speaks (voiced), close on it
   cam.shot(V(foeP.x - 2.4, foeP.y + 0.6, foeP.z + 3.6), V(foeP.x, foeP.y + 0.3, foeP.z), { speed: 3.5, fov: 28 });
   let D = null; try { D = await import('../story/dialogue.js'); } catch (err) { D = null; }
-  for (const line of [...d.intro, d.prompt].filter(Boolean)) { speech?.drop(); speech = new FloatSpeech(S.ui.scene, line, { who: e.def.name, color: '#ff9a7a', life: 99 }); fv?.api.talk?.(1.4); try { D?.voiceOnly?.('foe', line); } catch (err) { /* no voice */ } await waitRead(S, line); }
+  for (const line of [...d.intro, d.prompt].filter(Boolean)) { if (speech) { speech.drop(); olds.push(speech); } speech = new FloatSpeech(S.ui.scene, line, { who: e.def.name, color: '#ff9a7a', life: 99 }); fv?.api.talk?.(1.4); try { D?.voiceOnly?.('foe', line); } catch (err) { /* no voice */ } await waitRead(S, line); }
   // 3. back on Newton; the options float beside him as 3D letters (hover tilts them, click to choose, or 1-3)
   cam.shot(V(pp.x + 1.4, 2.0, pp.z + 4.2), V(pp.x + 0.9, 1.55, pp.z), { speed: 3, fov: 30 }); prof.act('think'); prof.lookAt(0.4, 0.1);
   const W = S.ui.W, H = S.ui.H;
   // the options: soft clouds beside Newton (hover swells and tilts them; click, or press 1-3)
-  d.options.forEach((o, i) => { const B = new CloudButton(`${i + 1}  ${o.label}`, null, { w: 7.5, h: 1.5, sub: o.sub, color: i === 0 ? 'teal' : i === 1 ? 'purple' : 'wood' }); S.ui.scene.add(B.group); const y = H * 0.38 - i * 2.6, x = W * 0.28; uiPos(B.group, x, y, 9); B.group.scale.setScalar((40 - 9) / 40); B.pop.value = 0.05; setTimeout(() => { B.pop.target = 1; B.pop.kick(4); audio.play('whoosh_soft', { vol: 0.25 }); }, 130 * i); opts.push({ B, o, i }); });
+  d.options.forEach((o, i) => { const B = new CloudButton(`${i + 1}  ${o.label}`, null, { w: 8, h: 1.25, sub: o.sub, color: i === 0 ? 'teal' : i === 1 ? 'purple' : 'wood' }); S.ui.scene.add(B.group); const y = H * 0.52 - i * 3.9, x = W * 0.3 + (i % 2) * 1.2; uiPos(B.group, x, y, 9); B.group.scale.setScalar((40 - 9) / 40); B.pop.value = 0.05; setTimeout(() => { B.pop.target = 1; B.pop.kick(4); audio.play('whoosh_soft', { vol: 0.25 }); }, 130 * i); opts.push({ B, o, i }); });
   S.dlgOpts = opts; // (exposed for tests)
   const pick = await new Promise((resolve) => {
     const ray = new THREE.Raycaster(); let hover = null;
@@ -160,13 +160,13 @@ export async function dilemmaScene(S, d, e) {
       key(ev) { const n = parseInt(ev.key, 10); if (n >= 1 && n <= opts.length) { opts[n - 1].B.press(); S.input.remove(h); resolve(n - 1); } return true; },
       dragstart: () => true, drag: () => true, dragend: () => true, down: () => true, wheel: () => true });
   });
-  audio.play('stamp'); audio.play('chime_soft', { vol: 0.5 }); speech?.drop(); speech = null;
+  audio.play('stamp'); audio.play('chime_soft', { vol: 0.5 }); if (speech) { speech.drop(); olds.push(speech); } speech = null;
   for (const x of opts) if (x.i !== pick) { x.B.pop.target = 0; } else x.B.pop.kick(5);
   await tweens.wait(0.45); for (const x of opts) x.B.pop.target = 0;
   // 4. Isaac does it: walks up to the foe for a give / grab, drinks, answers with a raised finger, braces or refuses
   const what = ACT_FOR(d.options[pick]); await perform(S, what, e, cam);
   title.hide(); sub.hide(); S.dilemmaPickAct = what;
-  setTimeout(() => { S.engine.remove(loop); for (const x of opts) { x.B.group.parent?.remove(x.B.group); x.B.text.dispose(); } title.dispose(); sub.dispose(); }, 900);
+  setTimeout(() => { S.engine.remove(loop); for (const x of opts) { x.B.group.parent?.remove(x.B.group); x.B.text.dispose(); } title.dispose(); sub.dispose(); for (const o of olds) o.dispose(); S.dlgOpts = null; }, 900);
   return pick;
 }
 // the reply / outcome after the battle applied the option (called from fx.dilemmaResult)
@@ -182,7 +182,7 @@ export async function dilemmaReply(S, d, opt, e) {
 function waitRead(S, text) { const sec = Math.min(4.5, 1.1 + String(text).length * 0.045); return new Promise((res) => { let done = false; const fin = () => { if (done) return; done = true; S.input.remove(h); res(); }; const h = S.input.push({ modal: true, click: () => { fin(); return true; }, key: () => { fin(); return true; }, down: () => true, dragstart: () => true }); setTimeout(fin, sec * 1000); }); }
 // Isaac physically performs a choice
 async function perform(S, what, e, cam) {
-  const prof = S.prof, home = prof.root.position.clone(), ry0 = prof.root.rotation.y; const foe = S.enemyPos(e, 0);
+  const prof = S.prof, home = (S.profHome || prof.root.position).clone(), ry0 = S.profRy ?? prof.root.rotation.y; const foe = S.enemyPos(e, 0);
   const walkTo = async (to, sec = 0.9) => { const from = prof.root.position.clone(); const ry = Math.atan2(to.x - from.x, to.z - from.z); prof.face(ry); prof.locomote(from.distanceTo(to) / sec); const o = { k: 0 }; await tweens.to(o, { k: 1 }, sec, { ease: 'inOutQuad', onUpdate: () => prof.root.position.lerpVectors(from, to, o.k) }); prof.locomote(0); };
   cam.shot(V(home.x + 2.6, 2.0, home.z + 4.4), V((home.x + foe.x) / 2, 1.3, home.z), { speed: 3, fov: 32 });
   if (what === 'grab' || what === 'give') {

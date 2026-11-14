@@ -171,7 +171,7 @@ export class HeldLayer {
   // after it along its path, and the battle resolves the hit as it lands (then the camera eases back)
   async fly(o, mv, foe) {
     const v = this.views.get(o.uid); if (!v) return; const S = this.S; v.flying = true; v.art = mv.art; const prof = S.prof; const cam = S.shotCam;
-    const style = attackStyle(mv); const to = foe ? S.enemyPos(foe) : v.target() || V(3, 1, 0); const pp = prof.root.position;
+    const style = attackStyle(mv); const to = foe ? S.enemyPos(foe) : v.target() || V(3, 1, 0); const pp = S.profHome || prof.root.position;
     S.scene.remove(v.str); for (const t of [v.tag, v.mark, v.mulTag]) t.group.visible = false; v.vigS.target = 0; audio.play('string_pluck', { vol: 0.6 });
     // 1. the push-in (a quick cut on the first throw of a turn, an ease for the rest)
     const first = !this._cutDone; this._cutDone = true; setTimeout(() => { this._cutDone = false; }, 2500);

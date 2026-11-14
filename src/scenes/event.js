@@ -84,7 +84,7 @@ export default class EventScene extends UIScreen {
     // UI
     const W = this.W, H = this.H;
     this.panel = new Panel(ev.title, [ev.text], { w: 15, h: 8.2, titleColor: '#5a1a22' }); uiPos(this.panel.group, W - 8.75, H - 1.0 - this.panel.scroll.h / 2, 2); this.root.add(this.panel.group);
-    this.choiceBtns = ev.choices.map((c, i) => { const ok = !c.if || c.if(run); const b = new Button3D(c.label, () => this.choose(c), { w: 14, h: 1.5, size: 64, sub: c.sub, color: c.slot ? 'purple' : 'wood', disabled: !ok }); return this.addButton(b, W - 8.4, H - 10.9 - i * 1.85, 2); });
+    this.choiceBtns = ev.choices.map((c, i) => { const ok = !c.if || c.if(run); const b = new Button3D(c.label, () => this.choose(c), { w: 11, h: 1.2, size: 64, sub: c.sub, color: c.slot ? 'purple' : 'wood', disabled: !ok }); b.group.scale.setScalar(0.82); return this.addButton(b, W - 8.4, H - 10.4 - i * 2.15, 2); }); // soft clouds, spaced so their puffs never merge
     // the vignette is staged as a cinematic (walk-in, dolly onto the curiosity); the story and the choices wait for it
     this.panel.group.visible = false; for (const b of this.choiceBtns) b.group.visible = false;
     try { this.cine = eventCutscene(this, ev, { onReveal: () => this.revealStory() }) || eventIntro(this, { title: ev.title, text: ev.text, onReveal: () => this.revealStory() }); this.cine.done.then(() => { this.cine = null; }); }

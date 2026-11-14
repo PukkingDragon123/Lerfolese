@@ -191,7 +191,7 @@ export class CloudButton extends Cloud3D {
     this.mesh.userData.button = this; this.text.faceM.userData.button = this; this.hit = this.mesh; this.hitFace = this.text.faceM; this.disabled = false; this.setDisabled(disabled);
   }
   paint() { const subs = this.sub ? wrapSub(this.sub) : []; this.text.set([[[this.label, this.accent]], ...subs.map((l) => [[l, '#5a4a5a']])], { fonts: ['head', ...subs.map(() => 'tiny')] }); this.text.show(); this.text.place(0, 0, 0); this.text.group.position.set(0, 0, this.h * 0.48); this.text.group.scale.setScalar(1);
-    const need = this.text.w + this.h * 0.6; if (need > this.w || this.text.h + 0.3 > this.h) this.resize(Math.max(this.w, need), Math.max(this.h, this.text.h + 0.35)); if (this.text.faceM) { this.text.faceM.userData.button = this; this.hitFace = this.text.faceM; } }
+    const need = this.text.w + this.h * 0.6; if (need > this.w || this.text.h + 0.3 > this.h) this.resize(Math.max(this.w, need), Math.max(this.h, this.text.h + 0.35)); this.text.group.position.z = this.h * 0.62 + 0.15; /* always in front of the puffs */ if (this.text.faceM) { this.text.faceM.userData.button = this; this.hitFace = this.text.faceM; } }
   setLabel(label, sub = this.sub) { if (label === this.label && sub === this.sub) return; this.label = label; this.sub = sub; this.paint(); }
   setDisabled(d) { d = !!d; this.disabled = d; this.mesh.material.color.setScalar(d ? 0.6 : 1); this.restRz = d ? 0.25 : 0; }
   update(dt, p) { super.update(dt, this.disabled ? null : p); this.text.update(dt); }
@@ -238,7 +238,7 @@ export class CloudTip {
     const maxW = Math.round((o.maxW || this.opts.maxW || 13) * 20); const out = [];
     for (const l of (Array.isArray(lines) ? lines : [lines])) { const runs = typeof l === 'string' ? [[l, '#2a160c']] : l; const txt = runs.map((r) => String(r[0] ?? '')).join(''); if (measure(txt, 'body') <= maxW) { out.push(runs); continue; } for (const w of wrapLines(txt, maxW)) out.push([[w, runs[runs.length - 1][1]]]); }
     this.T.set(out.slice(0, 9), { fonts: out.slice(0, 9).map((_, i) => (i === 0 ? 'head' : 'body')) }); this.T.show(); this.T.group.position.set(0, 0, 0.42); this.T.group.scale.setScalar(1);
-    this.C.resize(this.T.w + 0.9, this.T.h + 0.55); const W = this.E?.uiW ?? 20, H = this.E?.uiH ?? 11; const cx = Math.max(-W + this.C.w / 2 + 0.4, Math.min(W - this.C.w / 2 - 0.4, x)), cy = Math.max(-H + this.C.h / 2 + 0.4, Math.min(H - this.C.h / 2 - 0.4, y));
+    this.C.resize(this.T.w + 0.9, this.T.h + 0.55); this.T.group.position.z = this.C.h * 0.62 + 0.15; const W = this.E?.uiW ?? 20, H = this.E?.uiH ?? 11; const cx = Math.max(-W + this.C.w / 2 + 0.4, Math.min(W - this.C.w / 2 - 0.4, x)), cy = Math.max(-H + this.C.h / 2 + 0.4, Math.min(H - this.C.h / 2 - 0.4, y));
     uiPos(this.C.group, cx, cy, z); this.C.group.scale.setScalar((40 - z) / 40); if (!this.on) { this.st.value = 0.2; audio.play('whoosh_soft', { vol: 0.15, minGap: 120 }); } this.on = true; this.st.target = 1; this.C.group.visible = true;
   }
   hide() { this.on = false; this.st.target = 0; this.T.hide(); }
@@ -257,7 +257,7 @@ export class CloudPanel {
     const maxW = Math.round((this.w - 1.4) / Math.max(0.02, this.T.k || 0.06) * 0.98) || 220; const out = [[[title, titleColor]]];
     for (const l of lines) { const runs = typeof l === 'string' ? [[l, '#2a160c']] : l; const txt = runs.map((r) => r[0]).join(''); for (const w of wrapLines(txt, Math.min(maxW, 260))) out.push([[w, runs[0][1] || '#2a160c']]); }
     this.T.set(out, { fonts: out.map((_, i) => (i ? 'body' : 'head')) }); this.T.show(); this.T.group.position.set(0, 0, 0.55); this.T.group.scale.setScalar(1);
-    this.C.resize(Math.max(this.w * 0.6, this.T.w + 1.4), this.T.h + 1.0); this.scroll.h = this.C.h;
+    this.C.resize(Math.max(this.w * 0.6, this.T.w + 1.4), this.T.h + 1.0); this.scroll.h = this.C.h; this.T.group.position.z = this.C.h * 0.62 + 0.15;
   }
   update(dt, p) { this.scroll.open.update(dt); this.C.update(dt, p); this.T.update(dt); }
 }

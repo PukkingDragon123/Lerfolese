@@ -480,7 +480,7 @@ export class Battle {
       if (s.hypo) for (const sl of got.slice(0, 1)) for (const c of sl.cards) if (BASICS[c.id]?.kind === 'matter') { c.bm = (c.bm || 0) + s.hypo; await this.fx.hypothesis?.(sl, true); } }
     if (s.scratch) { const pick = await this.chooseSlots({ min: s.scratch, max: s.scratch, title: `Discard ${s.scratch}` }); await this.discardSlots(pick, 'scratch'); }
     if (s.recycle != null) { const pick = await this.chooseSlots({ min: 0, max: 99, title: 'Discard any: draw that many' + (s.recycle ? ' +' + s.recycle : ''), recycle: true }); const n = pick.reduce((k, sl) => k + sl.cards.length, 0); await this.discardSlots(pick, 'recycle'); await this.drawCards(n + (s.recycle || 0)); }
-    await this.fx.selfApplied?.(mv);
+    await this.fx.selfApplied?.(mv); if (this.tutorial) this.tutorial.did?.('self');
   }
   async healPlayer(n) { const P = this.player; const h = Math.min(n, P.maxHp - P.hp); P.hp += h; if (h > 0) this.run.stats.healed = (this.run.stats.healed || 0) + h; await this.fx.heal?.('player', h); } // (achievements: 'win without healing')
   async gainBlock(n, src) { const P = this.player; if (P.st.corrode) n = Math.floor(n / 2); if (P.st.frail) n = Math.floor(n * 0.75); P.block += n; await this.fx.block?.('player', n, src); }
@@ -550,7 +550,7 @@ export class Battle {
 
   // ------------------------------------------------------------------ enemy turn
   async endTurn() {
-    if (this.phase !== 'player') return;
+    if (this.phase !== 'player') return; if (this.tutorial) this.tutorial.did?.('end');
     if (this.held.length) { await this.release(); if (this.checkEnd()) return; } // the bell lets go of everything held in the air
     this.phase = 'enemy';
     const P = this.player;
