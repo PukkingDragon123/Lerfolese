@@ -118,9 +118,9 @@ export function createDog({ seed = 1687 } = {}) {
       st.hopV -= dt * 9; st.hop = Math.max(0, st.hop + st.hopV * dt); if (st.hop === 0) st.hopV = Math.max(0, st.hopV);
       body.position.y = 0.5 - st.sit * 0.12 + Math.abs(Math.sin(st.phase)) * 0.035 * walk * (1 + run) + Math.sin(t * 1.8) * 0.006 + st.hop; body.rotation.x = -st.sit * 0.42 + Math.sin(st.phase * 2) * 0.03 * walk + sn * 0.12; body.position.z = -st.sit * 0.06;
       body.rotation.z = Math.sin(st.phase) * 0.04 * walk;
-      st.wag = damp(st.wag, st.mode === 'pet' ? 1.4 : st.mode === 'return' || st.mode === 'fetch' ? 0.9 : 0.25, 1.2, dt); tail.rotation.y = Math.sin(t * (6 + st.wag * 10)) * 0.5 * st.wag; tail.rotation.x = -0.4 * st.wag - 0.1;
+      st.wag = damp(st.wag, Math.max((st.perk || 0) * 1.2, st.mode === 'pet' ? 1.4 : st.mode === 'return' || st.mode === 'fetch' ? 0.9 : 0.25), 1.2, dt); tail.rotation.y = Math.sin(t * (6 + st.wag * 10)) * 0.5 * st.wag; tail.rotation.x = -0.4 * st.wag - 0.1;
       st.pant = Math.max(0, st.pant - dt); const pant = st.pant > 0 || run > 0.5 ? 1 : 0; tongue.visible = pant > 0 && !st.carry; tongue.scale.y = 1 + Math.sin(t * 14) * 0.15 * pant;
-      neck.rotation.x = sn * (0.75 + Math.sin(t * 9) * 0.06) - st.sit * 0.35 + (st.mode === 'pet' ? -0.35 : 0) - (st.carry ? 0.15 : 0); head.rotation.y = damp(head.rotation.y, sn ? Math.sin(t * 2.3) * 0.35 : Math.sin(t * 0.5) * 0.2, 3, dt); head.rotation.z = st.mode === 'pet' ? Math.sin(t * 2) * 0.18 : 0;
+      neck.rotation.x = sn * (0.75 + Math.sin(t * 9) * 0.06) - st.sit * 0.35 + (st.mode === 'pet' ? -0.35 : 0) - (st.carry ? 0.15 : 0) - (st.perkK = damp(st.perkK || 0, st.perk || 0, 6, dt)) * 0.32; /* perked up: head high, ears lifted with it */ head.rotation.y = damp(head.rotation.y, sn ? Math.sin(t * 2.3) * 0.35 : Math.sin(t * 0.5) * 0.2, 3, dt); head.rotation.z = st.mode === 'pet' ? Math.sin(t * 2) * 0.18 : 0;
       // the coat swings against the motion (a lagged spring on the body's velocity)
       const acc = V(vx, 0, vz).sub(st.lastVel).divideScalar(Math.max(dt, 1e-3)); st.lastVel.set(vx, 0, vz); const local = V(-(acc.x * Math.cos(st.heading) - acc.z * Math.sin(st.heading)), -st.hopV * 0.4, -(acc.x * Math.sin(st.heading) + acc.z * Math.cos(st.heading)));
       st.swing.lerp(local.multiplyScalar(0.012).clampLength(0, 0.08).add(V(0, 0, -st.speed * 0.02)), 1 - Math.exp(-dt * 6));

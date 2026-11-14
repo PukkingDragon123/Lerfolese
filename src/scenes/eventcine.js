@@ -266,7 +266,7 @@ const SCRIPTS = {
     const T = opening(F, 'And in the garden of the Hesperides, golden apples hung like lamps…');
     const er = F.actor('eris'); const land = er ? er.root.position.clone() : H(F, 1.6, -1.6, 0); const sky = land.clone().add(V(0.6, 7, -2));
     if (er) { er.root.visible = false; F.show(T + 1.4, 'eris', true); F.at(T + 1.4, () => { F.puff(sky, 'sparkle', 14); audio.play('magic_shimmer'); }); F.fly(T + 1.4, T + 3.6, 'eris', sky, sky.clone().lerp(land, 0.5).add(V(1.5, 1, 0)), land, { e: ease.out }); }
-    F.shot(T, T + 3.8, () => ({ p: H(F, 4.2, 3.0, 1.2), l: (er ? er.root.position : land).clone().add(V(0, 1.4, 0)), fov: 38 }), { cut: true, rl: 8 }); // from beside the apple's stump, not behind it F.say(T + 0.2, 'Then, out of a clear sky, the goddess of strife came calling.');
+    F.shot(T, T + 3.8, () => ({ p: H(F, 4.2, 3.0, 1.2), l: (er ? er.root.position : land).clone().add(V(0, 1.4, 0)), fov: 38 }), { cut: true, rl: 8 }); /* from beside the apple's stump, not behind it */ F.say(T + 0.2, 'Then, out of a clear sky, the goddess of strife came calling.');
     F.shot(T + 3.8, T + 6.2, F.close('eris', { d: 2.6, side: -0.25, fov: 30 }), { cut: true }); F.card(T + 3.9, 'eris'); F.act(T + 4.0, 'eris', 'laugh'); F.puffAt(T + 4.1, () => F.head('eris').add(V(0.3, -0.5, 0.3)), 'gold', 12);
     F.speak(T + 4.3, 'eris', 'TO THE FAIREST. Do choose. Everyone ELSE will be furious.', 2.8);
     F.shot(T + 6.2, T + 8.4, F.two('newton', 'eris', { d: 2.6 }), { cut: true }); F.speak(T + 6.4, 'newton', 'I recognise the title of my own story.', 2.2);

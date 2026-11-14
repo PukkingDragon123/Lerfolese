@@ -195,7 +195,7 @@ export class PrologueScene extends UIScreen {
     this.warp?.set(0, 1); const sc = new THREE.Scene(); sc.background = new THREE.Color(0xfbf8f0); sc.fog = new THREE.Fog(0xfbf8f0, 30, 120);
     sc.add(new THREE.HemisphereLight(0xffffff, 0xe8e0d0, 1.6)); const key = new THREE.DirectionalLight(0xfff4e0, 1.6); key.position.set(4, 10, 8); key.castShadow = true; key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8 }); sc.add(key);
     const catcher = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.ShadowMaterial({ opacity: 0.12 })); catcher.rotation.x = -Math.PI / 2; catcher.receiveShadow = true; sc.add(catcher);
-    const kid = createKidIsaac(); kid.root.position.set(0.5, 0, 3.4); kid.root.rotation.y = Math.PI * 0.86; // three-quarters to us, looking up at himself sc.add(kid.root); this.actors.push(kid); this.kidW = kid;
+    const kid = createKidIsaac(); kid.root.position.set(0.5, 0, 3.4); kid.root.rotation.y = Math.PI * 0.86; /* three-quarters to us, looking up at himself */ sc.add(kid.root); this.actors.push(kid); this.kidW = kid;
     const cos = createCosmicSelf(); cos.root.scale.setScalar(4.6); cos.root.position.set(0, -2.2, -7.5); cos.setIdleMode?.('still'); sc.add(cos.root); this.actors.push(cos); this.cosmic = cos; cos.setAlpha(0);
     const book = popBook(); book.group.position.set(0, 0, -0.6); sc.add(book.group); this.book = book;
     kid.lookAtWorld(() => cos.headWorld(V()));
@@ -247,7 +247,7 @@ export class PrologueScene extends UIScreen {
     this.face(hero, { d: 1.9, side: 0.7, fov: 30 }); hero.setExpr('shock');
     await this.say('newton', 'I’m… taller. Why am I taller? And floating. Why am I floating?', hero);
     if (dog) dog.pet(); hero.setExpr('delight');
-    this.shot(sp.clone().add(V(2.2, 1.9, 3.4)), sp.clone().lerp(dog ? dog.root.position : sp, 0.5).add(V(0, 0.45, 0)), 38, 0);
+    this.shot(sp.clone().add(V(3.0, 2.0, 4.6)), sp.clone().lerp(dog ? dog.root.position : sp, 0.4).add(V(0, 0.95, 0)), 38, 0);
     await this.say('newton', 'Hello, old fellow. Do you live here? You look like a mop that has seen things.', hero);
     if (dog) { dog.goTo(V(-2.5, 0, 6.5), 1.0); audio.play('dog_bark', { vol: 0.4 }); }
     await this.narr('The old dog wagged, and trotted off up the hill, toward a dome of brass and glass that glowed beneath the stars.');

@@ -14,6 +14,8 @@ import { Note } from '../ui3d/kit.js';
 import { createProfessor } from '../models/professor.js';
 import { buildOrchard, appleTimelapse, makeApple, plaque, SPOTS } from '../models/orchard.js';
 import { createDog } from '../models/dog.js';
+import { prop } from '../models/lowprops.js';
+import * as F from '../models/flora.js';
 import { Critters } from '../gfx/critters.js';
 import * as T from '../models/toon.js';
 import { save } from '../core/save.js';
@@ -64,7 +66,7 @@ export class LoadingScene extends UIScreen {
 
 // ================================================================ GARDEN MENU
 const QUIPS = ['An apple a day keeps the gods away.', 'Every action has an equal and opposite god.', 'Gravity: still undefeated.', 'Halley! Leave the bees alone.'];
-const SHOT = { pos: V(0.6, 2.4, 10.8), look: V(0.1, 2.0, 0.6), fov: 40 };
+const SHOT = { pos: V(0.75, 1.3, 12.2), look: V(0.95, 2.05, 0.6), fov: 31 }; // a low, long-lens hero shot through foreground leaves and grass
 export class MenuScene extends UIScreen {
   async enter({ from = null } = {}) {
     const sc = (this.scene = new THREE.Scene()); const O = (this.O = buildOrchard({ renderer: this.engine.renderer })); sc.add(O.group); sc.fog = O.fog; O.setNight(0.85);
@@ -78,7 +80,6 @@ export class MenuScene extends UIScreen {
       { key: 'gallery', obj: O.objs.telescope, act: () => this.toGallery() },
       { key: 'journal', obj: O.objs.journal, act: () => this.openJournal() },
       { key: 'settings', obj: O.objs.settings, act: () => this.settingsToggle() },
-      { key: 'credits', obj: O.objs.credits, act: () => this.credits() },
     ];
     for (const it of this.items) { it.pop = new Spring(1, 9, 0.32); it.lift = new Spring(0, 14, 0.38); it.wob = new Spring(0, 12, 0.2); it.base = it.obj.position.clone(); it.rotY = it.obj.rotation.y; it.obj.visible = !it.hidden; }
     this.titleDrop = new Spring(from === 'loading' ? 1 : 0, 7, 0.25); this.titleDrop.target = 0;
@@ -91,9 +92,12 @@ export class MenuScene extends UIScreen {
     cr.spawnButterflies?.(4, V(-1, 0.8, 3), 6);
     // Halley the mop dog
     const dog = (this.dog = createDog()); dog.hAt = O.hAt; dog.area = { x: [-4.2, 4.8], z: [0.6, 5.6] }; dog.home = V(1.3, 0, 3.1); dog.root.position.set(2.8, 0, 3.4); dog.st.heading = -0.8; sc.add(dog.root);
-    this.apples = [];
+    // Halley carries the credits in his mouth: a rolled scroll from the low-poly prop kit (click him and he drops it)
+    if (O.objs.credits) O.objs.credits.visible = false; dog.home = V(1.7, 0, 3.0); dog.area = { x: [-2.6, 4.2], z: [1.4, 5.2] };
+    this.scroll = prop('scroll', { L: 0.36, r: 0.034 }); this.scroll.traverse((m) => { if (m.isMesh) m.castShadow = true; }); this.holdScroll();
+    this.apples = []; this.focusK = 0; this.focusP = V(); this.cinematic(sc);
     this.engine.setWorld(sc, this.camera);
-    this.engine.setFx({ bloom: [0.75, 0.6, 0.7], tilt: false, exposure: 1.28, grade: { sat: 1.14, contrast: 1.05, vignette: 0.4, warmth: 0.05, lift: [0.03, 0.028, 0.06], gain: [1.04, 1.02, 1.0] }, ink: { fade: [40, 120] } });
+    this.engine.setFx({ bloom: [0.85, 0.6, 0.66], tilt: false, ao: 0.9, exposure: 1.3, grade: { sat: 1.2, vib: 0.3, contrast: 1.07, vignette: 0.42, warmth: 0.06, lift: [0.026, 0.03, 0.066], gain: [1.05, 1.02, 0.98] }, ink: { fade: [40, 120] } });
     this.engine.add(this); this.pushInput(); audio.setAmbSet(['night', 'stream']); audio.playMusic('menu');
     const j = this.game.journal; this.stats = new Strip([`Loops remembered: ${j.loops} · Star shards: ${save.meta.shards} · Best hit: ${j.bestHit || 0}`], { maxW: 24, font: 'handS', tone: 3 }); uiPos(this.stats.group, 0, -this.H + 0.85, 3); this.root.add(this.stats.group);
     this.note = new Note({ w: 8, h: 1.3, size: 44, tail: true }); this.root.add(this.note.group);
@@ -137,32 +141,57 @@ export class MenuScene extends UIScreen {
     try { const r = await fetch('assets/audio/credits.json'); if (r.ok) { const c = await r.json(); lines.push(`Audio: ${c.length} recordings, CC0 / CC BY. Full list in assets/audio/CREDITS.md`); lines.push(...c.filter((x) => /BY/.test(x.license)).slice(0, 5).map((x) => `"${x.title}" by ${x.author} (${x.license})`)); } } catch (e) { /* */ }
     this.tip.show(lines.slice(0, 9).map((l, i) => [[l, i ? '#2a160c' : '#3a2410']]), 0, 0, 12, { maxW: 26 }); clearTimeout(this._ct); this._ct = setTimeout(() => this.tip.hide(), 9000);
   }
+  holdScroll() { const s = this.scroll; s.removeFromParent(); s.userData.open?.removeFromParent(); s.userData.open = null; s.position.set(0, -0.04, 0.01); s.rotation.set(0, 0, 0); s.visible = true; s.userData.carried = false; s.userData.dropped = false; this.dog.mouth.add(s); }
+  dropScroll() { // he drops it at your feet, it unrolls, and the credits are read off it
+    const s = this.scroll; const p = s.getWorldPosition(V()); this.scene.attach(s); this.dog.pet(); audio.play('paper_rustle', { vol: 0.8 }); this.say('Halley brings the credits. Of course he does.');
+    this.scrollFall = { t: 0, y0: p.y, y1: this.O.hAt(p.x, p.z) }; this.credits(); clearTimeout(this._sct);
+    this._sct = setTimeout(() => { if (this.leaving) return; this.scroll.userData.open?.removeFromParent(); this.scroll.userData.open = null; this.dog.fetch(this.scroll, () => { this.holdScroll(); }); }, 9500);
+  }
+  cinematic(sc) { // foreground framing (apple boughs overhead, grass and flowers at the lens), moon rim light, warm practicals, light shafts
+    const O = this.O; const r = mulberry32(77);
+    for (const [x, z, s, v] of [[-2.7, 8.3, 1.2, 2], [3.9, 7.9, 1.1, 3]]) { const tr = F.tree('apple', { v, s }); tr.position.set(x, O.hAt(x, z), z); tr.rotation.y = x * 1.3; sc.add(tr); }
+    const gs = []; for (let i = 0; i < 1400; i++) { const x = -3.2 + r() * 7.6, z = 7.4 + r() * 4.2; gs.push([x, O.hAt(x, z), z, 0.7 + r() * 0.6]); } const gr = F.celGrass(gs, { seed: 9, lodAt: null }); if (gr) sc.add(gr);
+    for (const k of ['poppy', 'daisy', 'cornflower']) { const fs = []; for (let i = 0; i < 26; i++) { const x = -3 + r() * 7, z = 8 + r() * 3.4; fs.push([x, O.hAt(x, z), z, 0.8 + r() * 0.5]); } try { const f = F.celFlowers(k, fs); if (f) sc.add(f); } catch (e) { /* kind missing */ } }
+    const rim = new THREE.DirectionalLight(0xb4c8ff, 2.6); rim.position.set(-4, 7, -12); sc.add(rim); // a cool moon rim from behind: Newton, Halley and the tree catch silver edges
+    const lp = SPOTS.settings.clone().setY(O.hAt(SPOTS.settings.x, SPOTS.settings.z) + 1.7); const lan = new THREE.PointLight(0xffa048, 5, 6, 1.7); lan.position.copy(lp); sc.add(lan);
+    for (const [x, z] of [[-1.3, 5.2], [2.4, 4.8], [0.4, 7.2]]) { const l = new THREE.PointLight(0xffd068, 1.1, 2.6, 1.8); l.position.set(x, O.hAt(x, z) + 0.45, z); sc.add(l); this.flyLights = (this.flyLights || []).concat(l); }
+    const shaftM = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, uniforms: { uTime: T.WIND.time }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform float uTime; varying vec2 vUv; void main(){ float x = abs(vUv.x * 2.0 - 1.0); float e = pow(1.0 - x, 2.0); float l = smoothstep(0.0, 0.4, vUv.y) * smoothstep(1.0, 0.75, vUv.y); float f = 0.8 + 0.2 * sin(uTime * 0.5 + vUv.y * 5.0); gl_FragColor = vec4(vec3(0.55, 0.66, 1.0) * e * l * f * 0.09, 1.0); }' });
+    for (const [x, z, w] of [[-1.6, -0.4, 0.8], [0.1, -0.8, 1.1], [1.7, -0.2, 0.7]]) { const from = V(x - 1.6, 8.5, z - 3.2), to = V(x + 0.6, O.hAt(x, z + 2), z + 2); const L = from.distanceTo(to); for (const rot of [0, Math.PI / 2]) { const g = new THREE.PlaneGeometry(w, L, 1, 4); const pp = g.attributes.position; for (let i = 0; i < pp.count; i++) { const k = 0.5 - pp.getY(i) / L; pp.setX(i, pp.getX(i) * (1 + k * 1.2)); } g.translate(0, -L / 2, 0); const m = new THREE.Mesh(g, shaftM); m.position.copy(from); m.lookAt(to); m.rotateX(-Math.PI / 2); m.rotateY(rot); m.userData.noInk = true; m.userData.noAO = true; m.onBeforeRender = T.tickWind; sc.add(m); } }
+  }
   say(t) { const p = this.engine.worldToUI(this.prof.headWorld(V())); this.note.show([[[t, '#2a160c']]], p.x + 3, p.y + 1.6, 9); this.prof.talk(1.5); clearTimeout(this._nt); this._nt = setTimeout(() => this.note.hide(), 2600); }
   // ---------------------------------------------------------------- input
   ray() { const r = new THREE.Raycaster(); r.setFromCamera(this.input.ndc, this.camera); return r; }
   pickItem() { if (this.leaving || this.journal?.isOpen) return null; const hits = this.ray().intersectObjects(this.items.filter((it) => !it.hidden).map((it) => it.obj), true); if (!hits.length) return null; let o = hits[0].object; while (o) { const it = this.items.find((x) => x.obj === o); if (it) return it; o = o.parent; } return null; }
-  onMove() { const h = this.pickItem(); if (h !== this.hover) { if (this.hover) this.hover.hover = false; this.hover = h; if (h) { h.hover = true; h.wob.kick?.(6); audio.play('ui_hover', { vol: 0.45 }); if (h.perches) this.critters.scare(h.obj.getWorldPosition(V()).add(V(0, 1.7, 0)), 1.6); } this.engine.renderer.domElement.style.cursor = h ? 'pointer' : ''; } }
+  onMove() { const dh = !this.leaving && !this.journal?.isOpen && this.ray().intersectObject(this.dog.root, true).length > 0; if (dh !== this.dogHover) { this.dogHover = dh; this.dog.st.perk = dh ? 1 : 0; if (dh) audio.play('ui_hover', { vol: 0.35 }); this.engine.renderer.domElement.style.cursor = dh ? 'pointer' : ''; } const h = this.pickItem(); if (h !== this.hover) { if (this.hover) this.hover.hover = false; this.hover = h; if (h) { h.hover = true; h.wob.kick?.(6); audio.play('ui_hover', { vol: 0.45 }); if (h.perches) this.critters.scare(h.obj.getWorldPosition(V()).add(V(0, 1.7, 0)), 1.6); } this.engine.renderer.domElement.style.cursor = h ? 'pointer' : ''; } }
   onKey(e) { const k = e?.key || e?.code || e; if (k === ' ' || k === 'Space' || k === 'a' || k === 'KeyA') { const A = this.dog.area; this.throwApple(V(A.x[0] + Math.random() * (A.x[1] - A.x[0]), 0, A.z[0] + Math.random() * (A.z[1] - A.z[0])).setY(0)); return true; } }
   onClick() {
     if (this.journal?.isOpen || this.leaving) return;
     const it = this.pickItem(); if (it) { it.pop.kick?.(-3); it.wob.kick?.(-8); audio.play('card_place', { vol: 0.6 }); it.act(); return true; }
     const r = this.ray();
-    if (r.intersectObject(this.dog.root, true).length) { this.dog.pet(); audio.play('pop', { vol: 0.4 }); this.say(vpick(['Who is a good old mop? You are.', 'Halley. My only peer reviewer.', 'Good boy.'])); return true; }
+    if (r.intersectObject(this.dog.root, true).length) { if (this.scroll.parent === this.dog.mouth && !this.fetching) { this.dropScroll(); return true; } this.dog.pet(); audio.play('pop', { vol: 0.4 }); this.say(vpick(['Who is a good old mop? You are.', 'Halley. My only peer reviewer.', 'Good boy.'])); return true; }
     if (r.intersectObject(this.prof.root, true).length) { this.say(vpick(QUIPS)); this.prof.act('cheer'); return true; }
     const g = r.intersectObject(this.O.ground, false)[0]; if (g) { const A = this.dog.area; const p = g.point; p.x = Math.max(A.x[0], Math.min(A.x[1], p.x)); p.z = Math.max(A.z[0], Math.min(A.z[1], p.z)); this.throwApple(p.setY(this.O.hAt(p.x, p.z))); return true; }
   }
   update(dt, t) {
-    const { O, prof } = this; O.update(dt, t); prof.update(dt); this.dog.update(dt, t); this.critters.update(dt, t); this.stepApples(Math.min(dt, 0.05));
+    const { O, prof } = this; O.update(dt, t); prof.update(dt); this.dog.update(dt, t);
+    if (this.scroll.parent === this.dog.mouth) this.scroll.visible = !this.fetching;
+    const sf = this.scrollFall; if (sf) { sf.t += dt; const u = Math.min(1, sf.t / 0.45); this.scroll.position.y = sf.y0 + (sf.y1 - sf.y0) * u * u; this.scroll.rotation.x *= 0.9; this.scroll.rotation.z *= 0.9; if (u >= 1) { this.scrollFall = null; audio.play('wood_knock', { vol: 0.25 }); const op = prop('scroll', { L: 0.36, r: 0.034, open: 0.42 }); op.position.copy(this.scroll.position); op.rotation.y = this.scroll.rotation.y; op.scale.z = 0.05; this.scene.add(op); this.scroll.userData.open = op; this.scroll.visible = false; this.unroll = 0; } }
+    if (this.scroll.userData.open && this.unroll < 1) { this.unroll = Math.min(1, this.unroll + dt * 1.6); this.scroll.userData.open.scale.z = 0.05 + 0.95 * (1 - (1 - this.unroll) ** 3); }
+    if (this.scroll.userData.open == null && !this.scrollFall && this.scroll.parent !== this.dog.mouth) this.scroll.visible = true;
+    for (const [i, l] of (this.flyLights || []).entries()) l.intensity = 0.7 + 0.5 * Math.max(0, Math.sin(t * (1.3 + i * 0.4) + i * 2)); this.critters.update(dt, t); this.stepApples(Math.min(dt, 0.05));
     // camera: gentle parallax; or the exits (tilt up into the night sky, or walk to the telescope / observatory)
     const nd = this.input.ndc;
     if (this.leaving === 'sky' || this.leaving === 'gallery') {
       const u = ease5((performance.now() - this.leaveT) / 1700); const f = this.leaveFrom;
-      if (this.leaving === 'sky') { this.camera.position.copy(f.pos).lerp(V(0.4, 1.4, 8.6), u); this.look.copy(f.look).lerp(V(0.2, 40, -6), u); O.setNight(0.85 + 0.15 * u); this.camera.fov = 40 + 12 * u; }
-      else { const tp = SPOTS.telescope; this.camera.position.copy(f.pos).lerp(V(tp.x + 0.9, 1.9, tp.z + 1.6), u); this.look.copy(f.look).lerp(V(tp.x, 1.7, tp.z), u); this.camera.fov = 40 - 14 * u; }
+      if (this.leaving === 'sky') { this.camera.position.copy(f.pos).lerp(V(0.4, 1.4, 8.6), u); this.look.copy(f.look).lerp(V(0.2, 40, -6), u); O.setNight(0.85 + 0.15 * u); this.camera.fov = SHOT.fov + 20 * u; }
+      else { const tp = SPOTS.telescope; this.camera.position.copy(f.pos).lerp(V(tp.x + 0.9, 1.9, tp.z + 1.6), u); this.look.copy(f.look).lerp(V(tp.x, 1.7, tp.z), u); this.camera.fov = SHOT.fov - 5 * u; }
       this.camera.updateProjectionMatrix();
       if (u >= 1 && !this.left) { this.left = true; if (this.leaving === 'sky') this.game.toSky(); else this.game.toGallery(); }
     } else if (!this.leaving) {
-      this.camera.position.lerp(V(SHOT.pos.x + Math.sin(t * 0.12) * 0.35 + nd.x * 0.45, SHOT.pos.y + nd.y * 0.25, SHOT.pos.z), Math.min(1, dt * 2.5)); this.look.copy(SHOT.look);
+      const hv = this.hover ? this.hover.obj.getWorldPosition(V()) : this.dogHover ? this.dog.root.position : null; this.focusK += ((hv ? 1 : 0) - this.focusK) * Math.min(1, dt * 1.8); if (hv) this.focusP.lerp(hv, Math.min(1, dt * 3));
+      const ease2 = this.focusK * this.focusK * (3 - 2 * this.focusK); const drift = V(Math.sin(t * 0.11) * 0.32 + nd.x * 0.3, Math.sin(t * 0.083) * 0.07 + nd.y * 0.14, Math.sin(t * 0.06) * 0.4);
+      this.camera.position.lerp(SHOT.pos.clone().add(drift).add(this.focusP.clone().sub(SHOT.pos).multiplyScalar(0.14 * ease2)), Math.min(1, dt * 2.2)); this.look.copy(SHOT.look).lerp(this.focusP.clone().add(V(0, 0.9, 0)), 0.24 * ease2);
       if (Math.abs(this.camera.fov - SHOT.fov) > 0.01) { this.camera.fov += (SHOT.fov - this.camera.fov) * Math.min(1, dt * 4); this.camera.updateProjectionMatrix(); }
     }
     if (this.camOverride) { this.camera.position.copy(this.camOverride.pos); this.look.copy(this.camOverride.look); }
