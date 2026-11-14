@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import * as T from './toon.js';
 import { mulberry32 } from '../core/util.js';
+import { leafTex, barkTex as pixelBark } from '../gfx/pixeltex.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
@@ -73,87 +74,9 @@ function clump(F, c, R, n, size, cc, r, { lit = 0.6, flat = false, droop = 0 } =
   }
 }
 
-// ---------------------------------------------------------------- painted leaf-spray atlases (flat cel fills, a lit half, tinted rim)
-const LEAF = {
-  olive: { pal: ['#3d5634', '#5f7c4a', '#93a877', '#c6d0a2'], line: '#24321c', shape: 'lance', n: 150, len: [26, 38], wid: 0.2, twig: '#5c4632' },
-  oak: { pal: ['#2c5a22', '#4a8a2e', '#7eb444', '#bcdc68'], line: '#183212', shape: 'lobed', n: 85, len: [30, 44], wid: 0.42, twig: '#4a3626' },
-  laurel: { pal: ['#2a4e26', '#3f7232', '#6c9c48', '#a8c870'], line: '#152a12', shape: 'lance', n: 110, len: [30, 44], wid: 0.3, twig: '#4a3626' },
-  apple: { pal: ['#2e5a24', '#4c8a30', '#80b448', '#bede70'], line: '#1a3414', shape: 'oval', n: 100, len: [24, 34], wid: 0.45, twig: '#4a3626', fruit: ['#b81e1a', '#e8402a', '#ff9a6a'], fruitN: 5 },
-  golden: { pal: ['#2c5222', '#46802c', '#78ac42', '#b6d468'], line: '#183012', shape: 'oval', n: 95, len: [24, 34], wid: 0.42, twig: '#4a3626', fruit: ['#b07a10', '#f0b828', '#fff2a0'], fruitN: 4 },
-  pine: { pal: ['#22482e', '#36683a', '#5c9446', '#9cc66a'], line: '#10261a', shape: 'needle', n: 34, twig: '#6a4630' },
-  fir: { pal: ['#1a3c30', '#2a5a40', '#468048', '#7aa860'], line: '#0c2018', shape: 'fishbone', n: 7, twig: '#4a3626' },
-  cypress: { pal: ['#1c3826', '#2e5630', '#4c7c3a', '#80a858'], line: '#0e1e14', shape: 'scale', n: 9, twig: '#3a2a1e' },
-  bush: { pal: ['#2c5224', '#45782e', '#74a844', '#b2d26a'], line: '#183012', shape: 'oval', n: 150, len: [16, 22], wid: 0.5, twig: '#4a3626' },
-  oleander: { pal: ['#2a4e26', '#3f7232', '#6c9c48', '#a8c870'], line: '#152a12', shape: 'lance', n: 100, len: [26, 36], wid: 0.22, twig: '#4a3626', bloom: ['#c23a6a', '#ee6a98', '#ffc2d6'], bloomN: 9 },
-  broom: { pal: ['#3a5a20', '#5a8a2a', '#8ab83a', '#c8e070'], line: '#1e3010', shape: 'needle', n: 16, twig: '#4a5a2a', bloom: ['#d89a10', '#f8cc28', '#fff0a0'], bloomN: 16, small: true },
-  myrtle: { pal: ['#24461e', '#3a6a2a', '#62983e', '#a0c868'], line: '#132810', shape: 'oval', n: 170, len: [12, 18], wid: 0.48, twig: '#3e2e20', bloom: ['#e8e0d0', '#fffaf0', '#ffffff'], bloomN: 10, small: true },
-  vine: { pal: ['#2a5a22', '#468c2e', '#7ab842', '#b8dc66'], line: '#163012', shape: 'lobed', n: 70, len: [26, 36], wid: 0.6, twig: '#5a4028', fruit: ['#3a1a4a', '#6a2a7a', '#a86ab8'], fruitN: 3 },
-};
-function leafPath(shape, len, wid) {
-  const p = new Path2D(); const w = len * wid;
-  if (shape === 'lobed') { const N = 26; const pts = []; for (let i = 0; i <= N; i++) { const t = i / N; const hw = w * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.05)), 0.8) * (0.72 + 0.28 * Math.cos(t * Math.PI * 8)); pts.push([t * len, hw]); } p.moveTo(0, 0); for (const [x, y] of pts) p.lineTo(x, -y); for (let i = pts.length - 1; i >= 0; i--) p.lineTo(pts[i][0], pts[i][1]); p.closePath(); return p; }
-  const k = shape === 'oval' ? 0.5 : 0.36; p.moveTo(0, 0); p.quadraticCurveTo(len * k, -w * 1.4, len, 0); p.quadraticCurveTo(len * k, w * 1.4, 0, 0); p.closePath(); return p;
-}
-const ATLAS = new Map();
-export function leafAtlas(kind) {
-  if (ATLAS.has(kind)) return ATLAS.get(kind);
-  const L = LEAF[kind] || LEAF.oak; const S = 256; const cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d'); const r = mulberry32(kind.length * 977 + kind.charCodeAt(0));
-  const tone = (y) => { const k = clamp(1 - y / S + (r() - 0.5) * 0.55, 0, 1); return k < 0.3 ? [0, 1] : k < 0.62 ? [1, 2] : [2, 3]; };
-  const twig = (x0, y0, a, len, w) => { g.strokeStyle = L.twig; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x0 + Math.cos(a + 0.2) * len * 0.5, y0 + Math.sin(a + 0.2) * len * 0.5, x0 + Math.cos(a) * len, y0 + Math.sin(a) * len); g.stroke(); };
-  const leaf = (x, y, a, len, wid, shape) => {
-    const [d, l] = tone(y); const path = leafPath(shape, len, wid);
-    g.save(); g.translate(x, y); g.rotate(a); g.fillStyle = L.pal[d]; g.fill(path);
-    g.save(); g.clip(path); g.fillStyle = L.pal[l]; g.fillRect(0, -len, len * 1.2, len * 0.98); g.restore();
-    g.strokeStyle = L.line; g.lineWidth = 1.5; g.stroke(path);
-    g.strokeStyle = L.pal[Math.max(0, d)]; g.lineWidth = 1; g.beginPath(); g.moveTo(len * 0.08, 0); g.lineTo(len * 0.82, 0); g.stroke(); g.restore();
-  };
-  const c = S / 2;
-  if (L.shape === 'needle') { // pine fascicles: fans of needles on short twigs, outlined first so the spray reads as one silhouette
-    const fans = []; for (let i = 0; i < L.n; i++) { const a = r() * Math.PI * 2, d = Math.pow(r(), 0.6) * S * 0.3; fans.push([c + Math.cos(a) * d, c + Math.sin(a) * d, a + (r() - 0.5) * 0.8]); }
-    for (const [x, y, a] of fans) twig(c, c, Math.atan2(y - c, x - c), Math.hypot(x - c, y - c), 3);
-    const nd = (pass) => { for (const [x, y, a] of fans) { const [dk, lt] = tone(y); for (let k = 0; k < 15; k++) { const b = a + (k / 14 - 0.5) * 1.9; const len = (L.small ? 18 : 30) + r() * 12; g.strokeStyle = pass ? L.pal[k % 3 ? lt : dk] : L.line; g.lineWidth = pass ? 2 : 4; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(b) * len, y + Math.sin(b) * len); g.stroke(); } } };
-    const r0 = r; nd(0); nd(1); void r0;
-  } else if (L.shape === 'fishbone') { // fir: flat needle sprays along forking twigs
-    const sprig = (x, y, a, len, depth) => {
-      const ex = x + Math.cos(a) * len, ey = y + Math.sin(a) * len; const steps = Math.floor(len / 5);
-      for (const pass of [0, 1]) { for (let i = 1; i <= steps; i++) { const t = i / steps; const px = x + (ex - x) * t, py = y + (ey - y) * t; const nl = 13 * (1 - t * 0.5); for (const sd of [-1, 1]) { const b = a + sd * 1.05; g.strokeStyle = pass ? L.pal[tone(py)[sd > 0 ? 1 : 0]] : L.line; g.lineWidth = pass ? 2.2 : 4.2; g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(b) * nl, py + Math.sin(b) * nl); g.stroke(); } } }
-      g.strokeStyle = L.twig; g.lineWidth = 2; g.beginPath(); g.moveTo(x, y); g.lineTo(ex, ey); g.stroke();
-      if (depth > 0) for (let k = 0; k < 3; k++) { const t = 0.3 + k * 0.22; sprig(x + (ex - x) * t, y + (ey - y) * t, a + (k % 2 ? 0.7 : -0.7), len * 0.45, depth - 1); }
-    };
-    for (let i = 0; i < L.n; i++) sprig(c, c, (i / L.n) * Math.PI * 2 + r() * 0.4, S * 0.4, 1);
-  } else if (L.shape === 'scale') { // cypress: dense scale-leaf fronds branching fractally
-    const frond = (x, y, a, len, w, depth, pass) => {
-      const ex = x + Math.cos(a) * len, ey = y + Math.sin(a) * len; g.strokeStyle = pass ? L.pal[tone(ey)[depth % 2]] : L.line; g.lineWidth = pass ? w : w + 3; g.lineCap = 'round';
-      g.beginPath(); g.moveTo(x, y); g.lineTo(ex, ey); g.stroke(); if (depth <= 0) return;
-      for (let k = 1; k <= 4; k++) { const t = k / 5; frond(x + (ex - x) * t, y + (ey - y) * t, a + (k % 2 ? 0.75 : -0.75), len * 0.42, Math.max(2.5, w * 0.72), depth - 1, pass); }
-    };
-    const rs = []; for (let i = 0; i < L.n; i++) rs.push([(i / L.n) * Math.PI * 2 + r() * 0.5, S * (0.3 + r() * 0.12)]);
-    for (const pass of [0, 1]) for (const [a, len] of rs) frond(c, c, a, len, 7, 2, pass);
-  } else { // broadleaves on twigs
-    const twigs = []; const nT = 6; for (let i = 0; i < nT; i++) { const a = (i / nT) * Math.PI * 2 + r() * 0.6; const len = S * (0.32 + r() * 0.1); twigs.push([a, len]); twig(c, c, a, len, 3); }
-    for (let i = 0; i < L.n; i++) { const [a, len] = twigs[i % nT]; const t = 0.15 + r() * 0.85; const x = c + Math.cos(a) * len * t + (r() - 0.5) * 10, y = c + Math.sin(a) * len * t + (r() - 0.5) * 10; const la = a + (r() < 0.5 ? -1 : 1) * (0.5 + r() * 0.7); leaf(x, y, la, L.len[0] + r() * (L.len[1] - L.len[0]), L.wid, L.shape); }
-  }
-  const dot = (x, y, rad, cols) => { g.fillStyle = L.line; g.beginPath(); g.arc(x, y, rad + 1.4, 0, Math.PI * 2); g.fill(); g.fillStyle = cols[0]; g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fill(); g.fillStyle = cols[1]; g.beginPath(); g.arc(x - rad * 0.2, y - rad * 0.2, rad * 0.72, 0, Math.PI * 2); g.fill(); g.fillStyle = cols[2]; g.beginPath(); g.arc(x - rad * 0.38, y - rad * 0.4, rad * 0.26, 0, Math.PI * 2); g.fill(); };
-  if (L.fruit) for (let i = 0; i < L.fruitN; i++) { const a = r() * 6.28, d = 20 + r() * 70; dot(c + Math.cos(a) * d, c + Math.sin(a) * d, 9 + r() * 3, L.fruit); }
-  if (L.bloom) for (let i = 0; i < L.bloomN; i++) { // five-petal blossoms
-    const a = r() * 6.28, d = 14 + r() * 82; const x = c + Math.cos(a) * d, y = c + Math.sin(a) * d; const pr = L.small ? 5 : 8;
-    for (let k = 0; k < 5; k++) { const b = (k / 5) * Math.PI * 2 + a; g.fillStyle = L.line; g.beginPath(); g.arc(x + Math.cos(b) * pr * 0.8, y + Math.sin(b) * pr * 0.8, pr * 0.72, 0, Math.PI * 2); g.fill(); }
-    for (let k = 0; k < 5; k++) { const b = (k / 5) * Math.PI * 2 + a; g.fillStyle = L.bloom[k < 2 ? 0 : 1]; g.beginPath(); g.arc(x + Math.cos(b) * pr * 0.8, y + Math.sin(b) * pr * 0.8, pr * 0.58, 0, Math.PI * 2); g.fill(); }
-    g.fillStyle = L.bloom[2]; g.beginPath(); g.arc(x, y, pr * 0.32, 0, Math.PI * 2); g.fill();
-  }
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; ATLAS.set(kind, t); return t;
-}
-// bark: vertical cel strips, plates and dark fissures
-const BARK = { olive: ['#4e4034', '#6e5c4a', '#93806a', '#2a2018'], oak: ['#3e3026', '#5c4a3a', '#7e6a54', '#1e160f'], pine: ['#5a3424', '#8a5236', '#b4744c', '#2a160e'], fir: ['#3a2a22', '#56402e', '#76583e', '#1c120c'], cypress: ['#4a3426', '#6a4a34', '#8a6646', '#24180f'], wood: ['#5e4630', '#806246', '#a4845e', '#2e2016'] };
-const BARKTEX = new Map();
-function barkTex(kind) {
-  if (BARKTEX.has(kind)) return BARKTEX.get(kind); const P = BARK[kind] || BARK.oak; const W = 128, H = 256; const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); const r = mulberry32(kind.length * 31 + 5);
-  g.fillStyle = P[1]; g.fillRect(0, 0, W, H);
-  if (kind === 'pine') { for (let i = 0; i < 70; i++) { const x = r() * W, y = r() * H, w = 14 + r() * 18, h = 20 + r() * 30; g.fillStyle = P[3]; g.fillRect(x - 2, y - 2, w + 4, h + 4); g.fillStyle = P[r() < 0.5 ? 1 : 2]; g.fillRect(x, y, w, h); g.fillStyle = P[0]; g.fillRect(x, y + h * 0.65, w, h * 0.35); } }
-  else for (let i = 0; i < 60; i++) { const x = r() * W, w = 3 + r() * 9, y = r() * H, h = 30 + r() * 120; g.fillStyle = P[r() < 0.45 ? 2 : 0]; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + w * 1.4, y + h / 2, x + (r() - 0.5) * 6, y + h); g.lineTo(x + w, y + h); g.quadraticCurveTo(x + w * 2.2, y + h / 2, x + w, y); g.fill(); }
-  g.strokeStyle = P[3]; g.lineCap = 'round'; for (let i = 0; i < 22; i++) { const x = r() * W, y = r() * H; g.lineWidth = 1.5 + r() * 2; g.beginPath(); g.moveTo(x, y); g.bezierCurveTo(x + (r() - 0.5) * 12, y + 20, x + (r() - 0.5) * 12, y + 40, x + (r() - 0.5) * 8, y + 50 + r() * 50); g.stroke(); }
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; BARKTEX.set(kind, t); return t;
-}
+// ---------------------------------------------------------------- pixel-art leaf-spray cards and bark (src/gfx/art/leaves.js, tiles.js)
+export const leafAtlas = (kind) => leafTex(kind);
+const barkTex = (kind) => pixelBark(kind);
 
 // ---------------------------------------------------------------- materials (sway shared by wood and leaves so they stay together)
 const SWAY = `
@@ -387,7 +310,8 @@ const GRASS_FRAG = `
 const GRASS_HEAD = 'uniform float uTime; uniform vec2 uWindDir; uniform float uWindAmp; uniform vec3 uPtr; uniform float uPtrR; uniform float uPtrK; uniform float uFlex; uniform vec4 uPush[6];\n';
 const PUSHER_RX = /^(professor|satyr|kobalos|medusa|minotaur|hydra|centaur|harpy|cyclops|wolf|chimera|talos|spartoi)/;
 let pushScan = 0, pushList = [];
-function updatePushers(scene) {
+export const GRASS_PUSH = PUSH;
+export function updatePushers(scene) {
   const now = performance.now(); if (now - pushScan > 1000) { pushScan = now; pushList = scene?.userData.grassPushers || (scene ? scene.children.filter((o) => o.userData.grassPush || PUSHER_RX.test(o.name || '')) : []); }
   const p = new THREE.Vector3(); for (let i = 0; i < 6; i++) { const o = pushList[i]; if (o && o.visible) { o.getWorldPosition(p); PUSH[i].set(p.x, p.y, p.z, o.userData.grassPushR || 0.9); } else PUSH[i].w = 0; }
 }

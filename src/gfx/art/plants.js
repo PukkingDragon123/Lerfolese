@@ -37,22 +37,23 @@ const qb = (p0, p1, p2, n) => { const o = []; for (let i = 0; i <= n; i++) { con
 const clean = (p) => { if (p.length < 3) return p; const o = [p[0]]; for (let i = 1; i < p.length - 1; i++) { const a = o[o.length - 1], c = p[i + 1]; if (Math.abs(a[0] - c[0]) === 1 && Math.abs(a[1] - c[1]) === 1) continue; o.push(p[i]); } o.push(p[p.length - 1]); return o; };
 
 // ---------------------------------------------------------------- a tone buffer: ramp id + tone per pixel, element ids for shadows
-class Buf {
-  constructor(w, h, amp) {
-    Object.assign(this, { w, h, amp, bend: 0, base: h - 1, H: h }); const n = w * h;
+export class Buf {
+  constructor(w, h, amp = 0, { wrap = false } = {}) {
+    Object.assign(this, { w, h, amp, wrap, bend: 0, base: h - 1, H: h }); const n = w * h;
     this.r = new Int16Array(n).fill(-1); this.t = new Int8Array(n); this.e = new Int32Array(n).fill(-1); this.sh = new Uint8Array(n);
     this.ramps = []; this.eid = -1; this.flags = []; this.cur = null;
   }
   rid(R) { let i = this.ramps.indexOf(R); if (i < 0) { i = this.ramps.length; this.ramps.push(R); } return i; }
   // the wind: x shifts with the square of the height above the ground row
   B(x, y) { const k = clamp((this.base - y) / this.H, 0, 1.2); return x + this.bend * this.amp * k * k; }
-  px(x, y, R, t) { x = Math.floor(x); y = Math.floor(y); if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; const i = y * this.w + x; this.r[i] = this.rid(R); this.t[i] = clamp(Math.round(t), 0, R.length - 1); this.e[i] = this.eid; this.sh[i] = 0; if (this.cur) this.cur.add(i); }
-  at(x, y) { x = Math.floor(x); y = Math.floor(y); if (x < 0 || y < 0 || x >= this.w || y >= this.h) return -1; const i = y * this.w + x; return this.r[i] < 0 ? -1 : this.t[i]; }
-  shift(x, y, d) { x = Math.floor(x); y = Math.floor(y); if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; const i = y * this.w + x; if (this.r[i] >= 0) this.t[i] = clamp(this.t[i] + d, 0, this.ramps[this.r[i]].length - 1); }
+  W(x, y) { x = Math.floor(x); y = Math.floor(y); if (this.wrap) { x = ((x % this.w) + this.w) % this.w; y = ((y % this.h) + this.h) % this.h; } return [x, y]; }
+  px(x, y, R, t) { [x, y] = this.W(x, y); if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; const i = y * this.w + x; this.r[i] = this.rid(R); this.t[i] = clamp(Math.round(t), 0, R.length - 1); this.e[i] = this.eid; this.sh[i] = 0; if (this.cur) this.cur.add(i); }
+  at(x, y) { [x, y] = this.W(x, y); if (x < 0 || y < 0 || x >= this.w || y >= this.h) return -1; const i = y * this.w + x; return this.r[i] < 0 ? -1 : this.t[i]; }
+  shift(x, y, d) { [x, y] = this.W(x, y); if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; const i = y * this.w + x; if (this.r[i] >= 0) this.t[i] = clamp(this.t[i] + d, 0, this.ramps[this.r[i]].length - 1); }
   // one element (blade, leaf, head...): afterwards it casts a 1px shadow down-right onto earlier elements
   el(fn, { shadow = 1, ol = true } = {}) {
     this.eid++; this.flags[this.eid] = ol; this.cur = new Set(); fn(); const cur = this.cur; this.cur = null; if (!shadow) return;
-    for (const i of cur) { const x = i % this.w, y = (i / this.w) | 0; for (const [dx, dy] of [[1, 0], [1, 1], [0, 1]]) { const X = x + dx, Y = y + dy; if (X >= this.w || Y >= this.h) continue; const j = Y * this.w + X; if (this.r[j] < 0 || this.e[j] === this.eid || this.sh[j]) continue; this.sh[j] = 1; this.t[j] = Math.max(Math.min(this.t[j], 1), this.t[j] - shadow); } }
+    for (const i of cur) { const x = i % this.w, y = (i / this.w) | 0; for (const [dx, dy] of [[1, 0], [1, 1], [0, 1]]) { let X = x + dx, Y = y + dy; if (this.wrap) { X %= this.w; Y %= this.h; } if (X >= this.w || Y >= this.h) continue; const j = Y * this.w + X; if (this.r[j] < 0 || this.e[j] === this.eid || this.sh[j]) continue; this.sh[j] = 1; this.t[j] = Math.max(Math.min(this.t[j], 1), this.t[j] - shadow); } }
   }
   curve(p0, p1, p2) { const L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) + Math.hypot(p2[0] - p1[0], p2[1] - p1[1]); return qb(p0, p1, p2, Math.max(2, Math.ceil(L * 3))).map(([x, y]) => [this.B(x, y), y]); }
   polyline(pts) { const o = []; for (let i = 0; i + 1 < pts.length; i++) { const [a, b] = [pts[i], pts[i + 1]]; const n = Math.max(2, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) * 3)); for (let k = i ? 1 : 0; k <= n; k++) { const x = lerp(a[0], b[0], k / n), y = lerp(a[1], b[1], k / n); o.push([this.B(x, y), y]); } } return o; }
@@ -105,11 +106,12 @@ class Buf {
   outline() { // tinted dark outline on the shadow side (right / below the shape) only
     const { w, h } = this; const add = [];
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const i = y * w + x; if (this.r[i] >= 0) continue; const L = x > 0 ? i - 1 : -1, U = y > 0 ? i - w : -1;
+      const i = y * w + x; if (this.r[i] >= 0) continue; const L = x > 0 ? i - 1 : this.wrap ? i + w - 1 : -1, U = y > 0 ? i - w : this.wrap ? i + (h - 1) * w : -1;
       const src = L >= 0 && this.r[L] >= 0 && this.flags[this.e[L]] ? L : U >= 0 && this.r[U] >= 0 && this.flags[this.e[U]] ? U : -1; if (src >= 0) add.push(i, this.r[src]);
     }
     for (let k = 0; k < add.length; k += 2) { this.r[add[k]] = add[k + 1]; this.t[add[k]] = 0; this.e[add[k]] = -1; }
   }
+  fill(R, t) { for (let i = 0; i < this.r.length; i++) { this.r[i] = this.rid(R); this.t[i] = t; this.e[i] = -1; } }
   canvas() { const pc = new PixelCanvas(this.w, this.h); for (let i = 0; i < this.r.length; i++) if (this.r[i] >= 0) pc.px(i % this.w, (i / this.w) | 0, this.ramps[this.r[i]][this.t[i]]); return pc; }
 }
 
@@ -167,6 +169,22 @@ function chamomile(S, r) {
   const cx = S.w / 2; for (let i = 0; i < 9; i++) S.el(() => sprig(S, cx + (r() - 0.5) * 14, 4 + r() * 5, (r() - 0.5) * 6, PR.meadow, i < 4 ? -1 : 0));
   const heads = []; for (let i = 0; i < 6; i++) { const bx = cx + (r() - 0.5) * 8, h = 9 + r() * 10; let pts; S.el(() => { pts = S.stem(bx, S.base, h, (bx - cx) * 0.8 + (r() - 0.5) * 5, PR.meadow); }, { shadow: 0 }); heads.push([pts[pts.length - 1], r() < 0.6 ? 'big' : r() < 0.6 ? 'small' : 'bud']); }
   heads.sort((a, b) => a[0][1] - b[0][1]); for (const [t, k] of heads) S.el(() => S.stamp(DAISY[k], t[0], t[1], PR.white, DAISY_MAP));
+}
+const BUTTER = { big: S_(['.454.', '45y43', '.343.'], 2, 2), small: S_(['45', '32'], 1, 1) };
+function buttercup(S, r) {
+  const cx = S.w / 2; for (let i = 0; i < 5; i++) { const bx = cx + (r() - 0.5) * 10; S.el(() => S.leaf(bx, S.base, bx + (bx - cx) * 0.8 + (r() - 0.5) * 3, S.base - 3 - r() * 3, 1.3, PR.meadow, i < 2 ? -1 : 0)); }
+  const heads = []; for (let i = 0; i < 5; i++) { const bx = cx + (r() - 0.5) * 7, h = 8 + r() * 9; let pts; S.el(() => { pts = S.stem(bx, S.base, h, (bx - cx) * 1.1 + (r() - 0.5) * 4, PR.meadow); }, { shadow: 0 }); heads.push([pts[pts.length - 1], r() < 0.6 ? 'big' : 'small']); }
+  heads.sort((a, b) => a[0][1] - b[0][1]); for (const [t, k] of heads) S.el(() => S.stamp(BUTTER[k], t[0], t[1], PR.gold, { y: [PR.amber, 2] }));
+}
+const NARC = S_(['.5.5.', '54545', '.oOo.', '45o54', '.4.4.'], 2, 3);
+function narcissus(S, r) {
+  const cx = S.w / 2; tufts(S, PR.sage, fan(r, 6, cx, [9, 16], 6, -1, () => 1.6, 0.9)); const heads = [];
+  for (let i = 0; i < 3; i++) { const bx = cx + (i - 1) * 2.5, h = 16 + r() * 6; let pts; S.el(() => { pts = S.stem(bx, S.base, h, (i - 1) * 3 + (r() - 0.5) * 2, PR.sage, { t0: 2, t1: 3, droop: 0.4 }); }, { shadow: 0 }); heads.push(pts[pts.length - 1]); }
+  for (const t of heads) S.el(() => S.stamp(NARC, t[0], t[1], PR.white, { o: [PR.amber, 4], O: [PR.amber, 5] }));
+  tufts(S, PR.sage, fan(r, 3, cx, [6, 10], 8, 0, () => 1.6, 1.1));
+}
+function grassWide(S, r, R = PR.grass) { // three sub-tufts in one sprite: dense layered cover with fewer instances
+  for (const [fx, k, sh] of [[0.3, 0.8, -1], [0.72, 0.85, -1], [0.5, 1, 0], [0.2, 0.6, 0], [0.82, 0.62, 0]]) { const cx = S.w * fx; tufts(S, R, fan(r, sh < 0 ? 5 : 6, cx, [6 * k, 22 * k], 5, sh, () => (sh < 0 ? 1.6 : r() < 0.3 ? 2.6 : 2), 1.5)); }
 }
 function cornflower(S, r) {
   const cx = S.w / 2; for (let i = 0; i < 7; i++) { const bx = cx + (r() - 0.5) * 10; S.el(() => S.blade(bx, S.base, 5 + r() * 7, (bx - cx) * 1.1, PR.sage, { w: 1.6, sh: i < 3 ? -1 : 0 })); }
@@ -279,6 +297,8 @@ export const PLANT_DEFS = {
   grass_wispy_a: [30, 28, 6, grassWispy], grass_wispy_b: [30, 28, 6, (S, r) => grassWispy(S, r, PR.meadow)],
   grass_seed_a: [26, 34, 5, (S, r) => grassSeed(S, r, 'fox')], grass_seed_b: [26, 34, 5, (S, r) => grassSeed(S, r, 'oat')],
   grass_dry_a: [26, 26, 4, grassDry], grass_dry_b: [26, 26, 4, grassDry],
+  grass_wide_a: [48, 26, 4, (S, r) => grassWide(S, r)], grass_wide_b: [48, 26, 4, (S, r) => grassWide(S, r, PR.meadow)], grass_wide_c: [48, 22, 3, (S, r) => grassWide(S, r, PR.meadow)],
+  buttercup_a: [22, 20, 3, buttercup], narcissus_a: [22, 26, 3, narcissus],
   poppy_a: [24, 28, 4, poppy], poppy_b: [24, 28, 4, poppy], chamomile_a: [24, 22, 3, chamomile], chamomile_b: [24, 22, 3, chamomile],
   cornflower_a: [22, 26, 4, cornflower], lavender_a: [24, 28, 3, lavender], lavender_b: [24, 28, 3, lavender], thistle_a: [24, 30, 2, thistle],
   fern_a: [40, 28, 3, fern], fern_b: [40, 28, 3, fern], clover_a: [26, 12, 1, clover], clover_b: [26, 12, 1, clover],
@@ -287,7 +307,7 @@ export const PLANT_DEFS = {
 };
 // families used by the stage builder
 export const PLANT_KINDS = {
-  tall: ['grass_tall_a', 'grass_tall_b', 'grass_tall_c'], short: ['grass_short_a', 'grass_short_b'], wispy: ['grass_wispy_a', 'grass_wispy_b'], seed: ['grass_seed_a', 'grass_seed_b'], dry: ['grass_dry_a', 'grass_dry_b'],
+  tall: ['grass_tall_a', 'grass_tall_b', 'grass_tall_c'], wide: ['grass_wide_a', 'grass_wide_b', 'grass_wide_c'], buttercup: ['buttercup_a'], narcissus: ['narcissus_a'], daisy: ['chamomile_a', 'chamomile_b'], short: ['grass_short_a', 'grass_short_b'], wispy: ['grass_wispy_a', 'grass_wispy_b'], seed: ['grass_seed_a', 'grass_seed_b'], dry: ['grass_dry_a', 'grass_dry_b'],
   poppy: ['poppy_a', 'poppy_b'], chamomile: ['chamomile_a', 'chamomile_b'], cornflower: ['cornflower_a'], lavender: ['lavender_a', 'lavender_b'], thistle: ['thistle_a'],
   fern: ['fern_a', 'fern_b'], clover: ['clover_a', 'clover_b'], reeds: ['reeds_a', 'reeds_b'], cattail: ['cattail_a'],
   olive: ['bush_olive'], rosemary: ['bush_rosemary'], broom: ['bush_broom'], berry: ['bush_berry'],

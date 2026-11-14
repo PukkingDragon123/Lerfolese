@@ -20,6 +20,13 @@
 - Enemy intents are thought bubbles. Skill element: a dodge QTE when enemies hit you (timed click reduces damage); the game is mostly about thinking.
 - Meta: loading screen = 3D apple rotting with worms, rewinding to a seed. Menu = apple garden (two wooden signs with birds: New Run / Resume, an old mop dog that fetches thrown apples, birds) -> night sky with 3D astral UI, 4 character constellations (only Isaac playable) -> star gallery hub with a walkable achievement museum and a wizard frog who unlocks NEW CONTENT ONLY (artifacts, story stages, cards, events), never stat boosts.
 
+## Story and presentation (current)
+- Big storytelling: a narrator plus character VOICES via the browser Web Speech API (free; distinct voice/pitch/rate per character), with floating physical dialogue text. Events are full voiced cutscenes.
+- PROLOGUE (first new game): kid Isaac learns from his MASTER in an old apple garden (cinematic, with choices) -> master gives his first card and teaches science and magic with interactive 3D constructs -> a FORBIDDEN APPLE appears in his slot, he uses it -> the sky falls apart, reality warps -> in blank white space a cosmic galactic figure of himself speaks and shows a new world where stories come alive -> he wakes in the new world, meets the old MOP DOG, meets his master in the STAR-VIEWING DOME -> adventure starts. Dying = being RECONSTRUCTED (cosmic reassembly), back to the dome.
+- Combat has occasional STORY DILEMMAS (trade-off choices mid-fight). Combination depth is the heart: near-infinite combos, cloning, boosting chains ("X boosts Y when next to Z"), who finds the best combo.
+- Artifacts look great and Isaac visibly WEARS or USES them (attached to his body).
+- Fonts: Alagard for titles; assets/fonts/pack: PixelSans (body, dialogue, cards), NanoPlus (numbers/damage), RuneMono (magic/astral). Render at native multiples so they stay crisp.
+
 ## Workflow
 - ASK THE USER FIRST (short question with options) before any big or ambiguous change or before launching agents; the user pays for every token.
 

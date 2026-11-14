@@ -76,6 +76,10 @@ export const BASICS = {
     text: ['+2 v, hits ALL at half', 'Foes DIZZY 1', 'Self-launching', 'SELF: draw 1'],
     desc: { use: 'Merge it as a launcher, or place it alone as a shockwave. On Newton: draw 1.', merge: 'The object becomes a shockwave that hits every foe at half damage.', skill: 'Dizzy: shaken foes may strike each other.' }, flavor: 'A wave of pressure. Rude, at volume.' }),
 
+  earth: card({ name: 'Earth', kind: 'matter', num: 27, m: 4, v: 0, noun: 'Clod', hard: true, block: 7, field: 'boulder', up: { m: 5, block: 9 }, art: 'stone',
+    text: ['Matter: 4 kg, at rest', 'Counts as Stone', 'SELF: Block 7', 'Hides a Law...'], upText: ['Matter: 5 kg, at rest', 'Counts as Stone', 'SELF: Block 9', 'Hides a Law...'],
+    desc: { use: 'Place a clod of the very planet to launch, or brace behind it: Block 7.', merge: 'The heaviest matter you can hold. It counts as Stone for every synergy.', skill: 'Gravitas: an apple and the Earth, under Gravity, are said to obey a hidden Law.' }, flavor: 'A small sample of everywhere.' }),
+
   // ------------------------------------------------------------------ mutants (events, the lab, discoveries)
   superposition: card({ name: 'Superposition', kind: 'matter', mutantOf: 'apple', m: 1, v: 0, charge: 5, launch: true, noun: 'Quantum Apple', heal: 4, charged: 4, field: 'sapling',
     text: ['Apple AND Spark', '1 kg + ZAP 5', 'Self-launching', 'EAT: heal 4'],
@@ -165,7 +169,7 @@ export const CARD_POOL = {
   basic: ['apple', 'stone', 'water', 'spark', 'gravity', 'mass', 'force', 'motion', 'rotation', 'inertia', 'heat', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound'],
   uncommonBasics: ['stone', 'water', 'spark', 'heat', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound'],
   // what a discovery may offer: the science cards, a few copies of the core, the occasional mutant or Law of nature
-  discover: ['stone', 'water', 'spark', 'heat', 'gravity', 'rotation', 'inertia', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound', 'apple', 'apple', 'force', 'motion', 'mass'],
+  discover: ['earth', 'stone', 'water', 'spark', 'heat', 'gravity', 'rotation', 'inertia', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound', 'apple', 'apple', 'force', 'motion', 'mass'],
   rare: ['golden_apple', 'ice', 'lodestone', 'antigravity', 'dark_matter', 'torque', 'momentum', 'plasma', 'prism', 'slinky', 'brute_force'],
   powers: Object.keys(POWERS),
 };

@@ -2,6 +2,7 @@
 // (drop on a foe = ATTACK, on Sir Isaac = SELF, on the ground = FIELD object).
 import { BASICS, stat } from './data/cards.js';
 import { hashString } from '../core/util.js';
+import { synergiesOf, tagsOf } from './data/synergy.js';
 
 // Named discoveries. exact: the stack must be exactly these cards. Otherwise "at least".
 export const SPECIALS = [
@@ -48,6 +49,14 @@ export const SPECIALS = [
   { key: 'rotation+rotation', name: 'Dizzy Spell', exact: true, note: 'Spin them until they doubt Euclid.' },
   { key: 'inertia+inertia', name: 'Couch Potato', exact: true, selfBlock: 6, note: 'An object at rest, by choice.' },
   { key: 'apple+force+gravity+inertia+mass+rotation', name: 'PRINCIPIA', bonus: 2, note: 'All six laws of my heart. The universe flinched.' },
+  // ---- hidden Laws of Nature: unlisted until discovered ("at least" these cards), with big payoffs
+  { key: 'apple+earth+gravity', name: 'Law of Universal Gravitation', law: true, hidden: true, bonus: 2, allFoes: true, note: 'Every apple attracts every Earth. It hits EVERY foe.', effect: 'Hits ALL foes ×2' },
+  { key: 'force+inertia+motion', name: 'First Law of Motion', law: true, hidden: true, bonus: 3, note: 'The paradox resolves: rest and motion are the same law. ×3', effect: '×3, settles the Inertia + Motion paradox' },
+  { key: 'heat+pressure+water', name: 'The Steam Engine', law: true, hidden: true, bonus: 2.5, allFoes: true, note: 'Heron dreamed it. You built it. Hits every foe ×2.5.', effect: 'Hits ALL foes ×2.5' },
+  { key: 'magnet+spark', name: 'Electromagnetism', law: true, hidden: true, bonus: 2.5, pierce: true, disarm: 3, note: 'Lightning and lodestone are one force. ×2.5, ignores Block, disarms.', effect: '×2.5, ignores Block, −3 Strength' },
+  { key: 'pendulum+spring', name: 'Simple Harmonic Motion', law: true, hidden: true, bonus: 2, persist: 1, grow: true, note: 'It swings back. And back. And back. ×2, strikes again next turn.', effect: '×2, strikes again next turn' },
+  { key: 'lens+motion+spark', name: 'The Speed of Light', law: true, hidden: true, bonus: 3, pierce: true, note: 'Nothing is faster. Not even excuses. ×3, ignores Block.', effect: '×3, ignores Block' },
+  { key: 'buoyancy+rock+water', name: "Archimedes' Principle", law: true, hidden: true, bonus: 2, float: true, note: 'Eureka! ×2, and you gain Block equal to twice its mass.', effect: '×2, Block = 2× its mass' },
   { key: 'apple+apple+apple+apple+apple', name: 'Orchard', bonus: 1.5, note: 'You could open a shop. Or a war.' },
 ];
 
@@ -77,7 +86,7 @@ export function recipeKey(comps) { return comps.map((c) => c.id).sort().join('+'
 function countMap(comps) { const m = {}; for (const c of comps) m[c.id] = (m[c.id] || 0) + 1; return m; }
 
 export function findSpecial(comps) {
-  const key = recipeKey(comps); const cm = countMap(comps);
+  const key = recipeKey(comps); const cm = countMap(comps); const tg = tagsOf(comps); for (const t of tg) if (!cm[t]) cm[t] = 1; // tags (rock, ...) count as ingredients
   let best = null;
   for (const s of SPECIALS) {
     if (s.exact) { if (s.key === key) return s; continue; }
@@ -130,7 +139,7 @@ export function computeMove(comps, mods = {}) {
     if (d.kind === 'matter') { hasMatter = true; m += S(c, 'm'); baseV = Math.max(baseV, S(c, 'v')); if (d.hard) hard = true; }
     if (d.spread) spread = true; if (d.launch) launched = true; shove += S(c, 'shove'); if (d.carry) carry = true; if (d.float) float = true; dizzyOnHit += S(c, 'dizzyOnHit'); if (d.seek) seek = d.seek;
     if (d.lever) lever = true; swing += S(c, 'swing'); press += S(c, 'pressure'); if (d.waveMul) waveMul *= d.waveMul;
-    m += S(c, 'dm');
+    m += S(c, 'dm') * (mods.massMul && ['mass', 'dark_matter'].includes(baseOf(c.id)) ? mods.massMul : 1);
     let thisDv = S(c, 'dv');
     if (baseOf(c.id) === 'gravity') { gravityCount++; thisDv += mods.gravityDv || 0; if (mods.plumb) thisDv += comps.filter((x) => baseOf(x.id) === 'mass').length; }
     if (baseOf(c.id) === 'force') { forceCount++; if (mods.leverForce && forceCount === 1) thisDv *= 2; thisDv += mods.hornForce || 0; }
@@ -147,7 +156,13 @@ export function computeMove(comps, mods = {}) {
   }
   if (swing) dv += swing * (comps.length - 1); // a longer swing for a bigger build
   if (press) m += press * (comps.length - 1);   // packed dense
-  if (lever && forceCount) focus *= 2;
+  // the synergy matrix: anti-synergies cancel parts of the merge, synergies multiply (see data/synergy.js)
+  const syn = synergiesOf(comps, special); const has = (id) => syn.some((r) => r.id === id);
+  if (has('melt')) { for (const c of comps) if (c.id === 'ice') m -= S(c, 'm'); m = Math.max(0, m); burn = 0; chill = 0; }
+  if (has('insulated')) charge = 0;
+  if (has('darklens')) { focus = 1; lensCount = 0; }
+  for (const r of syn) burn += r.burn || 0;
+  void lever;
   let fist = false;
   if (!hasMatter && m === 0 && forceCount > 0) { m = 1; fist = true; }
   if (mods.firstMove) { if (m > 0) m += mods.firstMove.dm; dv += mods.firstMove.dv; }
@@ -155,10 +170,19 @@ export function computeMove(comps, mods = {}) {
   if (mods.momentum && m > 0) v += mods.momentum;
   if (lensCount && !prism) spread = false; // a lens focuses a wave into a jet
   if (prism) { spread = true; focus = 1; }
-  const bonus = (special?.bonus || 1) * (mods.bonusMul || 1);
-  const perHit = Math.round(m * v * focus * waveMul * bonus);
+  // the breakdown: base m×v, then every multiplier on its own line
+  const lines = [{ text: `${m} kg × ${v} m/s`, value: m * v, kind: 'base' }];
+  if (focus !== 1) lines.push({ text: prism ? 'Prism' : 'Lens focus', mul: focus, kind: 'syn' });
+  if (waveMul !== 1) lines.push({ text: 'Sound: a wave, at half strength', mul: waveMul, kind: 'note' });
+  if (special?.bonus && special.bonus !== 1) lines.push({ text: special.law ? `${special.name} (a Law of Nature!)` : `${special.name} (named discovery)`, mul: special.bonus, kind: special.law ? 'law' : 'named' });
+  for (const r of syn) lines.push({ text: r.text, mul: r.mul, kind: r.anti ? 'anti' : 'syn', id: r.id });
+  if (mods.bonusMul && mods.bonusMul !== 1) lines.push({ text: 'Bonus', mul: mods.bonusMul, kind: 'syn' });
+  const compMul = lines.reduce((k, l) => k * (l.mul ?? 1), 1); const fizzle = syn.find((r) => r.fizzle)?.fizzle || null;
+  const perHit = fizzle ? 0 : Math.round(m * v * compMul);
   const n = comps.length;
   const steam = !!special?.steam, moon = !!special?.moon, allFoes = !!special?.allFoes;
+  if (special?.pierce) pierce = true; if (special?.disarm) disarm += special.disarm; if (special?.persist) { persist = Math.max(persist, special.persist); grow = grow || !!special.grow; } if (special?.float) float = true;
+  if (has('ricochet')) bounceFalloff = 0;
   if (special?.burnMul) burn *= special.burnMul;
 
   // lone-law effects on a foe
@@ -166,14 +190,16 @@ export function computeMove(comps, mods = {}) {
   const attack = {
     m, v, hits, perHit, focus, spread: spread || allFoes, fall, hard, pierce, charge: charge + (mods.charged || 0), burn: burn + (burn > 0 || perHit > 0 ? (mods.kindle || 0) : 0), wet, persist: persist ? persist + (mods.firstLaw || 0) : 0, grow,
     bounce, bounceFalloff, venom, disarm, chill, weakOnHit, goldOnKill, recoil, steam, fist, launched, shove, carry, float, dizzyOnHit, seek,
+    base: m * v, compMul, lines, fizzle, chainWet: has('chain'), floatK: special?.float ? 2 : 1,
     weak: 0, vulnerable: 0, dizzy: 0, valid: false,
   };
   if (alone === 'gravity' || (n === 1 && comps[0].id === 'antigravity')) attack.weak = 2;
   if (alone === 'rotation') attack.dizzy = 1;
   if (alone === 'lens') { if (comps[0].id === 'prism') { attack.vulnerable = 1; attack.spread = true; } else attack.vulnerable = 2; }
   if (steam) { attack.blind = 1; attack.spread = true; }
+  if (has('steam')) attack.blind = Math.max(attack.blind || 0, 1);
   attack.total = perHit * hits;
-  attack.valid = perHit > 0 || attack.charge > 0 || attack.burn > 0 || attack.weak > 0 || attack.dizzy > 0 || attack.vulnerable > 0 || steam || attack.wet > 0 || attack.venom > 0;
+  attack.valid = !!fizzle || perHit > 0 || attack.charge > 0 || attack.burn > 0 || attack.weak > 0 || attack.dizzy > 0 || attack.vulnerable > 0 || steam || attack.wet > 0 || attack.venom > 0;
   if (alone === 'inertia' || alone === 'spring') attack.valid = false;
 
   // self application: parts add up, bigger stacks are more efficient
@@ -186,7 +212,7 @@ export function computeMove(comps, mods = {}) {
 
   const field = fieldFor(comps, cm, special, { m, v, burn, charge, wet, persist, mods });
   const name = moveName(comps, special);
-  return { comps, n, key: recipeKey(comps), name, special, attack, self, field, art: artSpec(comps, cm, special) };
+  return { comps, n, key: recipeKey(comps), name, special, attack, self, field, art: artSpec(comps, cm, special), tags: tagsOf(comps), syn };
 }
 
 const FIELD_INFO = {

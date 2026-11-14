@@ -289,3 +289,82 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
   const burst = (p) => { for (let i = 0; i < 26; i++) leaves.spawn({ pos: [p.x + (rnd() - 0.5) * 0.6, p.y + rnd() * 0.5, p.z + (rnd() - 0.5) * 0.6], vel: [(rnd() - 0.5) * 1.6, rnd() * 1.2, (rnd() - 0.5) * 1.6], grav: 0.5, drag: 0.8, wobble: 2, spin: 6, life: 3.5, size: 10, color: rnd() < 0.5 ? '#f4dde6' : '#6a9a3e', sprite: rnd() < 0.5 ? 'petal' : 'leaf', floor: 0.05, bounce: 0 }); };
   return { group: g, hAt, ripe, twig, title, prompt, objs, fog, setNight, update, burst, perches: grove.perches(4) };
 }
+
+// ---------------------------------------------------------------- the loading time-lapse: an apple ripens, bruises, rots and
+// wrinkles, collapses, worms wriggle out of it, then it shrinks back into one glossy seed that sprouts. set(age 0..1), sprout(0..1)
+const NOISE_GLSL = `float aoH3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+  float aoN3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(aoH3(i), aoH3(i + vec3(1, 0, 0)), f.x), mix(aoH3(i + vec3(0, 1, 0)), aoH3(i + vec3(1, 1, 0)), f.x), f.y), mix(mix(aoH3(i + vec3(0, 0, 1)), aoH3(i + vec3(1, 0, 1)), f.x), mix(aoH3(i + vec3(0, 1, 1)), aoH3(i + vec3(1, 1, 1)), f.x), f.y), f.z); }
+  float aoW(vec3 p){ return aoN3(p * 7.0) * 0.55 + aoN3(p * 17.0) * 0.3 + aoN3(p * 37.0) * 0.15; }\n`;
+export function appleTimelapse() {
+  const G = new THREE.Group(); G.name = 'appleTimelapse'; const U = { uRipe: { value: 0 }, uBruise: { value: 0 }, uRot: { value: 0 }, uCollapse: { value: 0 }, uMold: { value: 0 }, uHoleK: { value: 0 }, uTime: T.WIND.time,
+    uGreen: { value: C('#86b83e') }, uRed: { value: C('#c8241a') }, uHole: { value: [V(), V(), V()] } };
+  const prof = [[0.001, 0.05], [0.14, 0.0], [0.3, 0.03], [0.43, 0.14], [0.5, 0.32], [0.515, 0.5], [0.47, 0.67], [0.36, 0.8], [0.2, 0.845], [0.08, 0.79], [0.001, 0.75]];
+  const body = turned(prof, 72, { sub: 8 }).clone(); { const p = body.attributes.position; const col = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const a = Math.atan2(z, x); const k = (0.9 + 0.1 * Math.sin(a * 11 + y * 4)) * (0.84 + 0.16 * smooth(0, 0.5, y)); col.set([k, k, k], i * 3); } body.setAttribute('color', new THREE.BufferAttribute(col, 3)); }
+  const m = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: T.gradientMap([0.42, 0.72, 1.0]) });
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = 'uniform float uRot, uCollapse; varying vec3 vAP;\n' + NOISE_GLSL + sh.vertexShader
+      .replace('#include <beginnormal_vertex>', `vec3 objectNormal = vec3(normal); float aDisp = -uRot * 0.075;
+        { float e = 0.012; float h0 = aoW(position); vec3 g = vec3(aoW(position + vec3(e, 0, 0)) - h0, aoW(position + vec3(0, e, 0)) - h0, aoW(position + vec3(0, 0, e)) - h0) / e; g -= objectNormal * dot(g, objectNormal); objectNormal = normalize(objectNormal - g * aDisp); }`)
+      .replace('#include <begin_vertex>', `vec3 transformed = vec3(position) + normal * aDisp * aoW(position);
+        transformed.y = mix(transformed.y, transformed.y * 0.58 + 0.03, uCollapse); transformed.xz *= 1.0 + 0.17 * uCollapse * smoothstep(0.85, 0.05, position.y); vAP = position;`);
+    sh.fragmentShader = 'uniform float uRipe, uBruise, uRot, uMold, uHoleK; uniform vec3 uGreen, uRed; uniform vec3 uHole[3]; varying vec3 vAP;\n' + NOISE_GLSL + sh.fragmentShader.replace('#include <color_fragment>', `
+        vec3 c = mix(uGreen, uRed, uRipe); c = mix(c, c * vec3(1.15, 1.05, 0.7), smoothstep(0.3, 0.0, vAP.x) * 0.35 * uRipe);
+        float sp = aoN3(vAP * 4.5 + 3.0) * 0.65 + aoN3(vAP * 11.0) * 0.35;
+        c = mix(c, vec3(0.46, 0.22, 0.1), smoothstep(1.0 - uBruise * 0.7, 1.04 - uBruise * 0.7, sp) * 0.9);
+        float rt = sp * 0.6 + aoN3(vAP * 6.0 + 7.0) * 0.4; c = mix(c, vec3(0.24, 0.14, 0.08), smoothstep(1.0 - uRot * 1.1, 1.05 - uRot * 1.1, rt));
+        c = mix(c, vec3(0.13, 0.08, 0.05), smoothstep(1.0 - uRot * 0.8, 1.04 - uRot * 0.8, aoN3(vAP * 3.0 + 1.0)) * 0.8);
+        c = mix(c, vec3(0.8, 0.84, 0.72), step(0.74, aoN3(vAP * 46.0)) * step(0.45, aoN3(vAP * 5.0 + 11.0)) * uMold);
+        for (int i = 0; i < 3; i++) c = mix(c, vec3(0.06, 0.03, 0.02), (1.0 - smoothstep(0.035, 0.055, distance(vAP, uHole[i]))) * uHoleK);
+        diffuseColor.rgb = c * vColor;`);
+  };
+  m.customProgramCacheKey = () => 'appleTimelapse';
+  const apple = new THREE.Group(); G.add(apple); const bm = new THREE.Mesh(body, m); bm.castShadow = true; bm.receiveShadow = true; apple.add(bm);
+  const stemM = new THREE.MeshToonMaterial({ color: '#5a3a1e', gradientMap: T.gradientMap([0.45, 0.75, 1.0]) }); const stem = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(0, 0.76, 0), V(0.01, 0.9, 0), V(0.05, 1.02, 0.01)]), 8, 0.028, 6), stemM); apple.add(stem);
+  const ls = new THREE.Shape(); ls.moveTo(0, 0); ls.quadraticCurveTo(0.13, 0.06, 0.32, 0.0); ls.quadraticCurveTo(0.13, -0.09, 0, 0); const leafG = new THREE.ShapeGeometry(ls, 8); const leafM = new THREE.MeshToonMaterial({ color: '#4e8a2c', side: THREE.DoubleSide, gradientMap: T.gradientMap([0.45, 0.75, 1.0]) });
+  const leaf = new THREE.Mesh(leafG, leafM); leaf.position.set(0.03, 0.93, 0); leaf.rotation.set(-1.0, 0.6, 0); apple.add(leaf);
+  // worms: tubes along paths from deep inside out of a hole and down the flank; a sliding window reveals each crawling body
+  const holes = [V(0.62, 0.15, 0.75), V(-0.7, 0.3, 0.55), V(0.1, 0.55, 0.85)].map((d) => d.normalize());
+  const wormM = new THREE.MeshToonMaterial({ color: '#ffffff', gradientMap: T.gradientMap([0.5, 0.78, 1.0]) }); const worms = [];
+  holes.forEach((d, i) => {
+    const c0 = V(0, 0.42, 0); const exit = c0.clone().addScaledVector(d, 0.5); U.uHole.value[i].copy(exit);
+    const side = V().crossVectors(d, V(0, 1, 0)).normalize(); const path = new THREE.CatmullRomCurve3([c0.clone().addScaledVector(d, 0.05), c0.clone().addScaledVector(d, 0.3), exit, exit.clone().addScaledVector(d, 0.12).add(V(0, -0.08, 0)).addScaledVector(side, 0.06 * (i - 1)), exit.clone().addScaledVector(d, 0.26).add(V(0, -0.32, 0)).addScaledVector(side, 0.12), exit.clone().addScaledVector(d, 0.42).add(V(0, -0.46, 0)).addScaledVector(side, -0.05)]);
+    const wg = new THREE.TubeGeometry(path, 64, 0.03, 8); const wm = wormM.clone(); const WU = { uE: { value: 0 }, uTime: T.WIND.time, uPh: { value: i * 1.7 }, uCollapse: U.uCollapse };
+    wm.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, WU); sh.vertexShader = 'uniform float uE, uTime, uPh, uCollapse; varying float vWs;\n' + sh.vertexShader.replace('#include <begin_vertex>', `
+        float L = 0.34; float s = (uv.x - (uE - L)) / L; float inW = step(0.0, s) * step(s, 1.0); float r = inW * pow(max(0.0, sin(3.14159 * clamp(s, 0.0, 1.0))), 0.45) * (0.75 + 0.25 * s);
+        vec3 ctr = position - normal * 0.03; vec3 transformed = ctr + normal * 0.03 * r + vec3(sin(uv.x * 34.0 - uTime * 7.0 + uPh), sin(uv.x * 21.0 - uTime * 5.0 + uPh) * 0.4, cos(uv.x * 28.0 - uTime * 6.0 + uPh)) * 0.012 * inW * s; vWs = s; transformed.y = mix(transformed.y, transformed.y * 0.58 + 0.03, uCollapse); transformed.xz *= 1.0 + 0.17 * uCollapse * smoothstep(0.85, 0.05, position.y);`);
+      sh.fragmentShader = 'varying float vWs;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = mix(vec3(0.86, 0.52, 0.48), vec3(0.62, 0.32, 0.3), step(0.5, fract(vWs * 9.0))) * mix(1.0, 0.75, smoothstep(0.85, 1.0, vWs)); if (vWs < 0.0 || vWs > 1.0) discard;'); };
+    wm.customProgramCacheKey = () => 'worm'; const w = new THREE.Mesh(wg, wm); w.castShadow = true; w.frustumCulled = false; apple.add(w); worms.push(WU);
+  });
+  // the seed (glossy, with a hard specular streak) and its sprout
+  const seedM = new THREE.MeshToonMaterial({ color: '#5a2c14', gradientMap: T.gradientMap([0.35, 0.7, 1.0]) });
+  seedM.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', 'float gl = step(0.93, dot(normalize(vNormal), normalize(vec3(-0.35, 0.75, 0.55)))); outgoingLight = mix(outgoingLight, vec3(1.0, 0.92, 0.8), gl * 0.85);\n#include <opaque_fragment>'); };
+  const seed = new THREE.Group(); G.add(seed); const sm = new THREE.Mesh(turned([[0.001, 0], [0.11, 0.05], [0.19, 0.17], [0.215, 0.3], [0.18, 0.43], [0.09, 0.53], [0.001, 0.58]], 40), seedM); sm.castShadow = true; seed.add(sm); seed.rotation.z = 0.35;
+  const sprout = new THREE.Group(); sprout.position.set(0, 0.55, 0); seed.add(sprout);
+  const shootM = new THREE.MeshToonMaterial({ color: '#8ac85a', gradientMap: T.gradientMap([0.45, 0.75, 1.0]), side: THREE.DoubleSide });
+  sprout.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(0, 0, 0), V(0.05, 0.25, 0), V(-0.02, 0.5, 0.02), V(0.03, 0.7, 0)]), 16, 0.035, 6), shootM));
+  const cot = new THREE.Shape(); cot.moveTo(0, 0); cot.quadraticCurveTo(0.12, 0.13, 0.32, 0.06); cot.quadraticCurveTo(0.16, -0.06, 0, 0); for (const s of [-1, 1]) { const l = new THREE.Mesh(new THREE.ShapeGeometry(cot, 10), shootM); l.position.set(0.03, 0.7, 0); l.rotation.set(0, s > 0 ? 0 : Math.PI, 0.35); l.userData.s = s; sprout.add(l); }
+  seed.scale.setScalar(0.001); sprout.scale.setScalar(0.001);
+  const stage = (a, b, x) => smooth(a, b, x);
+  return {
+    group: G, apple, seed,
+    set(age) {
+      U.uRipe.value = stage(0.0, 0.16, age); U.uBruise.value = stage(0.14, 0.4, age); U.uRot.value = stage(0.32, 0.66, age); U.uCollapse.value = stage(0.45, 0.74, age); U.uMold.value = stage(0.5, 0.72, age); U.uHoleK.value = stage(0.58, 0.63, age);
+      worms.forEach((w, i) => { w.uE.value = stage(0.6 + i * 0.03, 0.9, age); });
+      leafM.color.set('#4e8a2c').lerp(C('#6a4a22'), stage(0.2, 0.55, age)); leaf.rotation.x = -1.0 - stage(0.25, 0.6, age) * 1.1; stem.rotation.z = -stage(0.4, 0.7, age) * 0.4;
+      const shrink = 1 - stage(0.86, 0.97, age); apple.scale.setScalar(Math.max(0.001, shrink)); apple.visible = shrink > 0.01;
+      seed.scale.setScalar(Math.max(0.001, stage(0.88, 0.98, age) * 0.32));
+    },
+    sprout(k) { sprout.scale.setScalar(Math.max(0.001, smooth(0, 0.6, k))); sprout.children.forEach((c) => { if (c.userData.s) c.rotation.z = 0.35 + (1 - smooth(0.3, 1, k)) * 1.2; }); },
+  };
+}
+// a wooden farm sign on two posts with carved Alagard lettering (pixel-art wood); top edge is where birds perch
+export function signBoard(text, { w = 1.7, seed = 1 } = {}) {
+  const G = new THREE.Group(); G.name = 'sign:' + text; const K = new Kit(); const r = mulberry32(seed);
+  for (const s of [-1, 1]) K.box('woodDark', 0.13, 1.7, 0.13, V(s * (w / 2 - 0.1), 0.85, -0.05), new THREE.Euler((r() - 0.5) * 0.04, 0, (r() - 0.5) * 0.04), 0.03);
+  K.box('woodDark', w + 0.2, 0.08, 0.16, V(0, 1.68, -0.02), null, 0.02); K.build(G);
+  const board = plaque(text, { font: 'title', style: 'carve', kind: 'oak', depth: 0.5 }); const [bw, bh] = board.userData.size; const k = w / bw; board.scale.multiplyScalar(k); board.position.set(0, 1.22, 0.04); G.add(board);
+  G.userData.top = (n) => Array.from({ length: n }, (_, i) => V(-w / 2 + 0.25 + (i + 0.5) * ((w - 0.5) / n), 1.72, -0.02)); G.userData.boardH = bh * k; return G;
+}
+export { telescope, stumpWithJournal, scrollOnStool, lanternPost, crate };

@@ -9,6 +9,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as T from './toon.js';
 import { mulberry32 } from '../core/util.js';
+import { surfaceTex } from '../gfx/pixeltex.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
@@ -49,7 +50,7 @@ function planks(g, W, H, r, P, painted = false) {
 const MATS = new Map();
 export function mat(key, { bands = [0.5, 0.78, 1.0], color = '#ffffff', side = THREE.FrontSide } = {}) {
   const k = key + '|' + side; if (MATS.has(k)) return MATS.get(k);
-  const m = new THREE.MeshToonMaterial({ map: PAINT[key] ? paint(key, key === 'thatch' || key === 'canvas' ? 256 : 256, 256, PAINT[key]) : null, color: C(color), gradientMap: T.gradientMap(bands), side });
+  const m = new THREE.MeshToonMaterial({ map: surfaceTex(key) || (PAINT[key] ? paint(key, 256, 256, PAINT[key]) : null), color: C(color), gradientMap: T.gradientMap(bands), side });
   MATS.set(k, m); return m;
 }
 const glow = (color) => { const k = 'glow:' + color; if (!MATS.has(k)) MATS.set(k, new THREE.MeshBasicMaterial({ color: C(color).multiplyScalar(1.6), toneMapped: false })); return MATS.get(k); };
