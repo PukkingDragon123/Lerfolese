@@ -1,4 +1,4 @@
-# Apple of Discord — project rules for Claude
+# Lerfolese (formerly "Apple of Discord") — project rules for Claude
 
 ## Art direction (current, from the user — newest decisions win)
 - NEVER simple/lazy shapes as visible art: no plain spheres/cubes/cylinders/cones, no blobs stuck together, no round "AI slop" gradient shading, no circle textures.
@@ -24,6 +24,8 @@
 - Preparing your turn: the world freezes into slow motion; End Turn resolves. Removed: dodge QTE, "Second Thoughts" redraw basket.
 - Battle UI: health = an HOURGLASS (sand pours when hurt); gold = a JAR. No paper notes: text is crisp 3D FLOATING TEXT. Lighting/UI less saturated, more realistic, polished, detailed; no ugly big text.
 - Combat dilemmas: full zoom-in interactive scenes showing Isaac doing the action. Bosses include the wizard FROG, the BOOKWORMS, and some events become optional boss fights (e.g. Prometheus' eagle, the Sphinx).
+- GAME NAME: LERFOLESE (renamed from Apple of Discord) in all user-visible text.
+- Combat like Slay the Spire: BLOCK is central, enemies hit hard with telegraphed intents, and it is a LOT HARDER. Map board figurines show exactly the enemies of each node's pre-rolled encounter.
 - Roguelike depth stays: synergies/anti-synergies, multipliers, odds, discovery picks, enemy loot only, hard difficulty.
 
 ## Story and presentation (current)
