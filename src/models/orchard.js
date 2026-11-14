@@ -23,7 +23,7 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 export const MOON = V(36, 34, -110);
-export const SPOTS = { tree: V(0, 0, 0), sleep: V(1.95, 0, 0.9), float: V(0.45, 0, 1.95), ripe: V(0.28, 2.05, 0.9), signNew: V(-1.95, 0, 4.4), signRes: V(2.35, 0, 4.3), journal: V(4.35, 0, 2.6), settings: V(5.35, 0, 0.6), telescope: V(-4.35, 0, 1.7), credits: V(-3.55, 0, 4.7), title: V(-0.15, 3.7, 4.3), prompt: V(2.35, 1.65, 2.3) };
+export const SPOTS = { tree: V(0, 0, 0), sleep: V(1.95, 0, 0.9), float: V(0.45, 0, 1.95), ripe: V(0.28, 2.05, 0.9), signNew: V(-1.95, 0, 4.4), signRes: V(2.35, 0, 4.3), journal: V(4.35, 0, 2.6), settings: V(5.35, 0, 0.6), telescope: V(-4.35, 0, 1.7), credits: V(-4.05, 0, 4.2), title: V(-0.15, 3.7, 4.3), prompt: V(2.35, 1.65, 2.3) };
 
 // ---------------------------------------------------------------- an apple: turned body with striations and blush, stem, leaf
 let APPLE = null;
@@ -319,8 +319,8 @@ export function appleTimelapse() {
     sh.fragmentShader = 'uniform float uRipe, uBruise, uRot, uMold, uHoleK; uniform vec3 uGreen, uRed; uniform vec3 uHole[3]; varying vec3 vAP;\n' + NOISE_GLSL + sh.fragmentShader.replace('#include <color_fragment>', `
         vec3 c = mix(uGreen, uRed, uRipe); c = mix(c, c * vec3(1.15, 1.05, 0.7), smoothstep(0.3, 0.0, vAP.x) * 0.35 * uRipe);
         float sp = aoN3(vAP * 4.5 + 3.0) * 0.65 + aoN3(vAP * 11.0) * 0.35;
-        c = mix(c, vec3(0.13, 0.04, 0.015), smoothstep(1.0 - uBruise * 0.7, 1.04 - uBruise * 0.7, sp) * 0.9);
-        float rt = sp * 0.6 + aoN3(vAP * 6.0 + 7.0) * 0.4; c = mix(c, vec3(0.06, 0.03, 0.012), smoothstep(1.0 - uRot * 1.1, 1.05 - uRot * 1.1, rt));
+        c = mix(c, vec3(0.055, 0.028, 0.012), smoothstep(1.0 - uBruise * 0.55, 1.04 - uBruise * 0.55, sp) * 0.92);
+        float rt = sp * 0.6 + aoN3(vAP * 6.0 + 7.0) * 0.4; c = mix(c, vec3(0.03, 0.018, 0.009), smoothstep(1.0 - uRot * 1.1, 1.05 - uRot * 1.1, rt));
         c = mix(c, vec3(0.025, 0.014, 0.008), smoothstep(1.0 - uRot * 0.8, 1.04 - uRot * 0.8, aoN3(vAP * 3.0 + 1.0)) * 0.8);
         c = mix(c, vec3(0.5, 0.56, 0.42), step(0.74, aoN3(vAP * 46.0)) * step(0.45, aoN3(vAP * 5.0 + 11.0)) * uMold);
         for (int i = 0; i < 3; i++) c = mix(c, vec3(0.06, 0.03, 0.02), (1.0 - smoothstep(0.035, 0.055, distance(vAP, uHole[i]))) * uHoleK);
@@ -359,7 +359,7 @@ export function appleTimelapse() {
     set(age) {
       U.uRipe.value = stage(0.0, 0.16, age); U.uBruise.value = stage(0.14, 0.4, age); U.uRot.value = stage(0.32, 0.66, age); U.uCollapse.value = stage(0.45, 0.74, age); U.uMold.value = stage(0.5, 0.72, age); U.uHoleK.value = stage(0.58, 0.63, age);
       worms.forEach((w, i) => { w.uE.value = stage(0.6 + i * 0.03, 0.9, age); });
-      leafM.color.set('#4e8a2c').lerp(C('#6a4a22'), stage(0.2, 0.55, age)); leaf.rotation.x = -1.0 - stage(0.25, 0.6, age) * 1.1; stem.rotation.z = -stage(0.4, 0.7, age) * 0.4;
+      leafM.color.set('#4e8a2c').lerp(C('#6a4a22'), stage(0.2, 0.55, age)); leaf.rotation.x = -1.0 - stage(0.25, 0.6, age) * 1.1; stem.rotation.z = -stage(0.4, 0.7, age) * 0.4; const sink = -0.31 * U.uCollapse.value; stem.position.y = sink; leaf.position.y = 0.93 + sink;
       const shrink = 1 - stage(0.86, 0.97, age); apple.scale.setScalar(Math.max(0.001, shrink)); apple.visible = shrink > 0.01;
       seed.scale.setScalar(Math.max(0.001, stage(0.88, 0.98, age) * 0.46));
     },

@@ -6,7 +6,7 @@
 import { renderCardFace, renderCardBack } from '../src/gfx/cardart.js';
 import { computeMove } from '../src/game/combos.js';
 import { BASICS, POWERS } from '../src/game/data/cards.js';
-await document.fonts.load('700 40px "Pixelify"'); await document.fonts.load('32px "VT323"'); await document.fonts.load('700 22px "Silkscreen"'); await document.fonts.load('8px "Silkscreen"');
+await Promise.all(['11px "PixelSans"', '13px "NanoPlus"', '16px "Alagard"', '32px "Alagard"', '9px "MicroPixel"', '12px "RuneMono"'].map((f) => document.fonts.load(f))); await document.fonts.load('700 40px "Pixelify"'); await document.fonts.load('32px "VT323"'); await document.fonts.load('700 22px "Silkscreen"'); await document.fonts.load('8px "Silkscreen"');
 const g = document.getElementById('g');
 const add = (c) => g.appendChild(c);
 for (const id of Object.keys(BASICS)) add(renderCardFace({ id, up: id==='apple'?1:0 }));

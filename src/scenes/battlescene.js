@@ -4,6 +4,7 @@ import { buildStage } from '../models/world.js';
 import { realStage, firePit } from '../models/realworld.js';
 import { loadModel } from '../gfx/assets.js';
 import { createProfessor } from '../models/professor.js';
+import { wearArtifacts } from '../models/wearables.js';
 import { createCreature } from '../models/creatures.js';
 import { Particles } from '../gfx/particles.js';
 import { Critters } from '../gfx/critters.js';
@@ -102,6 +103,7 @@ export class BattleScene {
     this.camera.position.copy(this.camBase); this.camera.lookAt(this.camLook); this.camOff = new THREE.Vector3(); this.camPunch = 0;
     // professor
     this.prof = createProfessor(); this.prof.root.position.set(-3.5, 0, 0.9); this.prof.root.rotation.y = 0.55; sc.add(this.prof.root);
+    this.wear = wearArtifacts(this.prof, this.runData?.items); // he wears / uses every curio he owns (models/wearables.js)
     this.profHit = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.6, 1.2), new THREE.MeshBasicMaterial({ visible: false })); this.profHit.position.set(-3.5, 1.3, 0.9); this.profHit.userData.target = { type: 'self' }; sc.add(this.profHit);
     // field target (the ground between the fighters)
     this.fieldHit = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.3, 3.2), new THREE.MeshBasicMaterial({ visible: false })); this.fieldHit.position.set(-1.0, 0.1, 1.3); this.fieldHit.userData.target = { type: 'field' }; sc.add(this.fieldHit);
@@ -154,7 +156,7 @@ export class BattleScene {
   update(dt, t) {
     if (!this.battle) return;
     const B = this.battle;
-    this.prof.update(dt);
+    this.prof.update(dt); this.wear?.update(dt);
     for (const [, v] of this.enemyViews) {
       v.api.update(dt);
       if (v.api.anchorPos) { const body = this.enemyViews.get(v.e.parent); if (body?.api.anchor) body.api.anchor(v.api.anchorIdx ?? 0, v.api.anchorPos); if (!body?.e.alive) v.api.anchorPos = null; }
@@ -408,7 +410,7 @@ export class BattleScene {
         S.lungedFor = null; const r = await res; if (r !== 'miss') S.sidestep(r === 'perfect' ? 1 : 0.6); return r;
       },
       async dodged(e, res) { const p = S.prof.headWorld(new THREE.Vector3()); S.popNumber(p, 'DODGE!', { color: '#cfe07a', stroke: '#1e3320', size: 1.3 }); audio.play('whoosh_soft'); await tweens.wait(0.2); },
-      artifact(id) { const t = S.artTags?.[id]; if (t) { t.kick?.(1.6); t.pop?.kick?.(3); } if (!String(id).startsWith('law:')) audio.play('chime_soft', { vol: 0.35, minGap: 0.2 }); },
+      artifact(id) { S.wear?.trigger(id); const t = S.artTags?.[id]; if (t) { t.kick?.(1.6); t.pop?.kick?.(3); } if (!String(id).startsWith('law:')) audio.play('chime_soft', { vol: 0.35, minGap: 0.2 }); },
       async battleStart(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); await S.chapterCard(B); await tweens.wait(0.25); const lead = B.enemies.find((e) => !e.def.isHead); if (lead) S.bark(lead, vpick(lead.def.barks.start), 2.6); await tweens.wait(0.8); S.bark('player', vpick(PLAYER_BARKS.start), 2.4); },
       async playerTurn(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); S.hudB.setTurn(B.turn); S.showBanner('Your Turn', `TURN ${roman(B.turn)}`); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); },
       async drew(slots) { S.syncHand(); audio.play('card_slide', { vol: 0.8 }); for (let i = 0; i < Math.min(slots.length, 6); i++) audio.play('card_slide', { delay: i * 0.07, vol: 0.6 }); await tweens.wait(0.12); },
@@ -442,7 +444,7 @@ export class BattleScene {
         if (v && Math.random() < 0.25 && dmg > 0) S.bark(e, vpick(e.def.barks.hurt), 1.3);
         S.refreshEnemy(e); await tweens.wait(dmg > 0 ? 0.16 : 0.05);
       },
-      async miss(t, src, why) { const p = t === 'player' ? S.prof.headWorld(new THREE.Vector3()) : S.enemyPos(t); S.popNumber(p, why === 'wings' ? 'FLAP!' : 'MISS', { color: '#cdb6f0', stroke: '#22183f', size: 1.2 }); audio.play('whoosh_soft'); await tweens.wait(0.25); },
+      async miss(t, src, why) { if (why === 'wings') S.wear?.trigger('wings'); const p = t === 'player' ? S.prof.headWorld(new THREE.Vector3()) : S.enemyPos(t); S.popNumber(p, why === 'wings' ? 'FLAP!' : 'MISS', { color: '#cdb6f0', stroke: '#22183f', size: 1.2 }); audio.play('whoosh_soft'); await tweens.wait(0.25); },
       async enemyDie(e) { const v = S.enemyViews.get(e.uid); if (!v) return; v.api.act('die'); S.fx3d.death(e, v.api.root); S.burst(S.enemyPos(e), 'smoke', 30); S.burst(S.enemyPos(e), 'magic', 24); audio.play('enemy_death'); if (!e.def.isHead) S.bark('player', vpick(PLAYER_BARKS.kill), 1.6); const j = S.game.journal; if (j.enemies[e.id]) j.enemies[e.id].killed++; v.hud.setVisible(false); hud.feed(`${e.def.name} falls.`, 'kill'); setTimeout(() => { tweens.to(v.api.root.scale, { x: 0.001, y: 0.001, z: 0.001 }, 0.5, { ease: 'inBack' }); }, 900); await tweens.wait(0.3); },
       async enemySpawn(e) { S.addEnemyView(e); audio.play('monster_roar', { vol: 0.6 }); S.burst(S.enemyPos(e), 'smoke', 14); await tweens.wait(0.3); },
       status(t, k, n) { if (t === S.battle.player) return; S.refreshEnemy(t); },
@@ -498,7 +500,7 @@ export class BattleScene {
       async zapFrom(f, t) { S.burst(S.enemyPos(t), 'zap', 16); audio.play('electric_zap'); },
       async leyden() { audio.play('thunder'); S.engine.flash(0.35, 0xfff3b0, 0.4); },
       async pendulum(t) { audio.play('clockwork'); },
-      async revive() { audio.play('apple_crunch'); S.bark('player', 'A golden apple a day keeps the reaper away!', 2.5); S.burst(S.prof.headWorld(new THREE.Vector3()), 'heal', 50); },
+      async revive() { S.wear?.trigger('golden_apple'); audio.play('apple_crunch'); S.bark('player', 'A golden apple a day keeps the reaper away!', 2.5); S.burst(S.prof.headWorld(new THREE.Vector3()), 'heal', 50); },
       async endTurn(B) { S.syncHand(); S.hand.removeViews([...S.hand.views.keys()].filter((uid) => !B.hand.some((s) => s.cards.some((c) => c.uid === uid))), { x: W() - 7.4, y: -H() + 2.4, s: 0.4 }); audio.play('card_fan', { vol: 0.6 }); await tweens.wait(0.35); },
       async intents(B) { for (const e of B.enemies) S.refreshEnemy(e); },
       won() {}, lost() {},

@@ -12,7 +12,7 @@ import { makeNoise } from '../gfx/pixel.js';
 import { Particles } from '../gfx/particles.js';
 import * as T from './toon.js';
 import { plantField } from '../gfx/plants.js';
-import { groundTex, soilTex, gravelTex, earthTex, cobbleTex as pixelCobble, surfaceTex } from '../gfx/pixeltex.js';
+import { groundTex, soilTex, gravelTex, earthTex, cobbleTex as pixelCobble, surfaceTex, dragonflyTex } from '../gfx/pixeltex.js';
 import * as F from './flora.js';
 import { cottage, chimneySmoke } from './village.js';
 import { PLACES, SETS } from './places.js';
@@ -153,7 +153,7 @@ function buildRoad(ctx) {
 
 // dragonflies darting over still water (marsh)
 function dragonflies(n, area, hY) {
-  const tex = canvasTex(64, 64, (g) => { g.strokeStyle = '#1c4a5a'; g.lineWidth = 3; g.beginPath(); g.moveTo(32, 10); g.lineTo(32, 58); g.stroke(); g.fillStyle = 'rgba(200,240,255,0.55)'; for (const [dx, dy, r] of [[-1, -1, 0.2], [1, -1, -0.2], [-1, 1, -0.3], [1, 1, 0.3]]) { g.save(); g.translate(32, 22 + dy * 4); g.rotate(r); g.beginPath(); g.ellipse(dx * 14, 0, 14, 4, 0, 0, Math.PI * 2); g.fill(); g.restore(); } g.fillStyle = '#2a8aa0'; g.beginPath(); g.arc(32, 14, 4, 0, Math.PI * 2); g.fill(); });
+  const tex = dragonflyTex();
   const grp = new THREE.Group(); for (let i = 0; i < n; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })); s.scale.set(0.32, 0.32, 1); s.userData.noInk = true; const cx = area.x[0] + Math.random() * (area.x[1] - area.x[0]), cz = area.z[0] + Math.random() * (area.z[1] - area.z[0]), ph = Math.random() * 10;
     s.onBeforeRender = () => { const t = performance.now() / 1000 + ph; const dart = Math.floor(t * 0.7); const jx = Math.sin(dart * 12.9) * 1.6, jz = Math.cos(dart * 7.3) * 1.2; s.position.set(cx + jx + Math.sin(t * 3) * 0.08, hY + 0.5 + Math.sin(t * 5) * 0.06, cz + jz); s.material.rotation = Math.sin(dart) * 0.6; }; s.position.set(cx, hY + 0.5, cz); grp.add(s); }
   return grp;

@@ -50,6 +50,7 @@ class Game {
   async debugBattle(enemies, kind) {
     this.run = newRun(Number(new URLSearchParams(location.search).get('seed')) || 1234);
     const q = new URLSearchParams(location.search); if (q.get('deck')) this.run.deck = q.get('deck').split(',').map((id) => ({ uid: 'd' + Math.random(), id, type: 'basic', up: 0 })); if (q.get('items')) this.run.items.push(...q.get('items').split(',')); // debug: ?items=statues,tyche
+    if (q.get('items')) this.run.items.push(...q.get('items').split(',').filter(Boolean)); // debug: &items=statues,lead_boots,prism
     const bs = new BattleScene(this); this.scene = bs;
     const res = await bs.run(this.run, { enemies, kind });
     console.info('battle result', res);

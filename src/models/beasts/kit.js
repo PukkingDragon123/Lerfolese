@@ -136,6 +136,8 @@ export function sculptQuad(S, J, o, m = {}) {
 
 // ================================================================== painter
 const tmpE = [0, 0, 0];
+// pixel-art surface detail: a hash per cell of a 3D grid -> clustered, hard-edged tone steps (consistent across UV seams)
+const qh = (x, y, z, g) => { const h = Math.sin(Math.floor(x / g) * 127.1 + Math.floor(y / g) * 311.7 + Math.floor(z / g) * 74.7) * 43758.5453; return h - Math.floor(h); };
 /** PAL: tag -> { s: style, c: colour, ... }. Styles: skin fur scale feather bone metal wood rock cloth leather keratin eye dark flat */
 export function painter(S, PAL) {
   const Q = {};
@@ -153,8 +155,8 @@ export function painter(S, PAL) {
         if (Math.hypot(lx / e.rx - 0.25, ly / e.ry - 0.3) < 0.16) { o.col = [255, 252, 236]; o.em = [255, 255, 240]; } return;
       }
       case 'dark': K.tone(col, K.band(0.35 + c.ny * 0.1, 3), o.col); if (p.e) o.em = p.e; return;
-      case 'fur': { const fs = p.fs ?? 22; const str = K.vnoise(c.x * fs, c.y * fs * (p.flow ?? 0.22), c.z * fs) + K.vnoise(c.x * fs * 2.1, c.y * fs * 0.5, c.z * fs * 2.1) * 0.5; L += (str - 0.75) * (p.strand ?? 0.22) - (1 - cav) * 0.1; if (q.tag2 && q.d2 - q.d < 0.01) L += 0.06; break; }
-      case 'scale': { const sz = p.sz ?? 0.03; const C = K.cells3(c.x / sz, c.y / (sz * 0.8), c.z / sz); L += C[1] - C[0] < (p.seam ?? 0.07) ? -0.16 : (0.5 - C[0]) * 0.12; break; }
+      case 'fur': { const fs = p.fs ?? 22; const str = K.vnoise(c.x * fs, c.y * fs * (p.flow ?? 0.22), c.z * fs) + K.vnoise(c.x * fs * 2.1, c.y * fs * 0.5, c.z * fs * 2.1) * 0.5; L += (str - 0.75) * (p.strand ?? 0.22) - (1 - cav) * 0.1 + (qh(c.x, c.y * 0.4, c.z, 0.011) - 0.5) * 0.14 + (qh(c.x, c.y * 0.3, c.z, 0.006) > 0.9 ? 0.1 : 0); if (q.tag2 && q.d2 - q.d < 0.01) L += 0.06; break; }
+      case 'scale': { const sz = p.sz ?? 0.03; const C = K.cells3(c.x / sz, c.y / (sz * 0.8), c.z / sz); const dy = c.y / (sz * 0.8) - C[3]; L += C[1] - C[0] < (p.seam ?? 0.07) ? -0.16 : dy > 0.2 ? 0.12 : dy < -0.25 ? -0.06 : (0.5 - C[0]) * 0.1; break; } // lit top rim, shaded lower lip per scale
       case 'feather': { const sz = p.sz ?? 0.035; const C = K.cells3(c.x / sz, c.y / (sz * 1.6), c.z / sz); const dy = c.y / (sz * 1.6) - C[3]; L += C[1] - C[0] < 0.06 && dy < 0 ? -0.2 : dy < -0.25 ? 0.1 : 0; if (p.tip && dy < -0.3) col = p.tip; break; }
       case 'bone': { const C = K.cells3(c.x / 0.05, c.y / 0.07, c.z / 0.05); L += (C[1] - C[0] < 0.03 ? -0.22 : 0) - (1 - cav) * 0.25; break; }
       case 'metal': {
@@ -170,6 +172,7 @@ export function painter(S, PAL) {
       case 'hair': { const fs = p.fs ?? 40; const str = K.vnoise(c.x * fs, c.y * fs * 0.15, c.z * fs); L += (str - 0.5) * 0.3; break; }
       default: break;
     }
+    if (p.s === 'skin' || p.s === 'cloth' || p.s === 'leather') L += (qh(c.x, c.y, c.z, p.s === 'skin' ? 0.009 : 0.007) - 0.5) * 0.07; // fine clustered grain
     K.tone(col, K.band(L, 4), o.col); if (p.e && p.s !== 'metal') { tmpE[0] = p.e[0]; tmpE[1] = p.e[1]; tmpE[2] = p.e[2]; o.em = tmpE.slice(); }
     p.fn?.(c, o, q, L);
   };
@@ -182,7 +185,7 @@ export function asset(key, { bones, sculpt, pal, cell = 0.02, target = 10000, at
   if (CACHE.has(key)) return CACHE.get(key);
   const S = new Sculpt(); sculpt(S); const names = bones.map((b) => b[0]);
   const geo = S.build({ cell, bones: names, atlas, target, maxChart }); const surf = bake(geo, atlas, names);
-  const mat = K.paintedMat(K.paintSurface(surf, painter(S, pal)));
+  const mat = K.paintedMat(K.paintSurface(surf, painter(S, pal))); if (mat.map) { mat.map.magFilter = THREE.NearestFilter; mat.map.needsUpdate = true; } // crisp texels up close
   let w = null;
   if (wounds) {
     const pa = geo.attributes.position, na = geo.attributes.normal; const sites = []; const q = {}; let seed = 7;

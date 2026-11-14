@@ -69,7 +69,7 @@ function voiceFor(sp) {
   }
   cast.set(sp, best); return best;
 }
-export function estimate(text, sp = 'narrator') { const P = profileOf(sp); return (0.7 + String(text).length / 14.5) / Math.max(0.5, P.rate || 1); }
+export function estimate(text, sp = 'narrator') { const P = profileOf(sp); return (0.7 + String(text).length / 14.5) / Math.max(0.5, P.rate || 1) / (window.__storyFast || 1); } // window.__storyFast: debug / capture speed-up of the reading clock
 
 // ---------------------------------------------------------------- music ducking while anyone speaks
 let ducks = 0;

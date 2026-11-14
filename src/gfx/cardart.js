@@ -94,7 +94,7 @@ export function renderCardFace(card, move) {
   const tf = measure(title, 'title') <= 300 ? 'title' : 'head'; const tk = tf === 'head' ? (measure(title, 'head') * 2 <= 300 ? 2 : 1) : 1;
   T(title, (CW / 2) * CS, 11.75 * CS, tf, '#fff6cf', { outline: '#2a1008', shadow: '#12060a', k: tk });
   medal.slice(0, 2).forEach((m, i) => {
-    const [x, y] = MED[i]; const v = (m[2] || '') + String(m[1]);
+    const [x, y] = MED[i]; const v = (String(m[1]).startsWith('-') ? '' : m[2] || '') + String(m[1]);
     T(v, (x + 0.5) * CS, (y + 0.25) * CS, 'num', '#fff6cf', { k: v.length > 2 ? 2 : 3, outline: '#1a0c14', shadow: '#0a0408' });
   });
   const typeLabel = card.petrified ? 'PETRIFIED' : isPower ? 'POWER · LAW' : isMove ? `MOVE · ${move.n} CARDS` : `BASIC · ${KIND_LABEL[def.kind].toUpperCase()}`;
@@ -112,7 +112,7 @@ export function renderCardFace(card, move) {
   } else lines = up && def.upText ? def.upText : def.text;
   // rules text: PixelSans x3 when every line fits the 100px box (else x2 for the whole card, never mixed), long lines
   // re-wrapped without orphans; "AIR:"-style rule keywords in carmine
-  const BOX = 100 * CS; let k = 3; const fitK = (kk) => lines.every((l) => measure(l, 'body') * kk <= BOX);
+  const BOX = 96 * CS; let k = 3; const fitK = (kk) => lines.every((l) => measure(l, 'body') * kk <= BOX);
   if (!fitK(3)) { const re = lines.flatMap((l) => (measure(l, 'body') * 3 <= BOX ? [l] : wrapText(l, 'body', Math.floor(BOX / 3)))); if (re.length <= 4) lines = re; else k = 2; }
   if (k === 2 && !fitK(2)) lines = lines.flatMap((l) => (measure(l, 'body') * 2 <= BOX ? [l] : wrapText(l, 'body', Math.floor(BOX / 2))));
   lines = lines.slice(0, k === 3 ? 4 : 5); const n = lines.length;

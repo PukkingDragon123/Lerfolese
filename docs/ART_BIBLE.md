@@ -161,3 +161,9 @@ This section follows the user's latest direction and overrides section 9 for the
   - Medusa sheds stone chips. The satyr sprays wine as well as blood.
 - **Magic** applies to energy, elemental and law moves and to casts only. It uses short additive shader meshes: an animated ground rune decal, swirling ribbon tubes, a fresnel orb, flickering branching 3D lightning, layered noise flames and a gravity swirl.
 - **2D pixel art** in combat is limited to small, crisp particles (sparks, embers, motes, dust, leaves) at about 1 art pixel to 2 screen pixels.
+
+## 11. HD-2D surfaces (3D world in pixel-art textures)
+- Every world texture is hand-built pixel art: `src/gfx/art/tiles.js` (seamless ground, walls, wood, thatch, roof tiles, bark, water, smoke puff, laundry), `src/gfx/art/leaves.js` (64px leaf-spray cards per species), `src/gfx/art/plants.js` (grass / flower / reed / bush sprites, 5 wind frames). THREE wrappers with NearestFilter (mipmapped far away) live in `src/gfx/pixeltex.js`.
+- Texel density targets: ~0.024 world units per art pixel for plants and leaves, ~0.03-0.04 for walls and ground.
+- Never soft blends: alpha edges (arena patch, road, lane) are cut with a per-texel hash threshold (`ditherAlpha` in realworld.js); splat transitions use the same dither; water patterns are evaluated on a pixel grid.
+- Cel lighting bands still apply on top (MeshToon + gradient maps); creatures get clustered 3D-grid detail in their paint (fur flecks, lit scale rims), Newton's coat a wool twill and his waistcoat a damask diamond (`pixelCloth` in professor.js).

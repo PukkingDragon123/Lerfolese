@@ -25,6 +25,7 @@ import { save } from '../core/save.js';
 import { eventCutscene, reactionCutscene } from './eventcine.js';
 import { stageCast } from '../models/npcs/index.js';
 import { Particles } from '../gfx/particles.js';
+import { say as sayLine, stopAll as stopLines } from '../story/dialogue.js';
 
 const F = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.7, ...o });
 const mk = (g, m, p, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; p.add(o); return o; };
@@ -37,7 +38,7 @@ function propFor(k) {
     case 'boulder': add(PROPS.rock(3, 2.4), -2, 0, -1.4); break; // Sisyphus' own boulder is part of the cast
     case 'amphorae': for (let i = 0; i < 5; i++) add(PROPS.amphora(i, 0.7), -1.6 + i * 0.8, 0, -0.8 + (i % 2) * 0.4); break;
     case 'wings': add(ITEM_MODELS.wings(), 0, 1.6, 0, 1.6); add(PROPS.rock(5, 2.2), 0, 0, -0.6); break;
-    case 'statue': add(PROPS.statue(4, 1.3), 0, 0, -0.4); add(PROPS.column(2, 3), -1.8, 0, -1); add(PROPS.column(3, 3, true), 1.8, 0, -1); break;
+    case 'statue': add(PROPS.column(2, 3), -1.6, 0, -3.4); add(PROPS.column(3, 3, true), 4.4, 0, -3.0); break; // no bust here (the garden has its own): nothing stands between Newton and the Sphinx
     case 'pond': add(PROPS.statue(9, 1.0), -1.6, 0, -0.8); break; // the pool itself is the stage's set-piece (models/places.js SETS.narcissus)
     case 'brazier': add(P3.brazier(), 0, 1.0, 0, 1.6); add(PROPS.rock(8, 1.8), 1.5, 0, -0.6); break;
     case 'bridge': for (let i = 0; i < 7; i++) mk(S.slab(0.5, 0.12, 2.2, { seed: i }), F({ color: 0x8a5634 }), g, -1.6 + i * 0.52, 0.5 + Math.sin(i / 6 * Math.PI) * 0.4, 0.4); break;
@@ -93,8 +94,7 @@ export default class EventScene extends UIScreen {
     this.choiceBtns.forEach((b, i) => setTimeout(() => { if (!this.root.parent) return; b.group.visible = true; b.pop.value = 0.05; b.pop.vel = 0; b.rz.kick((i % 2 ? 1 : -1) * 9); audio.play('card_place', { vol: 0.5 }); }, 380 + i * 150));
     this.prof.setExpr('think'); this.say(vpick(['Fascinating. And probably lethal.', 'An experiment! Hold my apple.', 'Ah. The universe is being weird again.']));
   }
-  say(text) { this.prof.talk(1.6); if (!this.bubble) { this.bubble = new Paper({ font: 'hand', maxW: 9, tail: true, pin: false, kind: 'scrap' }); this.root.add(this.bubble.group); } this.bubble.show([[[text, '#2a160c']]], 0, 0, 6); this.placeBubble(); audio.play('wood_knock', { vol: 0.35 }); }
-  placeBubble() { const p = this.engine.worldToUI(this.prof.headWorld(new THREE.Vector3())); const b = this.bubble; b.group.position.set(p.x + b.w / 2 - 0.3, p.y + 0.9 + b.h - 0.22, 6); }
+  say(text) { this.prof.talk(Math.min(4, text.length * 0.06)); sayLine('newton', text, { anchor: (o) => this.prof.headWorld(o).add(new THREE.Vector3(0, 0.3, 0)), wait: false }); } // voiced, inked onto a scrap at his head
   ctx() {
     const run = this.game.run; const game = this.game; const P = run.player;
     const learnItem = (id) => { const j = game.journal; j.items[id] = (j.items[id] || 0) + 1; game.saveJournal(); };
@@ -134,7 +134,7 @@ export default class EventScene extends UIScreen {
       this.addButton(new Button3D('Continue', () => this.leave(), { w: 5, h: 1.3, size: 58, color: 'teal' }), this.W - 8.4, -this.H + 1.6, 2);
     };
     // the consequence, filmed: the parchment and plaques step aside for a short reaction scene
-    const idx = this.ev.choices.indexOf(c); this.panel.group.visible = false; for (const b of this.choiceBtns) b.group.visible = false; this.bubble?.hide();
+    const idx = this.ev.choices.indexOf(c); this.panel.group.visible = false; for (const b of this.choiceBtns) b.group.visible = false; stopLines();
     try { this.cine = reactionCutscene(this, this.ev, idx, text); this.cine.done.then(after); } catch (e) { console.warn('reaction skipped', e); after(); }
   }
   // Pan's jam: click when the ring meets the beat (4 beats)
@@ -151,7 +151,7 @@ export default class EventScene extends UIScreen {
   }
   onClick() { if (this.rhythmHit) { this.rhythmHit(); return true; } }
   leave() { if (this.leaving) return; this.leaving = true; this.game.afterNode(); }
-  dispose() { this.cine?.abort(); this.cine = null; super.dispose(); }
+  dispose() { this.cine?.abort(); this.cine = null; stopLines(); super.dispose(); }
   update(dt, t) {
     this.prof.update(dt); for (const n of this.npcs) n.update(dt); for (const a of Object.values(this.cast?.actors || {})) if (a !== this.prof && !this.npcs.includes(a)) a.update(dt);
     this.parts?.update(dt, t); this.glow?.update(dt, t);
@@ -162,7 +162,6 @@ export default class EventScene extends UIScreen {
       this.camera.lookAt(this.camLook.clone().lerp(head, 0.45 * k));
     }
     this.panel.update(dt, this.ptr(2)); this.updateUI(dt); this.deck?.update(dt, t); this.rhythmLabel?.update(dt, null);
-    if (this.bubble) { this.placeBubble(); this.bubble.update(dt, null); }
   }
 }
 

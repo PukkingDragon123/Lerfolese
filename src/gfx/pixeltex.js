@@ -22,3 +22,7 @@ export const leafTex = (kind = 'oak') => pixelTex('leaf:' + kind, () => leafCard
 // village surfaces by material key (plaster, stone, rubble, marble, woodRaw, woodDark, woodBlue, woodGreen, thatch, canvas, tile)
 const SURF = { ...TL.WALL, ...TL.WOOD, thatch: () => TL.thatchTile(), canvas: () => TL.canvasTile(), tile: () => TL.roofTile() };
 export const surfaceTex = (key) => (SURF[key] ? pixelTex('surf:' + key, () => SURF[key]()) : null);
+export const puffTex = () => pixelTex('puff', () => TL.smokePuff(), { repeat: false });
+export const clothTex = (hex, kind = 0) => pixelTex('cloth:' + hex + kind, () => TL.clothTile(hex, kind));
+export const runeRingTex = () => pixelTex('runeRing', () => TL.runeRing(), { repeat: false, mip: false });
+export const dragonflyTex = () => pixelTex('dragonfly', () => TL.dragonfly(), { repeat: false, mip: false });

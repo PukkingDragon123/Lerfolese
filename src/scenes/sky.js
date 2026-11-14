@@ -27,11 +27,11 @@ function nightDome() {
         vec3 bn = normalize(vec3(0.35, 0.55, 0.75)); float b = dot(d, bn); vec3 q = d * 3.0 + vec3(uTime * 0.004, 0.0, 0.0);
         float band = exp(-b * b / 0.035) * (0.55 + 0.75 * fbm(q * 1.6)); float lanes = smoothstep(0.45, 0.75, fbm(q * 3.2 + 7.0)) * exp(-b * b / 0.008);
         vec3 gal = mix(vec3(0.32, 0.18, 0.5), vec3(0.55, 0.42, 0.75), fbm(q * 2.5)) + vec3(0.25, 0.2, 0.12) * exp(-b * b / 0.004);
-        c += gal * band * 0.55 * (1.0 - lanes * 0.8);
-        c = floor(c * 48.0 + 0.5) / 48.0; gl_FragColor = vec4(c, 1.0); }` });
+        c += gal * band * 0.9 * (1.0 - lanes * 0.85); c += vec3(0.18, 0.08, 0.22) * pow(fbm(d * 2.2 + 13.0), 3.0) * 0.8 + vec3(0.05, 0.1, 0.2) * pow(fbm(d * 3.1 + 2.0), 4.0);
+        c += (h(floor(d * 900.0)) - 0.5) / 255.0; gl_FragColor = vec4(c, 1.0); }` });
   const s = new THREE.Mesh(new THREE.SphereGeometry(200, 48, 24), m); s.frustumCulled = false; s.renderOrder = -10; s.userData.noInk = true; return s;
 }
-const STAR_VS = 'attribute vec3 aC; attribute vec2 aS; uniform float uTime, uK, uPx; varying vec3 vC; varying float vBig; void main(){ vC = aC * (0.65 + 0.35 * sin(uTime * (1.0 + aS.y * 3.0) + aS.x * 50.0)) * uK; vBig = step(0.94, aS.x); vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = (1.6 + aS.y * 1.6 + vBig * 4.5) * uPx; }';
+const STAR_VS = 'attribute vec3 aC; attribute vec2 aS; uniform float uTime, uK, uPx; varying vec3 vC; varying float vBig; void main(){ vC = aC * (0.65 + 0.35 * sin(uTime * (1.0 + aS.y * 3.0) + aS.x * 50.0)) * uK; vBig = step(0.94, aS.x); vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = (2.4 + aS.y * 2.2 + vBig * 6.0) * uPx; }';
 const STAR_FS = 'varying vec3 vC; varying float vBig; void main(){ vec2 p = gl_PointCoord - 0.5; float cr = max(step(abs(p.x), 0.08) * step(abs(p.y), 0.5) * (1.0 - abs(p.y) * 1.6), step(abs(p.y), 0.08) * step(abs(p.x), 0.5) * (1.0 - abs(p.x) * 1.6)); float core = step(length(p), 0.2); float a = mix(core, max(core, cr), vBig); if (a < 0.05) discard; gl_FragColor = vec4(vC * a, 1.0); }';
 function starPoints(list, { k = 1, px = 1 } = {}) { // list: [x, y, z, r, g, b, seed, size]
   const P = [], Cc = [], S = []; for (const s of list) { P.push(s[0], s[1], s[2]); Cc.push(s[3], s[4], s[5]); S.push(s[6], s[7]); }
@@ -40,10 +40,11 @@ function starPoints(list, { k = 1, px = 1 } = {}) { // list: [x, y, z, r, g, b, 
   const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.onBeforeRender = (rd) => { T.tickWind(); m.uniforms.uPx.value = rd.domElement.height / 720 * 1.4; }; return pts;
 }
 // Isaac Newton in stars: a figure with flowing hair raising an apple; key stars, chart lines, and a silhouette of fine stars
-const ISAAC = { stars: [[0.1, 3.0], [0.45, 2.78], [0.38, 2.35], [-0.35, 2.15], [-0.42, 1.88], [0.62, 1.95], [1.02, 2.3], [1.12, 2.9], [1.26, 3.28], [0.15, 1.1], [-0.58, 0.3], [0.72, 0.36], [-0.22, -0.3], [0.48, -0.3]],
-  lines: [[0, 1], [1, 2], [2, 5], [0, 3], [3, 4], [5, 6], [6, 7], [7, 8], [4, 9], [5, 9], [9, 10], [9, 11], [10, 12], [11, 13]],
-  outline: [[0.1, 3.02], [0.47, 2.8], [0.42, 2.35], [0.66, 2.0], [1.0, 2.24], [1.16, 2.86], [1.02, 2.96], [0.86, 2.42], [0.72, 1.62], [0.76, 0.38], [0.5, -0.32], [0.12, 0.18], [-0.24, -0.32], [-0.62, 0.3], [-0.46, 1.86], [-0.4, 2.2], [-0.16, 2.76]] };
-const QMARK = { stars: [[-0.42, 2.0], [-0.2, 2.42], [0.22, 2.5], [0.52, 2.15], [0.38, 1.7], [0.05, 1.42], [0.0, 0.95], [0.0, 0.4]], lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]] };
+const ISAAC = { // head loop, flowing hair, shoulders, an arm raised to an apple (a little loop of stars), the coat, the legs
+  stars: [[0.25, 3.05], [0.55, 2.95], [0.62, 2.68], [0.45, 2.45], [0.15, 2.6], [0.0, 2.95], [-0.25, 2.55], [-0.3, 2.15], [0.35, 2.2], [-0.2, 1.95], [0.75, 1.95], [1.1, 2.4], [1.2, 2.95], [1.15, 3.15], [1.3, 3.3], [1.44, 3.15], [1.3, 3.02], [0.3, 1.1], [-0.5, 0.25], [0.95, 0.3], [0.05, -0.35], [0.6, -0.35]],
+  lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0], [0, 5], [5, 6], [6, 7], [3, 8], [8, 9], [8, 10], [10, 11], [11, 12], [12, 13], [13, 14], [14, 15], [15, 16], [16, 13], [9, 17], [10, 17], [9, 18], [17, 19], [18, 20], [19, 21]],
+  outline: [[0.25, 3.08], [0.6, 2.98], [0.66, 2.65], [0.48, 2.38], [0.8, 1.98], [1.12, 2.38], [1.22, 2.95], [1.0, 2.4], [0.85, 1.6], [0.98, 0.3], [0.62, -0.38], [0.25, 0.4], [0.03, -0.38], [-0.55, 0.25], [-0.25, 1.9], [-0.35, 2.15], [-0.28, 2.6], [-0.02, 3.0]] };
+const QMARK = { stars: [[-0.42, 2.0], [-0.2, 2.42], [0.22, 2.5], [0.52, 2.15], [0.38, 1.7], [0.05, 1.42], [0.0, 0.95], [0.0, 0.4], [-0.6, 0.9], [0.7, 0.6], [-0.3, 3.0], [0.8, 2.9]], lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]] };
 const inPoly = (x, y, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c; } return c; };
 
 function constellation(def, { at, locked = false, seed = 1 } = {}) {
@@ -51,10 +52,10 @@ function constellation(def, { at, locked = false, seed = 1 } = {}) {
   const col = locked ? [0.45, 0.5, 0.7] : [1.0, 0.92, 0.7];
   const key = def.stars.map(([x, y], i) => [x * s, (y - 1.35) * s, 0, ...col, r(), locked ? 0.4 : i === 8 ? 1.0 : 0.75]);
   const stars = starPoints(key, { k: locked ? 0.55 : 1.4 }); G.add(stars);
-  const P = []; for (const [a, b] of def.lines) { P.push(key[a][0], key[a][1], 0, key[b][0], key[b][1], 0); }
-  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-  const lm = new THREE.LineBasicMaterial({ color: locked ? new THREE.Color(0.35, 0.4, 0.6) : new THREE.Color(1.4, 1.15, 0.7), transparent: true, opacity: locked ? 0.45 : 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
-  const lines = new THREE.LineSegments(lg, lm); lines.frustumCulled = false; G.add(lines); lg.setDrawRange(0, 0);
+  const P = [], I = []; const w = locked ? 0.018 : 0.03; for (const [a, b] of def.lines) { const ax = key[a][0], ay = key[a][1], bx = key[b][0], by = key[b][1]; const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1; const nx = (-dy / L) * w, ny = (dx / L) * w; const o = P.length / 3; P.push(ax + nx, ay + ny, 0, ax - nx, ay - ny, 0, bx - nx, by - ny, 0, bx + nx, by + ny, 0); I.push(o, o + 1, o + 2, o, o + 2, o + 3); }
+  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); lg.setIndex(I);
+  const lm = new THREE.MeshBasicMaterial({ color: locked ? new THREE.Color(0.35, 0.4, 0.6) : new THREE.Color(1.3, 1.08, 0.66), transparent: true, opacity: locked ? 0.45 : 0.85, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+  const lines = new THREE.Mesh(lg, lm); lines.frustumCulled = false; lines.userData.noInk = true; G.add(lines); lg.setDrawRange(0, 0);
   let fill = null; if (def.outline) { const pts = []; for (let i = 0; i < 2600 && pts.length < 220; i++) { const x = -0.8 + r() * 2.2, y = -0.4 + r() * 3.8; if (inPoly(x, y, def.outline)) pts.push([x * s, (y - 1.35) * s, -0.02, 0.55, 0.62, 1.0, r(), 0.15]); } fill = starPoints(pts, { k: 0 }); G.add(fill); }
   const hit = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 3.6), new THREE.MeshBasicMaterial({ visible: false })); G.add(hit);
   return { group: G, stars, lines, fill, hit, nLines: def.lines.length, locked };
@@ -71,7 +72,8 @@ export class SkyScene extends UIScreen {
     // the astral UI
     const astral = (this.astral = new THREE.Group()); sc.add(astral);
     const key = new THREE.DirectionalLight(0xfff0d8, 2.6); key.position.set(-3, 5, 8); const fill = new THREE.DirectionalLight(0x8aa0ff, 1.2); fill.position.set(5, -2, 4); sc.add(key, fill, new THREE.AmbientLight(0x6a6aa0, 0.8));
-    const apple = (this.apple = makeApple({ s: 1.15, ripe: 1 })); apple.children[0].material.color.set('#e8b030'); apple.position.set(0, -0.35, 0); astral.add(apple);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createRadialGradient(32, 32, 4, 32, 32, 32); gr.addColorStop(0, 'rgba(255,220,140,0.55)'); gr.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); halo.scale.setScalar(3.2); halo.position.set(0, 0.2, -0.4); astral.add(halo);
+    const apple = (this.apple = makeApple({ s: 1.35, ripe: 1 })); apple.children[0].material.color.set('#e8b030'); apple.position.set(0, -0.35, 0); astral.add(apple);
     const ringT = (() => { const S = 256, c = document.createElement('canvas'); c.width = S; c.height = 8; const g = c.getContext('2d'); g.fillStyle = '#a8801e'; g.fillRect(0, 0, S, 8); g.fillStyle = '#f2c84a'; g.fillRect(0, 2, S, 3); g.fillStyle = '#5a3e10'; for (let x = 0; x < S; x += 8) g.fillRect(x, 0, 1, x % 32 ? 3 : 8); const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.wrapS = THREE.RepeatWrapping; t.repeat.x = 6; t.colorSpace = THREE.SRGBColorSpace; return t; })();
     const orbitRing = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.03, 8, 96), new THREE.MeshToonMaterial({ map: ringT, gradientMap: T.gradientMap([0.35, 0.75, 1.0]) })); orbitRing.rotation.x = 1.25; orbitRing.position.copy(apple.position).add(V(0, 0.45, 0)); astral.add(orbitRing); this.orbitRing = orbitRing;
     // the ringed planet: banded pixel globe and a flat ring with pixel bands
@@ -81,17 +83,17 @@ export class SkyScene extends UIScreen {
     const rg = new THREE.RingGeometry(0.42, 0.68, 64, 2); { const p = rg.attributes.position, uv = rg.attributes.uv; for (let i = 0; i < p.count; i++) { const d = Math.hypot(p.getX(i), p.getY(i)); uv.setXY(i, 0.5, (d - 0.42) / 0.26); } }
     const ring = new THREE.Mesh(rg, new THREE.MeshToonMaterial({ map: bands(['#e8d0a0', '#b8986a', '#f4e4c0', '#8a7050'], 4, 32), side: THREE.DoubleSide, gradientMap: T.gradientMap([0.4, 0.8, 1.0]) })); ring.rotation.x = 1.2; planet.add(ring); planet.rotation.z = 0.35;
     // constellations: Isaac (top left) and three sealed ones
-    this.cons = [constellation(ISAAC, { at: V(-4.1, 1.15, -0.5), seed: 3 }), constellation(QMARK, { at: V(4.1, 1.15, -0.5), locked: true, seed: 5 }), constellation(QMARK, { at: V(-3.8, -2.35, -0.8), locked: true, seed: 7 }), constellation(QMARK, { at: V(3.8, -2.35, -0.8), locked: true, seed: 9 })];
+    this.cons = [constellation(ISAAC, { at: V(-4.1, 1.15, -0.5), seed: 3 }), constellation(QMARK, { at: V(4.1, 1.15, -0.5), locked: true, seed: 5 }), constellation(QMARK, { at: V(-5.3, -2.75, -0.8), locked: true, seed: 7 }), constellation(QMARK, { at: V(5.3, -2.75, -0.8), locked: true, seed: 9 })];
     this.cons.forEach((c, i) => { astral.add(c.group); c.k = 0; c.hover = 0; c.i = i; });
     // chart lines from the apple to each constellation
     const P = []; for (const c of this.cons) { const a = V(0, 0.1, 0), b = c.group.position.clone().multiplyScalar(0.72); P.push(a.x, a.y, a.z, b.x, b.y, b.z); }
     const cg = new THREE.BufferGeometry(); cg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); this.chart = new THREE.LineSegments(cg, new THREE.LineDashedMaterial({ color: new THREE.Color(0.55, 0.6, 1.0), dashSize: 0.12, gapSize: 0.1, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); this.chart.computeLineDistances(); astral.add(this.chart);
     // engraved brass plates
     const plate = (text, sub, pos, w) => { const p = plaque(text, { font: 'title', style: 'engrave', kind: 'brass', sub, depth: 0.25 }); const [pw] = p.userData.size; p.scale.multiplyScalar(w / pw); p.position.copy(pos); astral.add(p); return p; };
-    this.isaacPlate = plate('Isaac Newton', 'Natural Philosopher', V(-4.1, -0.95, -0.3), 2.2);
+    this.isaacPlate = plate('Isaac Newton', 'Natural Philosopher', V(-4.1, -1.25, -0.3), 2.2);
     for (const c of this.cons.slice(1)) plate('Sealed', null, c.group.position.clone().add(V(0, -2.05, 0.2)), 1.2);
     this.titlePlate = plate('Choose Your Star', null, V(0, 3.15, -0.6), 3.0);
-    this.backPlate = plate('Back to the Garden', null, V(-5.3, -3.9, 0.3), 2.0);
+    this.backPlate = plate('Back to the Garden', null, V(0, -3.7, 0.3), 2.4);
     // camera: starts looking straight up (continuing the garden's tilt), then lowers onto the astral chart
     this.camera = new THREE.PerspectiveCamera(46, this.engine.aspect, 0.1, 500); this.camera.position.set(0, 0, 11.5); this.look = V(0, 0, 0); this.t0 = performance.now();
     this.engine.setWorld(sc, this.camera); this.engine.setFx({ bloom: [1.0, 0.6, 0.6], tilt: false, grade: { sat: 1.1, contrast: 1.08, vignette: 0.55, lift: [0.01, 0.01, 0.04] }, ink: { fade: [30, 90] } });
@@ -112,7 +114,7 @@ export class SkyScene extends UIScreen {
     const pitch = (1 - lower) * 1.25; this.look.set(0, Math.sin(pitch) * 30, 11.5 - Math.cos(pitch) * 30 * (lower > 0.999 ? 1 : 1)).lerp(V(0, 0, 0), lower);
     this.astral.scale.setScalar(0.6 + 0.4 * ease(T0 / 2.6)); this.astral.position.y = (1 - ease(T0 / 2.6)) * -2;
     this.chart.material.opacity = 0.5 * ease((T0 - 1.6) / 1.2);
-    this.cons.forEach((c, i) => { const k = ease((T0 - 1.8 - i * 0.25) / (c.locked ? 0.8 : 2.2)); c.lines.geometry.setDrawRange(0, Math.floor(k * c.nLines) * 2); if (c.fill) c.fill.material.uniforms.uK.value = 0.5 * ease((T0 - 3.2) / 1.5) * (1 + c.hover * 0.8);
+    this.cons.forEach((c, i) => { const k = ease((T0 - 1.8 - i * 0.25) / (c.locked ? 0.8 : 2.2)); c.lines.geometry.setDrawRange(0, Math.floor(k * c.nLines) * 6); if (c.fill) c.fill.material.uniforms.uK.value = 0.5 * ease((T0 - 3.2) / 1.5) * (1 + c.hover * 0.8);
       c.hover += ((this.hover === c ? 1 : 0) - c.hover) * Math.min(1, dt * 8); c.kick = Math.max(0, (c.kick || 0) - dt * 2); c.group.scale.setScalar(1 + c.hover * 0.06 + Math.sin(c.kick * 20) * 0.04 * c.kick); c.stars.material.uniforms.uK.value = (c.locked ? 0.55 : 1.4) * (1 + c.hover * 0.7); });
     this.apple.rotation.y += dt * 0.9; this.apple.position.y = -0.35 + Math.sin(t * 1.1) * 0.08; this.orbitRing.rotation.z += dt * 0.3;
     const a = t * 0.45; this.planet.position.set(Math.cos(a) * 1.9, -0.05 + Math.sin(a) * 0.5, Math.sin(a) * 1.0); this.planet.rotation.y += dt * 0.6;

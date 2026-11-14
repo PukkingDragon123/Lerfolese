@@ -268,9 +268,9 @@ export class Battle {
   async checkDiscovery(mv) {
     if (!mv || mv.n < 2) return null; const run = this.run; const known = (run.discovered ||= []);
     if (known.includes(mv.key)) return null; known.push(mv.key); run.stats.combos = (run.stats.combos || 0) + 1;
-    if (mv.special?.law) { (run.laws ||= []).push(mv.special.key); this.fx.artifact?.('law:' + mv.special.key); }
-    if (this.flags.pickedThisTurn && !mv.special?.law) { await this.fx.discovered?.(mv); return null; } this.flags.pickedThisTurn = true; // a Law always offers its pick
-    const opts = discoveryChoices(run, 3, mv.special?.law ? 1 : 0); const pick = await this.fx.discoverPick?.(mv, opts, this.calc(mv, this.heldTarget({ comps: mv.comps }, null, mv))); const id = opts.includes(pick) ? pick : opts[0]; if (!id) return null;
+    const newLaw = mv.special?.law && !(run.laws ||= []).includes(mv.special.key); if (newLaw) { run.laws.push(mv.special.key); this.fx.artifact?.('law:' + mv.special.key); }
+    if (this.flags.pickedThisTurn && !newLaw) { await this.fx.discovered?.(mv); return null; } this.flags.pickedThisTurn = true; // a newly found Law always offers its pick
+    const opts = discoveryChoices(run, 3, newLaw ? 1 : 0); const pick = await this.fx.discoverPick?.(mv, opts, this.calc(mv, this.heldTarget({ comps: mv.comps }, null, mv))); const id = opts.includes(pick) ? pick : opts[0]; if (!id) return null;
     const c = mkCard(id); run.deck.push(c); const slot = this.slotOf([{ ...c }]);
     if (this.handCount() < HAND_MAX) { this.hand.push(slot); await this.fx.drew?.([slot]); } else this.discard.push(slot.cards[0]);
     return id;

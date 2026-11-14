@@ -128,7 +128,7 @@ function anchorUI(a, out) {
   if (!w) return null; const cam = E.world.camera; _p.copy(w).project(cam); if (_p.z > 1) return null; // behind the camera
   return out.set(_p.x * E.uiW, _p.y * E.uiH, 0);
 }
-function bandY() { const D = window.__cine; const E = eng(); if (D && !D.ended && D.bars) return -E.uiH + D.band * 0.5 + 0.06; return -E.uiH + 1.25; }
+function bandY() { const D = window.__cine; const E = eng(); if (D && !D.ended && D.bars) return -E.uiH + D.band * 0.5 + 0.06; if (window.__storyBand) return -E.uiH + E.uiH * 0.165 * 0.5 + 0.06; return -E.uiH + 1.25; } // on the letterbox beam when one is up
 function step(dt) {
   const E = eng(); if (!E) return; const W = E.uiW, H = E.uiH; const show = voiceSettings.subtitles || !voiceSettings.voice;
   const live = [...lines];

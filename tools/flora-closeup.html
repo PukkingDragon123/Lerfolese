@@ -1,0 +1,27 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>html,body{margin:0;background:#1d1826}canvas{display:block}</style></head><body>
+<script type="module">
+// HD-2D close-ups of the pixel-art world: trees (leaf cards + bark), a cottage wall, ground tiles, grass and flowers.
+// Three views in one canvas: [trees + cottage] [crown and bark close-up] [grass, flowers and ground at the hero's feet]
+import * as THREE from 'three';
+import * as T from '../src/models/toon.js';
+import * as F from '../src/models/flora.js';
+import { cottage } from '../src/models/village.js';
+import { plantField } from '../src/gfx/plants.js';
+import { groundTex } from '../src/gfx/pixeltex.js';
+const W = 640, H = 480; const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setPixelRatio(1); r.setSize(W * 3, H); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.setScissorTest(true); document.body.appendChild(r.domElement);
+const sc = new THREE.Scene(); sc.background = new THREE.Color('#9cc4e8'); sc.fog = new THREE.Fog('#c8d8e0', 30, 90);
+const sun = new THREE.DirectionalLight(0xfff0d8, 2.6); sun.position.set(-6, 9, 7); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12 }); r.shadowMap.enabled = true; sc.add(sun, sun.target, new THREE.HemisphereLight(0xbcd8ff, 0x4a5a30, 1.1));
+const gt = groundTex('grass').clone(); gt.repeat.set(16, 16); gt.needsUpdate = true; const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 40).rotateX(-Math.PI / 2), new THREE.MeshToonMaterial({ map: gt, gradientMap: T.gradientMap([0.55, 0.8, 1.0]) })); ground.receiveShadow = true; sc.add(ground);
+const grove = new F.Grove(); [['olive', -6, -4], ['apple', -2, -5], ['oak', 3, -6], ['pine', 8, -8], ['cypress', -9, -7], ['myrtle', 0.5, -1.5], ['oleander', -3.5, -1], ['broom', 4, -1.8]].forEach(([k, x, z]) => grove.add(k, x, 0, z, { s: k === 'pine' ? 0.8 : 1 }));
+sc.add(grove.build());
+const c = cottage(7, { w: 4, d: 3.4, h: 2.6, roof: 'gable', walls: 'rubble', paint: 'woodBlue' }); c.group.position.set(9, 0, -2); c.group.rotation.y = -0.5; sc.add(c.group);
+const items = []; let s = 5; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647); const kinds = ['tall', 'wide', 'short', 'wispy', 'seed', 'poppy', 'daisy', 'cornflower', 'lavender', 'clover', 'buttercup', 'narcissus', 'fern', 'thistle'];
+for (let i = 0; i < 900; i++) { const x = -8 + rnd() * 16, z = -3 + rnd() * 9; const k = i < 700 ? kinds[Math.floor(rnd() * 5)] : kinds[5 + Math.floor(rnd() * 9)]; items.push({ kind: k, x, y: 0, z, s: 0.9 + rnd() * 0.3, v: rnd() }); }
+sc.add(plantField(items, { wind: T.WIND, tick: T.tickWind, cam: new THREE.Vector3(0, 2, 9), far: 1e9 }));
+const views = [[new THREE.Vector3(0.5, 3.2, 10), new THREE.Vector3(1, 2, -3), 40], [new THREE.Vector3(-1.2, 3.4, -1.5), new THREE.Vector3(-2.6, 3.4, -5), 32], [new THREE.Vector3(0.2, 0.9, 4.2), new THREE.Vector3(0.2, 0.25, 1.2), 34]];
+T.WIND.time.value = 3.2;
+views.forEach(([p, l, fov], i) => { const cam = new THREE.PerspectiveCamera(fov, W / H, 0.05, 200); cam.position.copy(p); cam.lookAt(l); r.setViewport(i * W, 0, W, H); r.setScissor(i * W, 0, W, H); r.render(sc, cam); });
+window.__done = true;
+</script></body></html>

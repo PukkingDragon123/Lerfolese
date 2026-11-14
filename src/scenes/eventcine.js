@@ -7,15 +7,18 @@ import * as THREE from 'three';
 import { Director, CamRig, Walker, roadPath, frameAt, ease, span, lerpAngle } from './cinematic.js';
 import { hud } from '../ui3d/hud.js';
 import { audio } from '../core/audio.js';
+import { say as sayLine } from '../story/dialogue.js';
+import { estimate } from '../story/voice.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
-const _a = V(), _b = V(), _c = V();
+const _a = V(), _b = V(), _c = V(), _up = V(0, 0.3, 0);
+const VO = (who) => (who === 'newton' ? 'newton' : who); // actor key -> voice / speaker id (story/voice.js PROFILES)
 const qbez = (a, c, b, u, out = V()) => { const k = 1 - u; return out.set(k * k * a.x + 2 * k * u * c.x + u * u * b.x, k * k * a.y + 2 * k * u * c.y + u * u * b.y, k * k * a.z + 2 * k * u * c.z + u * u * b.z); };
 
 // ================================================================== the timeline
 class Film {
   constructor(E, { bars = true } = {}) {
-    this.E = E; this.D = new Director(E.engine, E.input, { bars }); this.rig = new CamRig(E.camera); this.shots = []; this.tracks = []; this.lines = []; this.cards = []; this.end = 0;
+    this.E = E; this.D = new Director(E.engine, E.input, { bars }); this.rig = new CamRig(E.camera); this.shots = []; this.tracks = []; this.vlines = []; this.cards = []; this.end = 0;
     this.actors = { newton: E.prof, ...(E.cast?.actors || {}) }; this.hAt = E.hAt || (() => 0);
   }
   // ---- what is where
@@ -28,14 +31,14 @@ class Film {
   at(t, fn) { this.D.at(t, fn); this.end = Math.max(this.end, t); return this; }
   track(t0, t1, fn) { const tr = { t0, t1, fn, done: false }; this.tracks.push(tr); this.end = Math.max(this.end, t1); return tr; }
   shot(t0, t1, cam, { cut = false, rp = 3.2, rl = 5 } = {}) { this.shots.push({ t0, t1, cam, cut, rp, rl }); this.end = Math.max(this.end, t1); return this; }
-  say(t, text) { this.at(t, () => { this.curSay = t; this.D.say(text); }); return this.at(t + 4.6, () => { if (this.curSay === t) this.D.narr.clear(); }); } // a line stays ~4.5 s
+  // narrator: voiced, queued, inked onto the beam strip (Director.say); characters: voiced, inked onto a scrap at their head
+  say(t, text) { const e = { t, narr: true, text, slot: null }; this.vlines.push(e); return this.at(t, () => { e.slot = this.D.say(text); }); }
   hush(t) { return this.at(t, () => this.D.narr.clear()); }
-  speak(t, who, text, life = 2.6) {
+  speak(t, who, text) {
+    const e = { t, who, text, line: null }; this.vlines.push(e);
     return this.at(t, () => {
-      const me = who === 'newton'; const nm = me ? 'Newton' : this.E.cast?.names?.[who]?.[0] || who;
-      for (const l of this.lines) if (l.who === who) l.life = Math.min(l.life, 0); // one scrap per speaker at a time
-      const b = hud.bubble(text, me ? 'me' : 'foe', nm); this.lines.push({ b, who, life, me }); const a = this.actors[who]; a?.talk?.(Math.min(2.4, text.length * 0.05)); audio.play(me ? 'wood_knock' : 'paper_rustle', { vol: 0.35 });
-      if (this.lines.length > 2) this.lines.shift().b.drop();
+      const a = this.actors[who]; const vo = VO(who); a?.talk?.(Math.min(7, estimate(text, vo) * 0.92)); audio.play(who === 'newton' ? 'wood_knock' : 'paper_rustle', { vol: 0.18 });
+      e.line = sayLine(vo, text, { anchor: (o) => this.head(who, o).add(_up), wait: false, name: this.E.cast?.names?.[who]?.[0] }).line;
     });
   }
   card(t, who, hold = 2.6) {
@@ -80,21 +83,27 @@ class Film {
   close(who, { d = 2.6, side = 0.35, up = 0.12, fov = 30, dy = 0 } = {}) { return () => { const h = this.head(who); const dir = this.toCam(h, side); return { p: h.clone().addScaledVector(dir, d).add(V(0, up, 0)), l: h.clone().add(V(0, dy, 0)), fov }; }; }
   two(a, b, { d = 2.2, side = 0, up = 0.35, fov = 32, bias = 0.5 } = {}) { return () => { const ha = this.head(a), hb = this.head(b); const m = ha.clone().lerp(hb, bias); const span2 = ha.distanceTo(hb); const dir = this.toCam(m, side); return { p: m.clone().addScaledVector(dir, d + span2 * 0.8).add(V(0, up, 0)), l: m.clone().add(V(0, -0.1, 0)), fov }; }; }
   fixed(p, l, fov = 34) { return () => ({ p, l, fov }); }
+  // over the shoulder of `from`, onto `to` (the camera stays on the audience's side of the line)
+  ots(from, to, { back = 1.15, side = 0.5, up = 0.16, fov = 30, dy = -0.04 } = {}) {
+    return () => { const a = this.head(from), b = this.head(to); const dir = _a.copy(b).sub(a); dir.y = 0; const dist = dir.length(); dir.normalize(); const right = V(-dir.z, 0, dir.x); const R = this.E.camBase; const sg = Math.sign(right.x * (R.x - a.x) + right.z * (R.z - a.z)) || 1;
+      const bk = Math.min(back, dist * 0.45 + 0.4); return { p: a.clone().addScaledVector(dir, -bk).addScaledVector(right, side * sg).add(V(0, up, 0)), l: b.clone().add(V(0, dy, 0)), fov }; };
+  }
+  // a slow push-in on one face (the dolly travels through the shot)
+  push(who, { d0 = 3.0, d1 = 1.8, side = 0.3, up = 0.1, fov = 28 } = {}) { return (u) => { const h = this.head(who); const dir = this.toCam(h, side); const d = d0 + (d1 - d0) * ease.io(u); return { p: h.clone().addScaledVector(dir, d).add(V(0, up, 0)), l: h.clone(), fov }; }; }
   // keep an actor in frame from an offset (it may fly anywhere): optionally look part-way towards another
   chase(who, off, { fov = 38, dy = 1.0, toward = null, k = 0.3 } = {}) { return () => { const r = this.actors[who]?.root; const p = r ? r.position.clone() : V(); const l = p.clone().add(V(0, dy, 0)); if (toward) l.lerp(this.head(toward), k); return { p: p.clone().add(off), l, fov }; }; }
   // ---- run it
   play({ onReveal = () => {}, settle = true } = {}) {
     const D = this.D, E = this.E, rig = this.rig, cam = E.camera; const baseFov = cam.fov; const restP = E.camBase.clone(), restL = E.camLook.clone(); this.shots.sort((a, b) => a.t0 - b.t0);
-    let S0 = this.end + 0.2, SD = 1.1, from = null, revealed = false, finished = false, lastShot = null;
+    let S0 = this.end + 0.2, SD = 1.1, from = null, revealed = false, finished = false, lastShot = null, heldT = 0, lastT = -1;
     const finishTracks = () => { for (const tr of this.tracks) if (!tr.done) { tr.done = true; try { tr.fn(1, 0, tr.t1); } catch (e) { console.warn(e); } } };
-    const dropLines = () => { for (const l of this.lines) l.b.drop(); this.lines = []; };
-    const finish = () => { if (finished) return; finished = true; finishTracks(); dropLines(); cam.fov = baseFov; cam.updateProjectionMatrix(); if (settle) { cam.position.copy(restP); cam.lookAt(restL); } if (!revealed) { revealed = true; onReveal(); } D.end(); this.cleanup?.(); };
-    D.onSkip = () => { finishTracks(); dropLines(); S0 = D.t; SD = 0.55; from = null; D.bars?.hide(); this.skipped = true; };
+    const finish = () => { if (finished) return; finished = true; finishTracks(); cam.fov = baseFov; cam.updateProjectionMatrix(); if (settle) { cam.position.copy(restP); cam.lookAt(restL); } if (!revealed) { revealed = true; onReveal(); } D.end(); this.cleanup?.(); };
+    D.onSkip = () => { finishTracks(); S0 = D.t; SD = 0.55; from = null; D.bars?.hide(); this.skipped = true; };
     const pos = V(), look = V();
     D.frame = (t, dt) => {
       if (t < S0) {
         if (!this.skipped) for (const tr of this.tracks) { if (tr.done || t < tr.t0) continue; const u = span(t, tr.t0, tr.t1); tr.fn(u, dt, t); if (u >= 1) tr.done = true; }
-        let sh = null; for (const s of this.shots) if (t >= s.t0) sh = s; if (sh) { const f = sh.cam(span(t, sh.t0, sh.t1), t); if (sh !== lastShot && (sh.cut || !lastShot)) rig.snap(f.p, f.l, f.fov); else rig.follow(f.p, f.l, f.fov, dt, sh.rp, sh.rl); lastShot = sh; }
+        let sh = null; for (const s of this.shots) if (t >= s.t0) sh = s; if (sh) { const f = sh.cam(span(t, sh.t0, sh.t1), t); if (sh !== lastShot) heldT = 0; if (t === lastT) heldT += dt; if (heldT > 0) f.p = f.p.clone().lerp(f.l, Math.min(0.16, heldT * 0.025)); if (sh !== lastShot && (sh.cut || !lastShot)) rig.snap(f.p, f.l, f.fov); else rig.follow(f.p, f.l, f.fov, dt, sh.rp, sh.rl); lastShot = sh; } lastT = t;
       } else {
         if (!settle) { finish(); return; }
         if (!from) from = { p: rig.pos.clone(), l: rig.look.clone(), f: rig.fov }; const u = ease.smooth(span(t, S0, S0 + SD));
@@ -103,10 +112,13 @@ class Film {
       }
       rig.apply();
       // speech scraps and name cards follow their speakers
-      for (const l of this.lines) { l.life -= dt; const p = E.engine.worldToUI(this.head(l.who, _c).add(_b.set(0, 0.5, 0))); if (!l.b.fall) l.b.at(p.x + (l.me ? 0.6 : -0.5), p.y + (l.me ? 0.4 : 0.6)); if (l.life < 0) l.b.drop(); }
-      this.lines = this.lines.filter((l) => l.life >= -0.6);
       for (const k of this.cards) { const p = E.engine.worldToUI(this.head(k.who, _c).add(_b.set(0, 0.7, 0))); k.c.at(p.x + 4.2, p.y + 1.4); }
     };
+    // voiced lines set the pace: the clock waits for a speaker to finish before the next line, at a moment when nothing
+    // is in mid-flight (never freezing an actor mid-air); the last line is heard out before the film ends
+    const vl = this.vlines.slice().sort((a, b) => a.t - b.t); const moving = (g) => this.tracks.some((tr) => tr.t1 - tr.t0 > 0.05 && g > tr.t0 + 1e-3 && g < tr.t1 - 1e-3);
+    const said = (e) => (e.narr ? !!e.slot?.finished : !!e.line?.finished);
+    vl.forEach((a, i) => { const b = vl[i + 1]; const lo = a.t + 0.3, hi = b ? b.t - 0.02 : this.end + 0.1; const c = [hi, ...this.tracks.flatMap((tr) => [tr.t0 - 0.01, tr.t1 + 0.01]), ...this.shots.map((x) => x.t0 - 0.01)].filter((g) => g >= lo && g <= hi).sort((x, y) => y - x); const g = c.find((x) => !moving(x)); if (g != null) D.hold(g, () => said(a)); });
     D.frame(0, 0);
     return { done: D.done, abort: () => { try { finish(); } catch (e) { console.warn(e); } D.dispose(); }, director: D };
   }
@@ -175,15 +187,15 @@ const SCRIPTS = {
     const ic = F.actor('icarus'); if (!ic) return; const crag = ic.root.position.clone(); const sun = F.E.stage?.sunPos ? F.E.stage.sunPos.clone() : V(40, 30, -150);
     const toSun = sun.clone().sub(crag).normalize(); const apex = crag.clone().addScaledVector(toSun, 16); apex.y = Math.max(apex.y, crag.y + 9); const land = H(F, -2.7, 0.5, 0);
     F.pose(0, 'icarus', 'stretch');
-    F.shot(T, T + 2.2, () => ({ p: crag.clone().add(V(1.4, 2.6, 5.0)), l: crag.clone().add(V(0, 1.2, 0)), fov: 32 }), { cut: true }); F.card(T + 0.3, 'icarus'); // from above the ramp's rails
+    F.shot(T, T + 2.2, () => ({ p: crag.clone().add(V(1.1, 1.75, 3.2)), l: crag.clone().add(V(0, 1.25, 0)), fov: 30 }), { cut: true }); F.card(T + 0.3, 'icarus'); // close on the crag: the boy and his wings fill the frame
     F.speak(T + 0.4, 'icarus', 'Dad says not to fly near the sun. Dad says a LOT of things.', 2.4);
     F.pose(T + 2.0, 'icarus', 'fly'); F.sfx(T + 2.1, 'whoosh_heavy'); F.puffAt(T + 2.1, crag.clone().add(V(0, 0.2, 0)), 'dust', 12);
     F.fly(T + 2.1, T + 5.0, 'icarus', crag.clone().add(V(0, 0.4, 0)), crag.clone().lerp(apex, 0.5).add(V(0, 4, 0)), apex, { e: ease.out });
-    F.shot(T + 2.2, T + 5.0, F.chase('icarus', V(-3.6, -1.4, 5.6), { fov: 40, dy: 1.2 }), { cut: true, rp: 6, rl: 16 }); F.say(T + 2.4, 'Up he went, higher and higher, until the Sun himself took notice…');
+    F.shot(T + 2.2, T + 5.0, F.chase('icarus', V(-2.1, -0.5, 3.3), { fov: 36, dy: 1.15 }), { cut: true, rp: 12, rl: 24 }); F.say(T + 2.4, 'Up he went, higher and higher, until the Sun himself took notice…');
     F.track(T + 3.8, T + 6.6, (u, dt) => { if (Math.random() < dt * 22) F.puff(ic.root.position.clone().add(V(0, 1.3, 0)), 'drip', 2); if (Math.random() < dt * 6) F.puff(ic.root.position.clone().add(V(0, 1.4, 0)), 'feather', 1); });
     F.sfx(T + 4.6, 'sizzle'); F.pose(T + 5.0, 'icarus', 'fall'); F.speak(T + 5.0, 'icarus', 'Uh-oh.', 1.4); F.say(T + 5.1, '…and his wax began to weep.');
     F.fly(T + 5.0, T + 6.6, 'icarus', apex, apex.clone().lerp(land, 0.4).add(V(0, 3, 0)), land, { e: ease.in, spin: [Math.PI * 2, 0.6], face: false });
-    F.shot(T + 5.0, T + 6.6, F.chase('icarus', V(2.6, -1.2, 7.0), { fov: 44, dy: 1.0 }), { cut: true, rl: 22, rp: 9 });
+    F.shot(T + 5.0, T + 6.6, F.chase('icarus', V(1.7, 0.3, 4.0), { fov: 38, dy: 1.0 }), { cut: true, rl: 28, rp: 14 });
     F.state(T + 6.6, () => { ic.root.rotation.x = 0; ic.root.rotation.z = 0; ic.root.position.copy(land); ic.pose = 'sprawl'; }); F.at(T + 6.6, () => { F.puff(land, 'dust', 26); F.puff(land.clone().add(V(0, 0.6, 0)), 'feather', 10); audio.play('body_fall'); audio.play('hit_heavy', { vol: 0.6 }); F.E.engine.shake(0.45); F.actor('newton').act('hurt'); });
     F.act(T + 6.8, 'newton', 'think'); F.speak(T + 7.0, 'newton', '…Gravity. Undefeated.', 1.8);
     F.shot(T + 6.6, T + 9.6, F.two('newton', 'icarus', { d: 2.0, up: 0.2, fov: 32 }), { cut: true });
@@ -261,6 +273,41 @@ const SCRIPTS = {
   },
 };
 
+// ================================================================== the conversations: Newton and the curiosity talk it through
+const PARTNER = { oracle: 'pythia', sisyphus: 'sisyphus', pan: 'pan', icarus: 'icarus', sphinx: 'sphinx', narcissus: 'narcissus', prometheus: 'prometheus', toll: 'toll', archimedes: 'archimedes', schrodinger: 'cat', discord: 'eris' };
+const SCALE = { cat: 0.55, sphinx: 1.35, prometheus: 1.55, toll: 0.85 };
+// beats: [who, line, shot]; shot = close | ots (over the listener's shoulder) | push (slow dolly onto the face) | two | wide
+const TALK = {
+  tree: [['narrator', 'And the apple, having made its point, lay very still.', 'wide'], ['newton', 'Every apple falls. Down. Never sideways, never up. Why down?', 'close'], ['newton', 'Unless the Earth is pulling it. And the apple pulls back. Just… less.', 'push'], ['narrator', 'It was, the chronicle notes, a very expensive thought.', 'wide']],
+  oracle: [['pythia', 'Ask, traveller. The vapours are… mostly working.', 'close'], ['newton', 'Mostly?', 'ots'], ['pythia', 'Last week I prophesied soup. To a general. It was excellent soup.', 'ots'], ['newton', 'So the god speaks through steam, and the steam comes up through a crack in the rock.', 'close'], ['pythia', 'Do NOT call it a crack. It is a sacred chasm.', 'push'], ['narrator', 'The tripod hissed, in what might have been agreement.', 'two']],
+  sisyphus: [['newton', 'You do know it rolls back. Every time.', 'ots'], ['sisyphus', 'Every. Single. Time. Statistically, one day, it might not.', 'close'], ['newton', 'It will. A boulder on a slope wants the bottom. That is not bad luck. That is a law.', 'close'], ['sisyphus', 'A law? Whose law? I will appeal it.', 'push'], ['newton', 'Mine, apparently. I am still drafting it.', 'two']],
+  pan: [['pan', 'Seven beats to the bar! Or nine! Nobody counts in the woods!', 'close'], ['newton', 'Sound is only air, shaking. Your pipes shake it in seven different lengths.', 'ots'], ['pan', 'Nerd. Lovely nerd. But can you keep time?', 'ots'], ['newton', 'Time keeps itself. I merely measure it.', 'close'], ['pan', 'Ooh. Put that on a drum.', 'push']],
+  icarus: [['icarus', 'The wax was a bold choice. I stand by it. Mostly I lie by it.', 'close'], ['newton', 'Heat melts wax. The sun is, broadly speaking, heat.', 'ots'], ['icarus', 'But the higher you go, the colder it gets! Explain THAT, scientist.', 'ots'], ['newton', 'I can’t. Not yet. But the ground I can explain. The ground always wins.', 'push'], ['icarus', 'So you will help me fly better?', 'two'], ['narrator', 'And Newton, against his better judgement, began to calculate.', 'wide']],
+  sphinx: [['sphinx', 'Here is your riddle, little floating scholar.', 'close'], ['sphinx', 'What is always falling, and yet never lands?', 'push'], ['newton', 'Is this a trick question?', 'ots'], ['sphinx', 'They are ALL trick questions. That is the programme.', 'ots'], ['newton', 'Then I need to think. Please do not eat me while I think.', 'close'], ['narrator', 'The Sphinx licked her pencil, and waited.', 'wide']],
+  narcissus: [['narcissus', 'Have you ever seen anything so perfect?', 'close'], ['newton', 'Light leaves the water at the angle it arrives. That is all he is.', 'ots'], ['narcissus', 'Do not. You. DARE. Explain him.', 'ots'], ['newton', 'If I bent the light, he would look bigger.', 'close'], ['narcissus', '…Go on. I am listening. He is listening too.', 'push']],
+  prometheus: [['prometheus', 'One spark, friend, and you will never eat raw mammoth again.', 'close'], ['newton', 'And the eagle?', 'ots'], ['prometheus', 'Every day it eats my liver. Every night it grows back. Very sustainable business.', 'ots'], ['newton', 'Regrowth like that would break every law I know.', 'close'], ['prometheus', 'Laws? I sell fire to the enemies of gods. I am not big on laws.', 'push'], ['narrator', 'Above them, the eagle cleared its throat.', 'wide']],
+  toll: [['toll', 'The bridge is spoons. The spoons are ours. The toll is fair.', 'close'], ['newton', 'Spoons are a terrible building material.', 'ots'], ['toll', 'You stand on it, don’t you?', 'ots'], ['newton', 'I float. Technically I owe you nothing.', 'close'], ['toll', 'Floaters pay DOUBLE.', 'push']],
+  archimedes: [['archimedes', 'The water rose, colleague! By exactly the volume of me! I am a unit of measurement!', 'close'], ['newton', 'Displacement. The water pushes back with the weight it lost.', 'ots'], ['archimedes', 'YES! Give me a lever long enough and I will move the world!', 'ots'], ['newton', 'Give me a falling apple, and I will tell you why it stays put.', 'close'], ['archimedes', 'Ha! I like you. Pass the towel.', 'push']],
+  schrodinger: [['newton', 'If I open it, the cat is alive, or it isn’t. If I don’t, it is both.', 'close'], ['cat', 'Mrrp.', 'close'], ['newton', 'That was either a yes or a no.', 'push'], ['narrator', 'The crate, wisely, said nothing at all.', 'wide']],
+  discord: [['eris', 'One apple. Three goddesses. One very short-lived peace.', 'close'], ['newton', 'Apples again. They follow me everywhere.', 'ots'], ['eris', 'Of course they do, apple boy. You are the one who taught them where to fall.', 'ots'], ['newton', 'I have not taught them anything. Yet.', 'close'], ['eris', 'Yet. I adore that word. It always ends in a war.', 'push']],
+};
+function convo(F, t, partner, beats) {
+  const has = partner && F.actor(partner);
+  for (const [who, text, kind = 'close'] of beats) {
+    const nar = who === 'narrator'; const sp = nar ? (has ? partner : 'newton') : who; const other = sp === 'newton' ? partner : 'newton'; const k = SCALE[sp] || 1;
+    let cam;
+    if (nar || kind === 'wide' || kind === 'two') cam = has ? F.two('newton', partner, { d: kind === 'wide' ? 3.6 : 2.6, up: kind === 'wide' ? 0.7 : 0.35, fov: kind === 'wide' ? 36 : 32 }) : F.close('newton', { d: 4.4, side: 0.65, up: 0.7, fov: 34 });
+    else if (kind === 'ots' && has) cam = F.ots(other, sp, { back: 1.15, side: 0.5 * (sp === 'newton' ? 1 : 1), fov: sp === 'newton' ? 30 : 30 / Math.max(0.8, Math.min(1.2, k)) });
+    else if (kind === 'push') cam = F.push(sp, { d0: 3.0 * k, d1: 1.75 * k, side: sp === 'newton' ? 0.4 : -0.35 });
+    else cam = F.close(sp, { d: 1.95 * k, side: sp === 'newton' ? 0.45 : -0.4, up: 0.06, fov: 27 });
+    const dur = Math.max(1.8, estimate(text, nar ? 'narrator' : VO(who)) + 0.35);
+    F.shot(t, t + dur, cam, { cut: true });
+    if (nar) F.say(t + 0.1, text); else { F.speak(t + 0.12, who, text); if (Math.random() < 0.5) F.act(t + 0.3, who, who === 'newton' ? 'think' : 'talk'); }
+    t += dur;
+  }
+  return t;
+}
+
 // ================================================================== reactions: the consequence of a choice
 const first = (t) => String(t || '').split(/(?<=[.!?])\s+/)[0];
 function reaction(F, ev, idx, text) {
@@ -297,7 +344,8 @@ function reaction(F, ev, idx, text) {
 // ================================================================== public
 export function eventCutscene(E, ev, { onReveal } = {}) {
   const F = new Film(E); const s = SCRIPTS[ev.id]; if (!s) return null;
-  s(F); F.cleanup = () => { const kob = E.npcs || []; for (const k of kob) k.root.visible = true; };
+  s(F); const tail = TALK[ev.id]; if (tail) { const t0 = F.end + 0.15; const pk = PARTNER[ev.id]; if (pk && F.actor(pk)) F.faceTo(t0, 'newton', pk); convo(F, t0, pk, tail); }
+  F.cleanup = () => { const kob = E.npcs || []; for (const k of kob) k.root.visible = true; };
   return F.play({ onReveal });
 }
 export function reactionCutscene(E, ev, idx, text) { const F = new Film(E); reaction(F, ev, idx, text); return F.play({}); }

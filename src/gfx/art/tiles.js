@@ -137,3 +137,32 @@ export function waterTile(seed = 2, R = TR.water) {
   return S.canvas();
 }
 export const clampTone = (t) => clamp(t, 0, 5);
+
+// ---------------------------------------------------------------- chimney smoke puff (32x32 sprite, not tiled): faceted cloud lobes
+export function smokePuff(seed = 3) {
+  const S = new Buf(32, 32); const r = mulberry32(seed); const R = GR.smoke;
+  for (const [x, y, rad] of [[16, 19, 8], [10, 21, 5.5], [22, 21, 5.5], [13, 13, 6], [20, 14, 5]]) S.el(() => S.facet(ngon(x, y, rad, 7, r() * 6, 1, 0.9), R, { k: 1.5, table: rad * 0.45, sh: 0 }));
+  S.outline(); return S.canvas();
+}
+// laundry: a flat sheet colour with a pixel weave and an optional stripe / check
+export function clothTile(hex, kind = 0, seed = 1) {
+  const S = new Buf(32, 32, 0, { wrap: true }); const R = [hex, hex, hex, hex, hex, hex].map((h, i) => shade(h, [-0.42, -0.26, -0.12, 0, 0.1, 0.2][i])); base(S, R, [3, 3, 4], { cell: 16, seed });
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) { if ((x + y) % 2 === 0 && y % 4 < 2) S.shift(x, y, -1); if (kind === 1 && (y % 16) >= 4 && (y % 16) < 7) S.px(x, y, TR.plaster, 4); if (kind === 2 && ((x >> 3) + (y >> 3)) % 2 === 0) S.shift(x, y, -1); }
+  return S.canvas();
+}
+function shade(hex, k) { const n = parseInt(hex.slice(1), 16); const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k)); return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join(''); }
+
+// ---------------------------------------------------------------- small pixel sprites for the 3D scenes
+const PLAIN = ['#ffffff', '#ffffff', '#ffffff', '#ffffff', '#ffffff', '#ffffff'];
+export function runeRing(size = 96) { // the gravity shimmer under Newton: two rings, ticks, a hexagram, 1px pixel lines (white, tinted in 3D)
+  const S = new Buf(size, size); const c = size / 2; const ring = (rad) => { const n = Math.ceil(rad * 7); for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; S.px(c + Math.cos(a) * rad, c + Math.sin(a) * rad, PLAIN, 5); } };
+  ring(c - 3); ring(c - 9); for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; for (let q = c - 8; q < c - 3; q++) if (i % 3 === 0 || q > c - 6) S.px(c + Math.cos(a) * q, c + Math.sin(a) * q, PLAIN, 5); }
+  for (let k = 0; k < 6; k++) { const a0 = (k / 6) * Math.PI * 2, a1 = ((k + 2) / 6) * Math.PI * 2; const R0 = c * 0.66; const n = Math.ceil(R0 * 2.2); for (let i = 0; i <= n; i++) { const u = i / n; S.px(c + (Math.cos(a0) * (1 - u) + Math.cos(a1) * u) * R0, c + (Math.sin(a0) * (1 - u) + Math.sin(a1) * u) * R0, PLAIN, 5); } }
+  return S.canvas();
+}
+export function dragonfly() { // 16x16: teal body, four glassy wings
+  const S = new Buf(16, 16); const W = ['#3a5a7a', '#6a90b0', '#9ac0d8', '#c8e6f4', '#e8f8ff', '#ffffff'];
+  for (const [ax, ay, bx, by] of [[8, 5, 1, 3], [8, 5, 15, 3], [8, 7, 2, 9], [8, 7, 14, 9]]) S.el(() => S.leaf(ax, ay, bx, by, 1.4, W, -1), { shadow: 0 });
+  S.el(() => { for (let y = 3; y < 15; y++) S.px(8, y, GR.clothTeal, y < 5 ? 4 : 2); S.px(7, 3, GR.clothTeal, 5); S.px(9, 3, GR.clothTeal, 3); });
+  S.outline(); return S.canvas();
+}

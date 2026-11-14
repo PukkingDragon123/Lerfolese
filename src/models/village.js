@@ -9,7 +9,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as T from './toon.js';
 import { mulberry32 } from '../core/util.js';
-import { surfaceTex } from '../gfx/pixeltex.js';
+import { surfaceTex, puffTex as pixelPuff, clothTex as pixelCloth } from '../gfx/pixeltex.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
@@ -245,7 +245,7 @@ export function stoneWall(points, hAt, seed = 9, { h = 0.85 } = {}) {
   K.build(G, { uvScale: { rubble: 1.4, stone: 1.6 } }); return G;
 }
 const CLOTH = ['#f6f2ea', '#4a7ac8', '#e8c060', '#c84a3a', '#f6f2ea', '#7aa8d8', '#e8e0d0'];
-function clothTex(i) { return paint('cloth' + i, 64, 64, (g, W, H) => { g.fillStyle = CLOTH[i % CLOTH.length]; g.fillRect(0, 0, W, H); if (i % 3 === 1) { g.fillStyle = '#f6f2ea'; for (let k = 0; k < 4; k++) g.fillRect(0, k * 16 + 4, W, 6); } if (i % 3 === 2) { g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(0, H - 6, W, 6); } g.fillStyle = 'rgba(0,0,0,0.08)'; g.fillRect(0, 0, W, 3); }); }
+function clothTex(i) { return pixelCloth(CLOTH[i % CLOTH.length], i % 3); }
 /** a laundry line between two posts: sheets and shirts ripple in the wind (vertex wave, bottom free) */
 export function laundry(a, b, seed = 4) {
   const r = mulberry32(seed); const G = new THREE.Group(); G.name = 'laundry'; const K = new Kit(); const H = 1.95;
@@ -266,10 +266,7 @@ export function laundry(a, b, seed = 4) {
 
 // ---------------------------------------------------------------- chimney smoke: cel puffs that rise, drift with the wind and thin out
 let PUFF = null;
-function puffTex() { return (PUFF ||= paint('puff', 128, 128, (g) => { const blobs = [[64, 70, 34], [40, 78, 24], [88, 80, 22], [56, 46, 24], [80, 52, 20]];
-  for (const [x, y, rr] of blobs) { g.fillStyle = 'rgba(150,140,170,0.9)'; g.beginPath(); g.arc(x, y, rr + 2, 0, 7); g.fill(); }
-  for (const [x, y, rr] of blobs) { g.fillStyle = '#d8d2e2'; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill(); }
-  for (const [x, y, rr] of blobs) { g.fillStyle = '#fbf8f2'; g.beginPath(); g.arc(x - rr * 0.22, y - rr * 0.25, rr * 0.7, 0, 7); g.fill(); } })); }
+function puffTex() { return (PUFF ||= pixelPuff()); }
 export function chimneySmoke(points, { n = 9, rate = 1 } = {}) {
   const G = new THREE.Group(); G.name = 'smoke'; const tex = puffTex(); const all = [];
   for (const [pi, base] of points.entries()) for (let i = 0; i < n; i++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.9 })); s.userData.noInk = true; s.userData.base = base; s.userData.ph = i / n + pi * 0.37; s.material.rotation = i * 1.7; G.add(s); all.push(s); }

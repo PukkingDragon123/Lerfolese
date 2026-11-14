@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { Spring } from '../core/tween.js';
 import * as K from './charkit.js';
 import { LimboBody, LimboAnim, IMPACT } from './limbo/rig.js';
+import { runeRingTex } from '../gfx/pixeltex.js';
 
 const { hex } = K;
 const TAU = Math.PI * 2;
@@ -89,15 +90,6 @@ function wavyLocks(P) {
   }
   return g;
 }
-// gravity shimmer: a faint rotating rune ring on the ground + a ring of drifting dust motes
-function shimmerTex() {
-  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.translate(128, 128); g.strokeStyle = '#fff'; g.lineWidth = 2.5;
-  for (const r of [110, 92]) { g.beginPath(); g.arc(0, 0, r, 0, TAU); g.stroke(); }
-  for (let i = 0; i < 24; i++) { g.save(); g.rotate((i / 24) * TAU); g.beginPath(); g.moveTo(0, -97); g.lineTo(0, -106); if (i % 3 === 0) { g.moveTo(-4, -100); g.lineTo(4, -104); } g.stroke(); g.restore(); }
-  g.beginPath(); for (let i = 0; i <= 6; i++) { const a = (i * 2 / 6) * TAU; g.lineTo(Math.cos(a) * 80, Math.sin(a) * 80); } g.stroke();
-  return new THREE.CanvasTexture(c);
-}
-
 // ---------------------------------------------------------------- floating props: inventor's gadgets, notebook + quill, a "!" take
 const PROPM = {};
 function propMats() {
@@ -139,6 +131,21 @@ function bangMark() { // the "!" take: a tapered bar over a dot, white with ink 
   return g;
 }
 
+// pixel-art cloth on the painted page: wool twill on the coat, a small damask diamond on the burgundy waistcoat, 4x4
+// tonal clusters; crisp texels (NearestFilter). The face block is left alone.
+function pixelCloth(L) {
+  const img = L.tex.image, d = img.data, S = img.width, k = S / 256; const h = (x, y) => { const v = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return v - Math.floor(v); };
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    if ((x < 113 * k && y < 97 * k) || (x >= 231 * k && x < 256 * k && y >= 63 * k && y < 79 * k)) continue; const i = (y * S + x) * 4; if (!d[i + 3]) continue;
+    const r = d[i], g = d[i + 1], b = d[i + 2], lm = r * 0.3 + g * 0.59 + b * 0.11; let f = 1;
+    const coat = b > r * 1.15 && b > g * 1.05 && lm < 95, vest = r > g * 1.8 && r > b * 1.4 && r > 50 && lm < 140;
+    if (coat) { f = ((x + y) >> 1) % 3 === 0 ? 0.86 : 1; f *= 0.96 + 0.08 * (h(x >> 2, y >> 2) > 0.5 ? 1 : 0); }
+    else if (vest) { const dd = Math.abs((x % 8) - 4) + Math.abs((y % 8) - 4); f = dd === 3 ? 1.22 : dd === 0 ? 1.3 : (x + y) % 2 ? 0.97 : 1.0; }
+    else continue;
+    d[i] = Math.min(255, r * f); d[i + 1] = Math.min(255, g * f); d[i + 2] = Math.min(255, b * f);
+  }
+  L.gg.base?.set?.(d); L.tex.magFilter = THREE.NearestFilter; L.tex.needsUpdate = true;
+}
 // the lace jabot under his chin: three ruffled tiers (pixel lace texture) on a spring pivot so it swings and lifts
 function laceJabot(L, sc) {
   const m = K.uvMat('hero-jabot', 32, 32, (u, v, o) => { const px = Math.floor(u * 32), py = Math.floor(v * 32); const hole = (px + (py % 4 < 2 ? 0 : 2)) % 4 === 0 && py % 4 === 1; const edge = v > 0.82 && (px % 3 === 0);
@@ -180,7 +187,7 @@ export function createProfessor() {
   const root = new THREE.Group(); root.name = 'professor';
   const body = new THREE.Group(); body.name = 'hero'; root.add(body);
   const L = new LimboBody(APP, OUTFIT, { hook: heroHook, overrides: { hairVolume: 1.25, blush: 0.15 } }); const sc = HEIGHT / L.P.crown; L.root.scale.setScalar(sc); body.add(L.root);
-  const B = L.bones; const anim = new LimboAnim(L, { sway: 0.6 });
+  pixelCloth(L); const B = L.bones; const anim = new LimboAnim(L, { sway: 0.6 });
   L.attach(wavyLocks(L.P), B.hair ? 'hair' : 'head'); const jabot = laceJabot(L, sc);
   const head = new THREE.Group(); B.head.add(head); head.position.set(0, 0.12, 0.03); const jaw = new THREE.Group(); head.add(jaw); jaw.position.set(0, -0.06, 0.06);
   const headTop = new THREE.Group(); B.head.add(headTop); headTop.position.set(0, 0.22, 0.01);
@@ -190,7 +197,7 @@ export function createProfessor() {
   const legs = [{ hip: B.thighR, kn: B.shinR, an: B.footR, s: -1 }, { hip: B.thighL, kn: B.shinL, an: B.footL, s: 1 }];
   const ctrl = new THREE.Group(); ctrl.name = 'apple-orbit'; root.add(ctrl); const ghost = ctrl;
   const apple = makeApple(); ctrl.add(apple); const extras = [];
-  const shim = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), new THREE.MeshBasicMaterial({ map: shimmerTex(), color: new THREE.Color(0x9fe8ff).multiplyScalar(1.4), transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const shim = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), new THREE.MeshBasicMaterial({ map: runeRingTex(), color: new THREE.Color(0x9fe8ff).multiplyScalar(1.4), transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }));
   shim.rotation.x = -Math.PI / 2; shim.position.y = 0.02; shim.castShadow = false; root.add(shim);
   const ND = 36; const dp = new Float32Array(ND * 3); const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(dp, 3));
   const dust = new THREE.Points(dg, new THREE.PointsMaterial({ color: 0xe8dcc0, size: 0.03, transparent: true, opacity: 0.7, depthWrite: false })); dust.frustumCulled = false; root.add(dust);

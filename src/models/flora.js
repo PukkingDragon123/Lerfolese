@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import * as T from './toon.js';
 import { mulberry32 } from '../core/util.js';
-import { leafTex, barkTex as pixelBark } from '../gfx/pixeltex.js';
+import { leafTex, barkTex as pixelBark, waterTex } from '../gfx/pixeltex.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
@@ -430,20 +430,22 @@ export function celWater({ cx = 0, cz = 0, rx = 6, rz = 4, rot = 0, seed = 1, ri
   const idx = []; for (let j = 0; j < spokes; j++) idx.push(0, 1 + ((j + 1) % spokes), 1 + j); for (let i = 1; i < rings; i++) for (let j = 0; j < spokes; j++) { const a = 1 + (i - 1) * spokes + j, b = 1 + (i - 1) * spokes + ((j + 1) % spokes), c = a + spokes, d = b + spokes; idx.push(a, b, d, a, d, c); }
   const geo = new THREE.BufferGeometry(); geo.setFromPoints(pos); geo.setAttribute('aEdge', new THREE.Float32BufferAttribute(edge, 1)); geo.setIndex(idx); geo.computeVertexNormals(); geo.computeBoundingSphere();
   const m = new THREE.ShaderMaterial({
-    fog: true, uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uDeep: { value: C(deep) }, uMid: { value: C(mid) }, uShallow: { value: C(shallow) }, uSky: { value: C(sky) }, uFoam: { value: C(foam) }, uSun: { value: sun.clone().normalize() } }]),
+    fog: true, uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uDeep: { value: C(deep) }, uMid: { value: C(mid) }, uShallow: { value: C(shallow) }, uSky: { value: C(sky) }, uFoam: { value: C(foam) }, uSun: { value: sun.clone().normalize() }, uRip: { value: null } }]),
     vertexShader: 'attribute float aEdge; varying float vEdge; varying vec3 vW;\n#include <fog_pars_vertex>\nvoid main(){ vEdge = aEdge; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}',
-    fragmentShader: `uniform vec3 uDeep, uMid, uShallow, uSky, uFoam, uSun; uniform float uTime; varying float vEdge; varying vec3 vW;
+    fragmentShader: `uniform vec3 uDeep, uMid, uShallow, uSky, uFoam, uSun; uniform float uTime; uniform sampler2D uRip; varying float vEdge; varying vec3 vW;
       #include <fog_pars_fragment>
       float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       void main(){
         float t = uTime; vec3 V = normalize(cameraPosition - vW);
-        float wob = sin(vW.x * 1.3 + t * 0.7) * sin(vW.z * 1.7 - t * 0.5) * 0.04;
+        vec3 Wq = vec3(floor(vW.x / 0.035 + 0.5) * 0.035, vW.y, floor(vW.z / 0.035 + 0.5) * 0.035); // every pattern on a pixel grid
+        float wob = sin(Wq.x * 1.3 + t * 0.7) * sin(Wq.z * 1.7 - t * 0.5) * 0.04;
         float e = vEdge + wob; vec3 c = mix(uDeep, uMid, step(0.5, e)); c = mix(c, uShallow, step(0.88, e) * 0.8);
         float fres = pow(1.0 - clamp(V.y, 0.0, 1.0), 5.0); c = mix(c, mix(uSky, uMid, 0.35), step(0.45, fres) * 0.22 + step(0.8, fres) * 0.12);
-        float streak = step(0.975, sin(vW.x * 1.6 + vW.z * 0.3 + t * 0.8 + sin(vW.z * 0.8) * 1.2) * sin(vW.z * 3.3 - t * 0.55));
+        float streak = step(0.975, sin(Wq.x * 1.6 + Wq.z * 0.3 + t * 0.8 + sin(Wq.z * 0.8) * 1.2) * sin(Wq.z * 3.3 - t * 0.55));
         vec3 R = reflect(-V, vec3(0.0, 1.0, 0.0)); float sp = pow(max(0.0, dot(R, uSun)), 40.0);
-        float glit = step(0.9, h2(floor(vW.xz * vec2(6.0, 14.0)) + floor(t * 2.5))) * smoothstep(0.15, 0.6, sp);
-        c = mix(c, uSky, streak * 0.5); c += vec3(0.16, 0.12, 0.06) * step(0.4, sp); c = mix(c, vec3(1.0, 0.97, 0.86), glit);
+        float glit = step(0.9, h2(floor(Wq.xz * vec2(6.0, 14.0)) + floor(t * 2.5))) * step(0.3, sp);
+        vec3 rp = texture2D(uRip, vW.xz * 0.45 + vec2(t * 0.025, t * 0.012)).rgb; float crest = step(0.62, dot(rp, vec3(0.3, 0.59, 0.11))) * step(vEdge, 0.92); // pixel ripple crests
+        c = mix(c, mix(uShallow, uSky, 0.5), crest * 0.35); c = mix(c, uSky, streak * 0.5); c += vec3(0.16, 0.12, 0.06) * step(0.4, sp); c = mix(c, vec3(1.0, 0.97, 0.86), glit);
         float foam = step(0.93, vEdge + sin(atan(vW.z, vW.x) * 24.0 + t * 1.2) * 0.012 + sin(t * 1.4 + vW.x * 2.0) * 0.008);
         c = mix(c, uFoam, foam * 0.85);
         gl_FragColor = vec4(c, 1.0);
@@ -452,7 +454,7 @@ export function celWater({ cx = 0, cz = 0, rx = 6, rz = 4, rot = 0, seed = 1, ri
         #include <fog_fragment>
       }`,
   });
-  m.uniforms.uTime = T.WIND.time; const mesh = new THREE.Mesh(geo, m); mesh.onBeforeRender = T.tickWind; mesh.userData.noAO = true; mesh.userData.ink = true; mesh.receiveShadow = false; mesh.name = 'celWater';
+  m.uniforms.uTime = T.WIND.time; m.uniforms.uRip.value = waterTex(); const mesh = new THREE.Mesh(geo, m); mesh.onBeforeRender = T.tickWind; mesh.userData.noAO = true; mesh.userData.ink = true; mesh.receiveShadow = false; mesh.name = 'celWater';
   // normalised distance from the centre (1 = the shore) and points at an angle / fraction of the way out
   mesh.userData.edgeD = (x, z) => { const dx = x - cx, dz = z - cz; const lx = (dx * cr + dz * sr) / rx, lz = (-dx * sr + dz * cr) / rz; const a = Math.atan2(lz, lx); return Math.hypot(lx, lz) / edgeR(a); };
   mesh.userData.edgePoint = (a, d = 1) => at(a, edgeR(a) * d);
