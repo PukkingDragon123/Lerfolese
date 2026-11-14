@@ -15,6 +15,15 @@ const B = Object.fromEntries(BIRD_FRAMES.map((n, i) => [n, i])); // frame name -
 const FLY = [0, 1, 2, 3, 4, 5, 6, 7];
 
 // ---------------------------------------------------------------- atlas
+// natural palette pass (the realistic look): tame candy saturation, keep whites off pure white, cool and desaturate the
+// darkest tones a touch and warm the lights, so the sprites sit in the lit, painted world instead of on top of it
+function naturalise(cv) {
+  const g = cv.getContext('2d'); const im = g.getImageData(0, 0, cv.width, cv.height); const d = im.data; const c = new THREE.Color(); const hsl = {};
+  for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 8) continue; c.setRGB(d[i] / 255, d[i + 1] / 255, d[i + 2] / 255, THREE.SRGBColorSpace); c.getHSL(hsl, THREE.SRGBColorSpace);
+    let { h, s: S, l } = hsl; S = S > 0.55 ? 0.55 + (S - 0.55) * 0.55 : S; S *= 0.92; if (l < 0.25) { S *= 0.85; h = h + (0.62 - h) * 0.08 * (1 - l / 0.25); } if (l > 0.7) h = h + ((h > 0.6 ? 1.1 : 0.1) - h) * 0.04; l = Math.min(0.92, l);
+    c.setHSL(((h % 1) + 1) % 1, S, l, THREE.SRGBColorSpace); const o = {}; c.getRGB(o, THREE.SRGBColorSpace); d[i] = Math.round(o.r * 255); d[i + 1] = Math.round(o.g * 255); d[i + 2] = Math.round(o.b * 255); }
+  g.putImageData(im, 0, 0); return cv;
+}
 let ATLAS = null; const ROW = {}; const LAYOUT = { cell: CELL, cols: COLS, groups: [] };
 function atlas() {
   if (ATLAS) return ATLAS;
@@ -29,20 +38,26 @@ function atlas() {
     g.frames.forEach(([fname, fn], i) => { const idx = g.row * COLS + i; const spr = fn(); pc.blit(spr, (idx % COLS) * CELL + ((CELL - spr.w) >> 1), Math.floor(idx / COLS) * CELL + (CELL - spr.h)); grp.frames.push({ name: fname, index: idx }); });
     LAYOUT.groups.push(grp);
   }
-  const tex = new THREE.CanvasTexture(pc.commit()); tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
-  ATLAS = { tex, rows: row, canvas: pc.canvas }; return ATLAS;
+  const cv = naturalise(pc.commit()); const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+  ATLAS = { tex, rows: row, canvas: cv }; return ATLAS;
 }
 export function critterAtlasCanvas() { return atlas().canvas; }
 export const CRITTER_LAYOUT = new Proxy(LAYOUT, { get(t, k) { atlas(); return t[k]; } });
 
 // ---------------------------------------------------------------- rendering
-const VS = `attribute vec4 iData; attribute vec3 iPos; varying vec2 vUv; uniform vec2 uGrid;
+const VS = `attribute vec4 iData; attribute vec3 iPos; varying vec2 vUv; varying float vFogDepth; uniform vec2 uGrid;
 void main(){ float frame = iData.x; float scale = iData.y; float flip = iData.z;
   vec2 cell = vec2(mod(frame, uGrid.x), floor(frame / uGrid.x));
   vec2 uv0 = vec2(flip > 0.5 ? 1.0 - uv.x : uv.x, uv.y);
   vUv = (cell + vec2(uv0.x, 1.0 - uv0.y)) / uGrid; vUv.y = 1.0 - vUv.y;
-  vec4 mv = modelViewMatrix * vec4(iPos, 1.0); mv.xy += position.xy * scale; gl_Position = projectionMatrix * mv; }`;
-const FS = `uniform sampler2D uMap; uniform vec3 uTint; varying vec2 vUv; void main(){ vec4 c = texture2D(uMap, vUv); if (c.a < 0.5) discard; gl_FragColor = vec4(c.rgb * uTint, 1.0); }`;
+  vec4 mv = modelViewMatrix * vec4(iPos, 1.0); mv.xy += position.xy * scale; gl_Position = projectionMatrix * mv; vFogDepth = -mv.z; }`;
+// lit like the world around them: uLight is the scene's light at a sky-facing normal (auto, from its lights), so a
+// sparrow at moonrise is moonlit, not sticker-bright; they also sit in the scene's fog
+const FS = `uniform sampler2D uMap; uniform vec3 uTint; uniform vec3 uLight; varying vec2 vUv;
+#include <fog_pars_fragment>
+void main(){ vec4 c = texture2D(uMap, vUv); if (c.a < 0.5) discard; gl_FragColor = vec4(c.rgb * uTint * uLight, 1.0);
+#include <fog_fragment>
+}`;
 // soft contact shadows for ground critters (flat quads on y = 0)
 const SVS = `attribute vec3 iPos; attribute float iSize; varying vec2 vP; void main(){ vP = position.xy * 2.0; vec3 p = iPos + vec3(position.x * iSize, 0.0, position.y * iSize * 0.45); gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`;
 const SFS = `varying vec2 vP; uniform float uAlpha; void main(){ float d = dot(vP, vP); if (d > 1.0) discard; float a = (d < 0.45 ? 1.0 : d < 0.75 ? 0.66 : 0.33) * uAlpha; gl_FragColor = vec4(0.10, 0.07, 0.09, a); }`;
@@ -53,8 +68,9 @@ export class Critters {
     const geo = new THREE.InstancedBufferGeometry(); const q = new THREE.PlaneGeometry(1, 1); geo.index = q.index; geo.setAttribute('position', q.attributes.position); geo.setAttribute('uv', q.attributes.uv);
     this.iPos = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3).setUsage(THREE.DynamicDrawUsage); this.iData = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4).setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute('iPos', this.iPos); geo.setAttribute('iData', this.iData); geo.instanceCount = 0;
-    this.mat = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, uniforms: { uMap: { value: A.tex }, uGrid: { value: new THREE.Vector2(COLS, A.rows) }, uTint: { value: new THREE.Color(tint) } } });
-    this.mesh = new THREE.Mesh(geo, this.mat); this.mesh.frustumCulled = false; this.mesh.renderOrder = 3; this.geo = geo;
+    this.mat = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, fog: true, uniforms: { ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog), uMap: { value: A.tex }, uGrid: { value: new THREE.Vector2(COLS, A.rows) }, uTint: { value: new THREE.Color(tint) }, uLight: { value: new THREE.Color(1, 1, 1) } } });
+    this.mesh = new THREE.Mesh(geo, this.mat); this.mesh.onBeforeRender = (r, scene) => this.relight(scene);
+    this.mesh.frustumCulled = false; this.mesh.renderOrder = 3; this.geo = geo;
     // contact shadows (child of the critter mesh so scenes only need to add one object)
     const sg = new THREE.InstancedBufferGeometry(); const sq = new THREE.PlaneGeometry(1, 1); sg.index = sq.index; sg.setAttribute('position', sq.attributes.position);
     this.sPos = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3).setUsage(THREE.DynamicDrawUsage); this.sSize = new THREE.InstancedBufferAttribute(new Float32Array(max), 1).setUsage(THREE.DynamicDrawUsage);
@@ -62,6 +78,13 @@ export class Critters {
     this.shadowMesh = new THREE.Mesh(sg, new THREE.ShaderMaterial({ vertexShader: SVS, fragmentShader: SFS, uniforms: { uAlpha: { value: 0.32 } }, transparent: true, depthWrite: false }));
     this.shadowMesh.frustumCulled = false; this.shadowMesh.renderOrder = 2; this.sGeo = sg; this.mesh.add(this.shadowMesh);
     this.perches = []; this.rng = mulberry32(7); this.bounds = { x: [-14, 14], y: [1, 9], z: [-10, 4] };
+  }
+  relight(scene) { // every ~20 frames: sum the scene's ambient / hemisphere / directional light at a sky-and-camera facing normal
+    if (((this._lf = (this._lf || 0) + 1) % 20) !== 1) return; const L = new THREE.Color(0, 0, 0), c = new THREE.Color(), n = new THREE.Vector3(0, 0.75, 0.66).normalize(), d = new THREE.Vector3(), q = new THREE.Vector3();
+    scene.traverseVisible((o) => { if (!o.isLight) return; if (o.isAmbientLight) L.add(c.copy(o.color).multiplyScalar(o.intensity)); else if (o.isHemisphereLight) L.add(c.copy(o.color).lerp(o.groundColor, 0.25).multiplyScalar(o.intensity));
+      else if (o.isDirectionalLight) { d.setFromMatrixPosition(o.matrixWorld).sub(q.setFromMatrixPosition(o.target.matrixWorld)).normalize(); L.add(c.copy(o.color).multiplyScalar(o.intensity * (0.3 + 0.7 * Math.max(0, d.dot(n))))); } });
+    L.multiplyScalar(1 / Math.PI); const m = Math.max(L.r, L.g, L.b); if (m < 0.04) L.setRGB(1, 1, 1); else if (m > 1.15) L.multiplyScalar(1.15 / m); else if (m < 0.55) L.multiplyScalar(0.55 / m); // stay readable
+    this.mat.uniforms.uLight.value.copy(L);
   }
   addPerches(points) { for (const p of points) this.perches.push({ p: p.clone(), taken: false }); }
   // collect perch points from the upper parts of an object (tree canopies, columns, rocks)

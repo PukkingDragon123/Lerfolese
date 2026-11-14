@@ -68,7 +68,7 @@ function drape() { // a square of velvet thrown over a hidden form: a rounded cr
   g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hem, true), 96, 0.012, 4, true), plainMat('gold'))); return g;
 }
 export class GalleryScene extends UIScreen {
-  async enter() {
+  async enter({ from = null } = {}) {
     const fresh = save.evaluate(); const M = save.meta;
     const sc = (this.scene = new THREE.Scene()); sc.background = C('#1c140e'); sc.fog = new THREE.Fog(0x3a2818, 16, 40);
     // the room: a two-storey library-museum under the star dome (models/library.js), lit warm by fire, lamps and lanterns
@@ -112,7 +112,7 @@ export class GalleryScene extends UIScreen {
     w = W({ seed: 7, scarf: '#d8d0b8' }); w.setRoute({ a: S.rail(2.62), b: S.rail(2.76), up: V(0, 1, 0) });
     w = W({ seed: 8, robe: '#2a4a3a', monocle: true, book: '#3a2a6a' }); w.root.position.copy(V(-0.12, 0.5, 0.0).applyAxisAngle(V(0, 1, 0), 0.55).add(V(-2.3, 0, -6.4))); w.root.rotation.y = 0.55;
     // camera: you stand in the room and turn (drag), or walk up to an exhibit (click)
-    this.camera = new THREE.PerspectiveCamera(50, this.engine.aspect, 0.1, 200); this.yaw = 0; this.yawT = 0; this.focus = null; this.pos = V(0, 1.75, 1.4); this.look = V(0, 1.3, -4);
+    this.camera = new THREE.PerspectiveCamera(50, this.engine.aspect, 0.1, 200); this.yaw = 0; this.yawT = 0; this.focus = null; this.pos = V(0, 1.75, 1.4); this.look = V(0, 1.3, -4); if (from === 'tower') { this.pos.set(0, 2.05, 8.3); this.look.set(0, 1.7, 2); } // in through the great door: glide into the room
     this.engine.setWorld(sc, this.camera);
     this.engine.setFx({ bloom: [0.7, 0.5, 0.8], tilt: false, ao: 0.9, exposure: 1.3, grade: { sat: 1.16, contrast: 1.06, vignette: 0.3, warmth: 0.05, lift: [0.035, 0.026, 0.018], gain: [1.06, 1.0, 0.92] }, ink: { fade: [24, 70] } });
     this.engine.add(this); this.pushInput(); audio.playMusic('journal'); audio.setAmbSet(['night']);

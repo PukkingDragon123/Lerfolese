@@ -10,6 +10,7 @@ for (const a of actions.split('@@').filter(Boolean)) {
   if (cmd === 'click') await p.mouse.click(+args[0], +args[1]);
   if (cmd === 'drag') { const [x1, y1, x2, y2] = args.map(Number); await p.mouse.move(x1, y1); await p.mouse.down(); for (let i = 1; i <= 12; i++) { await p.mouse.move(x1 + (x2 - x1) * i / 12, y1 + (y2 - y1) * i / 12); await p.waitForTimeout(16); } await p.waitForTimeout(150); await p.mouse.up(); }
   if (cmd === 'move') await p.mouse.move(+args[0], +args[1]);
+  if (cmd === 'scroll') { await p.mouse.move(+(args[1] ?? 640), +(args[2] ?? 360)); await p.mouse.wheel(0, +args[0]); } // mouse wheel / trackpad: scroll:dy[:x:y]
   if (cmd === 'wait') await p.waitForTimeout(+args[0]);
   if (cmd === 'key') await p.keyboard.press(args[0]);
   if (cmd === 'shot') await p.screenshot({ path: args[0], timeout: 300000 }); // SwiftShader can take minutes on a heavy frame

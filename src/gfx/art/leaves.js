@@ -54,3 +54,43 @@ export function leafCard(kind = 'oak') {
   if (L.bloom) for (let i = 0; i < L.bloomN; i++) { const a = r() * 6.28, d = 5 + r() * 20; S.el(() => S.stamp(BLOOM, c + Math.cos(a) * d, c + Math.sin(a) * d, L.bloom, { y: [GR.amber, 4] })); }
   S.outline(); return S.canvas();
 }
+
+// ---------------------------------------------------------------- single hand-pixelled leaves (the loading apple's leaf,
+// the sprout's seed leaves and first true leaves): petiole at the left middle, tip at the right. Serrated edge, a pale
+// midrib, paired secondary veins as grooves with a lit lip, lit upper half / shaded lower half, 1px rim light on the lit
+// edge, speckle, a tinted outline; `stage` 0 fresh, 1 yellowing (blotches), 2 dry (brown, nibbled holes, dark curl).
+const LEAF1 = {
+  fresh: ['#0c1e0c', '#1a3a14', '#2a5c1e', '#3e7e28', '#5ea236', '#9ccc5a', '#d4ec98'],
+  young: ['#10260e', '#225218', '#367a22', '#52a02e', '#78c040', '#b0e070', '#e2f6b0'],
+  yellow: ['#241c08', '#4a3c10', '#76661a', '#a49226', '#cab83c', '#e8da72', '#fbf2b8'],
+  dry: ['#180c06', '#34190c', '#562c14', '#7a4620', '#9e6634', '#c48e52', '#e6c08a'],
+};
+export function leafSprite(kind = 'apple', stage = 0, seed = 1) {
+  const cot = kind === 'cotyledon'; const W = cot ? 30 : kind === 'young' ? 28 : 44, H = cot ? 16 : kind === 'young' ? 14 : 20;
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); const r = mulberry32(seed * 31 + W);
+  const base = cot || kind === 'young' ? LEAF1.young : LEAF1.fresh; const RR = stage >= 2 ? LEAF1.dry : base;
+  const tone = new Int8Array(W * H).fill(-1); const ramp = new Array(W * H).fill(null); const cy = (H - 1) / 2; const x0 = cot ? 3 : 5, x1 = W - 2;
+  const hw = (u) => cot ? Math.pow(Math.sin(Math.PI * Math.min(1, u * 0.95 + 0.03)), 0.62) * (H * 0.44) : Math.pow(Math.sin(Math.PI * u), 0.85) * (1 - 0.28 * u) * (H * 0.46) * (u < 0.12 ? 0.6 + u * 3.3 : 1);
+  const mid = (u) => cy + Math.sin(u * Math.PI) * (cot ? 0.3 : 1.1) - u * 0.6; // a slight curve, tip dipping
+  for (let x = x0; x <= x1; x++) {
+    const u = (x - x0) / (x1 - x0); let w = hw(u); if (!cot && u > 0.12 && u < 0.97 && ((x + Math.round(u * 2)) % 3 === 0)) w -= 1; // serrations
+    const m = mid(u);
+    for (let y = 0; y < H; y++) {
+      const dy = y + 0.5 - m; if (Math.abs(dy) > w) continue; const up = dy < 0; const edge = w - Math.abs(dy); let t = up ? 4 : 3;
+      if (edge < 1.1) t = up ? (u < 0.75 ? 5 : 4) : 2; // rim light on the upper (lit) edge, dark lower edge
+      const vein = !cot && Math.abs(dy) > 0.9 && edge > 1.2 && (((x - x0) - Math.abs(dy) * 1.3 + 40) % 5) < 1; if (vein) t -= 1; else if (!cot && Math.abs(dy) > 0.9 && edge > 1.2 && (((x - x0) - Math.abs(dy) * 1.3 + 40) % 5) < 2) t += up ? 1 : 0;
+      if (Math.abs(dy) < 0.6 && u < 0.92) t = up || cot ? 5 : 4; // midrib
+      if (r() < 0.08) t += r() < 0.5 ? -1 : 1;
+      let R = RR; if (stage === 1) { const bl = Math.sin(x * 0.7 + seed) * Math.cos(y * 0.9 + seed * 2) + r() * 0.6; if (bl > 0.55) R = LEAF1.yellow; if (bl > 1.15) { R = LEAF1.dry; t -= 1; } }
+      if (stage >= 2) { if (edge < 1.6) t -= 1; if (r() < 0.035 && edge > 1.5) continue; if (Math.sin(x * 1.3 + y * 0.7 + seed) > 0.93) t -= 2; }
+      const i = y * W + x; tone[i] = Math.max(1, Math.min(6, t)); ramp[i] = R;
+    }
+  }
+  // petiole
+  const pr = stage >= 2 ? LEAF1.dry : base; for (let x = 0; x < x0 + 1; x++) { const y = Math.round(cy + (x0 - x) * 0.18); const i = y * W + x; tone[i] = 3; ramp[i] = pr; if (x < x0 - 1) { const j = (y + 1) * W + x; if (y + 1 < H) { tone[j] = 1; ramp[j] = pr; } } }
+  // tinted outline (shadow side darker)
+  const out = []; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (tone[i] >= 0) continue; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; if (tone[j] >= 0) { out.push([i, ramp[j], dy < 0 || dx < 0 ? 0 : 1]); break; } } }
+  for (let i = 0; i < W * H; i++) if (tone[i] >= 0) { g.fillStyle = ramp[i][tone[i]]; g.fillRect(i % W, (i / W) | 0, 1, 1); }
+  for (const [i, R, k] of out) { g.fillStyle = R[k]; g.fillRect(i % W, (i / W) | 0, 1, 1); }
+  return c;
+}

@@ -19,11 +19,15 @@ import { plantField } from '../gfx/plants.js';
 import { groundTex, soilTex } from '../gfx/pixeltex.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { prop } from './lowprops.js';
+import { leafSprite } from '../gfx/art/leaves.js';
+import { starTower } from './tower.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 export const MOON = V(36, 34, -110);
+/** the Star-Watcher Tower on the hill beyond the orchard rows (menu only); its door looks back toward the garden */
+export const TOWER = { at: V(-24, 0, -12), ry: Math.atan2(24, 18), reveal: V(-3.4, 6.4, 6.6) };
 export const SPOTS = { tree: V(0, 0, 0), sleep: V(1.95, 0, 0.9), float: V(0.45, 0, 1.95), ripe: V(0.28, 2.05, 0.9), signNew: V(-1.95, 0, 4.4), signRes: V(2.35, 0, 4.3), journal: V(4.35, 0, 2.6), settings: V(5.35, 0, 0.6), telescope: V(-4.35, 0, 1.7), credits: V(-0.55, 0, 5.5), title: V(-0.15, 3.7, 4.3), prompt: V(2.35, 1.65, 2.3) };
 
 // ---------------------------------------------------------------- an apple: turned body with striations and blush, stem, leaf
@@ -201,6 +205,10 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
   const gtex = (() => { const t = groundTex('lush').clone(); t.repeat.set(2.5, 2.5); t.needsUpdate = true; return t; })(); // pixel-art grass-earth (src/gfx/art/tiles.js)
   const ground = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ map: gtex, vertexColors: true, gradientMap: T.gradientMap([0.55, 0.8, 1.0]) })); ground.receiveShadow = true; ground.name = 'ground'; g.add(ground);
   const ao = []; const solid = [];
+  // keep the hill clear round the tower and along the camera's flight to its door (menu)
+  const tFront = V(Math.sin(TOWER.ry), 0, Math.cos(TOWER.ry)).multiplyScalar(9.6).add(TOWER.at);
+  const segD = (x, z, a, b) => { const dx = b.x - a.x, dz = b.z - a.z; const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (dx * dx + dz * dz))); return Math.hypot(x - a.x - dx * t, z - a.z - dz * t); };
+  const nearTower = (x, z) => menu && (Math.hypot(x - TOWER.at.x, z - TOWER.at.z) < 7 || segD(x, z, tFront, TOWER.reveal) < 2.6 || segD(x, z, tFront, TOWER.at) < 3 || segD(x, z, TOWER.reveal, TOWER.at) < 3.4);
   // the hero tree, its hanging apples, the ripening apple and its twig
   const hero = F.tree('apple', { v: 1, s: 1.22 }); g.add(hero); ao.push([0, 0, 3.4]);
   const heroApples = []; { const lg = hero.children.find((c) => c.material?.alphaTest > 0)?.geometry; const p = lg?.attributes.position; if (p) { const cand = []; for (let i = 0; i < p.count; i += 4) { const x = (p.getX(i) + p.getX(i + 2)) / 2 * 1.22, y = (p.getY(i) + p.getY(i + 2)) / 2 * 1.22, z = (p.getZ(i) + p.getZ(i + 2)) / 2 * 1.22; if (y < 2.4 || y > 4.2 || Math.hypot(x, z) < 0.9 || z > 2.0) continue; cand.push([x, y - 0.15, z]); } for (let i = 0; i < 18 && cand.length; i++) { const c = cand.splice(Math.floor(rnd() * cand.length), 1)[0]; heroApples.push([...c, 0.2 + rnd() * 0.04, 0.85 + rnd() * 0.15]); } } }
@@ -210,13 +218,13 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
   // Newton's stone study with lamplit windows, a smoking chimney, a pergola porch
   const study = cottage(1687, { w: 4.6, d: 3.6, h: 2.8, roof: 'gable', walls: 'rubble', lit: true, pergola: true, paint: 'woodGreen' });
   const sx = -7.6, sz = -6.2, sry = 0.55; study.group.position.set(sx, hAt(sx, sz), sz); study.group.rotation.y = sry; g.add(study.group); if (study.smoke.length) study.group.add(chimneySmoke(study.smoke, { rate: 0.8 })); solid.push([sx, sz, 3.4]); ao.push([sx, sz, 4]);
-  study.group.updateMatrixWorld(true); const grove = new F.Grove(); for (const gr of study.greens) { const q = study.group.localToWorld(V(gr.x, gr.y, gr.z)); grove.add(gr.kind, q.x, gr.y ? q.y : hAt(q.x, q.z), q.z, { s: gr.s }); }
+  study.group.updateMatrixWorld(true); const grove = new F.Grove(); for (const gr of study.greens) { const q = study.group.localToWorld(V(gr.x, gr.y, gr.z)); if (nearTower(q.x, q.z) && !gr.y) continue; grove.add(gr.kind, q.x, gr.y ? q.y : hAt(q.x, q.z), q.z, { s: gr.s }); }
   const winLights = study.lights.map((p) => { const w = study.group.localToWorld(p.clone()); const l = new THREE.PointLight(0xffa850, 5, 7, 1.6); l.position.copy(w); g.add(l); return l; });
   // orchard rows on the hill behind, cypress and pines along the ridge, a few framing trees
-  for (let row = 0; row < 5; row++) for (let i = -5; i <= 5; i++) { const x = i * 4.2 + (row % 2) * 2.1 + (rnd() - 0.5) * 0.8, z = -10 - row * 4.2 + (rnd() - 0.5) * 0.8; if (brook.userData.edgeD(x, z) < 1.4 || Math.hypot(x - sx, z - sz) < 4.5) continue; grove.add('apple', x, hAt(x, z) - 0.05, z, { s: 0.75 + rnd() * 0.2, lod: z < -18 ? 1 : 0 }); ao.push([x, z, 2]); }
-  for (let i = 0; i < 16; i++) { const x = -34 + i * 4.5 + rnd() * 2, z = -32 - rnd() * 6; grove.add(rnd() < 0.55 ? 'cypress' : 'pine', x, hAt(x, z), z, { s: 1.0 + rnd() * 0.3, lod: 1 }); }
-  for (const [k, x, z, s] of [['oak', 12.5, 1.5, 1.2], ['pine', -13, 3, 1.1], ['cypress', -10.6, -1.6, 1.0], ['olive', 10.5, -7, 1.0], ['oak', -15, -8, 1.1]]) { grove.add(k, x, hAt(x, z) - 0.05, z, { s }); ao.push([x, z, 2.6 * s]); }
-  for (const [k, x, z, s] of [['oleander', -5.2, -3.6, 1.1], ['myrtle', 3.6, -2.6, 0.9], ['broom', -3, -5.4, 1.0], ['myrtle', 6, 4.6, 1.0], ['oleander', -6.4, 4.4, 1.1], ['bush', 9.4, 2.6, 1.0]]) { grove.add(k, x, hAt(x, z) - 0.04, z, { s }); ao.push([x, z, 1.2]); }
+  for (let row = 0; row < 5; row++) for (let i = -5; i <= 5; i++) { const x = i * 4.2 + (row % 2) * 2.1 + (rnd() - 0.5) * 0.8, z = -10 - row * 4.2 + (rnd() - 0.5) * 0.8; if (brook.userData.edgeD(x, z) < 1.4 || Math.hypot(x - sx, z - sz) < 4.5 || nearTower(x, z)) continue; grove.add('apple', x, hAt(x, z) - 0.05, z, { s: 0.75 + rnd() * 0.2, lod: z < -18 ? 1 : 0 }); ao.push([x, z, 2]); }
+  for (let i = 0; i < 16; i++) { const x = -34 + i * 4.5 + rnd() * 2, z = -32 - rnd() * 6; if (nearTower(x, z)) continue; grove.add(rnd() < 0.55 ? 'cypress' : 'pine', x, hAt(x, z), z, { s: 1.0 + rnd() * 0.3, lod: 1 }); }
+  for (const [k, x, z, s] of [['oak', 12.5, 1.5, 1.2], ['pine', -13, 3, 1.1], ['cypress', -10.6, -1.6, 1.0], ['olive', 10.5, -7, 1.0], ['oak', -15, -8, 1.1], ['cypress', -27.5, -16.5, 1.15], ['pine', -19.5, -17.5, 1.2]]) { if ((nearTower(x, z) && !(Math.hypot(x - TOWER.at.x, z - TOWER.at.z) > 5.5 && segD(x, z, tFront, TOWER.reveal) > 3)) || (menu && segD(x, z, TOWER.reveal, TOWER.at) < 4.2 * s)) continue; grove.add(k, x, hAt(x, z) - 0.05, z, { s }); ao.push([x, z, 2.6 * s]); }
+  for (const [k, x, z, s] of [['oleander', -22.2, -9.6, 1.0], ['myrtle', -25.8, -9.0, 0.9], ['oleander', -5.2, -3.6, 1.1], ['myrtle', 3.6, -2.6, 0.9], ['broom', -3, -5.4, 1.0], ['myrtle', 6, 4.6, 1.0], ['oleander', -6.4, 4.4, 1.1], ['bush', 9.4, 2.6, 1.0]]) { if (segD(x, z, tFront, TOWER.reveal) < 2.2) continue; grove.add(k, x, hAt(x, z) - 0.04, z, { s }); ao.push([x, z, 1.2]); }
   g.add(grove.build());
   // the stream: reeds, lilies, a plank bridge; a fence along the lane; a ladder against the tree; crates and a basket
   const reedSpots = [], padSpots = []; const rr = mulberry32(9); for (let i = 0; i < 70; i++) { const a = rr() * Math.PI * 2, d = 0.86 + rr() * 0.2; const p = brook.userData.edgePoint(a, d); for (let k = 0; k < 3; k++) reedSpots.push([p.x + (rr() - 0.5) * 0.4, Math.max(level - 0.08, hAt(p.x, p.z)) - 0.04, p.z + (rr() - 0.5) * 0.4, 0.8 + rr() * 0.7]); }
@@ -270,7 +278,8 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
     objs.telescope = telescope('Star Gallery', MOON.clone().sub(SPOTS.telescope).normalize()); objs.telescope.position.copy(SPOTS.telescope); face(objs.telescope, 0);
     { const K = new Kit(); const deck = new THREE.Group(); for (let i = 0; i < 8; i++) K.box('woodRaw', 0.24, 0.07, 1.6, V(-0.84 + i * 0.24, 0.05, 0), new THREE.Euler(0, 0, (i % 3 - 1) * 0.01), 0.015); K.build(deck); deck.position.set(SPOTS.telescope.x, hAt(SPOTS.telescope.x, SPOTS.telescope.z), SPOTS.telescope.z); g.add(deck); }
     objs.credits = scrollOnStool('Credits'); objs.credits.position.copy(SPOTS.credits); face(objs.credits, 0);
-    for (const o of Object.values(objs)) g.add(o);
+    { const T2 = starTower({ seed: 1687 }); T2.group.position.set(TOWER.at.x, hAt(TOWER.at.x, TOWER.at.z) - 0.15, TOWER.at.z); T2.group.rotation.y = TOWER.ry; g.add(T2.group); objs.tower = T2; }
+    for (const o of Object.values(objs)) if (o.isObject3D) g.add(o);
   }
   // the title sign hanging from the tree, and the loading prompt hanging from a branch
   const title = new Signboard(['Apple of Discord'], { maxW: 30, hang: 7, style: 'gild', wood: 'walnut' }); title.group.scale.setScalar(0.19); title.group.position.copy(SPOTS.title); g.add(title.group);
@@ -296,9 +305,29 @@ const NOISE_GLSL = `float aoH3(vec3 p){ return fract(sin(dot(p, vec3(127.1, 311.
   float aoN3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
     return mix(mix(mix(aoH3(i), aoH3(i + vec3(1, 0, 0)), f.x), mix(aoH3(i + vec3(0, 1, 0)), aoH3(i + vec3(1, 1, 0)), f.x), f.y), mix(mix(aoH3(i + vec3(0, 0, 1)), aoH3(i + vec3(1, 0, 1)), f.x), mix(aoH3(i + vec3(0, 1, 1)), aoH3(i + vec3(1, 1, 1)), f.x), f.y), f.z); }
   float aoW(vec3 p){ return aoN3(p * 7.0) * 0.55 + aoN3(p * 17.0) * 0.3 + aoN3(p * 37.0) * 0.15; }\n`;
+const spriteTex = (canvas) => { const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return t; };
+/** the seed coat (lathe UVs: u around, v base -> tip): chestnut brown with darker grain streaks, a pale hilum at the base,
+ *  a hard glossy highlight strip and a dark tip */
+function seedSprite() {
+  const W = 36, H = 24; const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); const r = mulberry32(11); const R = ['#1e0c06', '#36160a', '#52240e', '#6e3416', '#8c4a20', '#b0682e', '#e0a868'];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let t = 3 + (Math.sin(x * 0.9 + Math.sin(y * 0.35) * 2) > 0.6 ? -1 : 0) + (r() < 0.12 ? (r() < 0.5 ? 1 : -1) : 0); if (y > H - 4) t = 1; if (y < 3) t = 5 + (r() < 0.4 ? 1 : 0); if ((x === 7 || x === 8) && y > 5 && y < H - 6) t = x === 7 ? 6 : 5; g.fillStyle = R[Math.max(0, Math.min(6, t))]; g.fillRect(x, H - 1 - y, 1, 1); }
+  return c;
+}
+/** the shoot (tube UVs: u along, v around): pale green with a lit stripe, fine darker veins, a reddish base */
+function shootSprite() {
+  const W = 32, H = 12; const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); const R = ['#1a3a12', '#2e5e1c', '#46862a', '#64a83a', '#8acc56', '#bce88a'];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let t = y < 3 ? 4 : y < 6 ? 3 : y < 9 ? 2 : 3; if (y === 1) t = 5; if ((x * 3 + y) % 11 === 0) t -= 1; const base = x < 4; g.fillStyle = base ? ['#3a1a10', '#5a2a1a', '#7a3e24', '#9a5a30', '#b87a44', '#d8a070'][t] : R[t]; g.fillRect(x, y, 1, 1); }
+  return c;
+}
+/** a pixel-leaf card: petiole at the origin, length L along +x, folded along the midrib (V) and drooping toward the tip */
+function spriteLeafGeo(L, aspect, { fold = 0.3, droop = 0.1 } = {}) {
+  const g = new THREE.PlaneGeometry(L, L * aspect, 6, 2); g.translate(L / 2, 0, 0); const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i) / L, y = p.getY(i); p.setZ(i, Math.abs(y) * fold - x * x * droop * L); }
+  g.computeVertexNormals(); return g;
+}
 export function appleTimelapse() {
   const G = new THREE.Group(); G.name = 'appleTimelapse'; const U = { uRipe: { value: 0 }, uBruise: { value: 0 }, uRot: { value: 0 }, uCollapse: { value: 0 }, uMold: { value: 0 }, uHoleK: { value: 0 }, uTime: T.WIND.time,
-    uGreen: { value: C('#86b83e') }, uRed: { value: C('#c8241a') }, uHole: { value: [V(), V(), V()] } };
+    uGreen: { value: C('#86b83e') }, uRed: { value: C('#c8241a') }, uHole: { value: [V(), V(), V()] }, uRim: { value: 0 }, uRimC: { value: C('#ffd8a0') } };
   const prof = [[0.001, 0.05], [0.14, 0.0], [0.3, 0.03], [0.43, 0.14], [0.5, 0.32], [0.515, 0.5], [0.47, 0.67], [0.36, 0.8], [0.2, 0.845], [0.08, 0.79], [0.001, 0.75]];
   const body = turned(prof, 72, { sub: 8 }).clone(); { const p = body.attributes.position; const col = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const a = Math.atan2(z, x); const k = (0.9 + 0.1 * Math.sin(a * 11 + y * 4)) * (0.84 + 0.16 * smooth(0, 0.5, y)); col.set([k, k, k], i * 3); } body.setAttribute('color', new THREE.BufferAttribute(col, 3)); }
   const m = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: T.gradientMap([0.42, 0.72, 1.0]) });
@@ -309,7 +338,7 @@ export function appleTimelapse() {
         { float e = 0.012; float h0 = aoW(position); vec3 g = vec3(aoW(position + vec3(e, 0, 0)) - h0, aoW(position + vec3(0, e, 0)) - h0, aoW(position + vec3(0, 0, e)) - h0) / e; g -= objectNormal * dot(g, objectNormal); objectNormal = normalize(objectNormal - g * aDisp); }`)
       .replace('#include <begin_vertex>', `vec3 transformed = vec3(position) + normal * aDisp * aoW(position);
         transformed.y = mix(transformed.y, transformed.y * 0.58 + 0.03, uCollapse); transformed.xz *= 1.0 + 0.17 * uCollapse * smoothstep(0.85, 0.05, position.y); vAP = position;`);
-    sh.fragmentShader = 'uniform float uRipe, uBruise, uRot, uMold, uHoleK; uniform vec3 uGreen, uRed; uniform vec3 uHole[3]; varying vec3 vAP; float aoWet = 0.0;\n' + NOISE_GLSL + sh.fragmentShader.replace('#include <opaque_fragment>', 'outgoingLight = mix(outgoingLight, vec3(1.0, 0.86, 0.66), step(0.95, dot(normalize(vNormal), normalize(vec3(-0.35, 0.6, 0.7)))) * step(0.35, aoWet) * 0.75); // a wet, juicy gleam on the rot\n#include <opaque_fragment>').replace('#include <color_fragment>', `
+    sh.fragmentShader = 'uniform float uRipe, uBruise, uRot, uMold, uHoleK, uRim; uniform vec3 uGreen, uRed, uRimC; uniform vec3 uHole[3]; varying vec3 vAP; float aoWet = 0.0;\n' + NOISE_GLSL + sh.fragmentShader.replace('#include <opaque_fragment>', 'outgoingLight += uRimC * pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition))), 2.6) * smoothstep(-0.2, 0.7, normalize(vNormal).x * 0.8 + normalize(vNormal).y * 0.6) * uRim; // the nearby star rims the right flank\noutgoingLight = mix(outgoingLight, vec3(1.0, 0.86, 0.66), step(0.992, dot(normalize(vNormal), normalize(vec3(-0.35, 0.6, 0.7)))) * step(0.45, aoWet) * 0.35); // a wet, juicy gleam on the rot\n#include <opaque_fragment>').replace('#include <color_fragment>', `
         vec3 c = mix(uGreen, uRed, uRipe); c = mix(c, c * vec3(1.15, 1.05, 0.7), smoothstep(0.3, 0.0, vAP.x) * 0.35 * uRipe);
         float sp = aoN3(vAP * 4.5 + 3.0) * 0.65 + aoN3(vAP * 11.0) * 0.35;
         // soft brown patches spread from a few bruises (a darker water-soaked rim at their edge), merging into wet rot
@@ -320,15 +349,23 @@ export function appleTimelapse() {
         aoWet = max(rot, br * 0.5) * (0.55 + 0.45 * aoN3(vAP * 9.0 + 4.0));
         // mould: pale green-white rings clustered on the rot
         float md = aoN3(vAP * 30.0 + 2.0); float mz = step(0.4, aoN3(vAP * 5.0 + 11.0)) * uMold * max(rot, br);
-        c = mix(c, vec3(0.42, 0.48, 0.34), step(0.76, md) * mz); c = mix(c, vec3(0.62, 0.66, 0.5), step(0.84, md) * mz);
+        c = mix(c, vec3(0.16, 0.19, 0.11), step(0.76, md) * mz); c = mix(c, vec3(0.3, 0.33, 0.22), step(0.86, md) * mz);
         for (int i = 0; i < 3; i++) c = mix(c, vec3(0.03, 0.015, 0.008), (1.0 - smoothstep(0.035, 0.055, distance(vAP, uHole[i]))) * uHoleK);
+        // pixel skin on a 128 x 72 texel grid wrapped round the apple: broken russet streaks running pole to pole, pale
+        // lenticel freckles (denser on the shoulders), dark speckles, a hard-edged sun blush; all fade into the rot
+        float ang = atan(vAP.z, vAP.x); vec2 tc = floor(vec2((ang / 6.28318 + 0.5) * 128.0, vAP.y * 85.0)); float hs = fract(sin(dot(tc, vec2(12.9898, 78.233))) * 43758.5453);
+        float fresh = (1.0 - smoothstep(0.0, 0.6, uBruise)) * (1.0 - rot); float stv = aoN3(vec3(tc.x * 0.42, tc.y * 0.05, 2.0)) * 0.8 + hs * 0.2;
+        c *= mix(1.0, stv > 0.62 ? 0.78 : stv < 0.3 ? 1.12 : 1.0, (0.25 + 0.75 * uRipe) * (1.0 - rot * 0.8));
+        float bl = step(0.55, aoN3(vec3(tc * vec2(0.08, 0.1), 5.0)) + (hs - 0.5) * 0.18) * uRipe; c = mix(c, c * vec3(0.78, 0.6, 0.62), bl * 0.6);
+        float lt = step(0.991 - 0.006 * smoothstep(0.35, 0.8, vAP.y), hs); c = mix(c, mix(vec3(0.95, 0.78, 0.42), vec3(0.85, 0.95, 0.55), 1.0 - uRipe), lt * 0.75 * fresh);
+        c = mix(c, c * 0.6, step(0.975, hs) * (1.0 - lt) * 0.8);
         diffuseColor.rgb = c * vColor;`);
   };
   m.customProgramCacheKey = () => 'appleTimelapse';
   const apple = new THREE.Group(); G.add(apple); const bm = new THREE.Mesh(body, m); bm.castShadow = true; bm.receiveShadow = true; apple.add(bm);
   const stemM = new THREE.MeshToonMaterial({ color: '#5a3a1e', gradientMap: T.gradientMap([0.45, 0.75, 1.0]) }); const stem = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(0, 0.76, 0), V(0.01, 0.9, 0), V(0.05, 1.02, 0.01)]), 8, 0.028, 6), stemM); apple.add(stem);
-  const ls = new THREE.Shape(); ls.moveTo(0, 0); ls.quadraticCurveTo(0.13, 0.06, 0.32, 0.0); ls.quadraticCurveTo(0.13, -0.09, 0, 0); const leafG = new THREE.ShapeGeometry(ls, 8); const leafM = new THREE.MeshToonMaterial({ color: '#4e8a2c', side: THREE.DoubleSide, gradientMap: T.gradientMap([0.45, 0.75, 1.0]) });
-  const leaf = new THREE.Mesh(leafG, leafM); leaf.position.set(0.03, 0.93, 0); leaf.rotation.set(-1.0, 0.6, 0); apple.add(leaf);
+  const leafTex = [0, 1, 2].map((k) => spriteTex(leafSprite('apple', k, 3))); const leafM = new THREE.MeshToonMaterial({ map: leafTex[0], alphaTest: 0.5, side: THREE.DoubleSide, flatShading: true });
+  const leaf = new THREE.Mesh(spriteLeafGeo(0.56, 20 / 44, { fold: 0.3, droop: 0.12 }), leafM); leaf.position.set(0.03, 0.93, 0); leaf.rotation.set(-1.0, 0.6, 0); leaf.castShadow = true; leaf.userData.noInk = true; apple.add(leaf);
   // worms: tubes along paths from deep inside out of a hole and down the flank; a sliding window reveals each crawling body
   const holes = [V(0.62, 0.15, 0.75), V(-0.7, 0.3, 0.55), V(0.1, 0.55, 0.85)].map((d) => d.normalize());
   const wormM = new THREE.MeshToonMaterial({ color: '#ffffff', gradientMap: T.gradientMap([0.5, 0.78, 1.0]) }); const worms = [];
@@ -343,13 +380,15 @@ export function appleTimelapse() {
     wm.customProgramCacheKey = () => 'worm'; const w = new THREE.Mesh(wg, wm); w.castShadow = true; w.frustumCulled = false; w.userData.noInk = true; w.userData.noAO = true; apple.add(w); worms.push(WU);
   });
   // the seed (glossy, with a hard specular streak) and its sprout
-  const seedM = new THREE.MeshToonMaterial({ color: '#5a2c14', gradientMap: T.gradientMap([0.35, 0.7, 1.0]) });
-  seedM.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', 'float gl = step(0.93, dot(normalize(vNormal), normalize(vec3(-0.35, 0.75, 0.55)))); outgoingLight = mix(outgoingLight, vec3(1.0, 0.92, 0.8), gl * 0.85);\n#include <opaque_fragment>'); };
-  const seed = new THREE.Group(); G.add(seed); const sm = new THREE.Mesh(turned([[0.001, 0], [0.11, 0.05], [0.19, 0.17], [0.215, 0.3], [0.18, 0.43], [0.09, 0.53], [0.001, 0.58]], 40), seedM); sm.castShadow = true; seed.add(sm); seed.rotation.z = 0.35;
+  const seedM = new THREE.MeshToonMaterial({ map: spriteTex(seedSprite()), flatShading: true });
+  seedM.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', 'float gl = step(0.9, dot(normal, normalize(vec3(-0.35, 0.75, 0.55)))); outgoingLight = mix(outgoingLight, vec3(1.0, 0.92, 0.8), gl * 0.6);\n#include <opaque_fragment>'); };
+  const seed = new THREE.Group(); G.add(seed); const sm = new THREE.Mesh(new THREE.LatheGeometry([[0.001, 0], [0.07, 0.02], [0.13, 0.07], [0.19, 0.17], [0.215, 0.3], [0.19, 0.42], [0.12, 0.52], [0.05, 0.57], [0.001, 0.59]].map(([a, b]) => new THREE.Vector2(a, b)), 9), seedM); sm.castShadow = true; seed.add(sm); seed.rotation.z = 0.35;
   const sprout = new THREE.Group(); sprout.position.set(0, 0.55, 0); seed.add(sprout);
-  const shootM = new THREE.MeshToonMaterial({ color: '#8ac85a', gradientMap: T.gradientMap([0.45, 0.75, 1.0]), side: THREE.DoubleSide });
-  sprout.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(0, 0, 0), V(0.05, 0.25, 0), V(-0.02, 0.5, 0.02), V(0.03, 0.7, 0)]), 16, 0.035, 6), shootM));
-  const cot = new THREE.Shape(); cot.moveTo(0, 0); cot.quadraticCurveTo(0.12, 0.13, 0.32, 0.06); cot.quadraticCurveTo(0.16, -0.06, 0, 0); for (const s of [-1, 1]) { const l = new THREE.Mesh(new THREE.ShapeGeometry(cot, 10), shootM); l.position.set(0.03, 0.7, 0); l.rotation.set(0, s > 0 ? 0 : Math.PI, 0.35); l.userData.s = s; sprout.add(l); }
+  const shootM = new THREE.MeshToonMaterial({ map: spriteTex(shootSprite()), flatShading: true });
+  sprout.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(0, 0, 0), V(0.05, 0.25, 0), V(-0.02, 0.5, 0.02), V(0.03, 0.7, 0)]), 12, 0.035, 6), shootM));
+  const cotM = new THREE.MeshToonMaterial({ map: spriteTex(leafSprite('cotyledon', 0, 5)), alphaTest: 0.5, side: THREE.DoubleSide, flatShading: true }); const youngM = new THREE.MeshToonMaterial({ map: spriteTex(leafSprite('young', 0, 9)), alphaTest: 0.5, side: THREE.DoubleSide, flatShading: true });
+  for (const s of [-1, 1]) { const l = new THREE.Mesh(spriteLeafGeo(0.36, 16 / 30, { fold: 0.22, droop: 0.05 }), cotM); l.position.set(0.03, 0.7, 0); l.rotation.set(0, s > 0 ? 0 : Math.PI, 0.35); l.userData.s = s; l.userData.noInk = true; sprout.add(l); }
+  const young = []; for (const s of [-1, 1]) { const piv = new THREE.Group(); piv.position.set(0.03, 0.72, 0); piv.rotation.y = s > 0 ? 0.9 : Math.PI - 0.9; const l = new THREE.Mesh(spriteLeafGeo(0.3, 14 / 28, { fold: 0.35, droop: 0.02 }), youngM); l.userData.noInk = true; piv.add(l); sprout.add(piv); young.push(l); }
   seed.scale.setScalar(0.001); sprout.scale.setScalar(0.001);
   const stage = (a, b, x) => smooth(a, b, x);
   return {
@@ -357,11 +396,17 @@ export function appleTimelapse() {
     set(age) {
       U.uRipe.value = stage(0.0, 0.16, age); U.uBruise.value = stage(0.14, 0.4, age); U.uRot.value = stage(0.32, 0.66, age); U.uCollapse.value = stage(0.45, 0.74, age); U.uMold.value = stage(0.5, 0.72, age); U.uHoleK.value = stage(0.58, 0.63, age);
       worms.forEach((w, i) => { w.uE.value = stage(0.6 + i * 0.03, 0.9, age); });
-      leafM.color.set('#4e8a2c').lerp(C('#6a4a22'), stage(0.2, 0.55, age)); leaf.rotation.x = -1.0 - stage(0.25, 0.6, age) * 1.1; stem.rotation.z = -stage(0.4, 0.7, age) * 0.4; const sink = -0.31 * U.uCollapse.value; stem.position.y = sink; leaf.position.y = 0.93 + sink;
+      { const lk = age < 0.24 ? 0 : age < 0.46 ? 1 : 2; if (leafM.map !== leafTex[lk]) { leafM.map = leafTex[lk]; leafM.needsUpdate = true; } } leaf.rotation.x = -1.0 - stage(0.25, 0.6, age) * 1.1; stem.rotation.z = -stage(0.4, 0.7, age) * 0.4; const sink = -0.31 * U.uCollapse.value; stem.position.y = sink; leaf.position.y = 0.93 + sink;
       const shrink = 1 - stage(0.86, 0.97, age); apple.scale.setScalar(Math.max(0.001, shrink)); apple.visible = shrink > 0.01;
       seed.scale.setScalar(Math.max(0.001, stage(0.88, 0.98, age) * 0.46));
     },
-    sprout(k) { sprout.scale.setScalar(Math.max(0.001, smooth(0, 0.6, k))); sprout.children.forEach((c) => { if (c.userData.s) c.rotation.z = 0.35 + (1 - smooth(0.3, 1, k)) * 1.2; }); },
+    sprout(k) { sprout.scale.setScalar(Math.max(0.001, smooth(0, 0.6, k))); sprout.children.forEach((c) => { if (c.userData.s) c.rotation.z = 0.35 + (1 - smooth(0.3, 1, k)) * 1.2; }); young.forEach((l) => { const u = smooth(0.55, 1.25, k); l.scale.setScalar(Math.max(0.001, u)); l.rotation.z = 1.35 - u * 0.75; }); },
+    /** world position of the sprout tip / a random point on the apple's skin (for particles) */
+    sproutTip(v = new THREE.Vector3()) { return sprout.localToWorld(v.set(0.03, 0.74, 0)); },
+    skinPoint(v = new THREE.Vector3(), r = Math.random) { const a = r() * Math.PI * 2, y = 0.12 + r() * 0.62; const rad = 0.5 * Math.sin(Math.PI * Math.min(1, y / 0.84)) + 0.02; return apple.localToWorld(v.set(Math.cos(a) * rad, y * (1 - 0.42 * U.uCollapse.value), Math.sin(a) * rad)); },
+    seedWorld(v = new THREE.Vector3()) { return seed.localToWorld(v.set(0, 0.3, 0)); },
+    get collapse() { return U.uCollapse.value; },
+    rim(k) { U.uRim.value = k; },
   };
 }
 // a wooden farm sign on two posts with carved Alagard lettering (pixel-art wood); top edge is where birds perch

@@ -69,10 +69,10 @@ class Game {
     return { promise, progress: () => done / total };
   }
   async toSky() { const { SkyScene } = await import('./scenes/sky.js'); await this.swap(async () => { this.scene = new SkyScene(this); await this.scene.enter(); }, { color: 0x0a0c20 }); }
-  async toGallery() { const { GalleryScene } = await import('./scenes/gallery.js'); await this.swap(async () => { this.scene = new GalleryScene(this); await this.scene.enter(); }, { color: 0x0a0a18 }); }
+  async toGallery(opts = {}) { const { GalleryScene } = await import('./scenes/gallery.js'); await this.swap(async () => { this.scene = new GalleryScene(this); await this.scene.enter(opts); }, { color: 0x0a0a18, ...(opts.wipe || {}) }); }
   async toMenu(opts = {}) {
     const { MenuScene } = await import('./scenes/menu.js');
-    if (this.scene) return this.swap(async () => { this.scene = new MenuScene(this); await this.scene.enter(opts); }, { color: 0x07050d });
+    if (this.scene) return this.swap(async () => { this.scene = new MenuScene(this); await this.scene.enter(opts); }, { color: 0x07050d, ...(opts.wipe || {}) });
     this.scene = new MenuScene(this); await this.scene.enter(opts);
   }
   async newRun() {

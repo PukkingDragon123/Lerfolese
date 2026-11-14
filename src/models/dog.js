@@ -1,85 +1,144 @@
-// Halley, the old mop dog (a Komondor): a custom-rigged quadruped whose whole body is hung with hundreds of felted
-// cords (tapered tubes, darker at the roots, sun-bleached at the tips) that swing with his motion; a fringe over the
-// eyes, a black glossy nose, a pink tongue when he pants, a cord-tufted tail that wags. Procedural gait (diagonal
-// pairs), sniffing, sitting, fetching (an object rides in his mouth) and being petted. Cel-shaded; ink from the engine.
+// Halley, the old mop dog (a Komondor), drawn mostly as 2D pixel art on a custom-rigged quadruped: the whole corded
+// coat is hundreds of layered pixel-art CORD CARDS (felted, twisted ribbons of hand-pixelled cords: lit left edge, shaded
+// right edge, diagonal twist creases with a lit lip, darker roots, sun-bleached frayed tips, bits of dirt; four strip
+// variants) hung in shells round the barrel, head, ears, legs and tail, swinging on a lagged spring with his motion. His
+// face is a pixel-art card too: a big glossy black nose, the mouth line and lip folds, the muzzle cords, eyes that only
+// glint from under the fringe (they blink); a panting frame shows the tongue. Procedural gait (diagonal pairs),
+// sniffing, sitting, fetching (an object rides in his mouth), being petted, perking up. Lit realistically, flat-shaded.
 import * as THREE from 'three';
 import * as T from './toon.js';
 import { turned } from '../ui3d/craft.js';
-import { facet } from './libprops.js';
 import { mulberry32 } from '../core/util.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
-const C = (h) => new THREE.Color(h);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const ease = (x) => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
 const damp = (a, b, k, dt) => a + (b - a) * (1 - Math.exp(-k * dt));
 const angDiff = (a, b) => { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; };
 
-// ---------------------------------------------------------------- felted cords
-const ROOT = C('#a8956c'), MID = C('#e6dabd'), TIP = C('#f6efdc'), DIRT = C('#cdb88c');
-function cords(list, seed = 1, { sides = 5, rings = 6 } = {}) { // list: [{ p, out, len, r }]
-  const r = mulberry32(seed); const P = [], N = [], Cc = [], A = [], I = []; const c = new THREE.Color();
-  for (const cd of list) {
-    const pts = []; const out = cd.out.clone().normalize(); const curl = (r() - 0.5) * 0.5;
-    for (let i = 0; i <= rings; i++) { const t = i / rings; const p = cd.p.clone().addScaledVector(out, Math.min(t, 0.25) * cd.len * 0.5); p.y -= Math.max(0, t - 0.12) * cd.len * (cd.hang ?? 1); p.x += Math.sin(t * 3 + curl * 6) * 0.012; p.z += Math.cos(t * 2.4 + curl * 5) * 0.012; pts.push(p); }
-    const base = P.length / 3;
-    for (let i = 0; i <= rings; i++) {
-      const t = i / rings; const a = pts[Math.min(i + 1, rings)].clone().sub(pts[Math.max(i - 1, 0)]).normalize(); const n0 = V().crossVectors(a, Math.abs(a.y) < 0.9 ? V(0, 1, 0) : V(1, 0, 0)).normalize(); const b0 = V().crossVectors(a, n0);
-      const rad = cd.r * (1 - t * 0.55) * (t > 0.92 ? 0.7 : 1); c.copy(ROOT).lerp(MID, ease(t * 2.2)).lerp(t > 0.7 ? DIRT : TIP, ease((t - 0.45) * 2) * (cd.dirt ?? 0.5));
-      for (let j = 0; j <= sides; j++) { const an = (j / sides) * Math.PI * 2; const nn = n0.clone().multiplyScalar(Math.cos(an)).addScaledVector(b0, Math.sin(an)); const q = pts[i].clone().addScaledVector(nn, rad); P.push(q.x, q.y, q.z); N.push(nn.x, nn.y, nn.z); Cc.push(c.r, c.g, c.b); A.push(t); }
+// ---------------------------------------------------------------- the pixel art: cord strips (4 variants) and the face (3 frames)
+const WOOL = ['#3a2e22', '#6a5a46', '#948066', '#b8a684', '#d6c8a6', '#ebe0c4', '#faf4e4'];
+const DIRT = ['#382a1a', '#64523a', '#8a7552', '#ad9870', '#c8b48c', '#e0d0aa', '#f2e8cc'];
+const SW = 30, SH = 72; // one strip: three plump cords side by side
+let ATL = null;
+function coatAtlas() {
+  if (ATL) return ATL; const c = document.createElement('canvas'); c.width = SW * 4; c.height = SH; const g = c.getContext('2d'); const r = mulberry32(1687);
+  const px = (x, y, R, t) => { g.fillStyle = R[clamp(Math.round(t), 0, 6)]; g.fillRect(x, y, 1, 1); };
+  for (let v = 0; v < 4; v++) for (let k = 0; k < 3; k++) {
+    const x0 = v * SW + k * 10, len = SH - 4 - Math.floor(r() * (v === 3 ? 26 : 16)), ph = r() * 6, shade = (r() - 0.5) * 0.8; const R = (v === 2 && k % 2) || (v === 3 && k === 1) ? DIRT : WOOL;
+    for (let y = 0; y < len; y++) {
+      const t = y / len; const w = 8.6 - t * 2.2; const cx = x0 + 4.6 + Math.sin(y * 0.16 + ph) * 0.6; const xa = Math.round(cx - w / 2), xb = Math.round(cx + w / 2) - 1; const fray = y > len - 4;
+      for (let x = xa; x <= xb; x++) {
+        if (fray && (x + y) % 2) continue; const rel = (x + 0.5 - cx) / (w / 2); let tn = (rel < -0.5 ? 5 : rel < 0.15 ? 4.2 : rel < 0.6 ? 3.6 : 2.8) + shade;
+        const tw = ((y + rel * 3.6 + ph * 5) % 6 + 6) % 6; if (tw < 1) tn -= 1.3; else if (tw < 2.2) tn += 0.7; // twist crease + lit lip (rope-like beads)
+        if (y < 10) tn -= (10 - y) * 0.16; if (t > 0.8) tn += 0.8; if (r() < 0.07) tn += r() < 0.5 ? -1 : 1;
+        px(x, y, R, x === xb ? Math.min(tn, 2.4) : tn);
+      }
+      if ((y + k) % 3) px(xb + 1, y, R, 1); // a broken, tinted shadow edge between cords
     }
-    for (let i = 0; i < rings; i++) for (let j = 0; j < sides; j++) { const a = base + i * (sides + 1) + j, b = a + sides + 1; I.push(a, b, a + 1, a + 1, b, b + 1); }
+    px(Math.round(x0 + 4.6), len, R, 1);
   }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3)); g.setAttribute('aT', new THREE.Float32BufferAttribute(A, 1)); g.setIndex(I); g.computeBoundingSphere(); return g;
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestMipmapNearestFilter; tex.generateMipmaps = true; tex.anisotropy = 4;
+  ATL = tex; return tex;
 }
-// cords swing with the part they hang from: uSwing is that part's lagged motion in its own space
-function cordMat() {
+const FW = 48, FH = 44;
+function faceAtlas() { // three frames side by side: calm, panting (tongue), blink
+  const c = document.createElement('canvas'); c.width = FW * 3; c.height = FH; const g = c.getContext('2d'); const r = mulberry32(7);
+  const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
+  for (let f = 0; f < 3; f++) {
+    const o = f * FW; const cx = o + FW / 2;
+    // muzzle fur: short cords falling from the brow, lit left / shaded right, ragged lower edge
+    for (let k = 0; k < 9; k++) { const x0 = o + 1 + k * 5.2; const L = 30 + Math.floor(r() * 12) - Math.abs(k - 4) * 1.5; for (let y = 0; y < L; y++) for (let x = Math.round(x0); x < Math.round(x0) + 5; x++) { if (y > L - 3 && (x + y) % 2) continue; const rel = x - x0; let t = rel < 1.5 ? 5 : rel < 3 ? 4 : 3; if (((y + rel * 2 + k * 3) % 7) < 1) t -= 1; if (y < 4) t -= 1; if (rel > 4) t = 2; px(x, y, WOOL[clamp(t, 0, 6)]); } }
+    // eyes glinting under the fringe (a dark wet eye, a 1px catchlight), covered again by fringe strands in front
+    for (const s of [-1, 1]) { const ex = cx + s * 11, ey = 9; if (f === 2) { for (let i = -2; i <= 2; i++) px(ex + i, ey + 1, '#3a2a1e'); } else { for (const [dx, dy] of [[0, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) px(ex + dx, ey + dy, '#120c0a'); px(ex, ey, '#e8e4dc'); }
+      for (const dx of [-3, -1, 1, 3]) for (let y = 2; y < 14; y++) if ((y * 3 + dx * 5 + 70) % 7 > 1) px(ex + dx + (y > 9 ? s : 0), y, WOOL[(y + dx + 9) % 3 ? 5 : 3]); } // strands over the eyes: only glints show
+    // the nose: a broad glossy black pad with nostrils, a hard highlight and a cool rim
+    const nr = ['....kkkkkkkkkkkk....', '..kkkkkkkkkkkkkkkk..', '.kkkhhhkkkkkkkkkkkk.', 'kkkhwhkkkkkkkkkkkkkk', 'kkkkhkkkkkkkkkkkkkkk', 'kkkkkkkkkkkkkkkkkkkk', 'kkknnkkkkkkkkknnkkkk', '.knnnnkkkkkkknnnnkk.', '..kknkkkkkkkkknkkk..', '....kkkkkbkkkkkk....', '.........kk.........'];
+    const nx = cx - 10, ny = 17; nr.forEach((row, j) => { for (let i = 0; i < row.length; i++) { const ch = row[i]; if (ch === '.') continue; px(nx + i, ny + j, { k: j > 7 ? '#0a0808' : '#181414', h: '#5a5a66', w: '#e8eef6', n: '#020202', b: '#2a2630' }[ch]); } });
+    // philtrum, mouth line, lip folds; the panting frame opens the mouth and lolls the tongue
+    for (let y = ny + 11; y < ny + 15; y++) px(cx - 1, y, '#3a2a1e');
+    if (f === 1) { const mo = ['..kkkkkkkkkkkkkkk..', '.kddddddddddddddk..', 'kdddtttttttttdddk..', '.kdttTTTTTTTttdk...', '..kttTTTTTTTttk....', '...kttTTTTTttk.....', '....kttTTTttk......', '.....kktttkk.......', '.......kkk.........'];
+      mo.forEach((row, j) => { for (let i = 0; i < row.length; i++) { const ch = row[i]; if (ch === '.') continue; px(cx - 9 + i, ny + 14 + j, { k: '#1a0c0c', d: '#4a1a1e', t: '#c85a6a', T: '#e88a96' }[ch]); } }); }
+    else { for (let i = -8; i <= 8; i++) { const y = ny + 15 + Math.round(Math.abs(i) * 0.22 - (Math.abs(i) > 6 ? 1 : 0)); px(cx + i, y, '#2a1a14'); if (Math.abs(i) > 2) px(cx + i, y + 1, WOOL[2]); } }
+    for (const s of [-1, 1]) for (let y = ny + 13; y < ny + 22; y++) px(cx + s * (12 + Math.round((y - ny) * 0.12)), y, WOOL[2]); // lip folds / jowls
+    // chin cords hanging below the mouth
+    for (let k = 0; k < 6; k++) { const x0 = cx - 13 + k * 4.6; for (let y = ny + 21; y < FH - (k % 2); y++) for (let x = Math.round(x0); x < Math.round(x0) + 4; x++) { if (y > FH - 3 && (x + y) % 2) continue; const rel = x - x0; px(x, y, WOOL[rel < 1.5 ? 4 : rel < 3 ? 3 : 2]); } }
+  }
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; tex.repeat.set(1 / 3, 1); return tex;
+}
+
+// ---------------------------------------------------------------- card shells
+/** list: [{ p (root), out (outward dir), len, w, hang = 1, v (variant 0..3), tint }] -> one geometry of bent ribbons */
+function cards(list, seed = 1, segs = 5) {
+  const r = mulberry32(seed); const P = [], N = [], UV = [], Cc = [], A = [], I = []; const up = V(0, 1, 0); const c = new THREE.Color();
+  for (const cd of list) {
+    const out = cd.out.clone().normalize(); const oh = V(out.x, 0, out.z); if (oh.lengthSq() < 1e-4) oh.set(0, 0, 1); oh.normalize(); const side = V().crossVectors(up, oh).normalize().applyAxisAngle(oh, (r() - 0.5) * 0.5); const curl = (r() - 0.5) * 0.04; const w = cd.w; const v = cd.v ?? Math.floor(r() * 4); const flip = r() < 0.5;
+    const base = P.length / 3; const tint = cd.tint ?? 0.92 + r() * 0.12; c.setRGB(tint, tint * (0.98 + r() * 0.03), tint * (0.95 + r() * 0.05));
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs; const q = cd.p.clone().addScaledVector(out, Math.min(t, 0.3) * cd.len * 0.55); q.y -= Math.max(0, t - 0.15) * cd.len * (cd.hang ?? 1); q.addScaledVector(side, Math.sin(t * 3 + curl * 40) * 0.012); q.addScaledVector(oh, t * t * 0.03);
+      const ww = w * (1 - t * 0.12); const nrm = oh.clone().addScaledVector(up, 0.25 - t * 0.2).normalize();
+      for (const sgn of [-1, 1]) { const qq = q.clone().addScaledVector(side, sgn * ww / 2); P.push(qq.x, qq.y, qq.z); N.push(nrm.x, nrm.y, nrm.z); UV.push((v + ((sgn > 0) !== flip ? 1 : 0)) / 4, 1 - t * 0.97); Cc.push(c.r, c.g, c.b); A.push(t); }
+    }
+    for (let i = 0; i < segs; i++) { const a = base + i * 2; I.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3)); g.setAttribute('aT', new THREE.Float32BufferAttribute(A, 1)); g.setIndex(I); g.computeBoundingSphere(); return g;
+}
+// cards swing with the part they hang from: uSwing is that part's lagged motion in its own space
+function cardMat() {
   const U = { uSwing: { value: V() }, uTime: T.WIND.time };
-  const m = Object.assign(new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: T.gradientMap([0.48, 0.76, 1.0]) }), { flatShading: true });
-  m.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, U); sh.vertexShader = 'uniform vec3 uSwing; uniform float uTime; attribute float aT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n float k = aT * aT; transformed += uSwing * k + vec3(sin(uTime * 2.1 + position.x * 31.0 + position.z * 17.0), 0.0, cos(uTime * 1.7 + position.z * 23.0)) * 0.006 * k;'); };
-  m.customProgramCacheKey = () => 'dogCords'; m.userData.U = U; return m;
+  const m = new THREE.MeshToonMaterial({ map: coatAtlas(), vertexColors: true, alphaTest: 0.5, side: THREE.DoubleSide });
+  m.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, U); sh.vertexShader = 'uniform vec3 uSwing; uniform float uTime; attribute float aT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n float k = aT * aT; transformed += uSwing * k + vec3(sin(uTime * 2.1 + position.x * 31.0 + position.z * 17.0), 0.0, cos(uTime * 1.7 + position.z * 23.0)) * 0.007 * k;'); };
+  m.customProgramCacheKey = () => 'dogCards'; m.userData.U = U; return m;
 }
-const sphereDir = (r) => { let x, y, z, d; do { x = r() * 2 - 1; y = r() * 2 - 1; z = r() * 2 - 1; d = x * x + y * y + z * z; } while (d > 1 || d < 0.01); return V(x, y, z).multiplyScalar(1 / Math.sqrt(d)); };
 
 export function createDog({ seed = 1687 } = {}) {
   const r = mulberry32(seed); const root = new THREE.Group(); root.name = 'dog'; root.userData.grassPush = true; root.userData.grassPushR = 0.7;
-  const skin = Object.assign(new THREE.MeshToonMaterial({ color: '#cbb994', gradientMap: T.gradientMap([0.48, 0.76, 1.0]) }), { flatShading: true });
-  const black = Object.assign(new THREE.MeshToonMaterial({ color: '#141010', gradientMap: T.gradientMap([0.3, 0.7, 1.0]) }), { flatShading: true });
-  black.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', 'outgoingLight += vec3(0.75) * step(0.9, dot(normal, normalize(vec3(-0.3, 0.8, 0.5))));\n#include <opaque_fragment>'); };
+  const skin = Object.assign(new THREE.MeshToonMaterial({ color: '#a8946e' }), { flatShading: true }); // the felted undercoat between the cords
   const body = new THREE.Group(); body.position.y = 0.5; root.add(body);
-  // torso: a long barrel under the coat
-  const torso = new THREE.Mesh(turned([[0.001, -0.42], [0.14, -0.4], [0.21, -0.28], [0.23, 0.0], [0.22, 0.24], [0.17, 0.38], [0.001, 0.44]], 32), skin); torso.rotation.x = Math.PI / 2; body.add(torso);
-  const tc = []; for (let i = 0; i < 300; i++) { const d = sphereDir(r); if (d.y < -0.35) continue; const p = V(d.x * 0.22, d.y * 0.2 + 0.02, d.z * 0.44); tc.push({ p, out: V(d.x, Math.max(0, d.y) * 0.4, d.z * 0.3), len: 0.36 + r() * 0.16 - Math.max(0, d.y) * 0.05 + (Math.abs(d.x) > 0.6 ? 0.06 : 0), r: 0.026 + r() * 0.01, dirt: 0.3 + r() * 0.5 }); }
-  const torsoM = cordMat(); const torsoC = new THREE.Mesh(cords(tc, seed), torsoM); torsoC.castShadow = true; body.add(torsoC);
-  // head on a neck pivot: skull, muzzle, a black nose, eyes under a fringe, ears of cords, a tongue
+  // torso: a long barrel under the coat, hung with two shells of cord cards parting along the spine
+  const torso = new THREE.Mesh(turned([[0.001, -0.42], [0.14, -0.4], [0.21, -0.28], [0.23, 0.0], [0.22, 0.24], [0.17, 0.38], [0.001, 0.44]], 10), skin); torso.rotation.x = Math.PI / 2; torso.scale.set(0.84, 1, 0.84); body.add(torso);
+  const tc = [];
+  for (let layer = 0; layer < 2; layer++) for (let zi = 0; zi < 9; zi++) for (let ai = 0; ai < 10; ai++) {
+    const z = -0.4 + (zi + (layer ? 0.5 : 0)) * 0.095 + (r() - 0.5) * 0.03; const side = ai < 5 ? -1 : 1; const th = side * (0.18 + ((ai % 5) / 4) * 1.75 + (layer ? 0.15 : 0)) + (r() - 0.5) * 0.12; if (layer && Math.abs(th) > 1.4) continue;
+    const ez = 1 - Math.pow(Math.abs(z) / 0.46, 4); const p = V(Math.sin(th) * 0.18 * ez, Math.cos(th) * 0.16 * ez + 0.03 + layer * 0.03 + (r() - 0.5) * 0.03, z);
+    tc.push({ p, out: V(Math.sin(th) + (r() - 0.5) * 0.3, Math.max(0, Math.cos(th)) * 0.5, z * 0.6 + (r() - 0.5) * 0.4), len: 0.38 + r() * 0.16 + Math.abs(Math.sin(th)) * 0.06 + layer * 0.05, w: 0.12 + r() * 0.06, hang: 0.9 + r() * 0.2 });
+  }
+  for (const zs of [-1, 1]) for (let row = 0; row < 3; row++) for (let i = 0; i < 8; i++) { const a = (i / 7 - 0.5) * 2.8 + (r() - 0.5) * 0.2; const y = 0.13 - row * 0.09; tc.push({ p: V(Math.sin(a) * 0.15 * (1 - row * 0.1), y, zs * (0.36 + row * 0.03)), out: V(Math.sin(a) * 0.6, 0.15, zs), len: (zs > 0 ? 0.3 : 0.38) + r() * 0.1 - row * 0.04, w: 0.12 + r() * 0.04 }); } // chest and rump
+  const torsoM = cardMat(); const torsoC = new THREE.Mesh(cards(tc, seed), torsoM); torsoC.castShadow = true; body.add(torsoC);
+  // head on a neck pivot: skull and muzzle under the cords, the pixel-art face card, crown / fringe / ear / cheek cords
   const neck = new THREE.Group(); neck.position.set(0, 0.1, 0.42); body.add(neck); const head = new THREE.Group(); head.position.set(0, 0.12, 0.08); neck.add(head);
-  const skull = new THREE.Mesh(turned([[0.001, -0.14], [0.11, -0.12], [0.15, -0.02], [0.14, 0.08], [0.09, 0.15], [0.001, 0.17]], 28), skin); skull.rotation.x = Math.PI / 2; head.add(skull);
-  const muzzle = new THREE.Mesh(turned([[0.001, 0], [0.085, 0.02], [0.09, 0.1], [0.07, 0.17], [0.001, 0.19]], 24), skin); muzzle.rotation.x = Math.PI / 2; muzzle.position.set(0, -0.04, 0.1); head.add(muzzle);
-  const nose = new THREE.Mesh(turned([[0.001, 0], [0.04, 0.0], [0.05, 0.025], [0.035, 0.05], [0.001, 0.055]], 20), black); nose.rotation.x = Math.PI / 2; nose.position.set(0, -0.025, 0.28); head.add(nose);
-  for (const s of [-1, 1]) { const eye = new THREE.Mesh(turned([[0.001, 0], [0.022, 0.004], [0.026, 0.014], [0.001, 0.022]], 16), black); eye.rotation.x = Math.PI / 2; eye.position.set(s * 0.07, 0.035, 0.12); head.add(eye); }
-  const tongue = new THREE.Mesh(new THREE.CapsuleGeometry(0.025, 0.06, 4, 8), Object.assign(new THREE.MeshToonMaterial({ color: '#d86a7a', gradientMap: T.gradientMap([0.5, 0.8, 1.0]) }), { flatShading: true })); tongue.scale.set(1, 1, 0.4); tongue.position.set(0, -0.11, 0.2); tongue.rotation.x = 0.4; head.add(tongue);
+  const nc = []; for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2; nc.push({ p: V(Math.sin(a) * 0.1, 0.08 + Math.cos(a) * 0.03, 0.04 + Math.cos(a) * 0.06), out: V(Math.sin(a), 0.3, Math.cos(a) * 0.8 + 0.3), len: 0.3 + r() * 0.08, w: 0.13 + r() * 0.03 }); }
+  const neckM = cardMat(); const neckC = new THREE.Mesh(cards(nc, seed + 5), neckM); neck.add(neckC);
+  const skull = new THREE.Mesh(turned([[0.001, -0.14], [0.11, -0.12], [0.15, -0.02], [0.14, 0.08], [0.09, 0.15], [0.001, 0.17]], 8), skin); skull.rotation.x = Math.PI / 2; skull.scale.set(0.62, 1, 0.62); head.add(skull); // a small inner volume: the cords make the head's shape
+  const muzzle = new THREE.Mesh(turned([[0.001, 0], [0.085, 0.02], [0.09, 0.1], [0.07, 0.17], [0.001, 0.19]], 8), skin); muzzle.rotation.x = Math.PI / 2; muzzle.position.set(0, -0.04, 0.1); muzzle.scale.set(1, 0.92, 1); head.add(muzzle);
+  const faceTex = faceAtlas(); const faceG = new THREE.PlaneGeometry(0.23, 0.23 * FH / FW, 6, 1); { const p = faceG.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i); p.setZ(i, -x * x * 2.2); } faceG.computeVertexNormals(); }
+  const face = new THREE.Mesh(faceG, new THREE.MeshToonMaterial({ map: faceTex, alphaTest: 0.5, side: THREE.DoubleSide })); face.position.set(0, -0.045, 0.3); face.rotation.x = -0.12; face.castShadow = true; head.add(face);
   const mouth = new THREE.Group(); mouth.position.set(0, -0.09, 0.26); head.add(mouth);
-  // old saggy jowls: heavy faceted flaps of lip hanging either side of the muzzle (they swing a little when she moves)
-  const jowls = []; for (const s of [-1, 1]) { const j = new THREE.Mesh(facet([[0.001, 0], [0.034, 0.008], [0.046, 0.05], [0.04, 0.09], [0.022, 0.115], [0.001, 0.12]], 6), skin); j.scale.set(0.55, 1, 1); j.rotation.set(Math.PI, 0, s * 0.12); j.position.set(s * 0.062, -0.05, 0.2); j.castShadow = true; head.add(j); jowls.push(j); }
-  const hc = []; for (let i = 0; i < 120; i++) { const d = sphereDir(r); if (d.y < -0.2 && d.z > 0.3) continue; const p = V(d.x * 0.15, d.y * 0.14 + 0.03, d.z * 0.15); const front = d.z > 0.45 && d.y > 0; tc.length; hc.push({ p, out: V(d.x, Math.max(0, d.y) * 0.3, Math.max(d.z, 0.1)), len: front ? 0.14 + r() * 0.06 : 0.2 + r() * 0.12, r: 0.02 + r() * 0.007, dirt: 0.25, hang: front ? 0.75 : 1 }); }
-  for (const s of [-1, 1]) for (let i = 0; i < 14; i++) hc.push({ p: V(s * (0.13 + r() * 0.03), 0.05 + r() * 0.05, -0.02 + r() * 0.06), out: V(s, 0.1, 0), len: 0.28 + r() * 0.1, r: 0.022, dirt: 0.4 });
-  const headM = cordMat(); const headC = new THREE.Mesh(cords(hc, seed + 1), headM); headC.castShadow = true; head.add(headC);
+  const hc = [];
+  for (const [n, y, rad, L] of [[22, 0.14, 0.1, 0.24], [18, 0.07, 0.15, 0.22], [14, 0.0, 0.16, 0.18]]) for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + (r() - 0.5) * 0.25; if (Math.cos(a) > (y > 0.1 ? 0.6 : 0.35)) continue; hc.push({ p: V(Math.sin(a) * rad, y + r() * 0.02, Math.cos(a) * rad * 0.9 + 0.01), out: V(Math.sin(a), 0.5, Math.cos(a)), len: L + r() * 0.1, w: 0.11 + r() * 0.03 }); } // crown and skull
+  for (let i = 0; i < 7; i++) { const a = (i / 6 - 0.5) * 2.2; hc.push({ p: V(Math.sin(a) * 0.08, -0.08, 0.2 + Math.cos(a) * 0.04), out: V(Math.sin(a), -0.2, 0.6), len: 0.12 + r() * 0.05, w: 0.08 }); } // beard under the muzzle
+  for (let i = 0; i < 8; i++) { const x = (i / 7 - 0.5) * 0.25; hc.push({ p: V(x, 0.115, 0.25 - Math.abs(x) * 0.3), out: V(x * 1.5, 0.3, 1), len: 0.15 + r() * 0.04, w: 0.075 + r() * 0.02, hang: 0.95 }); } // the fringe, hanging over the eyes in front of the face
+  for (let i = 0; i < 9; i++) for (const sd of [-1, 1]) hc.push({ p: V(sd * 0.015, 0.125, -0.11 + i * 0.03), out: V(sd, 0.9, 0.15), len: 0.21 + r() * 0.08, w: 0.11 + r() * 0.03 }); // the parting along the skull
+  for (const s of [-1, 1]) { for (let i = 0; i < 5; i++) hc.push({ p: V(s * (0.13 + r() * 0.03), 0.06 + r() * 0.05, -0.03 + i * 0.03), out: V(s, 0.15, 0.1), len: 0.3 + r() * 0.08, w: 0.11, v: 1 }); // ears
+    for (let i = 0; i < 3; i++) hc.push({ p: V(s * 0.085, -0.02, 0.14 + i * 0.05), out: V(s, -0.1, 0.25), len: 0.13 + r() * 0.04, w: 0.08 }); } // cheeks
+  const headM = cardMat(); const headC = new THREE.Mesh(cards(hc, seed + 1), headM); headC.castShadow = true; head.add(headC);
   // tail: a tufted pivot at the rump
-  const tail = new THREE.Group(); tail.position.set(0, 0.08, -0.44); body.add(tail); const tlc = []; for (let i = 0; i < 34; i++) tlc.push({ p: V((r() - 0.5) * 0.08, r() * 0.06, -r() * 0.12), out: V((r() - 0.5) * 0.6, 0.2, -1), len: 0.22 + r() * 0.12, r: 0.022, dirt: 0.5 });
-  const tailM = cordMat(); const tailC = new THREE.Mesh(cords(tlc, seed + 2), tailM); tailC.castShadow = true; tail.add(tailC);
-  // legs: hip pivot -> upper -> knee -> lower -> paw, each sleeved in cords
-  const legs = []; const legM = cordMat(); const pad = Object.assign(new THREE.MeshToonMaterial({ color: '#4a3a2e', gradientMap: T.gradientMap([0.4, 0.75, 1.0]) }), { flatShading: true });
+  const tail = new THREE.Group(); tail.position.set(0, 0.08, -0.44); body.add(tail); const tlc = []; for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; tlc.push({ p: V(Math.cos(a) * 0.04, 0.02 + Math.sin(a) * 0.03, -r() * 0.06), out: V(Math.cos(a) * 0.6, 0.15, -1), len: 0.24 + r() * 0.12, w: 0.1 }); }
+  const tailM = cardMat(); const tailC = new THREE.Mesh(cards(tlc, seed + 2), tailM); tailC.castShadow = true; tail.add(tailC);
+  // legs: hip pivot -> upper -> knee -> lower -> paw, each sleeved in cord cards
+  const legs = []; const legM = cardMat(); const pad = Object.assign(new THREE.MeshToonMaterial({ color: '#3a2e24' }), { flatShading: true });
   for (const [x, z, front] of [[0.12, 0.3, 1], [-0.12, 0.3, 1], [0.12, -0.3, 0], [-0.12, -0.3, 0]]) {
     const hip = new THREE.Group(); hip.position.set(x, -0.08, z); body.add(hip);
-    const up = new THREE.Mesh(turned([[0.001, -0.22], [0.05, -0.2], [0.06, -0.08], [0.055, 0.0], [0.001, 0.02]], 16), skin); hip.add(up);
-    const knee = new THREE.Group(); knee.position.y = -0.21; hip.add(knee); const lo = new THREE.Mesh(turned([[0.001, -0.2], [0.04, -0.18], [0.045, -0.05], [0.05, 0.0], [0.001, 0.02]], 16), skin); knee.add(lo);
-    const paw = new THREE.Mesh(turned([[0.001, 0], [0.05, 0.0], [0.055, 0.03], [0.035, 0.05], [0.001, 0.055]], 16), pad); paw.position.y = -0.21; paw.scale.set(1, 1, 1.3); knee.add(paw);
-    const lc = []; for (let i = 0; i < 26; i++) { const a = r() * Math.PI * 2; lc.push({ p: V(Math.cos(a) * 0.05, -0.02 - r() * 0.16, Math.sin(a) * 0.05), out: V(Math.cos(a), 0, Math.sin(a)), len: 0.16 + r() * 0.08, r: 0.02, dirt: 0.6 }); }
-    const sleeve = new THREE.Mesh(cords(lc, seed + 10 + legs.length), legM); sleeve.castShadow = true; hip.add(sleeve);
+    const up = new THREE.Mesh(turned([[0.001, -0.22], [0.05, -0.2], [0.06, -0.08], [0.055, 0.0], [0.001, 0.02]], 6), skin); hip.add(up);
+    const knee = new THREE.Group(); knee.position.y = -0.21; hip.add(knee); const lo = new THREE.Mesh(turned([[0.001, -0.2], [0.04, -0.18], [0.045, -0.05], [0.05, 0.0], [0.001, 0.02]], 6), skin); knee.add(lo);
+    const paw = new THREE.Mesh(turned([[0.001, 0], [0.05, 0.0], [0.055, 0.03], [0.035, 0.05], [0.001, 0.055]], 7), pad); paw.position.y = -0.21; paw.scale.set(1, 1, 1.3); knee.add(paw);
+    const lc = []; for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2 + r() * 0.4; lc.push({ p: V(Math.cos(a) * 0.05, -0.02 - r() * 0.05, Math.sin(a) * 0.05), out: V(Math.cos(a), 0, Math.sin(a)), len: 0.2 + r() * 0.08, w: 0.1 }); }
+    const sleeve = new THREE.Mesh(cards(lc, seed + 10 + legs.length, 4), legM); sleeve.castShadow = true; hip.add(sleeve);
     legs.push({ hip, knee, front, side: x > 0 ? 1 : -1 });
   }
-  root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  const mats = [torsoM, headM, tailM, legM];
+  root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material.alphaTest > 0) o.userData.noInk = true; } });
+  const mats = [torsoM, headM, tailM, legM, neckM];
+  const setFace = (f) => { faceTex.offset.x = f / 3; };
 
   // ---------------------------------------------------------------- behaviour
   const st = { pos: root.position, heading: 0, speed: 0, want: 0, target: null, onArrive: null, phase: 0, sit: 0, sitT: 0, sniff: 0, wag: 0.2, pant: 0, look: V(), mode: 'idle', timer: 2, carry: null, hop: 0, hopV: 0, lastVel: V(), swing: V() };
@@ -119,7 +178,7 @@ export function createDog({ seed = 1687 } = {}) {
       body.position.y = 0.5 - st.sit * 0.12 + Math.abs(Math.sin(st.phase)) * 0.035 * walk * (1 + run) + Math.sin(t * 1.8) * 0.006 + st.hop; body.rotation.x = -st.sit * 0.42 + Math.sin(st.phase * 2) * 0.03 * walk + sn * 0.12; body.position.z = -st.sit * 0.06;
       body.rotation.z = Math.sin(st.phase) * 0.04 * walk;
       st.wag = damp(st.wag, Math.max((st.perk || 0) * 1.2, st.mode === 'pet' ? 1.4 : st.mode === 'return' || st.mode === 'fetch' ? 0.9 : 0.25), 1.2, dt); tail.rotation.y = Math.sin(t * (6 + st.wag * 10)) * 0.5 * st.wag; tail.rotation.x = -0.4 * st.wag - 0.1;
-      st.pant = Math.max(0, st.pant - dt); const pant = st.pant > 0 || run > 0.5 ? 1 : 0; tongue.visible = pant > 0 && !st.carry; tongue.scale.y = 1 + Math.sin(t * 14) * 0.15 * pant;
+      st.pant = Math.max(0, st.pant - dt); const pant = st.pant > 0 || run > 0.5 ? 1 : 0; st.blink = (st.blink ?? 3) - dt; if (st.blink < -0.14) st.blink = 2 + Math.random() * 4; setFace(pant > 0 && !st.carry && Math.sin(t * 14) > -0.6 ? 1 : st.blink < 0 ? 2 : 0);
       neck.rotation.x = sn * (0.75 + Math.sin(t * 9) * 0.06) - st.sit * 0.35 + (st.mode === 'pet' ? -0.35 : 0) - (st.carry ? 0.15 : 0) - (st.perkK = damp(st.perkK || 0, st.perk || 0, 6, dt)) * 0.32; /* perked up: head high, ears lifted with it */ head.rotation.y = damp(head.rotation.y, sn ? Math.sin(t * 2.3) * 0.35 : Math.sin(t * 0.5) * 0.2, 3, dt); head.rotation.z = st.mode === 'pet' ? Math.sin(t * 2) * 0.18 : 0;
       // the coat swings against the motion (a lagged spring on the body's velocity)
       const acc = V(vx, 0, vz).sub(st.lastVel).divideScalar(Math.max(dt, 1e-3)); st.lastVel.set(vx, 0, vz); const local = V(-(acc.x * Math.cos(st.heading) - acc.z * Math.sin(st.heading)), -st.hopV * 0.4, -(acc.x * Math.sin(st.heading) + acc.z * Math.cos(st.heading)));

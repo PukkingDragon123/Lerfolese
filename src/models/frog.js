@@ -1,6 +1,8 @@
 // Archimage Croakley, the old toad-wizard of the star gallery: an original, Oddworld-flavoured creature (grotesque-
 // charming, believable anatomy, grimy lived-in kit), built on the beasts pipeline (src/models/beasts): an SDF sculpt
-// polygonised into one seamless skinned mesh with a custom skeleton and a cel painter.
+// polygonised into one seamless skinned mesh with a custom skeleton; realistic low-poly (the shared look.js budget:
+// faceted, flat-shaded, physically lit) wearing a nearest-filtered pixel-art skin page with natural seven-step ramps
+// (mottling, pores, warts, a damp sheen; a homespun robe weave with patches, gold stitching and a grimy hem).
 //   anatomy: broad flat skull, huge bulging eyes on top (gold irises, horizontal bar pupils, nictitating lids, eyes
 //   that retract when he blinks or swallows), a wide lipless mouth with an overbite, tympanum discs, an inflating
 //   throat sac, a hunched spine over a pot belly, lanky arms with knobbly elbows and long webbed fingers with round
@@ -39,9 +41,12 @@ const BONES = bones(); const J = Object.fromEntries(BONES.map(([n, , p]) => [n, 
 const off = (p, d) => [p[0] + d[0], p[1] + d[1], p[2] + d[2]];
 
 // ---------------------------------------------------------------- painter palette
-const mottle = (c, o) => { const n = K.vnoise(c.x * 9 + 3, c.y * 9, c.z * 9); const n2 = K.vnoise(c.x * 26 + 7, c.y * 26, c.z * 26); if (n > 0.64) K.mixc(o.col, OCHRE, 0.5); else if (n < 0.32) K.mixc(o.col, VIOLET, 0.42); if (n2 > 0.84) K.mixc(o.col, DARK, 0.55); if (Math.sin(c.y * 90 + n * 8 + c.x * 20) > 0.94) K.mixc(o.col, DARK, 0.35); };
+const PORE = hex('#2e3418'), SHEEN = hex('#a4a868');
+const mottle = (c, o) => { const n = K.vnoise(c.x * 9 + 3, c.y * 9, c.z * 9); const n2 = K.vnoise(c.x * 26 + 7, c.y * 26, c.z * 26); const pp = K.vnoise(c.x * 140, c.y * 140, c.z * 140); if (pp > 0.86) K.mixc(o.col, PORE, 0.45); else if (pp < 0.08 && c.ny > 0.2) K.mixc(o.col, SHEEN, 0.35); /* pores, a damp sheen on the top-lit skin */ if (n > 0.64) K.mixc(o.col, OCHRE, 0.5); else if (n < 0.32) K.mixc(o.col, VIOLET, 0.42); if (n2 > 0.84) K.mixc(o.col, DARK, 0.55); if (Math.sin(c.y * 90 + n * 8 + c.x * 20) > 0.94) K.mixc(o.col, DARK, 0.35); };
 const speckle = (c, o) => { if (K.vnoise(c.x * 40, c.y * 40, c.z * 40) > 0.8) K.mixc(o.col, SPECK, 0.7); };
-const robeFx = (c, o) => { const C = K.cells3(c.x / 0.11, c.y / 0.13, c.z / 0.11); const id = C[5] ?? C[2]; const patch = (id * 7.3) % 1;
+const robeFx = (c, o) => { if ((Math.floor(c.x * 180) + Math.floor(c.y * 180) + Math.floor(c.z * 180)) & 1) K.mixc(o.col, hex('#141020'), 0.1); // coarse homespun weave
+  if (K.vnoise(c.x * 12, c.y * 40, c.z * 12) > 0.78) K.mixc(o.col, hex('#7a7a8a'), 0.18); // sun-faded streaks
+  const C = K.cells3(c.x / 0.11, c.y / 0.13, c.z / 0.11); const id = C[5] ?? C[2]; const patch = (id * 7.3) % 1;
   if (patch > 0.8) { K.mixc(o.col, patch > 0.9 ? hex('#7a5a2a') : hex('#5a3a4a'), 0.7); if (C[1] - C[0] < 0.07 && Math.sin((c.x + c.y + c.z) * 160) > 0) K.mixc(o.col, hex('#d8c890'), 0.8); }
   if (K.vnoise(c.x * 34, c.y * 34, c.z * 34) > 0.86) { const s = Math.abs(((c.x * 60) % 1 + 1) % 1 - 0.5) < 0.12 || Math.abs(((c.y * 60) % 1 + 1) % 1 - 0.5) < 0.12; if (s) K.mixc(o.col, GOLD, 0.8); }
   if (c.y < 0.2) K.mixc(o.col, hex('#2a2418'), (0.2 - c.y) * 3.5); }; // frayed, grimy hem
@@ -49,7 +54,7 @@ const PAL = {
   skin: { s: 'skin', c: hex('#6c7a3a'), cavK: 0.9, fn: mottle }, belly: { s: 'skin', c: hex('#d6cc98'), fn: speckle }, sac: { s: 'skin', c: hex('#e2d8a8'), L: 0.04, fn: speckle },
   wart: { s: 'skin', c: hex('#8a8a44'), L: 0.06, fn: (c, o) => { if (K.vnoise(c.x * 60, c.y * 60, c.z * 60) > 0.7) K.mixc(o.col, hex('#c8b870'), 0.6); } }, tymp: { s: 'skin', c: hex('#7a6a3a'), L: -0.04 },
   pad: { s: 'skin', c: hex('#c8b47a'), L: 0.05 }, web: { s: 'skin', c: hex('#8a9050'), L: 0.06 },
-  eye: { s: 'eye', c: hex('#e2a428'), pupil: 'bar', rim: [46, 40, 22], iris: 0.86 }, mouth: { s: 'dark', c: hex('#3a1420') },
+  eye: { s: 'eye', c: hex('#b8862e'), pupil: 'bar', rim: [40, 34, 20], iris: 0.84 }, mouth: { s: 'dark', c: hex('#3a1420') },
   robe: { s: 'cloth', c: hex('#3a3c6a'), folds: 11, fn: robeFx }, mantle: { s: 'cloth', c: hex('#7a3a26'), folds: 7, fn: robeFx },
   hat: { s: 'cloth', c: hex('#4a3a5a'), folds: 5, fn: (c, o) => { robeFx(c, o); if (c.y > 1.17 && c.y < 1.215) K.mixc(o.col, hex('#7a2a2a'), 0.85); } }, leather: { s: 'leather', c: hex('#6a4a2a') },
   default: { s: 'skin', c: hex('#6c7a3a'), fn: mottle },
@@ -147,10 +152,10 @@ const SPEC = {
     for (const [x, z, len] of [[-0.06, 0.32, 0.13], [0.0, 0.34, 0.16], [0.06, 0.32, 0.12], [0.1, 0.28, 0.09]]) cp.push([atU(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(x, 0.905, z), V(x * 1.1, 0.905 - len * 0.5, z + 0.02), V(x * 1.2, 0.905 - len, z - 0.01)]), 8, 0.004, 4), 2), 'jaw']);
     rigidSkinned(B, cp, misc, model);
     const skinLid = own(K.uvMat('frog-lid', 8, 8, (u, v, o) => K.tone(hex('#8a9050'), K.band(0.55 + v * 0.2, 4), o.col)));
-    const lp = []; for (const [s, L] of [[1, '_L'], [-1, '_R']]) { const e = J['lid' + L]; const g = new THREE.SphereGeometry(0.076, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.55); g.rotateX(Math.PI * 0.62); g.translate(e[0] + 0.003 * s, e[1] + 0.008, e[2] + 0.015); lp.push([g, 'lid' + L]); }
+    const lp = []; for (const [s, L] of [[1, '_L'], [-1, '_R']]) { const e = J['lid' + L]; const g = new THREE.SphereGeometry(0.076, 9, 4, 0, Math.PI * 2, 0, Math.PI * 0.55); g.rotateX(Math.PI * 0.62); g.translate(e[0] + 0.003 * s, e[1] + 0.008, e[2] + 0.015); lp.push([g, 'lid' + L]); }
     rigidSkinned(B, lp, skinLid, model);
     const tongueM = own(K.uvMat('frog-tongue', 8, 16, (u, v, o) => K.tone(hex('#d86a7a'), K.band(0.5 + Math.cos(u * 6.28) * 0.2, 4), o.col)));
-    const tg = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(0, 0.935, 0.2), V(0, 0.938, 0.25), V(0, 0.94, 0.3)]), 8, 0.02, 8); const tip = new THREE.SphereGeometry(0.03, 12, 8); tip.scale(1, 0.6, 1); tip.translate(0, 0.94, 0.3);
+    const tg = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V(0, 0.935, 0.2), V(0, 0.938, 0.25), V(0, 0.94, 0.3)]), 8, 0.02, 8); const tip = new THREE.OctahedronGeometry(0.03, 1); tip.scale(1, 0.6, 1.2); tip.translate(0, 0.94, 0.3);
     rigidSkinned(B, [[tg, 'tongue'], [tip, 'tongue']], tongueM, model);
   },
   idle(P, t, st, ctx) {
@@ -182,7 +187,7 @@ export function createFrog() {
   let vars = null; api.onVars = (v) => { vars = v; ctx.vars = v; };
   root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   // a firefly that hangs around his face (and gets eaten now and then)
-  const fly = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 2.0, 0.7), toneMapped: false })); fly.userData.noAO = true; root.add(fly); const flyL = new THREE.PointLight(0xd8ff90, 0.5, 1.2, 2); fly.add(flyL);
+  const fly = new THREE.Mesh(new THREE.OctahedronGeometry(0.012, 0), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 2.0, 0.7), toneMapped: false })); fly.userData.noAO = true; root.add(fly); const flyL = new THREE.PointLight(0xd8ff90, 0.5, 1.2, 2); fly.add(flyL);
   const st = { look: V(0, 1.1, 5), near: false, next: 3, act: null, flyGone: 0 };
   const head = api.bones.head;
   const wrap = {
