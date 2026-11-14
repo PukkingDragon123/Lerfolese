@@ -49,6 +49,12 @@ export const STAR_UNLOCKS = [
   { id: 'card:orbits', kind: 'card', name: 'Orbital Mechanics', cost: 6, text: 'Orbit cards can be discovered.' },
   { id: 'event:royal_society', kind: 'event', name: 'The Royal Society', cost: 6, text: 'A learned (and petty) curiosity on the road.' },
   { id: 'stage:olympus', kind: 'stage', name: 'Stairway to Olympus', cost: 9, text: 'A new story stage beyond the Guardian.' },
+  // artifacts that bend the arithmetic (game/data/synergy.js ARTIFACT_MATH)
+  { id: 'artifact:golden_ratio', kind: 'artifact', name: 'The Golden Ratio', cost: 4, text: 'Every 5th merge is golden (×1.618). Joins the artifact pool.' },
+  { id: 'artifact:pandora', kind: 'artifact', name: "Pandora's Jar", cost: 5, text: '1 in 3 ×3, 1 in 3 ×1, 1 in 3 nothing. Joins the artifact pool.' },
+  { id: 'artifact:lead_boots', kind: 'artifact', name: 'Lead Boots', cost: 5, text: 'Mass counts double, but no dodging. Joins the artifact pool.' },
+  { id: 'artifact:achilles', kind: 'artifact', name: 'Heel of Achilles', cost: 6, text: 'Every 3rd strike on a foe ×3. Joins the artifact pool.' },
+  { id: 'artifact:icarus_feather', kind: 'artifact', name: "Icarus' Feather", cost: 6, text: 'Falling objects ×2, at 2 HP each. Joins the artifact pool.' },
 ];
 const UNLOCK_IDS = new Set(STAR_UNLOCKS.map((u) => u.id));
 

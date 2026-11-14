@@ -21,20 +21,20 @@ export const ITEMS = {
   wine_flask: { name: "Satyr's Wine Flask", icon: 'wineskin', text: 'Heal 3 at the start of each battle.', flavor: 'Still sloshing. Still singing.' },
   horn_shard: { name: 'Minotaur Horn Shard', icon: 'horn', text: 'Every Force gives +1 extra v.', flavor: 'A splinter of very old anger.' },
   gorgon_scale: { name: 'Gorgon Scale', icon: 'mirror', text: 'Start each battle with 4 Block.', flavor: 'Hard as stone. Obviously.' },
-  // ---- artifacts that bend the arithmetic (data/synergy.js ARTIFACT_MATH holds their rules). unlock: 'frog' = the
-  // wizard frog in the star gallery must unlock it before it can drop (save.meta.unlocked(id)).
+  // ---- artifacts that bend the arithmetic (data/synergy.js ARTIFACT_MATH holds their rules). Some must first be
+  // unlocked by the wizard frog (save.js STAR_UNLOCKS 'artifact:<id>'); run.js unlocked(id) filters every pool.
   statues: { name: 'The Statues', icon: 'statues', math: true, text: 'ALL damage ×3. But your hand holds only 3 cards.', flavor: "Medusa's admirers, petrified mid-applause. They still clap, slowly, for you." },
   tyche: { name: 'Dice of Tyche', icon: 'tyche', math: true, text: 'Every throw: 1 in 2 ×2, else ×0.5.', flavor: 'Fortune is a goddess. She is also a gambler.' },
   horseshoe: { name: "Hermes' Horseshoe", icon: 'horseshoe', math: true, text: 'Every throw: 1 in 4 lands a Lucky ×2.', flavor: 'Shod on the swiftest foot in Olympus. Still lucky.' },
-  pandora: { name: "Pandora's Jar", icon: 'pandora', math: true, unlock: 'frog', text: 'Every throw: 1 in 3 ×3 · 1 in 3 ×1 · 1 in 3 it fizzles.', flavor: 'Hope was at the bottom. So were the odds.' },
-  golden_ratio: { name: 'The Golden Ratio', icon: 'golden_ratio', math: true, unlock: 'frog', text: 'Every 5th merge of the run is golden: ×1.618.', flavor: 'φ = 1.618... Even snails know it.' },
-  lead_boots: { name: 'Lead Boots', icon: 'lead_boots', math: true, unlock: 'frog', text: 'Mass cards give double the kg. You can no longer dodge.', flavor: 'Excellent posture. Terrible footwork.' },
+  pandora: { name: "Pandora's Jar", icon: 'pandora', math: true, text: 'Every throw: 1 in 3 ×3 · 1 in 3 ×1 · 1 in 3 it fizzles.', flavor: 'Hope was at the bottom. So were the odds.' },
+  golden_ratio: { name: 'The Golden Ratio', icon: 'golden_ratio', math: true, text: 'Every 5th merge of the run is golden: ×1.618.', flavor: 'φ = 1.618... Even snails know it.' },
+  lead_boots: { name: 'Lead Boots', icon: 'lead_boots', math: true, text: 'Mass cards give double the kg. You can no longer dodge.', flavor: 'Excellent posture. Terrible footwork.' },
   lyre: { name: "Pythagoras' Lyre", icon: 'lyre', math: true, text: 'Objects of exactly 3 cards ×1.5. Objects of 5 or more ×0.75.', flavor: 'All is number. Three is a chord.' },
   nemesis: { name: 'Coin of Nemesis', icon: 'nemesis', math: true, text: '×2 against the foe with the most HP. ×0.75 against all the others.', flavor: 'Retribution, for the proud and the healthy.' },
-  achilles: { name: 'Heel of Achilles', icon: 'achilles', math: true, unlock: 'frog', text: 'Every 3rd strike on the same foe ×3.', flavor: 'Everyone has one. Keep counting.' },
+  achilles: { name: 'Heel of Achilles', icon: 'achilles', math: true, text: 'Every 3rd strike on the same foe ×3.', flavor: 'Everyone has one. Keep counting.' },
   anvil: { name: 'Anvil of Hephaestus', icon: 'anvil', math: true, text: 'Stone and Mass objects ×1.5. Spark objects ×0.5.', flavor: 'The smith god hates loose sparks.' },
   amphora: { name: 'The Leaky Amphora', icon: 'amphora', math: true, text: 'Water objects ×2. Heat objects ×0.5.', flavor: 'It leaks on purpose. Probably.' },
-  icarus_feather: { name: "Icarus' Feather", icon: 'icarus_feather', math: true, unlock: 'frog', text: 'Falling objects ×2. Each one costs you 2 HP (the wax drips).', flavor: 'The last one he lost.' },
+  icarus_feather: { name: "Icarus' Feather", icon: 'icarus_feather', math: true, text: 'Falling objects ×2. Each one costs you 2 HP (the wax drips).', flavor: 'The last one he lost.' },
   talaria: { name: 'Talaria', icon: 'talaria', text: 'Winged sandals: your dodge window is 60% wider.', flavor: 'Hermes lent them. Hermes wants them back.' },
   plumb_bob: { name: 'Plumb Bob', icon: 'plumb', text: 'Gravity gives +1 v for every Mass in the same Move.', flavor: 'The truest vertical. My namesake. Ish.' },
 };

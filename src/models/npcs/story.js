@@ -77,8 +77,8 @@ function storyHuman({ app, outfit, height, headScale = 1, hook = null, overrides
 }
 
 // ---------------------------------------------------------------- kid Isaac (about ten)
-const KID_APP = { skin: 0xf4cfae, hair: 0x6a3e22, hairStyle: 'wavy', build: 'slim', bodyShape: 0.18, age: 0, face: 3, nose: 0, brows: 2, mouth: 1, ears: 1, eyeColor: 0x4a86c0, facialHair: 'none', height: 1 };
-const KID_OUT = { torso: { tex: 'c_shirt_button', color: 0xf2ead8 }, torsoOuter: { tex: 'c_jacket', color: 0x6a4228 }, legs: { tex: 'c_slacks', color: 0x4a3a2c }, feet: { tex: 'c_shoes', color: 0x2a1a14 } };
+const KID_APP = { skin: 0xf4cfae, hair: 0x6a3e22, hairStyle: 'curly', build: 'slim', bodyShape: 0.22, age: 0, face: 3, nose: 0, brows: 2, mouth: 1, ears: 1, eyeColor: 0x4a86c0, facialHair: 'none', height: 1 };
+const KID_OUT = { torso: { tex: 'c_shirt_button', color: 0xf4eee0 }, torsoOuter: { tex: 'c_jacket', color: 0x3e5a34 }, legs: { tex: 'c_slacks', color: 0x3a2c24 }, feet: { tex: 'c_shoes', color: 0x24160e } }; // olive wool doublet, linen shirt, dark breeches
 function tousle(P, seed = 5) { // short chestnut tufts over the Limbo cap: a boy's untidy fringe and crown
   const g = new THREE.Group(); let s = seed; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
   const m = K.uvMat('kid-locks', 32, 128, (u, v, o) => { const lit = Math.cos(u * TAU); const c = lit > 0.45 && v > 0.15 && v < 0.3 ? [178, 116, 66] : lit < -0.2 ? [62, 34, 20] : [112, 64, 36]; o.col[0] = c[0]; o.col[1] = c[1]; o.col[2] = c[2]; });
@@ -94,13 +94,13 @@ function tousle(P, seed = 5) { // short chestnut tufts over the Limbo cap: a boy
   return g;
 }
 export function createKidIsaac() {
-  const api = storyHuman({ app: KID_APP, outfit: KID_OUT, height: 1.4, headScale: 1.24, overrides: { hairVolume: 1.15, blush: 0.4 }, sway: 0.7 });
+  const api = storyHuman({ app: KID_APP, outfit: KID_OUT, height: 1.34, headScale: 1.3, overrides: { hairVolume: 1.0, blush: 0.5 }, sway: 0.7 });
   api.L.attach(tousle(api.L.P), 'head');
   api.setExpr('smile'); api.update(0.016); return api;
 }
 
 // ---------------------------------------------------------------- the Master
-const M_APP = { skin: 0xe8b894, hair: 0xd8d4cc, hairStyle: 'long', build: 'slim', bodyShape: 0.05, age: 1, face: 1, nose: 2, brows: 3, mouth: 0, ears: 1, eyeColor: 0x6a8aa0, facialHair: 'beard', height: 1 };
+const M_APP = { skin: 0xe8b894, hair: 0xd8d4cc, hairStyle: 'receding', build: 'slim', bodyShape: 0.05, age: 1, face: 1, nose: 2, brows: 3, mouth: 0, ears: 1, eyeColor: 0x6a8aa0, facialHair: 'beard', height: 1 };
 const M_OUT = { torso: { tex: 'c_shirt_button', color: 0xe8e0cc }, torsoOuter: { tex: 'c_coat', color: 0x2e2a5a }, legs: { tex: 'c_slacks', color: 0x2a2440 }, feet: { tex: 'c_shoes_boot', color: 0x2a1a14 } };
 const SILVER = (u, v, o, dark = false) => { const lit = Math.cos(u * TAU); const streak = Math.sin(u * 60 + v * 8) > 0.7; const c = lit > 0.5 && streak ? [252, 250, 244] : lit > 0.1 ? [222, 218, 210] : lit > -0.4 ? [176, 172, 168] : [120, 118, 126]; if (dark && v > 0.85) c.forEach((x, i) => (c[i] = x * 0.85)); o.col[0] = c[0]; o.col[1] = c[1]; o.col[2] = c[2]; };
 function longBeard(P) { // a long combed beard: a broad tapering mass from the chin to the chest, with locks over it and a moustache

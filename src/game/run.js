@@ -8,9 +8,13 @@ import { SPECIALS, computeMove, baseOf } from './combos.js';
 import { save } from '../core/save.js';
 
 // content unlocked by the wizard frog (save.meta, from the star gallery). Anything not flagged `unlock` is base content.
+const CARD_GROUP = { lens: 'optics', prism: 'optics', orbit: 'orbits', antigravity: 'orbits' }; // save.js STAR_UNLOCKS card sets
 export function unlocked(id) {
-  const def = ITEMS[id] || BASICS[id] || POWERS[id]; if (!def?.unlock) return true;
-  try { return !!save.meta?.unlocked?.(id); } catch (e) { return false; }
+  try {
+    if (ITEMS[id]) return save.unlocked('artifact:' + id);
+    if (BASICS[id] || POWERS[id]) return save.unlocked('card:' + id) && (!CARD_GROUP[id] || save.unlocked('card:' + CARD_GROUP[id]));
+    return save.unlocked('event:' + id);
+  } catch (e) { return true; }
 }
 export function mkCard(id, up = 0) { return { uid: uid('c'), id, type: POWERS[id] ? 'power' : 'basic', up }; }
 export function mkMove(ids, name) { const comps = ids.map((id) => ({ id, up: 0 })); return { uid: uid('c'), type: 'move', comps, up: 0, name: name || computeMove(comps).name }; }

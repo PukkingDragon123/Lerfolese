@@ -64,7 +64,7 @@ export class PrologueScene extends UIScreen {
     sc.add(new THREE.HemisphereLight(0xffd8a8, 0x4a3a2a, 0.9));
     if (sc.fog) sc.fog.color.set(0xd89a6a);
     const put = (a, x, z, ry) => { a.root.position.set(x, this.hAt(x, z), z); a.root.rotation.y = ry; sc.add(a.root); this.actors.push(a); return a; };
-    this.master = put(createMaster(), -1.35, 2.7, 1.15); this.kid = put(createKidIsaac(), 1.05, 3.1, -1.9);
+    this.master = put(createMaster(), -1.35, 2.7, 0.85); this.kid = put(createKidIsaac(), 1.05, 3.1, -0.95); // cheated toward the audience; their heads turn to each other
     this.master.lookAtWorld(() => this.kid.headWorld(V())); this.kid.lookAtWorld(() => this.master.headWorld(V()));
     this.parts = new Particles(500, { additive: true }); this.parts.points.userData.noInk = true; sc.add(this.parts.points);
     this.gardenScene = sc; this.world(sc);

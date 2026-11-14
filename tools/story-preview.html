@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles/main.css">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>#boot{display:none}</style></head><body><canvas id="game"></canvas>
+<!-- the story cast side by side (kid Isaac, the Master, young Isaac, the cosmic self): ?close=1 for faces, &ink=1 -->
+<script type="module">
+import * as THREE from 'three';
+import { Engine } from '../src/core/engine.js';
+import { createKidIsaac, createMaster, createCosmicSelf } from '../src/models/npcs/story.js';
+import { createProfessor } from '../src/models/professor.js';
+const q = new URLSearchParams(location.search);
+const eng = new Engine(document.getElementById('game')); window.__noAutoQuality = true;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(q.get('bg') || 0x6a7a9a);
+const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100); const close = q.get('close');
+if (close) { cam.position.set(+(q.get('cx') || 0), 1.6, 3.4); cam.lookAt(+(q.get('cx') || 0), 1.45, 0); } else { cam.position.set(0, 1.4, 8.2); cam.lookAt(0, 1.05, 0); }
+eng.setWorld(scene, cam); eng.setFx({ bloom: [0.4, 0.5, 0.9] });
+const sun = new THREE.DirectionalLight(0xfff0dc, 2.6); sun.position.set(-3, 6, 6); sun.castShadow = true; scene.add(sun, new THREE.HemisphereLight(0xc8d8ff, 0x5a4a3a, 1.2));
+const cast = [createKidIsaac(), createMaster(), createProfessor(), ...(q.get('cosmic') ? [createCosmicSelf()] : [])]; const xs = [-1.6, -0.3, 1.1, 2.6];
+cast.forEach((a, i) => { a.root.position.set(xs[i], 0, 0); a.root.rotation.y = +(q.get('yaw') || 0.0); scene.add(a.root); });
+eng.start((dt) => { for (const a of cast) a.update(dt); for (const a of cast) a.setRes?.(innerWidth, innerHeight); });
+window.__cast = cast;
+</script></body></html>

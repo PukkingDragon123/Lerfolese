@@ -11,7 +11,7 @@ export const HAND_MAX = 10;
 export const HELD_MAX = 3; // things manifested in mid-air at once
 // HARD difficulty, tuned with tools/sim.mjs against a synergy-hunting player who dodges half the blows:
 // normals ~75-85% won, elites ~30-40%, guardians ~10-20%. Foes' HP and blows scale by tier and grow every floor.
-export const DIFF = { hp: { normal: 2.2, elite: 2.6, guardian: 3.0 }, dmg: { normal: 2.6, elite: 2.0, guardian: 1.8 }, hpFloor: 0.03, dmgFloor: 0.025, per: { hydra: 0.9, hydra_elder: 0.75, hydra_head: 0.8 }, dmgPer: { hydra_head: 0.7 } };
+export const DIFF = { hp: { normal: 2.2, elite: 2.85, guardian: 3.0 }, dmg: { normal: 2.6, elite: 2.0, guardian: 1.8 }, hpFloor: 0.03, dmgFloor: 0.025, per: { hydra: 0.9, hydra_elder: 0.75, hydra_head: 0.8 }, dmgPer: { hydra_head: 0.7 } };
 
 export class Battle {
   constructor({ run, enemies, rng, fx, kind = 'normal' }) {

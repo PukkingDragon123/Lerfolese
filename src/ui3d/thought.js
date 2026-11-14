@@ -61,7 +61,7 @@ export class ThoughtBubble extends Body {
     if (sc.hint) inscribe(S, sc.hint, Math.round((Wt - hintW) / 2), hintY, 'body', 'ink', { color: sc.who === 'you' ? '#8a1a1c' : '#1e5a5a' });
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
     S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.mat.map = this.tex; this.mat.needsUpdate = true; } else this.tex.needsUpdate = true;
-    this.w = Wt / PXP * 1.6; this.h = Ht / PXP * 1.6; this.sheet.geometry = sheet(this.w, this.h, { curl: 0.06, sag: 0.02, segX: 6, segY: 4 }); // big enough to read at a glance
+    this.w = Wt / PXP * 1.85; this.h = Ht / PXP * 1.85; this.sheet.geometry = sheet(this.w, this.h, { curl: 0.06, sag: 0.02, segX: 6, segY: 4 }); // big enough to read at a glance
     this.sheet.position.set(0, this.h / 2, 0); // the group origin is the tip of the last puff, over the foe's head
     this.group.visible = true; this.st.target = 1; if (this.st.value < 0.2) this.st.value = 0.2; this.kick(0.6);
   }
