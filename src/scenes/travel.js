@@ -2,6 +2,7 @@
 // narrating, before the shop / laboratory (<= 5 s; click or Space skips). Battles and events stage their own walk-in.
 import * as THREE from 'three';
 import { realStage } from '../models/realworld.js';
+import { stageLights, ContactShadows, GRADE_TRAVEL } from '../gfx/lighting.js';
 import { buildStage } from '../models/world.js';
 import { createProfessor } from '../models/professor.js';
 import { wearArtifacts } from '../models/wearables.js';
@@ -30,15 +31,13 @@ export class TravelScene {
       sc.updateMatrixWorld(true); for (const t of st.trees || []) this.critters.perchesFrom(t, 3);
       this.critters.spawnBirds(10, ['sparrow', 'swallow', 'hoopoe', 'dove']); st.animals?.(this.critters);
       this.engine.setWorld(sc, this.camera);
-      this.engine.setFx({ rays: st.sunPos ? { pos: st.sunPos, strength: 0.4 } : null, exposure: 0.92, bloom: [0.55, 0.6, 0.78], grade: { sat: 1.06, contrast: 1.08, vignette: 0.5, grain: 0.05, warmth: 0.35, lift: [0.02, 0.006, 0.045], gain: [1.05, 0.99, 0.92], rolloff: 0.6, toe: 0.025 } });
+      this.engine.setFx({ rays: st.sunPos ? { pos: st.sunPos, strength: 0.4, thresh: 0.8, decay: 0.958, tint: 0xffcf8a } : null, exposure: 1.0, bloom: [0.42, 0.58, 0.84], ao: 1.0, grade: GRADE_TRAVEL });
       this.engine.add(this); audio.setAmbSet(['wilderness']);
       this.shot = travelShot(this, { lines: ['And the road wound on through the Wilds…', WHERE[node?.type] || '…toward a curious sight.'] });
       // the sun follows the walk so the puppet keeps his shadow far from the arena
       const mid = this.shot.walk.path.getPointAt(0.5);
-      const sun = new THREE.DirectionalLight(0xffb070, 2.5); const sd = (st.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4)).clone().normalize();
-      sun.target.position.copy(mid); sun.position.copy(sun.target.position).addScaledVector(sd, 22); if (sun.position.y < 6) sun.position.y = 6;
-      sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 12, bottom: -12, near: 1, far: 60 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
-      sc.add(sun, sun.target, new THREE.HemisphereLight(0x8a98d8, 0x4a2c1a, 0.38));
+      const box = new THREE.Box3(); for (let k = 0; k <= 8; k++) box.expandByPoint(this.shot.walk.path.getPointAt(k / 8)); box.expandByScalar(6); box.min.y = -0.5; box.max.y = 5;
+      stageLights(sc, { theme, sunDir: st.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4), target: mid, box, mapSize: this.engine.quality === 'high' ? 4096 : 2048 }); new ContactShadows(sc, { hAt: st.hAt });
       this._ready();
       await this.shot.done;
     } finally { this._ready(); }

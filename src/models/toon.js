@@ -13,7 +13,7 @@ export const tickWind = () => { WIND.time.value = performance.now() / 1000; };
 
 // ---------------------------------------------------------------- gradient ramps (hard cel bands)
 const RAMPS = new Map();
-export function gradientMap(steps = [0.32, 0.58, 0.84, 1.0]) {
+export function gradientMap(steps = [0.34, 0.6, 0.85, 1.0]) {
   const key = steps.join(','); if (RAMPS.has(key)) return RAMPS.get(key);
   const d = new Uint8Array(steps.length * 4); steps.forEach((v, i) => { d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = Math.round(v * 255); d[i * 4 + 3] = 255; });
   const t = new THREE.DataTexture(d, steps.length, 1, THREE.RGBAFormat); t.minFilter = t.magFilter = THREE.NearestFilter; t.generateMipmaps = false; t.needsUpdate = true;

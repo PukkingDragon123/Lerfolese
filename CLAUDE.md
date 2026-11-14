@@ -2,10 +2,10 @@
 
 ## Art direction (current, from the user — newest decisions win)
 - NEVER simple/lazy shapes as visible art: no plain spheres/cubes/cylinders/cones, no blobs stuck together, no round "AI slop" gradient shading, no circle textures.
-- NEVER low-poly / faceted / voxel. NEVER photoreal ("realistic" from the user means detailed and believable, never the art style).
-- STYLE: detailed smooth 3D models with real structure, anime CEL shading (hard 2–3 bands) + black ink outlines (src/core/ink.js), wrapped in HD-2D PIXEL-ART TEXTURES: leaves, bark, ground, cloth, stone are crisp hand-drawn pixel art (NearestFilter, 5–7-tone hue-shifted ramps, tinted outlines, clean clusters). Grass and flowers = gorgeous pixel-art. Colours harmonised like a painting, bright and cozy, not oversaturated.
-- EXCEPTION (user, latest): ARTIFACTS, ITEMS, FURNITURE and SMALL PROPS are SHARP VERY-LOW-POLY faceted models (crisp angular silhouettes, no round/smooth forms) with detailed pixel-art textures. Characters, monsters, trees and buildings keep their detailed smooth forms.
-- LIGHTING (latest): realistic light (sun + sky fill, soft real shadows, bounce/hemisphere light, ambient occlusion, warm golden hour) with rich SATURATED colour, while keeping cel bands and ink outlines.
+- STYLE (USER, FINAL): REALISTIC LOW-POLY PIXEL ART for the WHOLE game. Sharp, clean low-poly geometry (faceted, flat-shaded, strong silhouettes, real anatomy/structure) with REALISTIC hand-made pixel-art textures and REALISTIC lighting. Keep THIN black ink outlines. NOT cartoony: no cartoon cel bands, no cartoon faces/eyes on creatures that shouldn't have them. Never voxel/Minecraft, never crude.
+- (superseded by the realistic low-poly pixel-art rule above) colours harmonised like a painting, rich and saturated but natural.
+- Artifacts, items, furniture and props: sharp very-low-poly with detailed pixel-art textures (same as everything now).
+- LIGHTING: realistic (sun + sky fill, soft real shadows, bounce light, ambient occlusion, golden hour) with rich saturated colour; no cartoon cel bands.
 - Rendering: high resolution and crisp (supersampled, no tilt-shift blur, no chromatic aberration, minimal grain).
 - UI: every element is a detailed PHYSICAL object (3D thickness, bevels, pixel-art textures: wood, brass, parchment, wax, leather; lit, shadowed, springy). Never glowing DOM/HUD text, never flat rectangles. Text = ink, engraving, carving. Font: Alagard (assets/fonts/alagard.ttf) at 16/32/48 px.
 - HERO: a real young Isaac Newton (20s, cool), built on the Limbo Phobia human engine (src/models/limbo, user's repo PukkingDragon123/fictional-octo-train). He levitates and fights with an orbiting apple. Animations must be fluid, human-like and procedural. No puppet/strings.

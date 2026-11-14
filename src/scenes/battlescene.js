@@ -9,6 +9,7 @@ import { createCreature } from '../models/creatures.js';
 import { Particles } from '../gfx/particles.js';
 import { Critters } from '../gfx/critters.js';
 import { makeSun } from '../gfx/vfx.js';
+import { stageLights, ContactShadows, GRADE_DAY } from '../gfx/lighting.js';
 import { FX3D } from '../gfx/fx3d.js';
 import { HandView, cardBackTex } from '../ui3d/cards3d.js';
 import { Pile, Numbers } from '../ui3d/kit.js';
@@ -53,7 +54,7 @@ export class BattleScene {
     this.intents = new IntentLayer(this); this.thinkK = 0; // foes' thought bubbles; the camera's 'thinking' zoom
     { const names = [...new Set(this.battle.enemies.filter((e) => !e.def.isHead).map((e) => e.def.name))]; this.hudB.setObjective(`Defeat ${names.length > 1 ? names.slice(0, -1).join(', ') + ' & ' + names.at(-1) : names[0] || 'the foe'}`); }
     this.engine.setWorld(this.scene, this.camera);
-    this.engine.setFx({ rays: this.stage?.sunPos ? { pos: this.stage.sunPos, strength: 0.25 } : null, exposure: 1.12, bloom: [0.45, 0.6, 0.82], tilt: false, grade: { sat: 0.95, contrast: 0.97, vignette: 0.2, grain: 0.008, warmth: 0.25, lift: [0.045, 0.035, 0.03], gain: [1.06, 1.03, 0.97], rolloff: 0.45, toe: 0.0, ca: 0, harmony: 0.32, hueLight: 0.11, hueShadow: 0.68, satMax: 0.5, satPull: 0.55 } });
+    this.engine.setFx({ rays: this.stage?.sunPos ? { pos: this.stage.sunPos, strength: 0.34, thresh: 0.8, decay: 0.958, density: 0.9, tint: 0xffcf8a } : null, exposure: 1.06, bloom: [0.38, 0.55, 0.86], tilt: false, ao: 1.0, grade: GRADE_DAY });
     this.handler = this.input.push(this.makeInput());
     this.engine.add(this);
     const kind = encounter.kind; audio.playMusic(kind === 'guardian' ? 'boss' : kind === 'elite' ? 'elite' : vpick(['battle', 'battle2']));
@@ -80,19 +81,18 @@ export class BattleScene {
     const lead = enc.enemies[0]; this.theme = enc.kind === 'guardian' ? 'guardian' : THEME[lead] || 'meadow'; if (lead.startsWith('hydra')) this.theme = 'marsh'; if (lead.startsWith('minotaur')) this.theme = 'labyrinth';
     const sc = (this.scene = new THREE.Scene());
     let stage = null;
-    try { stage = await realStage(this.theme, 7 + this.runData.stats.floors, this.engine.renderer); sc.environment = stage.env; sc.environmentIntensity = 0.5; sc.background = stage.background; sc.backgroundIntensity = 0.8; }
+    try { stage = await realStage(this.theme, 7 + this.runData.stats.floors, this.engine.renderer); sc.environment = stage.env; sc.environmentIntensity = 0.65; sc.background = stage.background; sc.backgroundIntensity = 0.8; }
     catch (e) { console.warn('realistic stage failed, using fallback', e); stage = buildStage(this.theme, 7 + this.runData.stats.floors); }
     sc.add(stage.group); this.stage = stage;
     this.critters = new Critters(70); this.critters.bounds = { x: [-15, 15], y: [1.5, 8], z: [-10, 1] }; sc.add(this.critters.mesh); this.fx3d = new FX3D(this);
     sc.updateMatrixWorld(true); for (const t of stage.trees) this.critters.perchesFrom(t, 4);
     this.critters.spawnBirds(14, this.theme === 'garden' ? ['crow', 'dove', 'sparrow'] : this.theme === 'marsh' ? ['swallow', 'crow'] : ['sparrow', 'swallow', 'hoopoe', 'dove']); this.critters.spawnButterflies(this.theme === 'labyrinth' ? 2 : 6, new THREE.Vector3(0, 0.5, -2), 14);
     sc.fog = stage.fog || new THREE.Fog(this.theme === 'marsh' ? 0x7a8a86 : 0xb07c62, 26, 90); stage.animals?.(this.critters);
-    const sun = new THREE.DirectionalLight(0xffb070, 2.5); const sd = stage.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4); sun.position.copy(sd.clone().normalize().multiplyScalar(22)); if (sun.position.y < 6) sun.position.y = 6; sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 10, bottom: -8, near: 1, far: 40 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
-    sc.add(sun, new THREE.HemisphereLight(0x8a98d8, 0x4a2c1a, 0.38));
+    // golden-hour light rig: warm sun with a shadow frustum fitted round the arena, sky / ground hemisphere, warm ground bounce, cool sky fill
+    this.lights = stageLights(sc, { theme: this.theme, sunDir: stage.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4), mapSize: this.engine.quality === 'low' ? 1024 : this.engine.quality === 'medium' ? 2048 : 4096 }); this.contact = new ContactShadows(sc, { hAt: stage.hAt });
     // 2D pixel-art sun billboard far behind the stage, along the sky dome's setting-sun direction
     // dusk practicals, R.O.O.M.-style: warm braziers that actually light the fighters, a cool arcane rim, Sir Isaac's spirit glow
-    const rim = new THREE.DirectionalLight(0xffa860, 1.1); rim.position.set(6, 5, -9); const arc = new THREE.DirectionalLight(0x8fb0ff, 1.5); arc.position.set(-7, 6, -10); sc.add(rim, arc);
+    const rim = new THREE.DirectionalLight(0xffb070, 0.9); rim.position.set(6, 5, -9); const arc = new THREE.DirectionalLight(0x9ab8ff, 0.8); arc.position.set(-7, 6, -10); sc.add(rim, arc);
     this.fires = [];
     for (const [x, z, s] of [[-6.4, -2.4, 1.6], [7.0, -3.2, 1.7]]) {
       const l = new THREE.PointLight(0xff8a3a, 26, 12, 1.6); l.position.set(x, 1.5, z + 0.4); sc.add(l); this.fires.push({ l, x, z, s, ph: Math.random() * 9 });

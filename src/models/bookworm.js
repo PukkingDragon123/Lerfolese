@@ -15,7 +15,9 @@ const SEG = 0.036, NB = 5, HALF = SEG * NB + 0.012;
 function pix(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; }
 let SKIN = null;
 const skinTex = () => (SKIN ||= pix(64, 16, (g, w, h) => { for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) { const belly = y < 3 || y > 12; const cl = x > 40 && x < 48; g.fillStyle = x % 4 === 0 ? (cl ? '#c88878' : '#a86458') : cl ? (belly ? '#f0c2b2' : '#e8a898') : belly ? '#e8b0a0' : y > 6 && y < 9 ? '#e49c8c' : '#d48878'; g.fillRect(x, y, 1, 1); } g.fillStyle = '#8a4a40'; g.fillRect(62, 0, 2, h); }));
-const robeTex = (col) => pix(16, 16, (g, w, h) => { const c = C(col); const sh = (k) => `#${c.clone().multiplyScalar(k).getHexString()}`; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { g.fillStyle = y < 2 || y > 13 ? '#d8b040' : (x + y) % 5 === 0 ? sh(0.8) : x % 4 === 0 ? sh(0.9) : sh(1.0); g.fillRect(x, y, 1, 1); } });
+const robeTex = (col) => pix(32, 32, (g, w, h) => { const c = C(col); const sh = (k) => `#${c.clone().multiplyScalar(k).getHexString()}`; // wool weave, a gold-braided hem (u=0) and collar (u=1), a sash down the back
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const back = Math.abs(y - 8) < 2; g.fillStyle = x < 3 ? (x === 1 ? '#f4d870' : '#b08a2a') : x > 28 ? (x === 30 ? '#f4d870' : '#b08a2a') : back ? (y === 8 ? '#e8c860' : '#a8842a') : (x + y) % 6 === 0 ? sh(0.72) : (x * 3 + y) % 7 === 0 ? sh(1.18) : x % 5 === 0 ? sh(0.86) : sh(1.0); g.fillRect(x, y, 1, 1); }
+  for (let y = 1; y < h; y += 4) { g.fillStyle = '#7a5a1a'; g.fillRect(0, y, 1, 2); } });
 // a tube along +z through the spine (z in [-HALF, HALF]), skinned to the chain by its z
 function chainTube(radius, z0, z1, rings, sides, bonesIdx) {
   const P = [], N = [], U = [], SI = [], SW = [], I = [];
@@ -38,7 +40,7 @@ export function createBookworm({ seed = 1, robe = '#3a4a8a', spectacles = false,
   const mid = new THREE.Bone(); mid.name = 'mid'; const H = [mid], Tl = [mid]; let p = mid; for (let i = 1; i <= NB; i++) { const b = new THREE.Bone(); b.position.z = SEG; b.name = 'h' + i; p.add(b); H.push(b); p = b; } p = mid; for (let i = 1; i <= NB; i++) { const b = new THREE.Bone(); b.position.z = -SEG; b.name = 't' + i; p.add(b); Tl.push(b); p = b; }
   const bones = [mid, ...H.slice(1), ...Tl.slice(1)]; for (const b of bones) b.rotation.order = 'YXZ'; const idx = (side, i) => (i === 0 ? 0 : side === 'h' ? i : NB + i);
   const skel = new THREE.Skeleton(bones);
-  const bodyR = (z) => { const u = (z + HALF) / (2 * HALF); let rr = 0.026 + 0.006 * Math.sin(Math.PI * u); if (u > 0.62 && u < 0.76) rr += 0.004; if (u > 0.94) rr *= Math.sqrt(Math.max(0, (1 - u) / 0.06)) * 0.9 + 0.1; if (u < 0.08) rr *= Math.sqrt(u / 0.08) * 0.85 + 0.15; return rr; };
+  const bodyR = (z) => { const u = (z + HALF) / (2 * HALF); let rr = 0.029 + 0.007 * Math.sin(Math.PI * u); if (u > 0.62 && u < 0.76) rr += 0.004; if (u > 0.94) rr *= Math.sqrt(Math.max(0, (1 - u) / 0.06)) * 0.9 + 0.1; if (u < 0.08) rr *= Math.sqrt(u / 0.08) * 0.85 + 0.15; return rr; };
   const skinM = new THREE.MeshToonMaterial({ map: skinTex(), gradientMap: T.gradientMap([0.5, 0.78, 1.0]) }); skinM.map.repeat.set(1, 1);
   const bodyG = chainTube(bodyR, -HALF, HALF, 44, 14, idx); const mesh = new THREE.SkinnedMesh(bodyG, skinM); mesh.add(mid); mesh.bind(skel); mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false; body.add(mesh);
   const robeG = chainTube((z, u) => bodyR(z) + 0.008 + (1 - u) * 0.012 + (u > 0.9 ? 0.004 : 0), -0.03, 0.12, 14, 16, idx); const robeM = new THREE.MeshToonMaterial({ map: robeTex(robe), gradientMap: T.gradientMap([0.45, 0.75, 1.0]), side: THREE.DoubleSide });
@@ -58,14 +60,14 @@ export function createBookworm({ seed = 1, robe = '#3a4a8a', spectacles = false,
   const st = { mode: 'read', t: r() * 10, route: null, u: r(), dir: 1, speed: 0.05 + r() * 0.02, react: 0, reactKind: null, sleep: false, carry: false, wave: 0 };
   const pose = { read: (t) => { const P = {}; const nod = Math.sin(t * 0.9) * 0.08; P.h1 = [-0.42, 0, 0]; P.h2 = [-0.45, 0, 0]; P.h3 = [-0.3, 0, 0]; P.h4 = [0.35 + nod, 0, 0]; P.h5 = [0.45 + nod, 0, 0];
       P.t1 = [0.05, 0.85, 0]; P.t2 = [0.1, 0.85, 0]; P.t3 = [0.45, 0.75, 0]; P.t4 = [0.55, 0.3, 0]; P.t5 = [0.3, 0.1, 0]; return P; },
-    crawl: (t) => { const P = {}; for (let i = 1; i <= NB; i++) { P['h' + i] = [Math.sin(t * 6 - i * 0.9) * 0.1 - (i === NB ? 0.15 : 0), Math.sin(t * 1.3 + i) * 0.05, 0]; P['t' + i] = [-Math.sin(t * 6 + i * 0.9) * 0.1, Math.sin(t * 1.1 - i) * 0.06, 0]; } return P; },
-    sleep: (t) => { const P = {}; for (let i = 1; i <= NB; i++) { P['h' + i] = [0, 0.55, 0]; P['t' + i] = [0, 0.55, 0]; } P.h5 = [0.1, 0.4, 0]; const b = Math.sin(t * 0.8) * 0.02; P.h1[1] += b; return P; } };
+    crawl: (t) => { const P = {}; for (let i = 1; i <= NB; i++) { P['h' + i] = [-Math.sin(t * 5 - i * 0.9) * 0.16 - (i === NB ? 0.2 : 0), Math.sin(t * 1.3 + i) * 0.07, 0]; P['t' + i] = [Math.sin(t * 5 + i * 0.9) * 0.16, Math.sin(t * 1.1 - i) * 0.08, 0]; } return P; },
+    sleep: (t) => { const P = {}; for (let i = 1; i <= NB; i++) { P['h' + i] = [0, 0.5, 0]; P['t' + i] = [0, -0.6, 0]; } P.h5 = [0.1, 0.4, 0]; const b = Math.sin(t * 0.8) * 0.02; P.h1[1] += b; return P; } };
   const apply = (P, k = 1) => { for (const b of bones) { if (b === mid) continue; const q = P[b.name] || [0, 0, 0]; b.rotation.x += (q[0] - b.rotation.x) * k; b.rotation.y += (q[1] - b.rotation.y) * k; b.rotation.z += (q[2] - b.rotation.z) * k; } };
   const api = {
     root, st, mesh, hit: null,
     /** route: { a: V3, b: V3, up: V3 } (crawls back and forth between a and b on a surface with normal up) */
     setRoute(rt) { st.route = rt; st.mode = 'crawl'; },
-    setMode(m) { st.mode = m; if (m === 'sleep') { bk.visible = false; } if (m === 'carry') { H[2].add(bk); bk.position.set(0, 0.05, 0); bk.rotation.set(0, 0, 0); } },
+    setMode(m) { st.mode = m; if (m === 'carry') { H[2].add(bk); bk.position.set(0, 0.05, 0); bk.rotation.set(0, 0, 0); } },
     react() { st.react = 1.2; const k = st.mode === 'sleep' ? 'wake' : spectacles ? 'specs' : r() < 0.5 ? 'shh' : 'startle'; st.reactKind = k; return { wake: 'Mmf... five more chapters.', specs: 'Ahem. Do you mind? I am at a cliffhanger.', shh: 'Shhh! This is a library.', startle: 'Eek! Oh. It is only you.' }[k]; },
     update(dt, t) {
       st.t += dt; const tt = st.t; let P;
@@ -81,8 +83,11 @@ export function createBookworm({ seed = 1, robe = '#3a4a8a', spectacles = false,
         if (specs && st.reactKind === 'specs') specs.position.y = Math.sin(tt * 18) * 0.004 * k;
       } else body.position.y = 0;
       apply(P, Math.min(1, dt * 6));
+      const moving = st.mode === 'crawl' || st.mode === 'carry'; for (let i = 1; i <= NB; i++) { const k = moving ? 1 + 0.24 * Math.sin(tt * 5 - i * 0.9) : 1 + 0.03 * Math.sin(tt * 1.6 - i); H[i].position.z = SEG * k; Tl[i].position.z = -SEG * (moving ? 1 + 0.24 * Math.sin(tt * 5 + i * 0.9) : 1); }
+      bk.visible = st.mode !== 'sleep' && st.mode !== 'crawl';
+      if (st.mode === 'read' && st.react <= 0) { root.updateMatrixWorld(true); const q = H[3].worldToLocal(bk.getWorldPosition(V())); const yaw = Math.max(-0.7, Math.min(0.7, Math.atan2(q.x, q.z) * 0.45)); H[4].rotation.y = yaw; H[5].rotation.y = yaw * 0.8; }
       // reading: the book faces the reader's eyes; its page turns now and then
-      if (st.mode === 'read') { root.updateMatrixWorld(); bk.lookAt(head.localToWorld(V(0, 0.04, 0.02))); bk.rotateX(-Math.PI / 2 + 0.3); const ph = (tt % 7) / 7; bk.userData.page.rotation.z = ph > 0.85 ? -Math.PI * Math.min(1, (ph - 0.85) / 0.12) : 0; }
+      if (st.mode === 'read') { root.updateMatrixWorld(); bk.lookAt(head.localToWorld(V(0, 0.04, 0.02))); bk.rotateX(Math.PI / 2 - 0.35); const ph = (tt % 7) / 7; bk.userData.page.rotation.z = ph > 0.85 ? -Math.PI * Math.min(1, (ph - 0.85) / 0.12) : 0; }
     },
   };
   // a click proxy around the body

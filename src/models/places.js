@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { cottage, windmill, well, fence, stoneWall, laundry, chimneySmoke, stoneBridge, plankBridge, shrine, tholos, mat } from './village.js';
 import { celWater, lilyPads, reeds } from './flora.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { prop } from './lowprops.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const MIX = { // weighted species mixes for woods
@@ -218,6 +219,7 @@ export const SETS = {
 function stall(seed = 1) {
   const G = new THREE.Group(); G.name = 'stall'; const box = (key, w, h, d, x, y, z, rx = 0) => { const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 2, Math.min(0.03, w / 3, h / 3, d / 3)), mat(key)); m.position.set(x, y, z); m.rotation.x = rx; m.castShadow = m.receiveShadow = true; G.add(m); return m; };
   box('woodRaw', 2.4, 0.9, 0.8, 0, 0.45, 0); box('woodDark', 2.6, 0.08, 1.0, 0, 0.94, 0); for (const sx of [-1.2, 1.2]) for (const sz of [-0.45, 0.45]) box('woodDark', 0.1, 2.3, 0.1, sx, 1.15, sz);
+  for (const [n, x, z, ry, o] of [['amphora', -0.85, 0.05, 0.3, { h: 0.5 }], ['basket', -0.2, 0.1, 0.2, {}], ['bottle', 0.35, -0.1, 0, { h: 0.3, color: 'wine' }], ['bottle', 0.45, 0.08, 0, { h: 0.28 }], ['crate', 0.9, 0, -0.2, { w: 0.5, h: 0.28, d: 0.4 }]]) { const w = prop(n, o); w.position.set(x, 0.98, z); w.rotation.y = ry; G.add(w); } // wares (low-poly prop kit)
   const aw = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 1.5, 8, 4), mat('canvas', { side: THREE.DoubleSide })); const p = aw.geometry.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin((p.getX(i) / 2.8) * Math.PI * 4) * 0.04); aw.geometry.computeVertexNormals(); aw.rotation.x = -Math.PI / 2 + 0.35; aw.position.set(0, 2.35, 0.15); aw.castShadow = true; G.add(aw); void seed;
   return G;
 }

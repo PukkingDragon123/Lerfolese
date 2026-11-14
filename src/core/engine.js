@@ -36,9 +36,10 @@ const GradeShader = {
     uFlash: { value: 0 }, uFlashColor: { value: new THREE.Color(1, 1, 1) }, uWarmth: { value: 0.0 },
     uGamma: { value: new THREE.Vector3(1, 1, 1) }, uRolloff: { value: 0.5 }, uToe: { value: 0.02 },
     uHarmony: { value: 0.0 }, uHueLight: { value: 0.1 }, uHueShadow: { value: 0.7 }, uSatTarget: { value: 0.42 }, uSatPull: { value: 0.0 },
+    uVib: { value: 0.3 }, uSel: { value: new THREE.Vector3(0.15, 0.1, 0.12) },
   },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uSat, uContrast, uVignette, uGrain, uCA, uFlash, uWarmth, uRolloff, uToe, uHarmony, uHueLight, uHueShadow, uSatTarget, uSatPull; uniform vec3 uLift, uGain, uGamma, uVigColor, uFlashColor; uniform vec2 uRes; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTime, uSat, uContrast, uVignette, uGrain, uCA, uFlash, uWarmth, uRolloff, uToe, uHarmony, uHueLight, uHueShadow, uSatTarget, uSatPull, uVib; uniform vec3 uSel; uniform vec3 uLift, uGain, uGamma, uVigColor, uFlashColor; uniform vec2 uRes; varying vec2 vUv;
   float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
   vec3 rgb2hsv(vec3 c){ vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0); vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g)); vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r)); float d = q.x - min(q.w, q.y); return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + 1e-10)), d / (q.x + 1e-10), q.x); }
   vec3 hsv2rgb(vec3 c){ vec3 p = abs(fract(c.xxx + vec3(1.0, 2.0/3.0, 1.0/3.0)) * 6.0 - 3.0); return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y); }
@@ -54,6 +55,11 @@ const GradeShader = {
     float l = dot(col, vec3(0.299,0.587,0.114));
     col = mix(vec3(l), col, uSat);
     col = (col - 0.5) * uContrast + 0.5;
+    // rich but natural colour: vibrance lifts the duller colours most, deep greens / golds / skies get a selective boost,
+    // skin tones (orange hues at mid saturation) are protected from both
+    { vec3 hv = rgb2hsv(clamp(col, 0.0, 1.0)); float skin = (1.0 - smoothstep(0.0, 0.05, abs(hv.x - 0.065))) * smoothstep(0.12, 0.28, hv.y) * (1.0 - smoothstep(0.6, 0.85, hv.y));
+      float sel = uSel.x * (1.0 - smoothstep(0.0, 0.1, abs(hv.x - 0.3))) + uSel.y * (1.0 - smoothstep(0.0, 0.045, abs(hv.x - 0.125))) + uSel.z * (1.0 - smoothstep(0.0, 0.08, abs(hv.x - 0.585)));
+      hv.y = clamp(hv.y * (1.0 + (uVib * (1.0 - hv.y) + sel) * (1.0 - skin * 0.85)), 0.0, 1.0); col = hsv2rgb(hv); }
     // split toning: warm highlights, cool-violet shadows
     col += (smoothstep(0.45, 1.0, l) * vec3(0.03, 0.012, -0.02) + (1.0 - smoothstep(0.0, 0.45, l)) * vec3(-0.01, -0.004, 0.025)) * (1.0 + uWarmth);
     // painterly colour harmony: every hue drifts toward one shared palette (warm key light, cool shadow), saturation evened out
@@ -116,7 +122,8 @@ export class Engine {
     this.quality = 'high';
     const qp = new URLSearchParams(location.search).get('q'); this.testMode = qp === 'test';
     this.pixelRatio = this.testMode ? (Number(new URLSearchParams(location.search).get('pr')) || 0.5) : hiRes('high');
-    if (this.testMode) { r.shadowMap.enabled = false; window.__noAutoQuality = true; }
+    this.fullFx = new URLSearchParams(location.search).get('fx') === '1'; // test mode with every effect on (lighting reviews)
+    if (this.testMode) { r.shadowMap.enabled = this.fullFx; window.__noAutoQuality = true; }
     r.setPixelRatio(this.pixelRatio);
 
     this.world = { scene: new THREE.Scene(), camera: new THREE.PerspectiveCamera(40, 1, 0.1, 500) };
@@ -132,9 +139,9 @@ export class Engine {
     // ground-truth AO (as in R.O.O.M.): contact shadows under feet, in roots, folds and ruins
     this.aoForced = new URLSearchParams(location.search).get('ao') === '1';
     this.gtao = new GTAOPass(this.world.scene, this.world.camera, size.x, size.y); this.gtao.output = GTAOPass.OUTPUT.Default; this.gtao.blendIntensity = 0.85;
-    this.gtao.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1, thickness: 1, scale: 1, samples: 12 }); this.gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
+    this.gtao.updateGtaoMaterial({ radius: 0.85, distanceExponent: 1.4, thickness: 1.2, scale: 1.05, samples: 16 }); this.gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
     this.composer.addPass(this.gtao);
-    this.gtao.enabled = this.aoForced || !this.testMode;
+    this.gtao.enabled = this.aoForced || this.fullFx || !this.testMode;
     // anime/cartoon black ink lines on the 3D world
     this.inkForced = new URLSearchParams(location.search).get('ink') === '1';
     this.ink = new InkPass(this.world.scene, this.world.camera, size.x, size.y); this.ink.u.uThick.value = Math.max(1, this.pixelRatio * 0.9); this.composer.addPass(this.ink);
@@ -164,7 +171,8 @@ export class Engine {
     this.quality = q;
     this.pixelRatio = hiRes(q); if (this.ink) this.ink.u.uThick.value = Math.max(1, this.pixelRatio * 0.9);
     this.renderer.setPixelRatio(this.pixelRatio);
-    this.renderer.shadowMap.enabled = q !== 'low'; if (this.gtao) this.gtao.enabled = this.aoForced || (q === 'high' && this.fx?.ao !== false);
+    this.renderer.shadowMap.enabled = q !== 'low'; // low quality: no shadow maps / GTAO; contact shadows and vertex AO still ground everything
+    if (this.gtao) { this.gtao.enabled = this.aoForced || (q !== 'low' && this.fx?.ao !== false); this.gtao.updateGtaoMaterial({ samples: q === 'high' ? 16 : 8 }); this.gtao.updatePdMaterial({ samples: q === 'high' ? 12 : 6 }); }
     this.resize();
   }
 
@@ -197,18 +205,19 @@ export class Engine {
   setFx(fx = {}) {
     this.fx = fx;
     const b = fx.bloom || [0.55, 0.55, 0.82];
-    this.bloom.strength = b[0]; this.bloom.radius = b[1]; this.bloom.threshold = b[2]; this.bloom.enabled = !this.testMode;
+    this.bloom.strength = b[0]; this.bloom.radius = b[1]; this.bloom.threshold = b[2]; this.bloom.enabled = !this.testMode || this.fullFx;
     const t = fx.tilt;
     this.tiltH.enabled = this.tiltV.enabled = false; // user: crisp, never blurry (tilt-shift off)
     if (t) for (const p of [this.tiltH, this.tiltV]) {
       const u = p.uniforms; u.uFocus.value = t.focus ?? 0.45; u.uWidth.value = t.width ?? 0.16; u.uFeather.value = t.feather ?? 0.3; u.uAmount.value = (t.amount ?? 2.4) * 0.55; u.uTop.value = t.top ?? 1; u.uBottom.value = t.bottom ?? 0.8;
     }
     const g = fx.grade || {}; const gu = this.grade.uniforms;
-    this.gtao.enabled = fx.ao !== false && (this.aoForced || (!this.testMode && this.quality === 'high')); if (fx.ao && typeof fx.ao === 'number') this.gtao.blendIntensity = fx.ao; else this.gtao.blendIntensity = 0.85;
+    this.gtao.enabled = fx.ao !== false && (this.aoForced || this.fullFx || (!this.testMode && this.quality !== 'low')); if (fx.ao && typeof fx.ao === 'number') this.gtao.blendIntensity = fx.ao; else this.gtao.blendIntensity = 0.85;
     gu.uGamma.value.set(...(g.gamma || [1, 1, 1])); gu.uRolloff.value = g.rolloff ?? 0.5; gu.uToe.value = g.toe ?? 0.02; gu.uCA.value = 0;
-    const ik = fx.ink ?? {}; this.ink.enabled = fx.ink !== false && (!this.testMode || this.inkForced); this.ink.u.uStrength.value = ik.strength ?? 0.92; this.ink.u.uInk.value.set(ik.color ?? 0x0e0710); this.ink.u.uDepthK.value = ik.depth ?? 0.045; this.ink.u.uNormalK.value = ik.normal ?? 0.42; this.ink.u.uFade.value.set(...(ik.fade || [55, 140]));
+    const ik = fx.ink ?? {}; this.ink.enabled = fx.ink !== false && (!this.testMode || this.inkForced || this.fullFx); this.ink.u.uStrength.value = ik.strength ?? 0.92; this.ink.u.uInk.value.set(ik.color ?? 0x0e0710); this.ink.u.uDepthK.value = ik.depth ?? 0.045; this.ink.u.uNormalK.value = ik.normal ?? 0.42; this.ink.u.uFade.value.set(...(ik.fade || [55, 140]));
     const ry = fx.rays; this.rays.enabled = !!(ry && ry.pos); if (ry) { const u = this.rays.uniforms; this.raysPos = ry.pos; u.uStrength.value = (ry.strength ?? 0.35) * 0.6; u.uTint.value.set(ry.tint ?? 0xffd6a0); u.uThresh.value = ry.thresh ?? 0.85; u.uDecay.value = ry.decay ?? 0.955; u.uDensity.value = ry.density ?? 0.85; }
     gu.uHarmony.value = g.harmony ?? 0; gu.uHueLight.value = g.hueLight ?? 0.1; gu.uHueShadow.value = g.hueShadow ?? 0.7; gu.uSatTarget.value = g.satMax ?? 0.42; gu.uSatPull.value = g.satPull ?? 0;
+    gu.uVib.value = g.vib ?? 0.3; gu.uSel.value.set(...(g.sel || [0.15, 0.1, 0.12]));
     gu.uSat.value = g.sat ?? 1.08; gu.uContrast.value = g.contrast ?? 1.06; gu.uVignette.value = g.vignette ?? 0.42; gu.uGrain.value = Math.min(0.012, (g.grain ?? 0.04) * 0.3); gu.uWarmth.value = g.warmth ?? 0;
     if (g.lift) gu.uLift.value.set(...g.lift); else gu.uLift.value.set(0.015, 0.0, 0.035);
     if (g.gain) gu.uGain.value.set(...g.gain); else gu.uGain.value.set(1.04, 1.0, 0.95);

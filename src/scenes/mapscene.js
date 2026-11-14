@@ -1,6 +1,7 @@
 // The Mythical Wilderness as a big miniature diorama (scenes/mapsheet.js): drag to pan, wheel to scroll along the
 // map, right-drag (or Q/E, +/-) to turn and zoom; the painted node scenes glow when in reach and Sir Isaac's
 // figurine walks the dirt paths (over the bridges) to the one you click. Fog of war hides the rows ahead.
+import { GRADE_MAP } from '../gfx/lighting.js';
 import * as THREE from 'three';
 import { BattleHUD } from '../ui3d/hud.js';
 import { Strip } from '../ui3d/objects.js';
@@ -25,7 +26,7 @@ export class MapScene extends UIScreen {
   async enter(first) {
     const run = this.game.run; this.run = run; this.map = run.map;
     this.buildWorld(); this.engine.setWorld(this.scene, this.camera); this.sheet.attach();
-    this.engine.setFx({ ink: { strength: 0.95, depth: 0.05, normal: 0.45, fade: [70, 170] }, bloom: [0.35, 0.5, 0.9], tilt: false, ao: 0.7, grade: { sat: 1.08, contrast: 1.05, warmth: 0.18, vignette: 0.55, harmony: 0.25 } });
+    this.engine.setFx({ ink: { strength: 0.95, depth: 0.05, normal: 0.45, fade: [70, 170] }, bloom: [0.35, 0.55, 0.88], tilt: false, ao: 0.9, exposure: 1.0, grade: GRADE_MAP });
     this.engine.add(this); this.pushInput(); audio.playMusic('map'); audio.setAmbSet(['wilderness', 'wind']);
     this.buildHUD();
     const cur = run.pos ? this.sheet.pos(run.pos) : null; const fz0 = cur ? cur.z - 3.2 : 0.5, fx0 = cur ? cur.x * 0.6 : 0;

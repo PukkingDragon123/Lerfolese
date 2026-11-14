@@ -18,6 +18,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
+import { lowSwap, lowSwapped } from '../models/lowprops.js'; // small CC0 props are swapped for the sharp low-poly kit
 
 // <site root>/assets/, resolved from this module's URL so pages in sub-folders (tools/) work too.
 let BASE = new URL('../../assets/', import.meta.url).href;
@@ -86,6 +87,7 @@ export function loadGLTF(name) {
  * resets its position so it sits at the origin.
  */
 export async function loadModel(name) {
+  const low = lowSwap(name); if (low) return low;
   const [base, variant] = name.split('#');
   const gltf = await loadGLTF(base);
   let src = gltf.scene;
@@ -103,7 +105,7 @@ export async function loadModel(name) {
 }
 
 /** number of variants (top-level children) a model has */
-export async function variantCount(name) { return (await loadGLTF(name)).scene.children.length; }
+export async function variantCount(name) { if (lowSwapped(name)) return 1; return (await loadGLTF(name)).scene.children.length; }
 
 /** fetch + parse models ahead of time */
 export function preload(names) { return Promise.all(names.map((n) => loadGLTF(n))); }

@@ -275,7 +275,7 @@ const SCRIPTS = {
 
 // ================================================================== the conversations: Newton and the curiosity talk it through
 const PARTNER = { oracle: 'pythia', sisyphus: 'sisyphus', pan: 'pan', icarus: 'icarus', sphinx: 'sphinx', narcissus: 'narcissus', prometheus: 'prometheus', toll: 'toll', archimedes: 'archimedes', schrodinger: 'cat', discord: 'eris' };
-const SCALE = { cat: 0.55, sphinx: 1.35, prometheus: 1.55, toll: 0.85 };
+const SCALE = { cat: 0.55, sphinx: 1.35, prometheus: 1.55, toll: 0.85, icarus: 1.3 }; // close-up distance per speaker (wings, bulk)
 // beats: [who, line, shot]; shot = close | ots (over the listener's shoulder) | push (slow dolly onto the face) | two | wide
 const TALK = {
   tree: [['narrator', 'And the apple, having made its point, lay very still.', 'wide'], ['newton', 'Every apple falls. Down. Never sideways, never up. Why down?', 'close'], ['newton', 'Unless the Earth is pulling it. And the apple pulls back. Just… less.', 'push'], ['narrator', 'It was, the chronicle notes, a very expensive thought.', 'wide']],

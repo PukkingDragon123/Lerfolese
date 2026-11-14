@@ -262,9 +262,9 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
   const flies = fireflies(70, (r) => { const a = r() * Math.PI * 2, d = 1.5 + r() * 9; const x = Math.cos(a) * d + 1, z = Math.sin(a) * d * 0.8; return [x, hAt(x, z) + 0.3 + r() * 1.6, z]; }); g.add(flies);
   const leaves = new Particles(220); leaves.points.frustumCulled = false; leaves.points.userData.noInk = true; g.add(leaves.points);
   // light: the last dusk glow from the west, moonlight from the upper right, a cool sky fill
-  const moonL = new THREE.DirectionalLight(0xb8c4ff, 1.4); moonL.position.copy(MOON).normalize().multiplyScalar(30); moonL.castShadow = true; moonL.shadow.mapSize.set(2048, 2048); Object.assign(moonL.shadow.camera, { left: -12, right: 12, top: 12, bottom: -10, near: 1, far: 80 }); moonL.shadow.bias = -0.0006; moonL.shadow.normalBias = 0.03; g.add(moonL, moonL.target);
-  const duskL = new THREE.DirectionalLight(0xff9a5a, 1.6); duskL.position.set(-30, 6, -8); g.add(duskL);
-  const hemi = new THREE.HemisphereLight(0x6a78c8, 0x2a3a24, 1.1); g.add(hemi); const amb = new THREE.AmbientLight(0xffe2c8, 0.35); g.add(amb);
+  const moonL = new THREE.DirectionalLight(0xbcc8ff, 1.65); moonL.position.copy(MOON).normalize().multiplyScalar(30); moonL.castShadow = true; moonL.shadow.mapSize.set(2048, 2048); Object.assign(moonL.shadow.camera, { left: -12, right: 12, top: 12, bottom: -10, near: 1, far: 80 }); moonL.shadow.bias = -0.0004; moonL.shadow.normalBias = 0.03; moonL.shadow.radius = 2.5; g.add(moonL, moonL.target);
+  const duskL = new THREE.DirectionalLight(0xff9250, 1.8); duskL.position.set(-30, 6, -8); g.add(duskL);
+  const hemi = new THREE.HemisphereLight(0x6a7ad0, 0x34482a, 0.95); g.add(hemi); const amb = new THREE.AmbientLight(0xffe2c8, 0.26); g.add(amb);
   const fog = new THREE.Fog(0x4a4a78, 22, 95);
   // menu objects (hidden until the menu composes itself)
   const objs = {};

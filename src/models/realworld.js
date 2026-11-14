@@ -182,7 +182,7 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   g.add(T.animeSky(skyKey, sunDirW), T.animeClouds(skyKey, { seed, n: 8, z: -150, sunDir: sunDirW, cam: CAM }));
   g.add(ridges(sunDirW, T.SKY[skyKey].hor, T.SKY[skyKey].mtn.slice().reverse()));
   const sunPos = CAM.clone().addScaledVector(sunDirW, 150); g.add(sunBillboard(sunPos, 11));
-  const back = new THREE.DirectionalLight(0xffc27a, 1.7); back.position.copy(sunDirW).multiplyScalar(30).setY(9); g.add(back);
+  const back = new THREE.DirectionalLight(0xffc27a, 1.3); // golden backlight: warm rims on crowns, trunks and fighters back.position.copy(sunDirW).multiplyScalar(30).setY(9); g.add(back);
 
   // ---- the land: gentle noise rising towards the back, ring hills far out, plus the place's hills and water basins
   const n = makeNoise(seed + 3); const farK = theme === 'garden' ? 0.12 : theme === 'marsh' ? 0.6 : 1; const hills = [], waters = [];

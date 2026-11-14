@@ -177,7 +177,7 @@ export function buildDome() {
   for (let i = 0; i < 16; i++) { const a = (i / 16) * TAU; if (Math.abs(((a + Math.PI) % TAU) - Math.PI) < 0.36) continue; const pts = []; for (let k = 0; k <= 12; k++) { const e = (k / 12) * Math.PI / 2; pts.push(V(Math.sin(a) * Math.cos(e) * (RAD + 0.15), 3.4 + Math.sin(e) * (RAD + 0.15), Math.cos(a) * Math.cos(e) * (RAD + 0.15))); } const rib = new THREE.Mesh(new K.Loft(13, 8).set(K.curve(pts), () => 0.09).geo, plainMat('brass')); g.add(rib); }
   for (let i = 0; i < 10; i++) { const a = (i / 10) * TAU + 0.31; try { const c = PROPS.column(i, 3.2); c.position.set(Math.sin(a) * (RAD - 0.6), 0, Math.cos(a) * (RAD - 0.6)); g.add(c); } catch (e) { /* */ } }
   // the great telescope on its pier, aimed up through the slit
-  const scope = telescope('Ad Astra', V(0, 0.75, -0.66).normalize()); scope.scale.setScalar(2.1); scope.position.set(0.6, 0, -2.6); g.add(scope);
+  const scope = telescope('Ad Astra', V(0, 0.8, 0.6).normalize()); scope.scale.setScalar(1.55); scope.position.set(2.4, 0, -3.4); scope.rotation.y = Math.PI * 0.85; g.add(scope); // its engraved tag turned to the wall
   // stars beyond the slit and a sky of them overhead (pixel points), and two lamps
   const N = 900; const sp = new Float32Array(N * 3); const rnd = R(11); for (let i = 0; i < N; i++) { const a = rnd() * TAU, e = 0.15 + rnd() * 1.35; sp.set([Math.cos(e) * Math.sin(a) * 60, Math.sin(e) * 60 + 3, -Math.cos(e) * Math.cos(a) * 60], i * 3); }
   const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xfff4d8, size: 2.2, sizeAttenuation: false, toneMapped: false })); stars.userData.noInk = true; g.add(stars);

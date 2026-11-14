@@ -10,6 +10,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import * as T from './toon.js';
 import { mulberry32 } from '../core/util.js';
 import { surfaceTex, puffTex as pixelPuff, clothTex as pixelCloth } from '../gfx/pixeltex.js';
+import { prop } from './lowprops.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
@@ -220,7 +221,7 @@ export function well(seed = 5) {
   K.add('woodRaw', new THREE.CylinderGeometry(0.1, 0.1, 2 * R - 0.05, 10).rotateZ(Math.PI / 2), V(0, 1.38, 0)); for (let i = 0; i < 6; i++) K.add('plain:#a8865a', new THREE.TorusGeometry(0.11, 0.022, 5, 14).rotateY(Math.PI / 2), V(-0.25 + i * 0.07, 1.38, 0));
   K.box('plain:#3a3a3e', 0.04, 0.3, 0.04, V(R + 0.2, 1.24, 0), null, 0.01); K.box('plain:#3a3a3e', 0.25, 0.04, 0.04, V(R + 0.12, 1.38, 0), null, 0.01); K.box('woodDark', 0.05, 0.05, 0.16, V(R + 0.2, 1.1, 0.06), null, 0.015);
   K.add('plain:#a8865a', new THREE.CylinderGeometry(0.014, 0.014, 0.55, 5), V(0.05, 1.08, 0));
-  const staves = new THREE.LatheGeometry([[0.01, 0], [0.15, 0], [0.17, 0.02], [0.2, 0.3], [0.18, 0.31], [0.01, 0.3]].map(([a, b]) => new THREE.Vector2(a, b)), 14); K.add('woodRaw', staves, V(0.05, 0.52, 0)); for (const y of [0.08, 0.24]) K.add('plain:#2e2e32', new THREE.TorusGeometry(0.17 + y * 0.12, 0.012, 4, 18).rotateX(Math.PI / 2), V(0.05, 0.52 + y, 0));
+  { const b = prop('bucket', { h: 0.3, r: 0.19 }); b.position.set(0.05, 0.52, 0); G.add(b); } // the staved bucket from the low-poly prop kit
   // little tiled roof
   const pitch = 0.6, half = 0.75, rise = Math.tan(pitch) * half; for (const s of [-1, 1]) { const o = V(-R - 0.45, 2.0, s * half); tiles.slope(o, V(1, 0, 0), V(0, rise, -s * half).normalize(), 2 * R + 0.9, half / Math.cos(pitch), r); K.box('plain:#5a3222', 2 * R + 0.9, 0.05, half / Math.cos(pitch), V(0, 2.0 + rise / 2, s * half / 2), new THREE.Euler(s * pitch, 0, 0), 0.02); }
   tiles.ridge(V(-R - 0.45, 2.0 + rise + 0.13, 0), V(R + 0.45, 2.0 + rise + 0.13, 0), r);

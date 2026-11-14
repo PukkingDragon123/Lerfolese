@@ -1,49 +1,42 @@
-// Curios / artifacts as DETAILED smooth 3D models (lathed, swept and bevel-extruded forms, never bare primitives), cel
-// shaded (MeshToon, 3-4 hard bands) with ink outlines, plus:
+// Curios / artifacts as SHARP VERY-LOW-POLY faceted models (few sides, hard flat-shaded facets, crisp angular
+// silhouettes) wearing detailed pixel-art textures (the low-poly kit, models/lowprops.js: brushed and scratched metal,
+// wood grain, stone, lapis, leather, wax, feathers, gems), cel bands and ink outlines, plus:
 //   itemModel(id)        normalised clone (fits a unit box, centred) for displays, the journal and the wearables
 //   animateModel(o, t)   idle life of the moving parts (gears turn, pendulums swing, dice tumble, sparks flicker)
-//   CurioDisplay         pedestal + floating model + rarity aura (RuneMono glyph band) + glints, spin/bob/hover
+//   CurioDisplay         faceted lapis pedestal + floating model + rarity aura (RuneMono glyph band) + glints
 //   rarityOf(id), RARITY, itemIcon(id) (forge-rendered canvas for 2D pages)
 import * as THREE from 'three';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { gradientMap, toonMaterial } from './toon.js';
-import * as P3 from './props3d.js';
 import { ITEMS, ITEM_POOLS } from '../game/data/items.js';
 import { getForge } from '../gfx/forge.js';
 import { PixelCanvas } from '../gfx/pixel.js';
 import { inkHull, drawPixelText } from '../ui3d/craft.js';
+import { tex, facet, jitter, cbox as kitBox, lathe as kitLathe, tube as kitTube, shape, extrude as kitExtrude, gem as kitGem } from './lowprops.js';
+import { gradientMap } from './toon.js';
 
 const TAU = Math.PI * 2;
-// ---------------------------------------------------------------- cel materials
-const MC = new Map();
-const BANDS = { matte: [0.42, 0.7, 1.0], metal: [0.3, 0.55, 0.82, 1.0], soft: [0.55, 0.8, 1.0] };
-function tm(color, { metal = false, soft = false, opacity = 1, emissive = 0, ei = 1, side = THREE.FrontSide } = {}) {
-  const key = [color, metal, soft, opacity, emissive, ei, side].join('|'); let m = MC.get(key); if (m) return m;
-  m = new THREE.MeshToonMaterial({ color: new THREE.Color(color), gradientMap: gradientMap(metal ? BANDS.metal : soft ? BANDS.soft : BANDS.matte), transparent: opacity < 1, opacity, depthWrite: opacity >= 1, emissive: new THREE.Color(emissive), emissiveIntensity: ei, side });
-  MC.set(key, m); return m;
-}
-const glow = (color, k = 2.2) => { const key = 'glow|' + color + '|' + k; let m = MC.get(key); if (!m) { m = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), toneMapped: false }); MC.set(key, m); } return m; };
+// ---------------------------------------------------------------- textured flat-shaded cel materials
 const C = { gold: 0xf4c24c, brass: 0xe0a640, bronze: 0xc8823c, verd: 0x5aa88a, iron: 0x5a5e6a, lead: 0x8c94a4, steel: 0xc8d0dc, silver: 0xe4ecf4, marble: 0xece6da, stone: 0xbdb6a8,
   oak: 0xa0683a, walnut: 0x6a3c1e, leather: 0x8a4e2a, red: 0xd0443a, wine: 0x6a1e4a, wax: 0xf6e4b0, feather: 0xfff8ec, ivory: 0xf2e8cc, clay: 0xd2703a, black: 0x2a2026, cloth: 0xb08850, glass: 0xc8f0ff };
-
-// ---------------------------------------------------------------- smooth geometry helpers
-const V2 = (a) => a.map(([x, y]) => new THREE.Vector2(x, y));
-const V3 = (a) => a.map((p) => new THREE.Vector3(...p));
-// profiles may be authored top-down or bottom-up: always lathe bottom-up so the surface faces outwards
-function lathe(pts, seg = 40, phiStart = 0, phiLen = TAU) { if (pts[0][1] > pts[pts.length - 1][1]) pts = [...pts].reverse(); const g = new THREE.LatheGeometry(V2(pts), seg, phiStart, phiLen); g.computeVertexNormals(); return g; }
-// smooth profile from control points (Catmull-Rom in 2D) so lathed bodies have no faceted silhouette
-function curvy(pts, n = 48) { const c = new THREE.SplineCurve(V2(pts)); return c.getPoints(n).map((v) => [Math.max(0.0005, v.x), v.y]); }
-function tube(pts, r, { seg = 32, rad = 10, closed = false, taper = null } = {}) {
-  const c = new THREE.CatmullRomCurve3(V3(pts), closed, 'centripetal'); const g = new THREE.TubeGeometry(c, seg, r, rad, closed);
-  if (taper) { const p = g.attributes.position; const q = new THREE.Vector3(); for (let i = 0; i <= seg; i++) { const ctr = c.getPointAt(i / seg); const k = taper(i / seg); for (let j = 0; j <= rad; j++) { const vi = i * (rad + 1) + j; q.fromBufferAttribute(p, vi).sub(ctr).multiplyScalar(k).add(ctr); p.setXYZ(vi, q.x, q.y, q.z); } } g.computeVertexNormals(); }
-  return g;
+// each named colour wears its pixel texture untinted; any other colour wears a neutral speckled texture tinted to it
+const KIND = new Map(Object.entries({ gold: 'gold', brass: 'brass', bronze: 'bronze', verd: 'verd', iron: 'iron', lead: 'lead', steel: 'steel', silver: 'silver', marble: 'marble', stone: 'stone', oak: 'oak', walnut: 'walnut', leather: 'leather', red: 'redPaint', wine: 'wine', wax: 'wax', feather: 'feather', ivory: 'ivory', clay: 'clay', black: 'black', cloth: 'canvas', glass: 'glass' }).map(([k, v]) => [C[k], v]));
+const MC = new Map();
+function tm(color, { metal = false, soft = false, opacity = 1, emissive = 0, ei = 1, side = THREE.FrontSide, kind = null } = {}) {
+  const key = [color, metal, soft, opacity, emissive, ei, side, kind].join('|'); let m = MC.get(key); if (m) return m; const k = kind || KIND.get(color) || 'tint';
+  m = new THREE.MeshToonMaterial({ map: tex(k), color: new THREE.Color(KIND.has(color) || kind ? 0xffffff : color), flatShading: true, gradientMap: gradientMap(metal ? [0.3, 0.58, 0.84, 1.0] : soft ? [0.55, 0.8, 1.0] : [0.44, 0.72, 1.0]), transparent: opacity < 1, opacity, depthWrite: opacity >= 1, emissive: new THREE.Color(emissive), emissiveIntensity: ei, side });
+  m.userData.toon = true; MC.set(key, m); return m;
 }
-function shape(pts, holes = []) { const s = new THREE.Shape(V2(pts)); for (const h of holes) s.holes.push(new THREE.Path(V2(h))); return s; }
-function smoothShape(pts, n = 64, holes = []) { const c = new THREE.SplineCurve(V2([...pts, pts[0]])); return shape(c.getPoints(n).map((v) => [v.x, v.y]), holes); }
-function extrude(s, depth, bevel = 0.03, { segs = 3, curve = 24 } = {}) { const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: bevel > 0, bevelThickness: bevel, bevelSize: bevel * 0.9, bevelSegments: segs, curveSegments: curve }); g.translate(0, 0, -depth / 2); g.computeVertexNormals(); return g; }
-const circle = (r, n = 32, cx = 0, cy = 0) => Array.from({ length: n }, (_, i) => [cx + Math.cos((i / n) * TAU) * r, cy + Math.sin((i / n) * TAU) * r]);
-const rbox = (w, h, d, r = 0.04) => new RoundedBoxGeometry(w, h, d, 4, r);
-const add = (p, geo, mat, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; m.receiveShadow = true; p.add(m); return m; };
+const glow = (color, k = 2.2) => { const key = 'glow|' + color + '|' + k; let m = MC.get(key); if (!m) { m = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), toneMapped: false }); MC.set(key, m); } return m; };
+
+// ---------------------------------------------------------------- sharp geometry: the authored profiles, cut with few sides
+const V3 = (a) => a.map((p) => new THREE.Vector3(...p));
+const lathe = (pts, seg = 40, phiStart = null, phiLen = TAU) => kitLathe(pts, phiLen < TAU ? 5 : seg >= 32 ? 8 : 6, phiStart ?? (phiLen < TAU ? 0 : Math.PI / 8), phiLen);
+const curvy = (pts) => pts; // profiles stay as authored: straight segments, hard creases
+const tube = (pts, r, { seg = 32, rad = 10, closed = false, taper = null } = {}) => kitTube(pts, r, { seg: Math.max(3, Math.min(48, Math.round(seg / 4))), rad: rad >= 8 ? 5 : 4, closed, taper });
+const smoothShape = (pts, n = 0, holes = []) => shape(pts, holes);
+const extrude = (s, depth, bevel = 0.03) => kitExtrude(s, depth, bevel);
+const circle = (r, n = 32, cx = 0, cy = 0) => Array.from({ length: Math.min(n, 10) }, (_, i, A) => [cx + Math.cos((i / A.length) * TAU) * r, cy + Math.sin((i / A.length) * TAU) * r]);
+const rbox = (w, h, d, r = 0.04) => kitBox(w, h, d, r);
+const add = (p, geo, mat, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo.userData?.faceted ? geo : facet(geo, 1.4), mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; m.receiveShadow = true; p.add(m); return m; };
 const grp = (p, x = 0, y = 0, z = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); if (p) p.add(g); return g; };
 // a feather: tapered vane with a notch, a rachis down the middle (wings, horseshoe wings, Icarus, talaria)
 function feather(p, len, wid, mat, { x = 0, y = 0, z = 0, rz = 0, ry = 0, quill = C.ivory } = {}) {
@@ -84,12 +77,12 @@ export const ITEM_MODELS = {
     add(g, lathe(curvy([[0.0005, -0.1], [0.12, -0.09], [0.13, 0], [0.12, 0.09], [0.0005, 0.1]], 16), 24), tm(C.brass, { metal: true }), 0, 0, 0, Math.PI / 2);
     [-0.6, -0.3, 0, 0.3, 0.6].forEach((x, i) => add(g, tube([[x, -0.06, 0], [x + 0.02, -0.5, 0.03 * i], [x - 0.02, -1.0, 0]], 0.007, { seg: 10, rad: 4 }), glow(0x8fe3ff, 2.4)));
     return g; },
-  golden_apple() { const a = P3.apple({ kind: 'gold' }); a.traverse((o) => { if (o.isMesh) o.material = toonMaterial(o.material, { sat: 1.2 }); }); return a; },
+  golden_apple() { const g = grp(); add(g, kitLathe([[0.0005, -0.46], [0.3, -0.48], [0.5, -0.26], [0.56, 0.04], [0.48, 0.32], [0.26, 0.46], [0.08, 0.36], [0.0005, 0.3]], 7), tm(C.gold, { metal: true, kind: 'goldEng' })); add(g, tube([[0, 0.3, 0], [0.03, 0.48, 0], [0.09, 0.62, 0.02]], 0.03, { seg: 8, rad: 4 }), tm(C.walnut)); add(g, extrude(shape([[0, 0], [0.16, 0.09], [0.34, 0.05], [0.42, 0], [0.3, -0.07], [0.12, -0.06]]), 0.01, 0.006), tm(0x5f9a34), 0.06, 0.5, 0, 0.3, -0.4, 0.5); return g; },
   lever() { const g = grp();
     add(g, extrude(smoothShape([[-0.95, -0.04], [0.9, -0.06], [0.98, 0.0], [0.9, 0.06], [-0.95, 0.04], [-1.0, 0.0]], 40), 0.12, 0.025), tm(C.oak), 0, 0.15, 0, 0, 0, 0.22);
     for (const x of [-0.5, 0.35]) add(g, tube([[0, 0, -0.085], [0, 0, 0.085]], 0.075, { seg: 4, rad: 12 }), tm(C.iron, { metal: true }), x, 0.15 + x * 0.22, 0);
     add(g, extrude(smoothShape([[-0.32, -0.42], [0.32, -0.42], [0.12, 0.02], [0.0, 0.08], [-0.12, 0.02]], 40), 0.36, 0.04), tm(C.stone), 0.1, -0.05, 0);
-    const b = P3.stone({ seed: 7 }); b.traverse((o) => { if (o.isMesh) o.material = tm(0x9a8e7e); }); b.scale.setScalar(0.42); b.position.set(-0.85, 0.08, 0); g.add(b); return g; },
+    add(g, kitGem(0.4, 0, 7, 0.3), tm(C.stone), -0.85, 0.08, 0); return g; },
   pendulum() { const g = grp(); const br = tm(C.brass, { metal: true });
     add(g, rbox(1.0, 0.07, 0.4, 0.03), tm(C.walnut), 0, -0.7, 0);
     add(g, tube([[-0.38, -0.66, 0], [-0.38, 0.5, 0], [-0.25, 0.68, 0], [0.25, 0.68, 0], [0.38, 0.5, 0], [0.38, -0.66, 0]], 0.03, { seg: 48, rad: 8 }), br);
@@ -382,16 +375,8 @@ function sparkleTex() { // a 9x9 pixel-art 4-point glint
   for (let i = 0; i < 9; i++) { const a = i === 4 ? 1 : Math.abs(i - 4) === 1 ? 0.9 : Math.abs(i - 4) <= 3 ? 0.45 : 0.15; P(4, i, a); P(i, 4, a); } P(3, 3, 0.35); P(5, 3, 0.35); P(3, 5, 0.35); P(5, 5, 0.35);
   glintTex = new THREE.CanvasTexture(c); glintTex.magFilter = THREE.NearestFilter; glintTex.minFilter = THREE.NearestFilter; glintTex.colorSpace = THREE.SRGBColorSpace; return glintTex;
 }
-function pedestalGeo() {
-  return lathe(curvy([[0.0005, -0.5], [0.62, -0.5], [0.64, -0.44], [0.56, -0.4], [0.5, -0.32], [0.38, -0.28], [0.32, -0.2], [0.3, 0.12], [0.36, 0.18], [0.5, 0.22], [0.56, 0.28], [0.54, 0.32], [0.0005, 0.32]], 80), 48);
-}
-const meshesOf = (o) => { const out = []; o.traverse((m) => { if (m.isMesh && !m.material.transparent && !m.material.isMeshBasicMaterial) out.push(m); }); return out; };
-// backside ink hulls of ~`w` world units, thinner on slender parts (strings, quills) so they read as lines, not blobs
-const _ws = new THREE.Vector3();
-export function inkModel(root, meshes, w = 0.04) {
-  root.updateMatrixWorld(true); const rs = root.getWorldScale(new THREE.Vector3()).x || 1;
-  for (const m of meshes) { if (!m.geometry.boundingBox) m.geometry.computeBoundingBox(); const bb = m.geometry.boundingBox; const sz = bb.getSize(_ws); const minD = [sz.x, sz.y, sz.z].sort((p, q) => p - q)[1] || 0.01; const ws = m.getWorldScale(new THREE.Vector3()).x / rs || 1;
-    const t = Math.round(Math.min(w / ws, minD * 0.22) * 1000) / 1000; if (t >= 0.001) inkHull(m, t); }
+function pedestalGeo() { // an octagonal lapis plinth-column: stepped base, waisted shaft, flared capital, all hard facets
+  return kitLathe([[0.0005, -0.5], [0.62, -0.5], [0.62, -0.42], [0.5, -0.36], [0.36, -0.28], [0.3, -0.2], [0.3, 0.12], [0.4, 0.18], [0.56, 0.24], [0.56, 0.32], [0.0005, 0.32]], 8, Math.PI / 8);
 }
 /** A curio on its pedestal: `group` (origin = pedestal base centre), `hit` (invisible pick box), update(dt, t, hover), pop() */
 export class CurioDisplay {
@@ -399,12 +384,12 @@ export class CurioDisplay {
     this.id = id; this.rar = rarityOf(id); const R = RARITY[this.rar]; const g = (this.group = new THREE.Group()); this.boost = 0; this.hoverK = 0; this.t0 = Math.random() * 10;
     const s = size; this.s = s;
     if (pedestal) {
-      const ped = add(g, pedestalGeo(), tm(0x34407a), 0, s * 0.18, 0); // lapis pedestal so ivory and gold curios pop ped.scale.set(s * 0.42, s * 0.36, s * 0.42);
-      const band = add(g, lathe([[0.555, 0.25], [0.575, 0.27], [0.575, 0.3], [0.555, 0.31]], 48), tm(C.gold, { metal: true }), 0, s * 0.18, 0); band.scale.copy(ped.scale);
+      const ped = add(g, pedestalGeo(), tm(0x34407a, { kind: 'lapis' }), 0, s * 0.18, 0); // lapis pedestal so ivory and gold curios pop ped.scale.set(s * 0.42, s * 0.36, s * 0.42);
+      const band = add(g, kitLathe([[0.56, 0.245], [0.585, 0.255], [0.585, 0.305], [0.56, 0.315]], 8, Math.PI / 8), tm(C.gold, { metal: true, kind: 'goldEng' }), 0, s * 0.18, 0); band.scale.copy(ped.scale);
       const plinth = add(g, rbox(1.45, 0.16, 1.45, 0.05), tm(C.walnut), 0, -0.0336 * s, 0); plinth.scale.setScalar(s * 0.42);
       this.inkList = [ped, band, plinth];
       // the rune band (rarer = brighter and faster)
-      const rb = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.16, 64, 1, true), new THREE.MeshBasicMaterial({ map: runeBand(), color: new THREE.Color(R.color).multiplyScalar(this.rar === 'legendary' ? 1.6 : 1.1), transparent: true, opacity: this.rar === 'common' ? 0.25 : 0.7, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }));
+      const rb = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.16, 8, 1, true), new THREE.MeshBasicMaterial({ map: runeBand(), color: new THREE.Color(R.color).multiplyScalar(this.rar === 'legendary' ? 1.6 : 1.1), transparent: true, opacity: this.rar === 'common' ? 0.25 : 0.7, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false }));
       rb.scale.set(s * 0.3, s * 0.36, s * 0.3); rb.position.y = s * 0.355; rb.userData.noInk = true; rb.renderOrder = 3; g.add(rb); this.runes = rb;
     }
     const topY = pedestal ? s * 0.18 + 0.32 * s * 0.36 : 0; this.topY = topY;
