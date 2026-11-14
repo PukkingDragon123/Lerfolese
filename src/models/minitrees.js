@@ -1,7 +1,6 @@
 // Miniature model-railway trees for the diorama, built procedurally: a lofted, tapering trunk that forks into real
-// branches (pixel-art bark), and canopies made of many small pixel-art leaf cards clustered at the branch tips. Each
-// card carries its cluster's outward normal, so the toon ramp shades every leaf mass as one clean cel-banded volume
-// (anime trees) while the cut-out leaves keep a crisp, detailed edge. Four Mediterranean species; a few seeded
+// branches (pixel-art bark, faceted low-poly), and canopies of faceted low-poly leaf masses at the branch tips carrying
+// a tiling pixel-art leaf skin, realistically lit (no cel bands). Four Mediterranean species; a few seeded
 // variants each, shared by every placed tree (two draw calls per tree).
 import * as THREE from 'three';
 import * as T from './toon.js';
@@ -24,12 +23,13 @@ function leafTex(pal) {
   const leaf = (cx, cy, ang, len) => { for (let t = 0; t <= len; t += 0.5) { const w = Math.sin((t / len) * Math.PI) * 2.2; for (let s = -w; s <= w; s += 0.5) { const x = Math.round(cx + Math.cos(ang) * t - Math.sin(ang) * s), y = Math.round(cy + Math.sin(ang) * t + Math.cos(ang) * s); put(x, y, s < -w * 0.45 && t > len * 0.25 ? 3 : 2); } } };
   leaf(8, 9, -2.2, 6.5); leaf(8, 9, -0.9, 6.5); leaf(8, 9, 0.4, 6); leaf(8, 9, 1.9, 5.5); leaf(8, 9, -1.55, 7);
   const out = px.slice(); for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (px[y * S + x] == null && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => px[(y + b) * S + x + a] != null && x + a >= 0 && x + a < S && y + b >= 0 && y + b < S)) out[y * S + x] = 0;
-  const t = pixTex(S, S, (x, y) => { const v = out[y * S + x]; return v == null ? [0, 0, 0, 0] : [...R[v], 255]; }, { mip: true }); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; TEXC.set(k, t); return t;
+  const t = pixTex(S, S, (x, y) => { const v = out[y * S + x]; return v == null ? [R[0][0] * 0.62 | 0, R[0][1] * 0.66 | 0, R[0][2] * 0.62 | 0, 255] : [...R[v], 255]; }, { mip: true }); t.wrapS = t.wrapT = THREE.RepeatWrapping; // opaque, tiling: the skin of a faceted leaf mass TEXC.set(k, t); return t;
 }
 function barkTex(pal) { const k = 'b' + pal.join(); if (TEXC.has(k)) return TEXC.get(k); const R = pal.map((h) => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }); const t = pixTex(16, 32, (x, y) => { const ridge = (x + Math.floor(hash(Math.floor(y / 5), 3) * 3)) % 4; return R[ridge === 0 ? 0 : ridge === 3 && hash(x, y) > 0.5 ? 2 : 1]; }, { repeat: [1, 1] }); TEXC.set(k, t); return t; }
 
 // ---------------------------------------------------------------- geometry
 function loft(curve, r0, r1, rings = 10, sides = 7) {
+  sides = Math.min(sides, 5); rings = Math.min(rings, 6); // clean faceted low-poly limbs
   const pos = [], nrm = [], uv = [], idx = []; const fr = curve.computeFrenetFrames(rings, false); const p = new V3();
   for (let i = 0; i <= rings; i++) { const t = i / rings; curve.getPointAt(t, p); const r = r0 + (r1 - r0) * Math.pow(t, 0.8); const N = fr.normals[i], B = fr.binormals[i];
     for (let j = 0; j <= sides; j++) { const a = (j / sides) * TAU; const cx = Math.cos(a), cy = Math.sin(a); const nx = N.x * cx + B.x * cy, ny = N.y * cx + B.y * cy, nz = N.z * cx + B.z * cy; const bump = 1 + (hash(i * 3.1, j * 1.7) - 0.5) * 0.18; pos.push(p.x + nx * r * bump, p.y + ny * r * bump, p.z + nz * r * bump); nrm.push(nx, ny, nz); uv.push(j / sides, t * curve.getLength() * 2.5); } }
@@ -38,14 +38,15 @@ function loft(curve, r0, r1, rings = 10, sides = 7) {
 }
 function merge(geos) { let n = 0, m = 0; for (const g of geos) { n += g.attributes.position.count; m += g.index.count; } const P = new Float32Array(n * 3), N = new Float32Array(n * 3), U = new Float32Array(n * 2), I = new Uint32Array(m); let o = 0, k = 0; for (const g of geos) { P.set(g.attributes.position.array, o * 3); N.set(g.attributes.normal.array, o * 3); U.set(g.attributes.uv.array, o * 2); for (let i = 0; i < g.index.count; i++) I[k++] = g.index.array[i] + o; o += g.attributes.position.count; } const out = new THREE.BufferGeometry(); out.setAttribute('position', new THREE.BufferAttribute(P, 3)); out.setAttribute('normal', new THREE.BufferAttribute(N, 3)); out.setAttribute('uv', new THREE.BufferAttribute(U, 2)); out.setIndex(new THREE.BufferAttribute(I, 1)); return out; }
 /** leaf cards scattered through a cluster (sphere/ellipsoid); every card takes the cluster's outward normal */
+const ICO1 = new THREE.IcosahedronGeometry(1, 1);
 function cluster(c, r, n, rnd, out, { flat = 1, card = 0.2 } = {}) {
-  const q = new THREE.Quaternion(), e = new THREE.Euler(), v = new V3();
-  for (let k = 0; k < n; k++) {
-    const u = rnd() * 2 - 1, th = rnd() * TAU, s = Math.sqrt(1 - u * u); const rr = r * (0.7 + 0.3 * Math.pow(rnd(), 0.35)); const d = new V3(s * Math.cos(th), u * flat, s * Math.sin(th)); const p = d.clone().multiplyScalar(rr).add(c);
-    const nrm = d.clone().normalize(); const ao = 0.55 + 0.45 * Math.min(1, (rr / r) * 0.6 + (d.y * 0.5 + 0.5) * 0.5); q.setFromUnitVectors(new V3(0, 0, 1), d.clone().normalize().add(new V3((rnd() - 0.5) * 0.9, (rnd() - 0.5) * 0.9, (rnd() - 0.5) * 0.9)).normalize()); q.multiply(new THREE.Quaternion().setFromAxisAngle(new V3(0, 0, 1), rnd() * TAU)); const w = card * (0.8 + rnd() * 0.5);
-    const base = out.pos.length / 3; for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { v.set(a * w * 0.5, b * w * 0.5, 0).applyQuaternion(q).add(p); out.pos.push(v.x, v.y, v.z); out.nrm.push(nrm.x, nrm.y, nrm.z); out.uv.push((a + 1) / 2, (b + 1) / 2); out.col.push(ao, ao, ao * 0.96); }
-    out.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
-  }
+  // a faceted leaf mass: a jittered low-poly icosahedron squashed to the cluster's shape, flat-lit facets, a tiling pixel
+  // leaf skin projected per facet, darker underneath (AO in the vertex colour); smooth outward normals keep the ink to the silhouette
+  void n; void card; const P = ICO1.attributes.position; const seed = rnd() * 100; const pts = [];
+  for (let i = 0; i < P.count; i++) { const x = P.getX(i), y = P.getY(i), z = P.getZ(i); const h = Math.sin(x * 12.99 + y * 78.23 + z * 37.72 + seed) * 43758.55; const j = 0.84 + (h - Math.floor(h)) * 0.3; pts.push(new V3(x * r * j, y * r * j * flat, z * r * j).add(c)); }
+  for (let i = 0; i < pts.length; i += 3) { const [a, b, d] = [pts[i], pts[i + 1], pts[i + 2]]; const nf = new V3().crossVectors(b.clone().sub(a), d.clone().sub(a)).normalize(); const ao = 0.5 + 0.5 * Math.min(1, (nf.y * 0.5 + 0.5) * 0.8 + 0.2); const ax = Math.abs(nf.x), ay = Math.abs(nf.y), az = Math.abs(nf.z); const base = out.pos.length / 3;
+    for (const q of [a, b, d]) { const nn = q.clone().sub(c).normalize(); const [u, v] = ay >= ax && ay >= az ? [q.x, q.z] : ax >= az ? [q.z, q.y] : [q.x, q.y]; out.pos.push(q.x, q.y, q.z); out.nrm.push(nn.x, nn.y, nn.z); out.uv.push(u * 7, v * 7); out.col.push(ao, ao, ao * 0.96); }
+    out.idx.push(base, base + 1, base + 2); }
 }
 function buildTree(kind, seed) {
   const S = SPECIES[kind]; const rnd = mulberry32(seed * 7919 + kind.length * 31); const H = S.h * (0.9 + rnd() * 0.25); const parts = [], twigs = []; const leaves = { pos: [], nrm: [], uv: [], idx: [], col: [] };
@@ -73,8 +74,8 @@ function buildTree(kind, seed) {
 const MAT = new Map();
 function mats(kind) {
   if (MAT.has(kind)) return MAT.get(kind); const S = SPECIES[kind];
-  const wood = T.toonMaterial(new THREE.MeshStandardMaterial({ map: barkTex(S.bark) }), { sat: 1.1 });
-  const lm = T.toonMaterial(new THREE.MeshStandardMaterial({ map: leafTex(S.leaves), alphaTest: 0.42, side: THREE.DoubleSide, vertexColors: true }), { sat: 1.15, wind: 0.8, windH: 0.35 });
+  const wood = T.toonMaterial(new THREE.MeshStandardMaterial({ map: barkTex(S.bark) }), { sat: 1.1 }); wood.flatShading = true;
+  const lm = T.toonMaterial(new THREE.MeshStandardMaterial({ map: leafTex(S.leaves), vertexColors: true }), { sat: 1.1, wind: 0.8, windH: 0.35 }); lm.flatShading = true;
   const prev = lm.onBeforeCompile; lm.onBeforeCompile = (sh, r) => { prev(sh, r); sh.fragmentShader = sh.fragmentShader.replace('float faceDirection = gl_FrontFacing ? 1.0 : - 1.0;', 'float faceDirection = 1.0;'); }; // leaves keep their cluster normal on both faces
   const ck = lm.customProgramCacheKey; lm.customProgramCacheKey = () => ck() + '|leafcl';
   const m = { wood, leaves: lm }; MAT.set(kind, m); return m;
