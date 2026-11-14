@@ -18,6 +18,7 @@ import { mulberry32 } from '../core/util.js';
 import { plantField } from '../gfx/plants.js';
 import { groundTex, soilTex } from '../gfx/pixeltex.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { prop } from './lowprops.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
@@ -74,14 +75,9 @@ export function plaque(lines, { font = 'title', style = 'carve', kind = 'oak', s
 // ---------------------------------------------------------------- the menu's physical objects
 function crate({ label = null, apples = 22, seed = 3 } = {}) { // slatted apple crate heaped with apples; the front board is stencilled
   const G = new THREE.Group(); const K = new Kit(); const W = 1.15, D = 0.78, H = 0.62; const r = mulberry32(seed);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) K.box('woodRaw', 0.08, H, 0.08, V(sx * (W / 2 - 0.04), H / 2, sz * (D / 2 - 0.04)), null, 0.015);
-  for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) K.box('woodRaw', 0.04, 0.15, D - 0.06, V(sx * (W / 2 - 0.02), 0.1 + i * 0.2, 0), new THREE.Euler(0, 0, (r() - 0.5) * 0.04), 0.012);
-  for (let i = 0; i < 3; i++) K.box('woodRaw', W - 0.06, 0.15, 0.04, V(0, 0.1 + i * 0.2, -D / 2 + 0.02), null, 0.012);
-  K.box('woodDark', W - 0.04, 0.04, D - 0.04, V(0, 0.04, 0), null, 0.01); K.build(G);
+  G.add(prop('appleCrate', { w: W, d: D, h: H })); void K; // sharp low-poly slatted crate (models/lowprops.js)
   const front = label ? plaque(label, { font: 'title', style: 'paint', kind: 'oak', depth: 0.6, color: '#7a1a14' }) : null;
   if (front) { const [fw, fh] = front.userData.size; const k = (W - 0.06) / fw; front.scale.multiplyScalar(k); front.position.set(0, Math.max(0.3, fh * k / 2 + 0.03), D / 2 + 0.01); G.add(front); }
-  else for (let i = 0; i < 3; i++) K.box('woodRaw', W - 0.06, 0.15, 0.04, V(0, 0.1 + i * 0.2, D / 2 - 0.02), null, 0.012);
-  if (!label) K.build(G);
   const sp = []; for (let i = 0; i < apples; i++) { const x = (r() - 0.5) * (W - 0.3), z = (r() - 0.5) * (D - 0.25); const mound = 0.12 * (1 - Math.hypot(x / W, z / D) * 1.6); sp.push([x, H - 0.12 + Math.max(0, mound) + (i > apples * 0.6 ? 0.1 : 0), z, 0.2 + r() * 0.04, 0.75 + r() * 0.25]); }
   G.add(appleHeap(sp)); return G;
 }
@@ -89,10 +85,7 @@ function lanternPost(label) { // a crooked post, an arm, a hanging brass lantern
   const G = new THREE.Group(); const K = new Kit();
   K.box('woodDark', 0.14, 2.2, 0.14, V(0, 1.1, 0), new THREE.Euler(0, 0, 0.03), 0.03); K.box('woodDark', 0.8, 0.1, 0.1, V(0.32, 2.05, 0), null, 0.02); K.box('woodDark', 0.08, 0.5, 0.08, V(0.2, 1.82, 0), new THREE.Euler(0, 0, -0.9), 0.02); K.build(G);
   const L = new THREE.Group(); L.position.set(0.62, 1.98, 0); G.add(L);
-  const cage = new THREE.Mesh(turned([[0.001, -0.42], [0.13, -0.42], [0.16, -0.38], [0.12, -0.34], [0.12, -0.1], [0.16, -0.06], [0.1, 0.02], [0.03, 0.08], [0.001, 0.1]], 28), plainMat('brass')); cage.castShadow = true; L.add(cage);
-  const glass = new THREE.Mesh(turned([[0.001, -0.34], [0.115, -0.34], [0.115, -0.1], [0.001, -0.1]], 28), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.9, 1.3, 0.55), toneMapped: false })); glass.userData.noAO = true; L.add(glass);
-  for (let i = 0; i < 4; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.26, 0.018), plainMat('brass')); const a = (i / 4) * Math.PI * 2 + 0.4; b.position.set(Math.cos(a) * 0.125, -0.22, Math.sin(a) * 0.125); L.add(b); }
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 6, 16), plainMat('iron')); ring.position.y = 0.13; L.add(ring);
+  { const lan = prop('lantern', { h: 0.52 }); lan.position.y = -0.45; L.add(lan); const gl = lan.getObjectByName('glass'); if (gl) { gl.material = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.9, 1.3, 0.55), toneMapped: false }); gl.userData.noAO = true; } } // low-poly brass lantern
   const pl = new THREE.PointLight(0xffb060, 3.2, 5.5, 1.6); pl.position.set(0.62, 1.78, 0.1); G.add(pl);
   const sign = plaque(label, { font: 'title', style: 'carve', kind: 'oak' }); const [sw] = sign.userData.size; sign.scale.multiplyScalar(1.05 / sw); sign.position.set(0, 1.25, 0.1); G.add(sign);
   G.userData.swing = L; return G;
@@ -231,7 +224,7 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
   g.add(F.lilyPads(padSpots)); const plantItems = reedSpots.map(([x, y, z, h], i) => ({ kind: i % 4 === 0 ? 'cattail' : 'reeds', x, y, z, s: 0.7 + h * 0.25, flex: 1.1 }));
   { const bp = brook.userData.edgePoint(Math.PI / 2, 0); const br = plankBridge(3.4, 1.2, 4, { posts: 0.7 }); br.position.set(bp.x - 1.4, level + 0.42, bp.z + 2.6); br.rotation.y = 0.32 - 0.05; g.add(br); }
   g.add(fence([[-12, 6.5], [-9.5, 5.6], [-7, 5.2], [-4.6, 5.6]], hAt, 31));
-  { const K = new Kit(); const lad = new THREE.Group(); for (const s of [-1, 1]) K.box('woodRaw', 0.07, 3.1, 0.07, V(s * 0.24, 1.55, 0), null, 0.02); for (let i = 0; i < 8; i++) K.box('woodRaw', 0.5, 0.05, 0.05, V(0, 0.3 + i * 0.36, 0), null, 0.015); K.build(lad); lad.position.set(-0.95, hAt(-0.95, -0.55), -0.55); lad.rotation.set(-0.3, 0.9, 0); g.add(lad); }
+  { const lad = prop('ladder', { h: 3.1, w: 0.48 }); lad.position.set(-0.95, hAt(-0.95, -0.55), -0.55); lad.rotation.set(-0.3, 0.9, 0); g.add(lad); }
   for (const [x, z, ry, n2] of [[-2.0, 0.6, 0.4, 18], [-1.7, 1.45, -0.2, 14], [1.8, -1.0, 0.7, 20]]) { const cr = crate({ apples: n2, seed: Math.round(x * 10) }); cr.position.set(x, hAt(x, z), z); cr.rotation.y = ry; g.add(cr); solid.push([x, z, 0.8]); ao.push([x, z, 1.2]); }
   { const sp = []; const r2 = mulberry32(44); for (let i = 0; i < 9; i++) { const a = r2() * 6.28, d = 0.9 + r2() * 1.6; const x = Math.cos(a) * d + 0.4, z = Math.sin(a) * d * 0.7 + 0.4; sp.push([x, hAt(x, z) + 0.09, z, 0.2, 0.8 + r2() * 0.2]); } g.add(appleHeap(sp)); }
   // a dirt lane from the study door to the tree and on towards the viewer
@@ -374,8 +367,8 @@ export function appleTimelapse() {
 // a wooden farm sign on two posts with carved Alagard lettering (pixel-art wood); top edge is where birds perch
 export function signBoard(text, { w = 1.7, seed = 1 } = {}) {
   const G = new THREE.Group(); G.name = 'sign:' + text; const K = new Kit(); const r = mulberry32(seed);
-  for (const s of [-1, 1]) K.box('woodDark', 0.13, 1.7, 0.13, V(s * (w / 2 - 0.1), 0.85, -0.05), new THREE.Euler((r() - 0.5) * 0.04, 0, (r() - 0.5) * 0.04), 0.03);
-  K.box('woodDark', w + 0.2, 0.08, 0.16, V(0, 1.68, -0.02), null, 0.02); K.build(G);
+  for (const s of [-1, 1]) { const p = prop('post', { h: 1.7, r: 0.075 }); p.position.set(s * (w / 2 - 0.1), 0, -0.05); p.rotation.set((r() - 0.5) * 0.04, r() * 0.5, (r() - 0.5) * 0.04); G.add(p); } // hewn low-poly posts
+  { const bar = prop('post', { h: w + 0.2, r: 0.05 }); bar.rotation.z = Math.PI / 2; bar.position.set((w + 0.2) / 2, 1.68, -0.02); G.add(bar); } void K;
   const board = plaque(text, { font: 'title', style: 'carve', kind: 'oak', depth: 0.5 }); const [bw, bh] = board.userData.size; const k = w / bw; board.scale.multiplyScalar(k); board.position.set(0, 1.22, 0.04); G.add(board);
   G.userData.top = (n) => Array.from({ length: n }, (_, i) => V(-w / 2 + 0.25 + (i + 0.5) * ((w - 0.5) / n), 1.72, -0.02)); G.userData.boardH = bh * k; return G;
 }
