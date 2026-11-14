@@ -21,7 +21,7 @@ const harpyHook = (paint, P, spec) => {
     const rib = c.y > P.waistY && c.y < P.bustY - 0.03 * H && ax > 0.04 * H && Math.abs((((c.y - ax * 0.4) / H) * 34) % 1 - 0.5) < 0.12; // gaunt ribcage
     recolor(o, SKIN, sk, rib ? -0.22 : 0, c, 'skin', 0.85);
   };
-  return { ...paint, body: wrap(paint.body), skin: wrap(paint.skin) };
+  return { ...paint, acc: wrap(paint.acc || paint.body), body: wrap(paint.body), skin: wrap(paint.skin) };
 };
 const WING = (s, L) => [['w1' + L, 'wroot', [0.16 * s, 0.19, -0.06]], ['w2' + L, 'w1' + L, [0.45 * s, 0.25, -0.1]], ['w3' + L, 'w2' + L, [0.76 * s, 0.21, -0.08]]];
 const CLIPS = {

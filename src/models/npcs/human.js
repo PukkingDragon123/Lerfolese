@@ -84,7 +84,7 @@ const dressHook = (o) => (paint, P, spec) => {
     if (near(o2, LEG, 0.08) && Math.abs(o2[0] - 100) < 40) { const hem = c.y < P.kneeY + 0.02 * H && c.y > P.kneeY - 0.01 * H; return recolor(o2, hem ? TR : C2, LEG, fold, c, 'cloth', 0.3); }
     if (near(o2, spec.skin, 0.12)) recolor(o2, spec.skin, spec.skin, 0, c, 'skin', o.age ?? 0.2);
   };
-  return { ...paint, body: wrap(paint.body), skin: wrap(paint.skin) };
+  return { ...paint, acc: wrap(paint.acc || paint.body), body: wrap(paint.body), skin: wrap(paint.skin) };
 };
 const OUTFIT = (o) => {
   const g = o.garment || 'chiton'; const top = { tex: 'c_tee', color: 0x808080 }, leg = { tex: 'c_skirt', color: 0x646464 };

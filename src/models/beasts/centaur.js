@@ -42,7 +42,7 @@ const riderHook = (paint, P, spec) => {
     if (Math.abs(c.x * 0.8 + (c.y - P.bustY) * 0.6) < 0.018 * H && c.y > P.pelvisY && c.y < P.shoulderY) return recolor(o, hex('#4a2c1a'), sk, 0, c, 'leather'); // quiver strap
     recolor(o, SKIN, sk, 0, c, 'skin', 0.7);
   };
-  return { ...paint, body: wrap(paint.body), skin: wrap(paint.skin), hand: wrap(paint.hand) };
+  return { ...paint, acc: wrap(paint.acc || paint.body), body: wrap(paint.body), skin: wrap(paint.skin), hand: wrap(paint.hand) };
 };
 function bow(ctx) {
   const wood = K.uvMat('cent-bow2', 32, 128, (u, v, o) => { const wrap = Math.abs(v - 0.5) < 0.07; K.tone(wrap ? hex('#5a2418') : hex('#4a3020'), K.band(0.5 + Math.cos(u * 6.28) * 0.15 + (Math.abs(v - 0.5) > 0.42 ? 0.12 : 0)), o.col); });

@@ -36,17 +36,17 @@ const cycHook = (paint, P, spec) => {
     if (c.nz > 0.2 && c.y > P.pelvisY && c.y < P.bustY && Math.abs(c.x) < 0.04 * H && K.vnoise(c.x * 200, c.y * 120, c.z * 200) > 0.5) return recolor(o, hex('#3a2a20'), sk); // belly hair
     recolor(o, SKIN, sk, 0, c, 'skin', 1.0); // warts, scars, wrinkles, sun blotches
   };
-  return { ...paint, body: wrap(paint.body), skin: wrap(paint.skin), hand: wrap(paint.hand) };
+  return { ...paint, acc: wrap(paint.acc || paint.body), body: wrap(paint.body), skin: wrap(paint.skin), hand: wrap(paint.hand) };
 };
 export const warmCyclops = () => { prop('cyc-eye', eyeBrow, FACE_PAL); prop('cyc-jaw', underbite, FACE_PAL); prop('club', club, CLUB_PAL, { cell: 0.018, target: 2200 }); };
 export const createCyclops = (seed = 1) => limboBeast({
-  id: 'cyclops', height: 3.1, blood: [0.12, 0.004, 0.006], speed: 0.8, sway: 0.8, impact: 0.45,
-  app: { skin: 0xa07e66, hair: 0x2a2018, hairStyle: 'receding', facialHair: 'stubble', build: 'heavy', age: 0.85, nose: 2, ears: 2, mouth: 1, height: 1 },
+  id: 'cyclops', height: 3.1, chest: [1.18, 1.04, 1.15], blood: [0.12, 0.004, 0.006], speed: 0.8, sway: 0.8, impact: 0.45,
+  app: { skin: 0xa07e66, hair: 0x2a2018, hairStyle: 'bald', facialHair: 'stubble', build: 'heavy', age: 0.85, nose: 2, ears: 2, mouth: 1, height: 1 },
   outfit: { legs: { tex: 'c_skirt', color: 0x6e4a2c }, legsKind: 'skirt' }, overrides: { eyeW: 0.02, eyeH: 0.02, hairVolume: 0.7 }, hook: cycHook,
   build(ctx) {
     const { L, sc } = ctx; const hr = L.restOf('head'); const P = ctx.P;
-    const E = prop('cyc-eye', eyeBrow, FACE_PAL, { cell: 0.01, target: 1600, atlas: 160 }); mount(ctx, 'head', K.mesh(E.geo, E.mat), { at: [0, (P.browY - 0.012 - hr.y) * sc, (P.zf - 0.035 - hr.z) * sc] });
-    const U = prop('cyc-jaw', underbite, FACE_PAL, { cell: 0.008, target: 900, atlas: 128 }); mount(ctx, 'head', K.mesh(U.geo, U.mat), { at: [0, (P.mouthY - hr.y) * sc, (P.zf - 0.06 - hr.z) * sc] });
+    const E = prop('cyc-eye', eyeBrow, FACE_PAL, { cell: 0.01, target: 1600, atlas: 160 }); mount(ctx, 'head', K.mesh(E.geo, E.mat), { at: [0, (P.browY - 0.01 - hr.y) * sc, (P.zf - 0.012 - hr.z) * sc] });
+    const U = prop('cyc-jaw', underbite, FACE_PAL, { cell: 0.008, target: 900, atlas: 128 }); mount(ctx, 'head', K.mesh(U.geo, U.mat), { at: [0, (P.mouthY - 0.008 - hr.y) * sc, (P.zf - 0.03 - hr.z) * sc] });
     const C = prop('club', club, CLUB_PAL, { cell: 0.018, target: 2200 }); const cm = K.mesh(C.geo, C.mat); cm.rotation.x = Math.PI / 2; mount(ctx, 'handR', cm, { at: [0, -0.08 * sc, 0.01 * sc] });
   },
   pose(add, t, st, ctx) { add('spine', 0.06); add('neck', 0.12); add('head', -0.06); add('uarmL', 0, 0, 0.2); add('uarmR', 0, 0, -0.16); if (ctx.anim.mode === 'idle') { add('farmR', -0.7); add('handR', 0.5); } },

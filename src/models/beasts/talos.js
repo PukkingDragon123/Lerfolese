@@ -22,7 +22,7 @@ const talosHook = (paint, P, spec) => {
     const row = Math.abs((((c.y / H) * 11) % 1) - 0.5) < 0.035, rivet = Math.abs((((c.y / H) * 11) % 1) - 0.5) < 0.1 && Math.abs(((Math.atan2(c.x, c.z) * 3) % 1)) < 0.06;
     recolor(o, BRZ, ref, (row ? -0.25 : 0) + (rivet ? 0.25 : 0), c, 'metal', 0.85);
   };
-  return { ...paint, body: wrap(paint.body), skin: wrap(paint.skin), hand: wrap(paint.hand), shoe: wrap(paint.shoe || paint.body) };
+  return { ...paint, acc: wrap(paint.acc || paint.body), body: wrap(paint.body), skin: wrap(paint.skin), hand: wrap(paint.hand), shoe: wrap(paint.shoe || paint.body) };
 };
 const lumOf = (o) => Math.max(1, o[0] * 0.3 + o[1] * 0.59 + o[2] * 0.11);
 /** emissive page on the body's UVs: plate seams, the ichor vein down the spine and right leg, the ankle nail, the furnace */
@@ -39,7 +39,7 @@ function glowPage(L) {
 }
 export const warmTalos = () => void prop('talos-helm', helm, HELM_PAL, { cell: 0.016, target: 1800, atlas: 160 });
 export const createTalos = (seed = 1) => limboBeast({
-  id: 'talos', height: 3.4, blood: [0.75, 0.28, 0.03], speed: 0.75, sway: 0.4, impact: 0.45,
+  id: 'talos', height: 3.4, chest: [1.22, 1.06, 1.18], blood: [0.75, 0.28, 0.03], speed: 0.75, sway: 0.4, impact: 0.45,
   app: { skin: 0x8a6436, hair: 0x222222, hairStyle: 'bald', build: 'broad', age: 0.2, height: 1 }, outfit: {}, overrides: { eyeW: 0.02, eyeH: 0.02 }, hook: talosHook,
   build(ctx) {
     const { L, sc } = ctx; const m = L.mesh.material; m.metalness = 0.65; m.roughness = 0.42; m.emissiveMap = glowPage(L); m.emissive = new THREE.Color(1, 1, 1); m.emissiveIntensity = 1.1; m.needsUpdate = true;

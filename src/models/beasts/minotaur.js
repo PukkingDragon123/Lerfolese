@@ -84,13 +84,13 @@ const minoHook = (king) => (paint, P, spec) => {
     if (king && Math.abs(-c.x * 0.75 + (c.y - P.bustY) * 0.66) < 0.022 * H && c.y > P.pelvisY) return recolor(o, Math.abs(((c.y * 14 / H) % 1)) < 0.2 ? hex('#b8923e') : hex('#3a2014'), skinC); // studded harness
     recolor(o, king ? HIDE_K : HIDE, skinC, 0, c, 'skin', king ? 0.9 : 0.75); // scarred, wrinkled hide
   };
-  return { ...paint, body: wrap(paint.body), skin: wrap(paint.skin), hand: wrap(paint.hand) };
+  return { ...paint, acc: wrap(paint.acc || paint.body), body: wrap(paint.body), skin: wrap(paint.skin), hand: wrap(paint.hand) };
 };
 // ---------------------------------------------------------------- assembly
 export const warmMinotaur = (king = false) => { bullHead(king); prop('mino-hoof', hoof, HOOF_PAL, { cell: 0.012, target: 900, atlas: 128 }); };
 export function createMinotaur(seed = 1, king = false) {
   const spec = {
-    id: king ? 'minotaur_king' : 'minotaur', height: king ? 3.15 : 3.0, headScale: 0.01, blood: [0.12, 0.004, 0.005],
+    id: king ? 'minotaur_king' : 'minotaur', height: king ? 3.15 : 3.0, headScale: 0.01, chest: [1.32, 1.08, 1.25], blood: [0.12, 0.004, 0.005],
     app: { skin: 0x9a5a40, hair: 0x2a1810, hairStyle: 'bald', build: 'heavy', age: 0.5, height: 1 }, outfit: { legs: { tex: 'c_skirt', color: 0x7c4a28 }, legsKind: 'skirt' },
     overrides: { eyeW: 0.3, eyeH: 0.3 }, hook: minoHook(king), speed: 0.85, sway: 0.7, impact: 0.45,
     build(ctx) {

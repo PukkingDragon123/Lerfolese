@@ -22,7 +22,7 @@ export const band = (L, n = 7) => { const m = Math.max(7, n + 3); return Math.ro
 function texOf(cv, srgb) { const t = new THREE.CanvasTexture(cv); t.flipY = false; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapLinearFilter; t.anisotropy = 2; return t; }
 /** realistic flat-shaded lit material from a painted page {canvas, orm, em} */
 export function paintedMat(res, extra = {}) {
-  const m = new THREE.MeshStandardMaterial({ map: texOf(res.canvas, true), flatShading: true, roughness: 1, metalness: 1, ...extra });
+  const m = new THREE.MeshStandardMaterial({ map: texOf(res.canvas, true), flatShading: true, roughness: 1, metalness: 1, envMapIntensity: 0.35, ...extra });
   if (res.orm) { const o = texOf(res.orm, false); m.roughnessMap = o; m.metalnessMap = o; } else { m.roughness = 0.85; m.metalness = 0; }
   if (res.em?.used) { m.emissiveMap = texOf(res.em, true); m.emissive = new THREE.Color(1, 1, 1); m.emissiveIntensity = 1.0; }
   return m;
@@ -46,7 +46,7 @@ export const skinnedLoft = (rings, sides, ...rest) => CK.skinnedLoft(Math.max(3,
 /** charkit with the realistic low-poly pixel-art parts swapped in */
 export const K = { ...CK, tone, band, paintedMat, paintUV, uvMat, fur3, fur2, Loft, skinnedLoft };
 /** flat-shaded realistic material for a Limbo body page (nearest-filtered pixel art) */
-export function limboMat(tex) { tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.needsUpdate = true; return new THREE.MeshStandardMaterial({ map: tex, flatShading: true, roughness: 0.82, metalness: 0 }); }
+export function limboMat(tex) { tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.needsUpdate = true; return new THREE.MeshStandardMaterial({ map: tex, flatShading: true, roughness: 0.85, metalness: 0, envMapIntensity: 0.35 }); }
 
 // ---------------------------------------------------------------- weathering: lived-in surfaces (scars, wrinkles, warts,
 // mottling, patchy fur, chips) as painted pixel detail. All are functions of the bind-pose point, so they stay put on

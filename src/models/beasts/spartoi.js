@@ -48,7 +48,7 @@ const sparHook = (paint, P, spec) => {
     const joint = [P.elbowY, P.kneeY, P.wristY, P.ankleY, P.shoulderY].some((y) => Math.abs(c.y - y) < 0.012 * H);
     recolor(o, BONE, sk, (gap ? -0.32 : 0) + (joint ? -0.12 : 0), c, 'bone', 0.9);
   };
-  return { ...paint, body: wrap(paint.body), skin: wrap(paint.skin), hand: wrap(paint.hand) };
+  return { ...paint, acc: wrap(paint.acc || paint.body), body: wrap(paint.body), skin: wrap(paint.skin), hand: wrap(paint.hand) };
 };
 const lumOf = (o) => o[0] * 0.3 + o[1] * 0.59 + o[2] * 0.11;
 export const warmSpartoi = () => { prop('spartoi-helm', helmet, HELM_PAL, { cell: 0.007, target: 3200, atlas: 256 }); prop('spartoi-spear', spear, SPEAR_PAL, { cell: 0.008, target: 1200, atlas: 256, maxChart: 0.01 }); };

@@ -48,6 +48,7 @@ export function limboBeast(spec, seed = 1) {
   const anim = new LimboAnim(L, { sway: spec.sway ?? 1, speed: spec.speed ?? 1, fall: spec.fall ?? true }); anim.t += seed * 1.7;
   const ctx = { L, B: L.bones, P: L.P, H: L.P.H || L.P.crown, sc, api, model, root, anim, st, seed, vars: {}, spec, own: (m) => api.own(m) };
   if (spec.headScale) L.bones.head.scale.setScalar(spec.headScale);
+  if (spec.chest) { const [x, y, z] = spec.chest; L.bones.chest.scale.set(x, y, z); if (spec.headScale) L.bones.head.scale.set(spec.headScale / x, spec.headScale / y, spec.headScale / z); else L.bones.neck.scale.set(1 / x, 1 / y, 1 / z); } // pushed proportions: a hulking chest, shoulders and arms
   spec.build?.(ctx);
   model.traverse((o) => { if (o.isMesh && o !== L.mesh && o.material?.map && api.mats.indexOf(o.material) < 0) o.material = api.own(o.material); });
   api.impactTime = spec.impact ?? IMPACT; api.attackTime = 1.0; api.head = L.bones.head; api.L = L;
