@@ -25,7 +25,7 @@
 - PROLOGUE (first new game): kid Isaac learns from his MASTER in an old apple garden (cinematic, with choices) -> master gives his first card and teaches science and magic with interactive 3D constructs -> a FORBIDDEN APPLE appears in his slot, he uses it -> the sky falls apart, reality warps -> in blank white space a cosmic galactic figure of himself speaks and shows a new world where stories come alive -> he wakes in the new world, meets the old MOP DOG, meets his master in the STAR-VIEWING DOME -> adventure starts. Dying = being RECONSTRUCTED (cosmic reassembly), back to the dome.
 - Combat has occasional STORY DILEMMAS (trade-off choices mid-fight). Combination depth is the heart: near-infinite combos, cloning, boosting chains ("X boosts Y when next to Z"), who finds the best combo.
 - Artifacts look great and Isaac visibly WEARS or USES them (attached to his body).
-- Fonts: Alagard for titles; assets/fonts/pack: PixelSans (body, dialogue, cards), NanoPlus (numbers/damage), RuneMono (magic/astral). Render at native multiples so they stay crisp.
+- Fonts: Alagard for titles; assets/fonts/pack: PixelSans (body, dialogue, cards), NanoPlus (numbers/damage), RuneMono (magic/astral). ALWAYS HIGH-RESOLUTION text: render at integer multiples of native size, ~2x on-screen pixels at 1080p, crisp, never blurry or low-res.
 
 ## Workflow
 - ASK THE USER FIRST (short question with options) before any big or ambiguous change or before launching agents; the user pays for every token.

@@ -11,6 +11,8 @@ import { mulberry32 } from '../core/util.js';
 import { makeNoise } from '../gfx/pixel.js';
 import { Particles } from '../gfx/particles.js';
 import * as T from './toon.js';
+import { plantField } from '../gfx/plants.js';
+import { groundTex, soilTex, gravelTex, earthTex, cobbleTex as pixelCobble } from '../gfx/pixeltex.js';
 import * as F from './flora.js';
 import { cottage, chimneySmoke } from './village.js';
 import { PLACES, SETS } from './places.js';
@@ -47,6 +49,12 @@ export async function toonModel(name, rnd = Math.random, look = null) { const o 
 /** realistic model with wind in its leaves (events, map props) */
 export async function envModel(name, rnd = Math.random, wind = 1) { const o = await variant(name, rnd); return T.windify(o, { amp: wind, h: /olive|umbrella|othonna/.test(name) ? 0.16 : 0.9 }); }
 
+// pixel-art edges: alpha below a per-texel hash threshold is cut (no soft blends anywhere)
+function ditherAlpha(m, texels = 64) {
+  m.transparent = false; m.depthWrite = false; const prev = m.onBeforeCompile;
+  m.onBeforeCompile = (sh, r) => { prev?.(sh, r); sh.fragmentShader = sh.fragmentShader.replace('#include <alphatest_fragment>', `{ vec2 dq = floor(vMapUv * ${texels.toFixed(1)}); float dth = fract(sin(dot(dq, vec2(12.9898, 78.233))) * 43758.5453) * 0.9 + 0.05; if (diffuseColor.a < dth) discard; diffuseColor.a = 1.0; }`); };
+  m.customProgramCacheKey = () => 'ditherAlpha' + texels + (m.map ? 'm' : ''); return m;
+}
 function softMask(size = 256) { // radial alpha for the trodden arena patch
   const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d'); const n = makeNoise(5); const id = g.createImageData(size, size);
   for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) { const u = x / size - 0.5, v = y / size - 0.5; const d = Math.sqrt(u * u * 1.0 + v * v * 4.2) * 2; const a = Math.max(0, Math.min(1, (1 - d) * 1.25 + (n.fbm(x * 0.05, y * 0.05, 4) - 0.5) * 0.7)) * 0.9; const i = (y * size + x) * 4; id.data[i] = id.data[i + 1] = id.data[i + 2] = a * 255; id.data[i + 3] = 255; }
@@ -106,25 +114,13 @@ function splatGround(geo, grassM, dirtM, gravelM, { tint = '#c8d8a0', dirt = 0.6
     sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = 'uniform sampler2D tDirt, tGravel; uniform vec3 uTint, uField; uniform float uDirt, uGravel, uGreen, uFieldK; varying vec3 vWP;\nfloat sh2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\nfloat sn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(sh2(i), sh2(i + vec2(1, 0)), f.x), mix(sh2(i + vec2(0, 1)), sh2(i + vec2(1, 1)), f.x), f.y); }\nfloat sf(vec2 p){ return sn(p) * 0.55 + sn(p * 2.1 + 3.1) * 0.3 + sn(p * 4.3 + 7.7) * 0.15; }\n'
       + sh.fragmentShader.replace('#include <map_fragment>', `
-        vec3 cg = texture2D(map, vMapUv).rgb * uTint; vec3 cd = texture2D(tDirt, vMapUv * 1.37).rgb; vec3 cv = texture2D(tGravel, vMapUv * 0.83).rgb;
-        float wd = smoothstep(uDirt, uDirt + 0.12, sf(vWP.xz * 0.11 + 4.0)); float wv = smoothstep(uGravel, uGravel + 0.1, sf(vWP.xz * 0.07 + 19.0)) * (1.0 - wd * 0.6);
-        float patchy = sf(vWP.xz * 0.35); cg = mix(cg, vec3(dot(cg, vec3(0.333))) * vec3(0.92, 1.3, 0.55), uGreen); cg *= mix(vec3(0.86, 0.9, 0.78), vec3(1.1, 1.06, 0.9), patchy);
-        cg = mix(cg, uField * mix(0.84, 1.12, step(0.5, patchy)) * mix(0.94, 1.04, step(0.62, sf(vWP.xz * 1.3))), uFieldK);
+        vec2 tq = floor(vMapUv * 64.0); float dz = fract(sin(dot(tq, vec2(12.9898, 78.233))) * 43758.5453);
+        vec3 cg = texture2D(map, vMapUv).rgb * uTint; vec3 cd = texture2D(tDirt, vMapUv + vec2(0.37, 0.11)).rgb; vec3 cv = texture2D(tGravel, vMapUv + vec2(0.61, 0.29)).rgb;
+        float wd = step(uDirt + 0.12 * dz, sf(vWP.xz * 0.11 + 4.0)); float wv = step(uGravel + 0.1 * dz, sf(vWP.xz * 0.07 + 19.0)) * (1.0 - wd);
+        float patchy = sf(vWP.xz * 0.35); cg *= mix(0.93, 1.05, step(0.5 + 0.1 * (dz - 0.5), patchy)); cg = mix(cg, cg * uField * 1.6, uFieldK * uGreen);
         diffuseColor.rgb *= mix(mix(cg, cd, wd), cv, wv);`);
   };
   m.customProgramCacheKey = () => 'splatGround'; return m;
-}
-// a cobblestone texture (rounded setts in sandy joints) + its height map, painted once
-let COBBLE = null;
-function cobbleTex() {
-  if (COBBLE) return COBBLE; const S = 512, cell = 42; const pts = []; const r = mulberry32(77); const cols = Math.ceil(S / cell);
-  for (let j = 0; j < cols; j++) for (let i = 0; i < cols; i++) pts.push([(i + 0.15 + r() * 0.7) * cell, (j + 0.15 + r() * 0.7) * cell, r()]);
-  const grid = (i, j) => pts[((j + cols) % cols) * cols + ((i + cols) % cols)];
-  const mk = (height) => canvasTex(S, S, (g) => { const id = g.createImageData(S, S); for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { const ci = Math.floor(x / cell), cj = Math.floor(y / cell); let d1 = 1e9, d2 = 1e9, best = null; for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const p = grid(ci + di, cj + dj); const px = p[0] + (ci + di < 0 ? -S : ci + di >= cols ? S : 0) * 0, py = p[1]; let dx = x - (p[0] + Math.floor((ci + di) / cols) * S), dy = y - (p[1] + Math.floor((cj + dj) / cols) * S); void px; void py; const dd = dx * dx + dy * dy; if (dd < d1) { d2 = d1; d1 = dd; best = p; } else if (dd < d2) d2 = dd; }
-    const edge = Math.sqrt(d2) - Math.sqrt(d1); const stone = Math.min(1, Math.max(0, (edge - 3) / 9)); const k = (y * S + x) * 4;
-    if (height) { const v = Math.round(60 + stone * 170 * (0.8 + best[2] * 0.2)); id.data[k] = id.data[k + 1] = id.data[k + 2] = v; } else { const t = best[2]; const base = [118 + t * 50, 108 + t * 40, 96 + t * 34]; const joint = [92, 80, 62]; for (let c = 0; c < 3; c++) id.data[k + c] = joint[c] + (base[c] - joint[c]) * stone - (1 - stone) * 6 + ((x * 7 + y * 13) % 9) - 4; }
-    id.data[k + 3] = 255; } g.putImageData(id, 0, 0); }, !height);
-  COBBLE = { map: mk(false), bump: mk(true) }; for (const t of [COBBLE.map, COBBLE.bump]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; } return COBBLE;
 }
 // ---------------------------------------------------------------- the road: from far behind-left of the camera into the arena
 function ribbon(curve, t0, t1, W, hAt, { segs = 160, across = [-1, -0.7, -0.4, -0.3, -0.2, 0, 0.2, 0.3, 0.4, 0.7, 1], lift = 0.03, rut = true, vScale = 2.2 } = {}) {
@@ -140,11 +136,10 @@ function buildRoad(ctx) {
   const pts = [[-40, 33], [-33, 27], [-28, 20.5], [-21, 16.5], [-15.5, 11.5], [-11.5, 7.2], [-8.2, 4.2], [-6, 2.4], [-4.6, 1.5]].map(([x, z]) => new V3(x, hAt(x, z), z));
   const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal'); const W = 2.7; const tmp = new V3(), tan = new V3(), side = new V3();
   // packed dirt and gravel trail, soft edges blending into the meadow, grooved wheel ruts
-  const trail = new THREE.Mesh(ribbon(curve, 0, 1, W, hAt), new THREE.MeshToonMaterial({ color: '#e8cca4', vertexColors: true, transparent: true, depthWrite: false, gradientMap: T.gradientMap([0.55, 0.8, 1.0]), polygonOffset: true, polygonOffsetFactor: -1 }));
+  const trail = new THREE.Mesh(ribbon(curve, 0, 1, W, hAt), ditherAlpha(new THREE.MeshToonMaterial({ map: gravelTex(), vertexColors: true, gradientMap: T.gradientMap([0.55, 0.8, 1.0]), polygonOffset: true, polygonOffsetFactor: -1 })));
   trail.receiveShadow = true; trail.userData.noInk = true; trail.renderOrder = 1; trail.name = 'road'; g.add(trail);
-  loadPBR('ground_rocky_trail', { repeat: 1 }).then((m) => { for (const k of ['map', 'normalMap', 'roughnessMap']) { const tx = m[k]; if (!tx) continue; tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(1, 1); tx.needsUpdate = true; } Object.assign(trail.material, { map: m.map, normalMap: m.normalMap }); trail.material.normalScale.set(1.2, 1.2); trail.material.needsUpdate = true; }).catch(() => {});
   // worn cobble stretches
-  const cb = cobbleTex(); for (const [a, b] of [[0.42, 0.52], [0.8, 0.975]]) { const m = new THREE.Mesh(ribbon(curve, a, b, W * 0.86, hAt, { segs: 60, lift: 0.045, rut: false, vScale: 1.6, across: [-1, -0.8, -0.5, 0, 0.5, 0.8, 1] }), new THREE.MeshToonMaterial({ map: cb.map, bumpMap: cb.bump, bumpScale: 4, vertexColors: true, transparent: true, depthWrite: false, gradientMap: T.gradientMap([0.5, 0.78, 1.0]), polygonOffset: true, polygonOffsetFactor: -2 })); m.receiveShadow = true; m.renderOrder = 2; m.userData.noInk = true; g.add(m); }
+  for (const [a, b] of [[0.42, 0.52], [0.8, 0.975]]) { const m = new THREE.Mesh(ribbon(curve, a, b, W * 0.86, hAt, { segs: 60, lift: 0.045, rut: false, vScale: 1.6, across: [-1, -0.8, -0.5, 0, 0.5, 0.8, 1] }), ditherAlpha(new THREE.MeshToonMaterial({ map: pixelCobble(), vertexColors: true, gradientMap: T.gradientMap([0.5, 0.78, 1.0]), polygonOffset: true, polygonOffsetFactor: -2 }))); m.receiveShadow = true; m.renderOrder = 2; m.userData.noInk = true; g.add(m); }
   // puddles in the ruts, mirroring the sky
   const pudMat = new THREE.MeshToonMaterial({ color: '#a8c4e8', emissive: '#4a6a98', emissiveIntensity: 0.55, gradientMap: T.gradientMap([0.7, 1.0]) });
   for (const s of [0.3, 0.61, 0.7]) { curve.getPointAt(s, tmp); curve.getTangentAt(s, tan); side.set(-tan.z, 0, tan.x).normalize(); const o = tmp.clone().addScaledVector(side, (rnd() < 0.5 ? -1 : 1) * 0.4); const sh = new THREE.Shape(); const n = 16; for (let i = 0; i <= n; i++) { const a = (i / n) * Math.PI * 2; const r = (0.5 + Math.sin(a * 3 + s * 9) * 0.1 + Math.sin(a * 5) * 0.05); i ? sh.lineTo(Math.cos(a) * r * 1.5, Math.sin(a) * r * 0.55) : sh.moveTo(Math.cos(a) * r * 1.5, Math.sin(a) * r * 0.55); } const pm = new THREE.Mesh(new THREE.ShapeGeometry(sh, 8).rotateX(-Math.PI / 2), pudMat); pm.position.set(o.x, hAt(o.x, o.z) + 0.035, o.z); pm.rotation.y = -Math.atan2(tan.z, tan.x); pm.renderOrder = 3; pm.userData.noInk = true; g.add(pm); }
@@ -179,7 +174,9 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   const place = PLACES[theme] || PLACES.meadow; const set = event ? SETS[event] : null;
   T.WIND.ptrK.value = 0; T.WIND.amp.value = 1;
   const hName = HDRI[theme] || 'golden_cape_hill';
-  const [hdr, groundMat, arenaMat, dirtMat, gravelMat] = await Promise.all([loadHDRI(hName, renderer).catch(() => null), loadPBR(GROUND[theme] || 'ground_meadow', { repeat: 44 }), loadPBR(ARENA[theme] || 'ground_dry_grass', { repeat: 8 }), loadPBR('ground_dry_dirt', { repeat: 44 }), loadPBR('ground_rocky_trail', { repeat: 44 })]);
+  const hdr = await loadHDRI(hName, renderer).catch(() => null); const rep = (t, n) => { const c = t.clone(); c.repeat.set(n, n); c.needsUpdate = true; return c; };
+  const GTILE = { meadow: 'grass', garden: 'lush', gully: 'grass', labyrinth: 'dry', marsh: 'marsh', guardian: 'dusk' };
+  const groundMat = { map: rep(groundTex(GTILE[theme] || 'grass'), 88) }, dirtMat = { map: rep(soilTex(), 88) }, gravelMat = { map: rep(gravelTex(), 88) }, arenaMat = new THREE.MeshToonMaterial({ map: rep(earthTex(theme === 'marsh' ? 0.2 : 0.45), 11), gradientMap: T.gradientMap([0.55, 0.8, 1.0]) });
   // painted anime sky, cel cumulus, hazy ridges, the sun's serene face, a warm backlight from it
   const sunDirW = SUN_SKY.clone(); const skyKey = T.SKY[theme] ? theme : 'meadow';
   g.add(T.animeSky(skyKey, sunDirW), T.animeClouds(skyKey, { seed, n: 8, z: -150, sunDir: sunDirW, cam: CAM }));
@@ -207,9 +204,9 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   for (let j = 0; j < S - 1; j++) for (let i = 0; i < S - 1; i++) { const a = j * S + i, b = a + 1, c = a + S, d = c + 1; idx.push(a, c, b, b, c, d); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2)); geo.setIndex(idx); geo.computeVertexNormals();
   const dryTheme = theme === 'gully' || theme === 'labyrinth' || theme === 'guardian';
-  const ground = new THREE.Mesh(geo, splatGround(geo, new THREE.MeshToonMaterial({ map: groundMat.map, gradientMap: T.gradientMap([0.55, 0.8, 1.0]) }), dirtMat, gravelMat, { tint: theme === 'marsh' ? '#a8b890' : dryTheme && theme !== 'gully' ? '#e0d4b0' : '#b8d488', dirt: theme === 'gully' ? 0.6 : 0.72, gravel: 0.74, green: dryTheme && theme !== 'gully' ? 0.2 : theme === 'marsh' ? 0.45 : 0.75, field: FIELD[theme] || FIELD.meadow, fieldK: theme === 'gully' ? 0.6 : dryTheme ? 0.35 : 0.55 }));
+  const ground = new THREE.Mesh(geo, splatGround(geo, new THREE.MeshToonMaterial({ map: groundMat.map, gradientMap: T.gradientMap([0.55, 0.8, 1.0]) }), dirtMat, gravelMat, { tint: '#ffffff', dirt: theme === 'gully' ? 0.6 : 0.72, gravel: 0.74, green: dryTheme && theme !== 'gully' ? 0.2 : theme === 'marsh' ? 0.45 : 0.75, field: FIELD[theme] || FIELD.meadow, fieldK: theme === 'gully' ? 0.6 : dryTheme ? 0.35 : 0.55 }));
   ground.receiveShadow = true; ground.name = 'ground'; g.add(ground);
-  if (arenaClear) { const am = arenaMat.clone(); am.alphaMap = softMask(); am.transparent = true; am.depthWrite = false; const ag = new THREE.PlaneGeometry(22, 9, 44, 18); ag.rotateX(-Math.PI / 2); const ap = ag.attributes.position; for (let i = 0; i < ap.count; i++) ap.setY(i, hAt(ap.getX(i) + 0.3, ap.getZ(i) + 0.8) + 0.03); ag.computeVertexNormals(); const arena = new THREE.Mesh(ag, am); arena.position.set(0.3, 0, 0.8); arena.receiveShadow = true; arena.renderOrder = 1; arena.userData.noInk = true; g.add(arena); }
+  if (arenaClear) { const am = arenaMat.clone(); am.alphaMap = softMask(); ditherAlpha(am, 64); const ag = new THREE.PlaneGeometry(22, 9, 44, 18); ag.rotateX(-Math.PI / 2); const ap = ag.attributes.position; for (let i = 0; i < ap.count; i++) ap.setY(i, hAt(ap.getX(i) + 0.3, ap.getZ(i) + 0.8) + 0.03); ag.computeVertexNormals(); const arena = new THREE.Mesh(ag, am); arena.position.set(0.3, 0, 0.8); arena.receiveShadow = true; arena.renderOrder = 1; arena.userData.noInk = true; g.add(arena); }
 
   // ---- the road first (everything else keeps clear of it), then the event's set, then the place around it
   const road = buildRoad(ctx); const rp = road.getSpacedPoints(160); ctx.roadPts = rp;
