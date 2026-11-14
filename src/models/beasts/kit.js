@@ -4,7 +4,7 @@
 // idle, additive key clips with anticipation/strike/follow-through, impactTime + onImpact, spring followers,
 // knockback, a weighted death fall, wounds and highlight.
 import * as THREE from 'three';
-import { K } from './look.js';
+import { K, weather } from './look.js';
 import { Spring } from '../../core/tween.js';
 import { Sculpt, bake } from './flesh.js';
 import { makeBones, skinned, onBone, sample, add, apply, battleRig, paintWounds, woundMat, woundTex, rigidSkinned, skinAttrs } from './rig.js';
@@ -174,6 +174,7 @@ export function painter(S, PAL) {
       default: break;
     }
     if (p.s === 'skin' || p.s === 'cloth' || p.s === 'leather') L += (qh(c.x, c.y, c.z, p.s === 'skin' ? 0.009 : 0.007) - 0.5) * 0.07; // fine clustered grain
+    if (p.age !== 0) { if (col === p.c || col === p.belly || col === p.back) col = [...col]; L = weather(p.s, c, cav, L, col, p.age ?? 0.45, p.skin); } // lived-in surface: scars, wrinkles, warts, mange, chips
     K.tone(col, K.band(L, 4), o.col); if (p.e && p.s !== 'metal') { tmpE[0] = p.e[0]; tmpE[1] = p.e[1]; tmpE[2] = p.e[2]; o.em = tmpE.slice(); }
     p.fn?.(c, o, q, L);
   };
