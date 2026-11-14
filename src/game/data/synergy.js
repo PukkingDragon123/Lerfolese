@@ -96,11 +96,10 @@ export function foeLines(e, mv, B) {
 }
 export const immuneTo = (e, tag) => foeRules(e).some((r) => r.tag === tag && r.mul === 0);
 /** a short reading of a foe's nature for its plate / tooltip */
-export function foeNature(e) { return foeRules(e).map((r) => r.text); }
+export function foeNature(e) { return foeRules(e).map((r) => ({ text: r.text, mul: r.mul })); }
 
 // ------------------------------------------------------------------ artifacts that bend the math
 // Each: { lines(ctx) -> [{text, mul, kind}], odds(ctx) -> [{text, outcomes:[{p, mul, label}]}], hits(ctx) }. ctx = { B, mv, e, obj }
-const T = (B, ...ids) => ids.some((x) => B.has(x));
 export const ARTIFACT_MATH = {
   statues: { lines: () => [{ text: 'Statues (petrified admirers)', mul: 3, kind: 'art' }] },
   prism: { split: ({ mv }) => hasTag(mv, 'light') && !mv.attack.spread, lines: ({ mv }) => (hasTag(mv, 'light') && !mv.attack.spread ? [{ text: "Newton's Prism: split into 3 hits at 40%", mul: 0.4, kind: 'art' }] : []) },
@@ -120,7 +119,6 @@ export const ARTIFACT_MATH = {
 export function artifactLines(B, mv, e, obj) {
   const lines = [], odds = []; let split = false;
   for (const id of B.run.items) { const A = ARTIFACT_MATH[id]; if (!A) continue; const ctx = { B, mv, e, obj };
-    if (A.lines) lines.push(...A.lines(ctx)); if (A.odds) odds.push(...A.odds(ctx)); if (A.split?.(ctx)) split = true; }
+    if (A.lines) lines.push(...A.lines(ctx).map((l) => ({ ...l, art: id }))); if (A.odds) odds.push(...A.odds(ctx).map((o) => ({ ...o, art: id }))); if (A.split?.(ctx)) split = true; }
   return { lines, odds, split };
 }
-void T;

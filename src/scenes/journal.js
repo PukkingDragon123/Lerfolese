@@ -75,8 +75,8 @@ export class Journal {
       P.push((g) => { paper(g); hand(g, i ? 'Combinations (cont.)' : 'Combinations', 100, 90, { size: 54, font: 'HomemadeApple', color: '#3a2410' });
         chunk.forEach((e, n) => { const y = 160 + n * 118;
           if (e.v) { try { const mv = computeMove(e.k.split('+').map((id) => ({ id, up: 0 }))); const face = renderCardFace({ type: 'move', up: 0, name: mv.name }, mv); g.save(); g.translate(96, y - 40); g.rotate(-0.06); g.drawImage(face, 28, 84, 424, 252, 0, 0, 120, 72); g.restore(); } catch (err) { /* */ }
-            hand(g, `${e.v.name}${e.v.special ? ' ★' : ''}`, 236, y, { size: 36, color: e.v.special ? '#7a2a6a' : '#2a1a4a' }); hand(g, e.k.split('+').join(' + '), 236, y + 34, { size: 28, color: '#5a3622' }); hand(g, `×${e.v.count}  best ${e.v.best || 0}`, 236, y + 64, { size: 26, color: '#8a6a44' }); }
-          else { hand(g, '???', 120, y + 10, { size: 46, color: '#8a6a44' }); hand(g, j.loops >= 2 ? `Hint: ${e.k.split('+').length} ingredients; one is ${e.k.split('+')[0]}.` : 'Undiscovered. Keep experimenting.', 236, y + 10, { size: 30, color: '#8a6a44' }); } });
+            hand(g, `${e.v.name}${e.v.special ? ' ★' : ''}`, 236, y, { size: 36, color: e.v.special ? '#7a2a6a' : '#2a1a4a' }); hand(g, e.k.split('+').join(' + '), 236, y + 34, { size: 28, color: '#5a3622' }); hand(g, e.v.math?.length ? `${e.v.law ? 'LAW · ' : ''}${e.v.math.slice(-2).join('  ')}` : `×${e.v.count}  best ${e.v.best || 0}`, 236, y + 64, { size: 26, color: '#8a6a44' }); }
+          else { hand(g, '???', 120, y + 10, { size: 46, color: '#8a6a44' }); hand(g, e.s?.hidden ? 'A hidden Law of Nature. Still unwritten.' : j.loops >= 2 ? `Hint: ${e.k.split('+').length} ingredients; one is ${e.k.split('+')[0]}.` : 'Undiscovered. Keep experimenting.', 236, y + 10, { size: 30, color: '#8a6a44' }); } });
       });
     }
     // bestiary: one enemy per page with a sketch

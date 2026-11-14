@@ -12,7 +12,7 @@ import { makeNoise } from '../gfx/pixel.js';
 import { Particles } from '../gfx/particles.js';
 import * as T from './toon.js';
 import { plantField } from '../gfx/plants.js';
-import { groundTex, soilTex, gravelTex, earthTex, cobbleTex as pixelCobble } from '../gfx/pixeltex.js';
+import { groundTex, soilTex, gravelTex, earthTex, cobbleTex as pixelCobble, surfaceTex } from '../gfx/pixeltex.js';
 import * as F from './flora.js';
 import { cottage, chimneySmoke } from './village.js';
 import { PLACES, SETS } from './places.js';
@@ -50,10 +50,10 @@ export async function toonModel(name, rnd = Math.random, look = null) { const o 
 export async function envModel(name, rnd = Math.random, wind = 1) { const o = await variant(name, rnd); return T.windify(o, { amp: wind, h: /olive|umbrella|othonna/.test(name) ? 0.16 : 0.9 }); }
 
 // pixel-art edges: alpha below a per-texel hash threshold is cut (no soft blends anywhere)
-function ditherAlpha(m, texels = 64) {
+function ditherAlpha(m, texels = 64, sharp = 1) {
   m.transparent = false; m.depthWrite = false; const prev = m.onBeforeCompile;
-  m.onBeforeCompile = (sh, r) => { prev?.(sh, r); sh.fragmentShader = sh.fragmentShader.replace('#include <alphatest_fragment>', `{ vec2 dq = floor(vMapUv * ${texels.toFixed(1)}); float dth = fract(sin(dot(dq, vec2(12.9898, 78.233))) * 43758.5453) * 0.9 + 0.05; if (diffuseColor.a < dth) discard; diffuseColor.a = 1.0; }`); };
-  m.customProgramCacheKey = () => 'ditherAlpha' + texels + (m.map ? 'm' : ''); return m;
+  m.onBeforeCompile = (sh, r) => { prev?.(sh, r); sh.fragmentShader = sh.fragmentShader.replace('#include <alphatest_fragment>', `{ vec2 dq = floor(vMapUv * ${texels.toFixed(1)}); float dth = fract(sin(dot(dq, vec2(12.9898, 78.233))) * 43758.5453) * 0.9 + 0.05; if (clamp((diffuseColor.a - 0.5) * ${sharp.toFixed(1)} + 0.5, 0.0, 1.0) < dth) discard; diffuseColor.a = 1.0; }`); };
+  m.customProgramCacheKey = () => 'ditherAlpha' + texels + ':' + sharp + (m.map ? 'm' : ''); return m;
 }
 function softMask(size = 256) { // radial alpha for the trodden arena patch
   const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d'); const n = makeNoise(5); const id = g.createImageData(size, size);
@@ -206,7 +206,7 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   const dryTheme = theme === 'gully' || theme === 'labyrinth' || theme === 'guardian';
   const ground = new THREE.Mesh(geo, splatGround(geo, new THREE.MeshToonMaterial({ map: groundMat.map, gradientMap: T.gradientMap([0.55, 0.8, 1.0]) }), dirtMat, gravelMat, { tint: '#ffffff', dirt: theme === 'gully' ? 0.6 : 0.72, gravel: 0.74, green: dryTheme && theme !== 'gully' ? 0.2 : theme === 'marsh' ? 0.45 : 0.75, field: FIELD[theme] || FIELD.meadow, fieldK: theme === 'gully' ? 0.6 : dryTheme ? 0.35 : 0.55 }));
   ground.receiveShadow = true; ground.name = 'ground'; g.add(ground);
-  if (arenaClear) { const am = arenaMat.clone(); am.alphaMap = softMask(); ditherAlpha(am, 64); const ag = new THREE.PlaneGeometry(22, 9, 44, 18); ag.rotateX(-Math.PI / 2); const ap = ag.attributes.position; for (let i = 0; i < ap.count; i++) ap.setY(i, hAt(ap.getX(i) + 0.3, ap.getZ(i) + 0.8) + 0.03); ag.computeVertexNormals(); const arena = new THREE.Mesh(ag, am); arena.position.set(0.3, 0, 0.8); arena.receiveShadow = true; arena.renderOrder = 1; arena.userData.noInk = true; g.add(arena); }
+  if (arenaClear) { const am = arenaMat.clone(); am.alphaMap = softMask(); ditherAlpha(am, 64, 3.5); const ag = new THREE.PlaneGeometry(22, 9, 44, 18); ag.rotateX(-Math.PI / 2); const ap = ag.attributes.position; for (let i = 0; i < ap.count; i++) ap.setY(i, hAt(ap.getX(i) + 0.3, ap.getZ(i) + 0.8) + 0.03); ag.computeVertexNormals(); const arena = new THREE.Mesh(ag, am); arena.position.set(0.3, 0, 0.8); arena.receiveShadow = true; arena.renderOrder = 1; arena.userData.noInk = true; g.add(arena); }
 
   // ---- the road first (everything else keeps clear of it), then the event's set, then the place around it
   const road = buildRoad(ctx); const rp = road.getSpacedPoints(160); ctx.roadPts = rp;
@@ -303,7 +303,7 @@ function grassField(ctx, theme, L) {
 // skies the stages use, as a list of tasks so the loader can pace them and report progress
 export function preloadTasks(renderer) {
   const models = ['rock_moss_set_01', 'rock_moss_set_02', 'namaqualand_boulder_05', 'greek_column', 'marble_bust_01', 'horse_statue_01', 'lion_head', 'antique_ceramic_vase_01', 'ceramic_vase_04', 'wine_barrel_01', 'stone_fire_pit', 'fern_02', 'nettle_plant', 'tree_stump_01', 'dead_tree_trunk_02', 'rock_face_02', 'stone_wall_kit', 'bull_head', 'dry_branches_medium_01', 'wicker_basket_01', 'wooden_crate_01', 'round_wooden_table_01', 'brass_goblets', 'wine_bottles_01'];
-  const sets = [['ground_meadow', 44], ['ground_dry_grass', 8], ['ground_rocky_trail', 44], ['ground_dry_dirt', 44], ['ground_dry_grass', 44], ['mud_mossy', 44], ['mud_wet', 8]];
+  const sets = []; // the ground is pixel art now (src/gfx/art/tiles.js)
   return [...models.map((m) => () => loadGLTF(m)), ...sets.map(([n, r]) => () => loadPBR(n, { repeat: r })), ...(renderer ? ['sunset_dry_plain', 'golden_dry_valley'].map((h) => () => loadHDRI(h, renderer)) : [])];
 }
 
@@ -332,7 +332,7 @@ export async function dressTabletop(scene, renderer, { kind = 'study' } = {}) {
   const env = T.gradientEnv(renderer, 'toon:room', { top: '#3a2a3a', hor: '#c8884a', gnd: '#2a1a1a' }); if (env) { scene.environment = env; scene.environmentIntensity = 0.45; }
   const rnd = mulberry32(kind.length * 31 + 7); const jobs = [];
   const put = async (name, x, y, z, s = 1, ry = 0) => { const o = await toonModel(name, rnd).catch(() => null); if (!o) return null; o.position.set(x, y, z); o.rotation.y = ry; o.scale.multiplyScalar(s); scene.add(o); return o; };
-  const wood = await loadPBR('wood_dark', { repeat: 6 }).catch(() => null);
+  const wood = (() => { const t = surfaceTex('woodDark').clone(); t.repeat.set(12, 6); t.needsUpdate = true; return { uuid: 'pixelWoodTable', map: t }; })();
   if (wood) { const top = new THREE.Mesh(new THREE.PlaneGeometry(34, 18).rotateX(-Math.PI / 2), T.toonMaterial(wood, { sat: 1.0, paint: '#7a4a2c', paintK: 0.72, bands: [0.45, 0.72, 1.0] })); top.receiveShadow = true; top.position.y = 0.001; top.userData.noInk = true; scene.add(top); }
   for (let i = 0; i < 9; i++) jobs.push(loadModel(`book_encyclopedia_set_01#${i}`).then((b) => { T.toonify(b, { sat: 1.35, wind: 0 }); b.scale.setScalar(8); b.position.set(-12.6 + i * 0.36, 0, -5.6); b.rotation.y = Math.PI / 2 + (rnd() - 0.5) * 0.05; scene.add(b); }).catch(() => {}));
   jobs.push(put('brass_candleholders', 9.5, 0, -5.2, 7, 0.4), put('lantern_01', -9.5, 0, -6.4, 6, 0.6), put('food_apple_01', -6, 0, -3, 14, 0.3), put('food_pomegranate_01', -4.8, 0, -3.6, 12, 1.2), put('food_apple_01', -5.4, 0, -4.4, 13, 2.2), put('vintage_oil_lamp', 12, 0, -2, 6, -0.4));

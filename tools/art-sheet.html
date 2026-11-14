@@ -76,6 +76,13 @@ if (secs.includes('icons')) {
   for (const k of Object.keys(SPR)) { if (only && !only.includes(k)) continue; try { show(sprite(k), k, r, { scale: Z || 4, bgs: ['neutral', 'dark'] }); } catch (e) { const s = document.createElement('pre'); s.textContent = k + ': ' + e.stack; r.appendChild(s); } }
   const ra = section('Particle atlas (16px cells, x3)'); const A = buildAtlas(); show(A.pc, 'atlas', ra, { scale: 3, bgs: ['dark'] });
 }
+if (secs.includes('tiles')) { // seamless surface tiles, shown 2x2 so the seams can be checked
+  const TL = await import('../src/gfx/art/tiles.js'); const { leafCard, LEAF_KINDS } = await import('../src/gfx/art/leaves.js'); const sc = Z || 3;
+  const tiles = { grass: () => TL.grassTile('grass'), lush: () => TL.grassTile('lush'), dry: () => TL.grassTile('dry'), marsh: () => TL.grassTile('marsh'), soil: () => TL.soilTile(), gravel: () => TL.gravelTile(), earth: () => TL.earthTile(), cobble: () => TL.cobbleTile(), ...TL.WALL, ...TL.WOOD, thatch: () => TL.thatchTile(), canvas: () => TL.canvasTile(), roof: () => TL.roofTile(), bark_olive: () => TL.barkTile('olive'), bark_oak: () => TL.barkTile('oak'), bark_pine: () => TL.barkTile('pine'), bark_cypress: () => TL.barkTile('cypress'), water: () => TL.waterTile() };
+  const r = section(`Surface tiles (2x2 repeat, x${sc})`);
+  for (const [k, f] of Object.entries(tiles)) { if (only && !only.includes(k)) continue; const cv = f().commit(); const c = document.createElement('canvas'); c.width = cv.width * 2; c.height = cv.height * 2; const g = c.getContext('2d'); for (const [x, y] of [[0, 0], [1, 0], [0, 1], [1, 1]]) g.drawImage(cv, x * cv.width, y * cv.height); show(c, k, r, { scale: sc, bgs: ['dark'] }); }
+  const rl = section(`Leaf cards (x${sc})`); for (const k of Object.keys(LEAF_KINDS)) { if (only && !only.includes(k)) continue; show(leafCard(k), k, rl, { scale: sc, bgs: ['#7fb6dc', 'dark'] }); }
+}
 if (secs.includes('plants')) {
   const { PLANT_DEFS, plantFrames, plantAtlas } = await import('../src/gfx/art/plants.js'); const sc = Z || 4;
   // a little meadow scene: rows of sprites at 1x and zoomed, back to front, on a ground strip (calm frame)

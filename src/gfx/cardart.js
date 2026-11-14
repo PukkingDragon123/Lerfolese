@@ -1,5 +1,5 @@
 // Card faces: hand-built pixel art at 120x168 (frame, backdrops, illustrations; see ./cards/*), upscaled 4x
-// with nearest filtering. Text is set at the final resolution with the bundled pixel fonts for legibility.
+// with nearest filtering. Text is set with the pixel fonts at whole multiples of their native size (crisp blocks).
 import { BASICS, POWERS, KIND_LABEL } from '../game/data/cards.js';
 import { baseOf, describeAttack } from '../game/combos.js';
 import { roman, hashString } from '../core/util.js';
@@ -11,6 +11,7 @@ import { SUBJECTS } from './cards/subjects.js';
 import { MAGIC } from './cards/magic.js';
 import { POWER_SUBJECTS } from './cards/powers.js';
 import { moveArt, backArt } from './cards/overlays.js';
+import { FONT, measure, wrapText, drawPixelText } from '../ui3d/craft.js';
 
 export { CW, CH };
 export const CS = 4;
@@ -86,52 +87,45 @@ export function renderCardFace(card, move) {
 
   const out = toCanvas(s, CS);
   const g = out.getContext('2d');
-  const txt = (str, x, y, size, color, font = 'VT323', align = 'center', weight = 400, stroke = null, sw = 6) => {
-    g.font = `${weight} ${size}px "${font}"`; g.textAlign = align; g.textBaseline = 'middle';
-    if (stroke) { g.lineWidth = sw; g.strokeStyle = stroke; g.lineJoin = 'round'; g.strokeText(str, x, y); }
-    g.fillStyle = color; g.fillText(str, x, y);
-  };
-  const fit = (str, maxW, size, font, weight = 400) => { g.font = `${weight} ${size}px "${font}"`; while (g.measureText(str).width > maxW && size > 14) { size -= 2; g.font = `${weight} ${size}px "${font}"`; } return size; };
+  // all lettering is the pixel fonts at whole multiples of their native size (see craft.js FONT): Alagard titles,
+  // PixelSans rules text, NanoPlus numbers; drawn as solid k x k blocks so the face stays crisp at any zoom
+  const T = (str, x, y, f, color, o = {}) => drawPixelText(g, str, x, Math.round(y + (FONT[f].cap * (o.k || FONT[f].scale || 1)) / (FONT[f].scale || 1) / 2), f, { color, align: 'center', ...o });
   const title = (isMove ? card.name || move.name : isPower ? (def.short || def.name) : def.name) + (up ? '+' : '');
-  const tsize = fit(title, 300, 40, 'Alagard', 400);
-  txt(title, (CW / 2) * CS, 11.75 * CS, tsize, '#fff6cf', 'Alagard', 'center', 400, '#2a1008', 8);
+  const tf = measure(title, 'title') <= 300 ? 'title' : 'head'; const tk = tf === 'head' ? (measure(title, 'head') * 2 <= 300 ? 2 : 1) : 1;
+  T(title, (CW / 2) * CS, 11.75 * CS, tf, '#fff6cf', { outline: '#2a1008', shadow: '#12060a', k: tk });
   medal.slice(0, 2).forEach((m, i) => {
     const [x, y] = MED[i]; const v = (m[2] || '') + String(m[1]);
-    txt(v, (x + 0.5) * CS, (y + 0.25) * CS, v.length > 2 ? 24 : 32, '#fff6cf', 'Pixelify', 'center', 700, '#1a0c14', 7);
+    T(v, (x + 0.5) * CS, (y + 0.25) * CS, 'num', '#fff6cf', { k: v.length > 2 ? 2 : 3, outline: '#1a0c14', shadow: '#0a0408' });
   });
   const typeLabel = card.petrified ? 'PETRIFIED' : isPower ? 'POWER · LAW' : isMove ? `MOVE · ${move.n} CARDS` : `BASIC · ${KIND_LABEL[def.kind].toUpperCase()}`;
-  txt(typeLabel, (CW / 2) * CS, 90.75 * CS, fit(typeLabel, 52 * CS, 18, 'Silkscreen', 700), '#3a1c0c', 'Silkscreen', 'center', 700);
+  T(typeLabel, (CW / 2) * CS, 90.75 * CS, 'body', '#3a1c0c', { k: measure(typeLabel, 'body') * 2 <= 52 * CS ? 2 : 1 });
   let lines;
   if (isPower) lines = up ? def.upText : def.text;
   else if (isMove) {
     const a = move.attack; lines = [];
-    if (a.perHit > 0) lines.push(`${a.m}kg x ${a.v}m/s${a.focus > 1 ? ' x' + a.focus : ''} = ${a.perHit}${a.hits > 1 ? ' x' + a.hits : ''}`);
+    if (a.perHit > 0) lines.push(`${a.m}kg × ${a.v}m/s${a.focus > 1 ? ' ×' + a.focus : ''} = ${a.perHit}${a.hits > 1 ? ' ×' + a.hits : ''}`);
     const extra = describeAttack(a).slice(a.perHit > 0 ? 1 : 0).join(' · ');
-    if (extra) lines.push(...wrapCanvas(g, extra, 100 * CS, 34, 'VT323').slice(0, 2));
+    if (extra) lines.push(...wrapText(extra, 'body', Math.floor(100 * CS / 3)).slice(0, 2));
     const sf = move.self; const ss = []; if (sf.block) ss.push(`Block ${sf.block}`); if (sf.heal) ss.push(`Heal ${sf.heal}`); if (sf.draw) ss.push(`Draw ${sf.draw}`);
     if (ss.length && lines.length < 4) lines.push('SELF: ' + ss.join(', '));
     if (move.field.valid && lines.length < 4) lines.push('FIELD: ' + move.field.name);
   } else lines = up && def.upText ? def.upText : def.text;
-  lines = lines.slice(0, 4); const four = lines.length > 3; // four lines (with the AIR / HELD rule) sit a little tighter
-  const lh = (four ? 11.5 : 12.5) * CS; const y0 = (124.75 - ((lines.length - 1) * lh / CS) / 2) * CS;
+  // rules text: PixelSans x3 when every line fits the 100px box (else x2 for the whole card, never mixed), long lines
+  // re-wrapped without orphans; "AIR:"-style rule keywords in carmine
+  const BOX = 100 * CS; let k = 3; const fitK = (kk) => lines.every((l) => measure(l, 'body') * kk <= BOX);
+  if (!fitK(3)) { const re = lines.flatMap((l) => (measure(l, 'body') * 3 <= BOX ? [l] : wrapText(l, 'body', Math.floor(BOX / 3)))); if (re.length <= 4) lines = re; else k = 2; }
+  if (k === 2 && !fitK(2)) lines = lines.flatMap((l) => (measure(l, 'body') * 2 <= BOX ? [l] : wrapText(l, 'body', Math.floor(BOX / 2))));
+  lines = lines.slice(0, k === 3 ? 4 : 5); const n = lines.length;
+  const lh = (k === 3 ? (n > 3 ? 10.5 : 12) : (n > 4 ? 8 : 9.5)) * CS; const y0 = 124.75 * CS - ((n - 1) * lh) / 2;
   lines.forEach((l, i) => {
-    const size = fit(l, 100 * CS, four ? 33 : 36, 'VT323');
-    const m = l.match(/^([A-Z]+:)(.*)$/);
-    if (m) {
-      g.font = `400 ${size}px "VT323"`; const w1 = g.measureText(m[1]).width, w2 = g.measureText(m[2]).width; const x0 = (CW / 2) * CS - (w1 + w2) / 2;
-      txt(m[1], x0, y0 + i * lh, size, '#8c1a30', 'VT323', 'left'); txt(m[2], x0 + w1, y0 + i * lh, size, '#2a140c', 'VT323', 'left');
-    } else txt(l, (CW / 2) * CS, y0 + i * lh, size, '#2a140c', 'VT323');
+    const y = y0 + i * lh; const m = l.match(/^([A-Z]+:)(.*)$/);
+    if (m) { const w1 = measure(m[1], 'body') * k, w2 = measure(m[2], 'body') * k; const x0 = (CW / 2) * CS - (w1 + w2) / 2; T(m[1], x0 + w1 / 2, y, 'body', '#8c1a30', { k }); T(m[2], x0 + w1 + w2 / 2, y, 'body', '#2a140c', { k }); }
+    else T(l, (CW / 2) * CS, y, 'body', '#2a140c', { k });
   });
   const num = isMove ? (move.special ? '★' : '◆') : def.mutantOf ? roman(BASICS[def.mutantOf].num) + '*' : roman(def.num || 0);
-  txt(num, (CW / 2) * CS, 158.75 * CS, 26, '#3a1c0c', 'Pixelify', 'center', 700);
+  if (/^[★◆]$/.test(num)) T(num, (CW / 2) * CS, 158.75 * CS, 'body', '#3a1c0c', { k: 2 }); else T(num, (CW / 2) * CS, 158.75 * CS, 'num', '#3a1c0c', { k: 2 });
   faceCache.set(key, out);
   return out;
-}
-
-function wrapCanvas(g, str, maxW, size, font) {
-  g.font = `400 ${size}px "${font}"`; const words = str.split(' '); const lines = []; let cur = '';
-  for (const w of words) { const t = cur ? cur + ' ' + w : w; if (g.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; }
-  if (cur) lines.push(cur); return lines;
 }
 
 let backCanvas = null;
@@ -145,9 +139,8 @@ export function renderCardBack() {
   s.grid(['..a..', '.aba.', 'abbba', '.aba.', '..a..'], { a: TRIM.brass[2], b: TRIM.brass[6] }, CW / 2 - 3, 156);
   windowCorners(s, TRIM.brass);
   const out = toCanvas(s, CS); const g = out.getContext('2d');
-  g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = '32px "Alagard"'; g.lineWidth = 8; g.lineJoin = 'round'; g.strokeStyle = '#2a1008'; g.strokeText('APPLE OF DISCORD', CW / 2 * CS, 11.75 * CS); g.fillStyle = '#fff6cf'; g.fillText('APPLE OF DISCORD', CW / 2 * CS, 11.75 * CS);
-  g.font = '400 34px "VT323"'; g.fillStyle = '#d8c6ff'; ['Every action has an', 'equal and opposite', 'god.'].forEach((l, i) => g.fillText(l, CW / 2 * CS, (112 + i * 12.5) * CS));
+  drawPixelText(g, 'APPLE OF DISCORD', CW / 2 * CS, 11.75 * CS + 11, 'title', { color: '#fff6cf', outline: '#2a1008', shadow: '#12060a', align: 'center' });
+  ['Every action has an', 'equal and opposite', 'god.'].forEach((l, i) => drawPixelText(g, l, CW / 2 * CS, (112 + i * 12) * CS + 11, 'body', { color: '#d8c6ff', shadow: '#1a1030', align: 'center', k: 3 }));
   backCanvas = out; return out;
 }
 

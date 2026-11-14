@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>html,body{margin:0;background:#1d1826;color:#f2e6c8;font:12px monospace}canvas{display:block}</style></head><body>
+<script type="module">
+// Newton animation contact sheet: each act stepped through time on a fresh rig, one cell per sampled moment.
+// Query: ?acts=throw,cast  &cols=8  &w=200&h=260
+import * as THREE from 'three';
+import { createProfessor } from '../src/models/professor.js';
+const Q = new URLSearchParams(location.search); const W = +(Q.get('w') || 200), H = +(Q.get('h') || 260), COLS = +(Q.get('cols') || 8);
+const PLAN = [ // [label, setup(prof), times (s after the act starts)]
+  ['float', (p) => p.setIdleMode('battle'), [0, 1.2]], ['think', (p) => p.act('think'), [0.8, 1.6]], ['ponder', (p) => p.setIdleMode('ponder'), [1.5]], ['chill', (p) => p.setIdleMode('chill'), [1.5]],
+  ['invent', (p) => p.setIdleMode('invent'), [1.5]], ['write', (p) => p.setIdleMode('write'), [1.5]],
+  ['throw', (p) => p.act('throw'), [0.12, 0.26, 0.36, 0.45, 0.6, 0.9]], ['cast', (p) => p.act('cast'), [0.2, 0.5, 0.9, 1.3]], ['eat', (p) => p.act('eat'), [0.3, 0.6, 1.2]],
+  ['hurt', (p) => p.act('hurt'), [0.1, 0.3, 0.7]], ['dodge', (p) => p.act('dodge', { dir: 1 }), [0.08, 0.2, 0.45, 0.8]], ['die', (p) => p.act('die'), [0.4, 1.4]],
+  ['sleep', (p) => p.act('sleep'), [1]], ['bonk', (p) => { p.act('sleep'); p.act('bonk'); }, [0.3, 0.8, 1.5, 2.2]],
+].filter(([k]) => !Q.get('acts') || Q.get('acts').split(',').includes(k));
+const cells = PLAN.reduce((n, [, , ts]) => n + ts.length, 0); const ROWS = Math.ceil(cells / COLS);
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setPixelRatio(1); r.setSize(W * COLS, H * ROWS); r.outputColorSpace = THREE.SRGBColorSpace; r.toneMapping = THREE.ACESFilmicToneMapping; r.setScissorTest(true); r.autoClear = false;
+document.body.appendChild(r.domElement); r.setClearColor(0x2a2236, 1); r.clear();
+const scene = new THREE.Scene(); const sun = new THREE.DirectionalLight(0xffe2b8, 3); sun.position.set(-4, 6, 5); scene.add(sun, new THREE.HemisphereLight(0x9ab8ff, 0x4a3020, 1.2)); const rim = new THREE.DirectionalLight(0x8fe3ff, 1.4); rim.position.set(3, 3, -4); scene.add(rim);
+const ground = new THREE.Mesh(new THREE.RingGeometry(0, 1.2, 6).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x3e5a2c })); scene.add(ground);
+const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 50); cam.position.set(1.2, 1.5, 5.6); cam.lookAt(0, 1.25, 0);
+const label = (txt, x, y) => { const d = document.createElement('div'); d.textContent = txt; Object.assign(d.style, { position: 'absolute', left: x + 4 + 'px', top: y + 2 + 'px' }); document.body.appendChild(d); };
+let cell = 0;
+for (const [name, setup, times] of PLAN) {
+  const p = createProfessor(); p.root.rotation.y = 0.35; scene.add(p.root); for (let i = 0; i < 90; i++) p.update(1 / 60); setup(p); let t = 0;
+  for (const ts of times) { while (t < ts - 1e-6) { p.update(1 / 60); t += 1 / 60; } const cx = (cell % COLS) * W, cy = Math.floor(cell / COLS) * H; r.setViewport(cx, (ROWS - 1 - Math.floor(cell / COLS)) * H, W, H); r.setScissor(cx, (ROWS - 1 - Math.floor(cell / COLS)) * H, W, H); r.render(scene, cam); label(`${name} ${ts.toFixed(2)}s`, cx, cy); cell++; }
+  scene.remove(p.root);
+}
+window.__done = true;
+</script></body></html>

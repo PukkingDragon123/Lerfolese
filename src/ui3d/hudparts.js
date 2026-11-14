@@ -267,7 +267,7 @@ function chipFor(ch, kind) {
   const key = ch + kind; if (chipTex.has(key)) return chipTex.get(key);
   const S = new Surf(12, 14); wood(S, 0, 0, 12, 14, RAMP.ivory, { seed: ch.charCodeAt(0), base: 4, knots: 0, quiet: true }); S.bevel(null, { lit: 1, dark: -2 });
   const col = { dmg: '#9e1a14', heal: '#2e6a1a', hurt: '#7a0c18', crit: '#9e1a14', gold: '#8a5a08' }[kind] || '#2a1a14';
-  const m = measure(ch, 'num'); inscribe(S, ch, round(6 - m / 2), 11, 'num', 'ink', { color: col });
+  const m = measure(ch, 'num'); inscribe(S, ch, round(6 - m / 2), 11, 'num', 'paint', { color: col });
   const t = pxTex(S.toCanvas()); chipTex.set(key, t); return t;
 }
 const chipGeo = () => slab(12 / PX, 14 / PX, 0.24, { cut: 0.1, bevel: 0.06 });

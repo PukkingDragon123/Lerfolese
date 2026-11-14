@@ -7,6 +7,7 @@ import { textPlane, Pouch, canvasTexture, UIF } from '../ui3d/kit.js';
 import { itemIcon } from '../models/items3d.js';
 import { safeDrawn, pixelTex } from '../ui3d/standee.js';
 import { ITEMS } from '../game/data/items.js';
+import { artifactIcon } from '../gfx/art/artifacts.js';
 import { BASICS, POWERS } from '../game/data/cards.js';
 import { tweens, Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
@@ -17,7 +18,7 @@ export class ItemToken {
     this.id = id; const g = (this.group = new THREE.Group());
     const disc = new THREE.Mesh(S.facet(new THREE.CylinderGeometry(size * 0.5, size * 0.52, 0.22, 12)), UIF({ color: 0xd9a64a, metalness: 0.85, roughness: 0.3 })); disc.rotation.x = Math.PI / 2; disc.castShadow = true; g.add(disc);
     const inner = new THREE.Mesh(new THREE.CircleGeometry(size * 0.43, 12), UIF({ color: 0x22183f, roughness: 0.6 })); inner.position.z = 0.12; g.add(inner);
-    const art = safeDrawn('item_' + id); const tex = art ? pixelTex(art) : canvasTexture(itemIcon(id)); tex.magFilter = THREE.NearestFilter;
+    const art = artifactIcon(id) || safeDrawn('item_' + id); const tex = art ? pixelTex(art) : canvasTexture(itemIcon(id)); tex.magFilter = THREE.NearestFilter;
     const icon = new THREE.Mesh(new THREE.PlaneGeometry(size * 0.9, size * 0.9), new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false })); icon.position.z = 0.2; g.add(icon);
     this.hit = disc; disc.userData.item = this; this.s = new Spring(1, 16, 0.4); this.spin = 0; this.hover = false;
   }

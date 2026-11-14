@@ -15,13 +15,15 @@ import { Signboard } from '../ui3d/objects.js';
 import { Particles } from '../gfx/particles.js';
 import { makeNoise } from '../gfx/pixel.js';
 import { mulberry32 } from '../core/util.js';
+import { plantField } from '../gfx/plants.js';
+import { groundTex, soilTex } from '../gfx/pixeltex.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 export const MOON = V(36, 34, -110);
-export const SPOTS = { tree: V(0, 0, 0), sleep: V(1.95, 0, 0.9), float: V(0.45, 0, 1.95), ripe: V(0.28, 2.05, 0.9), crate: V(2.4, 0, 3.7), lantern: V(4.25, 0, 2.7), journal: V(-2.5, 0, 3.7), telescope: V(-4.35, 0, 1.7), scroll: V(-1.05, 0, 4.3), title: V(-0.15, 3.7, 4.3), prompt: V(2.35, 1.65, 2.3) };
+export const SPOTS = { tree: V(0, 0, 0), sleep: V(1.95, 0, 0.9), float: V(0.45, 0, 1.95), ripe: V(0.28, 2.05, 0.9), signNew: V(-1.95, 0, 4.4), signRes: V(2.35, 0, 4.3), journal: V(4.35, 0, 2.6), settings: V(5.35, 0, 0.6), telescope: V(-4.35, 0, 1.7), credits: V(-3.55, 0, 4.7), title: V(-0.15, 3.7, 4.3), prompt: V(2.35, 1.65, 2.3) };
 
 // ---------------------------------------------------------------- an apple: turned body with striations and blush, stem, leaf
 let APPLE = null;
@@ -203,8 +205,8 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
   for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) { const x = warp((i / (S - 1)) * 2 - 1), z = warp((j / (S - 1)) * 2 - 1) - 4; const k = j * S + i; pos.set([x, hAt(x, z), z], k * 3); uv.set([x / 6, z / 6], k * 2); }
   for (let j = 0; j < S - 1; j++) for (let i = 0; i < S - 1; i++) { const a = j * S + i; idx.push(a, a + S, a + 1, a + 1, a + S, a + S + 1); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(idx); geo.computeVertexNormals();
-  const gtex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#3e6a32'; x.fillRect(0, 0, 128, 128); const r = mulberry32(3); for (let i = 0; i < 90; i++) { x.fillStyle = ['#355e2c', '#4a7a38', '#41703a', '#2e5428'][i % 4]; x.beginPath(); x.ellipse(r() * 128, r() * 128, 6 + r() * 14, 4 + r() * 9, r() * 3, 0, 7); x.fill(); } for (let i = 0; i < 60; i++) { x.fillStyle = r() < 0.5 ? '#e8e4d0' : '#e8c84a'; x.fillRect(r() * 128, r() * 128, 2, 2); } const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; })();
-  const ground = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ map: gtex, vertexColors: true, gradientMap: T.gradientMap([0.55, 0.8, 1.0]) })); ground.receiveShadow = true; g.add(ground);
+  const gtex = (() => { const t = groundTex('lush').clone(); t.repeat.set(2.5, 2.5); t.needsUpdate = true; return t; })(); // pixel-art grass-earth (src/gfx/art/tiles.js)
+  const ground = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ map: gtex, vertexColors: true, gradientMap: T.gradientMap([0.55, 0.8, 1.0]) })); ground.receiveShadow = true; ground.name = 'ground'; g.add(ground);
   const ao = []; const solid = [];
   // the hero tree, its hanging apples, the ripening apple and its twig
   const hero = F.tree('apple', { v: 1, s: 1.22 }); g.add(hero); ao.push([0, 0, 3.4]);
@@ -226,7 +228,7 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
   // the stream: reeds, lilies, a plank bridge; a fence along the lane; a ladder against the tree; crates and a basket
   const reedSpots = [], padSpots = []; const rr = mulberry32(9); for (let i = 0; i < 70; i++) { const a = rr() * Math.PI * 2, d = 0.86 + rr() * 0.2; const p = brook.userData.edgePoint(a, d); for (let k = 0; k < 3; k++) reedSpots.push([p.x + (rr() - 0.5) * 0.4, Math.max(level - 0.08, hAt(p.x, p.z)) - 0.04, p.z + (rr() - 0.5) * 0.4, 0.8 + rr() * 0.7]); }
   for (let i = 0; i < 16; i++) { const p = brook.userData.edgePoint(rr() * Math.PI * 2, 0.3 + rr() * 0.45); padSpots.push([p.x, level + 0.012, p.z, 0.22 + rr() * 0.15]); }
-  g.add(F.reeds(reedSpots), F.lilyPads(padSpots));
+  g.add(F.lilyPads(padSpots)); const plantItems = reedSpots.map(([x, y, z, h], i) => ({ kind: i % 4 === 0 ? 'cattail' : 'reeds', x, y, z, s: 0.7 + h * 0.25, flex: 1.1 }));
   { const bp = brook.userData.edgePoint(Math.PI / 2, 0); const br = plankBridge(3.4, 1.2, 4, { posts: 0.7 }); br.position.set(bp.x - 1.4, level + 0.42, bp.z + 2.6); br.rotation.y = 0.32 - 0.05; g.add(br); }
   g.add(fence([[-12, 6.5], [-9.5, 5.6], [-7, 5.2], [-4.6, 5.6]], hAt, 31));
   { const K = new Kit(); const lad = new THREE.Group(); for (const s of [-1, 1]) K.box('woodRaw', 0.07, 3.1, 0.07, V(s * 0.24, 1.55, 0), null, 0.02); for (let i = 0; i < 8; i++) K.box('woodRaw', 0.5, 0.05, 0.05, V(0, 0.3 + i * 0.36, 0), null, 0.015); K.build(lad); lad.position.set(-0.95, hAt(-0.95, -0.55), -0.55); lad.rotation.set(-0.3, 0.9, 0); g.add(lad); }
@@ -238,14 +240,18 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
     for (let i = 0; i < segs; i++) for (let j = 0; j < 4; j++) { const a = i * 5 + j; I.push(a, a + 5, a + 1, a + 1, a + 5, a + 6); }
     const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); lg.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); lg.setIndex(I); lg.computeVertexNormals();
     const lm = new THREE.MeshToonMaterial({ color: '#8a6e50', gradientMap: T.gradientMap([0.55, 0.8, 1.0]), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
-    lm.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n float lx = abs(vMapUv.x); diffuseColor.a *= smoothstep(1.0, 0.6, lx + sin(vMapUv.y * 3.1) * 0.08); diffuseColor.rgb *= 0.9 + 0.12 * step(0.5, fract(sin(floor(vMapUv.y * 6.0) * 7.1 + floor(vMapUv.x * 4.0) * 3.3) * 43.7));'); };
-    lm.map = gtex; lm.userData.noInk = true; const lane = new THREE.Mesh(lg, lm); lane.receiveShadow = true; lane.renderOrder = 1; lane.userData.noInk = true; g.add(lane); g.userData.laneD = (x, z) => { let d = 1e9; for (let i = 0; i <= 40; i++) { const p = cv.getPointAt(i / 40); d = Math.min(d, Math.hypot(p.x - x, p.z - z)); } return d; }; }
+    lm.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n float lx = abs(vMapUv.x); float ldq = fract(sin(dot(floor(vMapUv * 64.0), vec2(12.9898, 78.233))) * 43758.5453); diffuseColor.a *= step(ldq * 0.9 + 0.05, smoothstep(1.0, 0.6, lx + sin(vMapUv.y * 3.1) * 0.08)); diffuseColor.rgb *= 0.9 + 0.12 * step(0.5, fract(sin(floor(vMapUv.y * 6.0) * 7.1 + floor(vMapUv.x * 4.0) * 3.3) * 43.7));'); };
+    lm.map = soilTex(); lm.color.set('#d8c8b0'); lm.userData.noInk = true; const lane = new THREE.Mesh(lg, lm); lane.receiveShadow = true; lane.renderOrder = 1; lane.userData.noInk = true; g.add(lane); g.userData.laneD = (x, z) => { let d = 1e9; for (let i = 0; i <= 40; i++) { const p = cv.getPointAt(i / 40); d = Math.min(d, Math.hypot(p.x - x, p.z - z)); } return d; }; }
   // cel grass and wildflowers everywhere but the lane, the water, the study and the crates
   { const sp = []; const r3 = mulberry32(77); const laneD = g.userData.laneD; const fl = { daisy: [], clover: [], poppy: [], lavender: [], cornflower: [] };
     for (let gz = -14; gz < 9; gz += 0.36) for (let gx = -15; gx < 15; gx += 0.36) { const x = gx + (r3() - 0.5) * 0.36, z = gz + (r3() - 0.5) * 0.36; if (z < -9 && r3() < 0.5) continue; if (brook.userData.edgeD(x, z) < 1.0 || laneD(x, z) < 0.75 || Math.hypot(x, z) < 0.45) continue; const sl = Math.abs(z - SPOTS.sleep.z) < 0.55 && x > 0 && x < 2.3 ? 0.45 : 1; if (solid.some(([ax, az, ar]) => Math.hypot(x - ax, z - az) < ar * 0.8)) continue; const pn = n.fbm(x * 0.2, z * 0.2, 3); if (r3() > 0.35 + pn) continue;
       sp.push([x, hAt(x, z) - 0.02, z, (0.32 + r3() * 0.32) * (0.8 + pn * 0.5) * (z > 5 ? 0.75 : 1) * sl, r3() * 0.2, 1]);
       const f = n.fbm(x * 0.3 + 40, z * 0.3, 2); if (f > 0.62 && r3() < 0.22) { const k = ['daisy', 'daisy', 'clover', 'poppy', 'cornflower', 'lavender', 'buttercup'][Math.floor(r3() * 7)]; (fl[k] ||= []).push([x, hAt(x, z) - 0.02, z, k === 'lavender' ? 0.5 + r3() * 0.2 : k === 'clover' ? 0.22 : 0.3 + r3() * 0.15]); } }
-    g.add(F.celGrass(sp, { pal: ['#173222', '#2c5e34', '#5e9a4c', '#c8e8b0'], sheenK: 0.3, seed: 7, sun: MOON.clone().normalize(), transK: 0.3 })); for (const [k, list] of Object.entries(fl)) if (list.length) g.add(F.celFlowers(k, list)); }
+    // pixel-art tufts and flowers (moonlit tint), parted by Newton and the pointer
+    const FS = { daisy: 'daisy', clover: 'clover', poppy: 'poppy', lavender: 'lavender', cornflower: 'cornflower', buttercup: 'buttercup' };
+    for (const [x, y, z, h] of sp) { const k = r3(); plantItems.push({ kind: h > 0.5 ? (k < 0.5 ? 'tall' : k < 0.8 ? 'wide' : 'wispy') : h > 0.36 ? (k < 0.6 ? 'wide' : 'short') : k < 0.8 ? 'short' : 'clover', x, y, z, s: 0.75 + h * 0.4, v: r3() }); }
+    for (const [k, list] of Object.entries(fl)) for (const [x, y, z] of list) plantItems.push({ kind: FS[k] || 'daisy', x, y, z, s: 0.9, v: r3() });
+    g.add(plantField(plantItems, { wind: T.WIND, tick: T.tickWind, push: { value: F.GRASS_PUSH }, onScene: F.updatePushers, cam: V(0.6, 2.4, 10.8), tint: '#8e9ccc', texel: 0.022 })); }
   // vertex AO on the ground
   { const pp = geo.attributes.position; const cc = new Float32Array(pp.count * 3); for (let i = 0; i < pp.count; i++) { const x = pp.getX(i), z = pp.getZ(i); let k = 1; for (const [ax, az, r] of ao) { const d = Math.hypot(x - ax, z - az); if (d < r) k -= (1 - d / r) * 0.35; } k = Math.max(0.5, k); cc.set([k, k, k * 1.02], i * 3); } geo.setAttribute('color', new THREE.BufferAttribute(cc, 3)); }
   // sky, ridges, moonlit clouds, the moon, stars
@@ -264,12 +270,13 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
   const objs = {};
   if (menu) {
     const face = (o, at) => { o.position.y = hAt(o.position.x, o.position.z); o.rotation.y = Math.atan2(0.6 - o.position.x, 10.8 - o.position.z) + at; };
-    objs.crate = crate({ label: 'New Loop', apples: 24, seed: 8 }); objs.crate.position.copy(SPOTS.crate); face(objs.crate, 0);
-    objs.lantern = lanternPost('Continue'); objs.lantern.position.copy(SPOTS.lantern); face(objs.lantern, -0.1);
+    objs.newRun = signBoard('New Run', { w: 1.9, seed: 3 }); objs.newRun.position.copy(SPOTS.signNew); face(objs.newRun, 0);
+    objs.resume = signBoard('Resume', { w: 1.6, seed: 5 }); objs.resume.position.copy(SPOTS.signRes); face(objs.resume, 0);
     objs.journal = stumpWithJournal('Journal'); objs.journal.position.copy(SPOTS.journal); face(objs.journal, 0);
-    objs.telescope = telescope('Settings', MOON.clone().sub(SPOTS.telescope).normalize()); objs.telescope.position.copy(SPOTS.telescope); face(objs.telescope, 0);
+    objs.settings = lanternPost('Settings'); objs.settings.position.copy(SPOTS.settings); face(objs.settings, -0.1);
+    objs.telescope = telescope('Star Gallery', MOON.clone().sub(SPOTS.telescope).normalize()); objs.telescope.position.copy(SPOTS.telescope); face(objs.telescope, 0);
     { const K = new Kit(); const deck = new THREE.Group(); for (let i = 0; i < 8; i++) K.box('woodRaw', 0.24, 0.07, 1.6, V(-0.84 + i * 0.24, 0.05, 0), new THREE.Euler(0, 0, (i % 3 - 1) * 0.01), 0.015); K.build(deck); deck.position.set(SPOTS.telescope.x, hAt(SPOTS.telescope.x, SPOTS.telescope.z), SPOTS.telescope.z); g.add(deck); }
-    objs.scroll = scrollOnStool('Credits'); objs.scroll.position.copy(SPOTS.scroll); face(objs.scroll, 0);
+    objs.credits = scrollOnStool('Credits'); objs.credits.position.copy(SPOTS.credits); face(objs.credits, 0);
     for (const o of Object.values(objs)) g.add(o);
   }
   // the title sign hanging from the tree, and the loading prompt hanging from a branch
@@ -284,10 +291,10 @@ export function buildOrchard({ renderer = null, menu = true } = {}) {
   let petalT = 0; const update = (dt, t) => {
     petalT -= dt; if (petalT < 0) { petalT = 0.18; const a = rnd() * 6.28, d = 0.6 + rnd() * 2.4; leaves.spawn({ pos: [Math.cos(a) * d, 2.6 + rnd() * 2.2, Math.sin(a) * d * 0.8], vel: [T.WIND.dir.value.x * 0.5, -0.25, T.WIND.dir.value.y * 0.5], grav: 0.12, drag: 0.6, wobble: 1.6, spin: 3, life: 7, size: rnd() < 0.6 ? 9 : 12, color: rnd() < 0.6 ? '#f4dde6' : '#7a9a44', sprite: rnd() < 0.6 ? 'petal' : 'leaf', floor: 0.05, bounce: 0 }); }
     leaves.update(dt, t); title.update(dt, null, t); prompt.update(dt, null, t);
-    if (objs.lantern) objs.lantern.userData.swing.rotation.z = Math.sin(t * 1.3) * 0.06;
+    if (objs.settings) objs.settings.userData.swing.rotation.z = Math.sin(t * 1.3) * 0.06;
   };
   const burst = (p) => { for (let i = 0; i < 26; i++) leaves.spawn({ pos: [p.x + (rnd() - 0.5) * 0.6, p.y + rnd() * 0.5, p.z + (rnd() - 0.5) * 0.6], vel: [(rnd() - 0.5) * 1.6, rnd() * 1.2, (rnd() - 0.5) * 1.6], grav: 0.5, drag: 0.8, wobble: 2, spin: 6, life: 3.5, size: 10, color: rnd() < 0.5 ? '#f4dde6' : '#6a9a3e', sprite: rnd() < 0.5 ? 'petal' : 'leaf', floor: 0.05, bounce: 0 }); };
-  return { group: g, hAt, ripe, twig, title, prompt, objs, fog, setNight, update, burst, perches: grove.perches(4) };
+  return { group: g, hAt, ripe, twig, title, prompt, objs, fog, setNight, update, burst, ground, perches: grove.perches(10) };
 }
 
 // ---------------------------------------------------------------- the loading time-lapse: an apple ripens, bruises, rots and
@@ -312,10 +319,10 @@ export function appleTimelapse() {
     sh.fragmentShader = 'uniform float uRipe, uBruise, uRot, uMold, uHoleK; uniform vec3 uGreen, uRed; uniform vec3 uHole[3]; varying vec3 vAP;\n' + NOISE_GLSL + sh.fragmentShader.replace('#include <color_fragment>', `
         vec3 c = mix(uGreen, uRed, uRipe); c = mix(c, c * vec3(1.15, 1.05, 0.7), smoothstep(0.3, 0.0, vAP.x) * 0.35 * uRipe);
         float sp = aoN3(vAP * 4.5 + 3.0) * 0.65 + aoN3(vAP * 11.0) * 0.35;
-        c = mix(c, vec3(0.46, 0.22, 0.1), smoothstep(1.0 - uBruise * 0.7, 1.04 - uBruise * 0.7, sp) * 0.9);
-        float rt = sp * 0.6 + aoN3(vAP * 6.0 + 7.0) * 0.4; c = mix(c, vec3(0.24, 0.14, 0.08), smoothstep(1.0 - uRot * 1.1, 1.05 - uRot * 1.1, rt));
-        c = mix(c, vec3(0.13, 0.08, 0.05), smoothstep(1.0 - uRot * 0.8, 1.04 - uRot * 0.8, aoN3(vAP * 3.0 + 1.0)) * 0.8);
-        c = mix(c, vec3(0.8, 0.84, 0.72), step(0.74, aoN3(vAP * 46.0)) * step(0.45, aoN3(vAP * 5.0 + 11.0)) * uMold);
+        c = mix(c, vec3(0.13, 0.04, 0.015), smoothstep(1.0 - uBruise * 0.7, 1.04 - uBruise * 0.7, sp) * 0.9);
+        float rt = sp * 0.6 + aoN3(vAP * 6.0 + 7.0) * 0.4; c = mix(c, vec3(0.06, 0.03, 0.012), smoothstep(1.0 - uRot * 1.1, 1.05 - uRot * 1.1, rt));
+        c = mix(c, vec3(0.025, 0.014, 0.008), smoothstep(1.0 - uRot * 0.8, 1.04 - uRot * 0.8, aoN3(vAP * 3.0 + 1.0)) * 0.8);
+        c = mix(c, vec3(0.5, 0.56, 0.42), step(0.74, aoN3(vAP * 46.0)) * step(0.45, aoN3(vAP * 5.0 + 11.0)) * uMold);
         for (int i = 0; i < 3; i++) c = mix(c, vec3(0.06, 0.03, 0.02), (1.0 - smoothstep(0.035, 0.055, distance(vAP, uHole[i]))) * uHoleK);
         diffuseColor.rgb = c * vColor;`);
   };
@@ -335,7 +342,7 @@ export function appleTimelapse() {
         float L = 0.34; float s = (uv.x - (uE - L)) / L; float inW = step(0.0, s) * step(s, 1.0); float r = inW * pow(max(0.0, sin(3.14159 * clamp(s, 0.0, 1.0))), 0.45) * (0.75 + 0.25 * s);
         vec3 ctr = position - normal * 0.03; vec3 transformed = ctr + normal * 0.03 * r + vec3(sin(uv.x * 34.0 - uTime * 7.0 + uPh), sin(uv.x * 21.0 - uTime * 5.0 + uPh) * 0.4, cos(uv.x * 28.0 - uTime * 6.0 + uPh)) * 0.012 * inW * s; vWs = s; transformed.y = mix(transformed.y, transformed.y * 0.58 + 0.03, uCollapse); transformed.xz *= 1.0 + 0.17 * uCollapse * smoothstep(0.85, 0.05, position.y);`);
       sh.fragmentShader = 'varying float vWs;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = mix(vec3(0.86, 0.52, 0.48), vec3(0.62, 0.32, 0.3), step(0.5, fract(vWs * 9.0))) * mix(1.0, 0.75, smoothstep(0.85, 1.0, vWs)); if (vWs < 0.0 || vWs > 1.0) discard;'); };
-    wm.customProgramCacheKey = () => 'worm'; const w = new THREE.Mesh(wg, wm); w.castShadow = true; w.frustumCulled = false; apple.add(w); worms.push(WU);
+    wm.customProgramCacheKey = () => 'worm'; const w = new THREE.Mesh(wg, wm); w.castShadow = true; w.frustumCulled = false; w.userData.noInk = true; w.userData.noAO = true; apple.add(w); worms.push(WU);
   });
   // the seed (glossy, with a hard specular streak) and its sprout
   const seedM = new THREE.MeshToonMaterial({ color: '#5a2c14', gradientMap: T.gradientMap([0.35, 0.7, 1.0]) });
@@ -354,7 +361,7 @@ export function appleTimelapse() {
       worms.forEach((w, i) => { w.uE.value = stage(0.6 + i * 0.03, 0.9, age); });
       leafM.color.set('#4e8a2c').lerp(C('#6a4a22'), stage(0.2, 0.55, age)); leaf.rotation.x = -1.0 - stage(0.25, 0.6, age) * 1.1; stem.rotation.z = -stage(0.4, 0.7, age) * 0.4;
       const shrink = 1 - stage(0.86, 0.97, age); apple.scale.setScalar(Math.max(0.001, shrink)); apple.visible = shrink > 0.01;
-      seed.scale.setScalar(Math.max(0.001, stage(0.88, 0.98, age) * 0.32));
+      seed.scale.setScalar(Math.max(0.001, stage(0.88, 0.98, age) * 0.46));
     },
     sprout(k) { sprout.scale.setScalar(Math.max(0.001, smooth(0, 0.6, k))); sprout.children.forEach((c) => { if (c.userData.s) c.rotation.z = 0.35 + (1 - smooth(0.3, 1, k)) * 1.2; }); },
   };

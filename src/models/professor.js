@@ -6,6 +6,10 @@
 // he launches it (and it can split into several for multi-hits), it returns; he can bite it to heal.
 // API (unchanged for the scenes): root, head, jaw, ctrl, arms, legs, torso, body, ghost, handWorld, headWorld,
 // setExpr, talk, lookAt, act, update, impactTime; plus appleWorld(out). ctrl/ghost = the apple-orbit group.
+// Motion layer: every joint is driven through a critically damped spring (overlapping action, no snapping between
+// acts), spring-driven hair, coat tails and lace jabot, breathing, weight shifts, eyes-lead-head look-at with
+// saccades and glances at the apple, analytic two-bone hand IK (chin, mouth, apple, casting palm), a hover bob that
+// tilts into motion, and act('dodge'). attach(slot, obj) / detach(slot, obj) / boneWorld(name, out) for artifacts.
 import * as THREE from 'three';
 import { Spring } from '../core/tween.js';
 import * as K from './charkit.js';
@@ -135,13 +139,49 @@ function bangMark() { // the "!" take: a tapered bar over a dot, white with ink 
   return g;
 }
 
+// the lace jabot under his chin: three ruffled tiers (pixel lace texture) on a spring pivot so it swings and lifts
+function laceJabot(L, sc) {
+  const m = K.uvMat('hero-jabot', 32, 32, (u, v, o) => { const px = Math.floor(u * 32), py = Math.floor(v * 32); const hole = (px + (py % 4 < 2 ? 0 : 2)) % 4 === 0 && py % 4 === 1; const edge = v > 0.82 && (px % 3 === 0);
+    K.tone(hole ? [176, 172, 196] : edge ? [255, 255, 250] : [238, 234, 228], hole ? 0.4 : u < 0.5 ? 0.62 : 0.52, o.col); }, { side: THREE.DoubleSide });
+  const piv = new THREE.Group(); const k = 1 / sc;
+  for (let tier = 0; tier < 3; tier++) { const W = (0.05 + tier * 0.012) * k, Hh = 0.03 * k, pos = [], uv = [], idx = []; const NU = 12, NV = 3;
+    for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) { const u = i / NU, v = j / NV; pos.push((u - 0.5) * W * (1 + v * 0.5), -v * Hh - tier * 0.017 * k, (Math.sin(u * Math.PI * 6) * 0.004 * v + Math.sin(u * Math.PI) * 0.008 + v * 0.006) * k); uv.push(u, v); }
+    for (let j = 0; j < NV; j++) for (let i = 0; i < NU; i++) { const a = j * (NU + 1) + i, b = a + NU + 1; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); K.mesh(g, m, piv); }
+  const nr = L.restOf('neck'); const gp = L.mesh.geometry.attributes.position; let fz = nr.z + 0.04 * k; for (let i = 0; i < gp.count; i++) { const y = gp.getY(i); if (y > nr.y - 0.1 * k && y < nr.y - 0.02 * k && Math.abs(gp.getX(i)) < 0.025 * k) fz = Math.max(fz, gp.getZ(i)); }
+  piv.position.set(0, nr.y - 0.03 * k, fz + 0.003 * k); L.attach(piv, 'neck'); return piv;
+}
+const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const JOINTS = { hips: 14, spine: 13, chest: 14, neck: 12, head: 11, uarmL: 20, farmL: 17, handL: 13, uarmR: 20, farmR: 17, handR: 13, thighL: 9, shinL: 8, footL: 7, thighR: 9, shinR: 8, footR: 7 };
+// acts with their own choreography (anticipation -> action -> follow-through -> settle)
+const ACT = {
+  throw(a, m) { // reach the apple up behind the head, coil, whip through (release at IMPACT), follow through, settle
+    const up = ss(0, 0.22, m), coil = ss(0.12, 0.32, m) * (1 - ss(0.32, 0.4, m)), whip = ss(0.32, 0.44, m) * (1 - ss(0.6, 1.15, m)), hold = up * (1 - ss(0.33, 0.42, m));
+    a('uarmR', -2.3 * hold + 0.45 * coil - 1.25 * whip, 0, -0.3 * hold - 0.1 * whip); a('farmR', -1.3 * hold - 0.5 * coil - 0.25 * whip); a('handR', 0.5 * coil - 0.7 * whip);
+    a('chest', -0.1 * coil + 0.24 * whip, -0.55 * coil + 0.5 * whip); a('spine', -0.06 * coil + 0.12 * whip, -0.25 * coil + 0.25 * whip); a('head', -0.05 * coil + 0.12 * whip, 0.25 * coil - 0.12 * whip);
+    a('uarmL', -0.85 * coil + 0.3 * whip, 0, 0.45 * coil + 0.3 * whip); a('farmL', -0.9 * coil - 0.45 * whip);
+    a('thighL', -0.45 * coil - 0.3 * whip); a('shinL', 0.55 * coil + 0.35 * whip); a('thighR', 0.3 * whip); a('shinR', 0.25 * coil);
+    return { lean: -0.12 * coil + 0.2 * whip, lift: 0.04 * coil };
+  },
+  cast(a, m) { // rise, left palm up under the apple, the right hand traces a sigil, settle
+    const rise = ss(0, 0.35, m) * (1 - ss(1.3, 1.7, m)), tr = ss(0.25, 0.5, m) * (1 - ss(1.05, 1.4, m)), g = m * 7.5;
+    a('uarmL', -1.15 * rise, 0, 0.3 * rise); a('farmL', -0.6 * rise); a('handL', 0.55 * rise);
+    a('uarmR', (-1.05 + Math.sin(g) * 0.25) * tr, Math.cos(g) * 0.2 * tr, (-0.45 + Math.cos(g) * 0.22) * tr); a('farmR', -0.65 * tr); a('handR', (0.3 + Math.sin(g * 1.3) * 0.2) * tr);
+    a('chest', -0.14 * rise, 0.16 * rise); a('head', -0.2 * rise, 0.1 * rise); a('thighL', -0.3 * rise); a('shinL', 0.55 * rise); a('thighR', 0.12 * rise); a('shinR', 0.35 * rise); a('footL', 0.3 * rise); a('footR', 0.3 * rise);
+    return { lean: -0.06 * rise, lift: 0.12 * rise };
+  },
+  eat(a, m) { const k = ss(0, 0.35, m) * (1 - ss(1.55, 2.0, m)), bite = ss(0.45, 0.6, m) * (1 - ss(0.7, 0.95, m)); a('uarmR', -0.95 * k, 0, -0.2 * k); a('farmR', -1.8 * k); a('head', 0.12 * k + 0.12 * bite, -0.1 * k); a('chest', 0.05 * k + 0.06 * bite); a('uarmL', -0.2 * k, 0, 0.15 * k); a('farmL', -0.5 * k); return { lean: 0.04 * bite, lift: 0 }; },
+  dodge(a, m, o) { const out = ss(0, 0.14, m) * (1 - ss(0.45, 0.9, m)); const d = o.dir || 1; a('chest', 0, 0, d * 0.25 * out); a('spine', -0.1 * out, 0, d * 0.15 * out); a('head', 0.1 * out, -d * 0.2 * out, -d * 0.2 * out); a('uarmL', -0.5 * out, 0, (0.6 + d * 0.3) * out); a('uarmR', -0.5 * out, 0, -(0.6 - d * 0.3) * out); a('farmL', -0.8 * out); a('farmR', -0.8 * out);
+    a('thighL', -0.7 * out); a('thighR', -0.6 * out); a('shinL', 1.2 * out); a('shinR', 1.1 * out); return { lean: 0, lift: 0.06 * out, side: d * 0.62 * (ss(0, 0.16, m) - ss(0.42, 0.95, m)), roll: -d * 0.32 * (ss(0, 0.1, m) - ss(0.18, 0.7, m)) }; },
+};
+const ACT_DUR = { throw: 1.2, cast: 1.7, eat: 2.1, dodge: 1.0 };
 const IDLES = ['float', 'chill', 'think', 'ponder', 'invent', 'write'];
 export function createProfessor() {
   const root = new THREE.Group(); root.name = 'professor';
   const body = new THREE.Group(); body.name = 'hero'; root.add(body);
   const L = new LimboBody(APP, OUTFIT, { hook: heroHook, overrides: { hairVolume: 1.25, blush: 0.15 } }); const sc = HEIGHT / L.P.crown; L.root.scale.setScalar(sc); body.add(L.root);
   const B = L.bones; const anim = new LimboAnim(L, { sway: 0.6 });
-  L.attach(wavyLocks(L.P), 'head');
+  L.attach(wavyLocks(L.P), B.hair ? 'hair' : 'head'); const jabot = laceJabot(L, sc);
   const head = new THREE.Group(); B.head.add(head); head.position.set(0, 0.12, 0.03); const jaw = new THREE.Group(); head.add(jaw); jaw.position.set(0, -0.06, 0.06);
   const headTop = new THREE.Group(); B.head.add(headTop); headTop.position.set(0, 0.22, 0.01);
   const torso = B.chest;
@@ -165,7 +205,9 @@ export function createProfessor() {
   const sp = (v, w = 7, z = 0.5) => new Spring(v, w, z);
   const st = { t: Math.random() * 5, mode: 'idle', modeT: 9, talk: 0, look: new THREE.Vector2(), expr: 'smug', shown: '', hold: 0, blink: 0, orbit: 0, orbitSpd: 1.3, dead: 0, count: 1, bitten: 0,
     lift: sp(FLOAT, 5, 0.45), kx: sp(0, 6, 0.5), kz: sp(0, 6, 0.5), spin: sp(0, 6, 0.6), tilt: sp(0, 7, 0.4), jolt: sp(0, 14, 0.35),
-    idleMode: 'battle', idle: 'float', idleT: 0, nextIdle: 8, lock: null, w: Object.fromEntries([...IDLES, 'sleep'].map((k) => [k, k === 'float' ? 1 : 0])), appleVis: 1, twitch: 0, onDone: null, done: null };
+    idleMode: 'battle', idle: 'float', idleT: 0, nextIdle: 8, lock: null, w: Object.fromEntries([...IDLES, 'sleep'].map((k) => [k, k === 'float' ? 1 : 0])), appleVis: 1, twitch: 0, onDone: null, done: null, actOut: null, actOpts: {},
+    ws: sp(0, 2.2, 0.9), wsT: 2, gx: sp(0, 6, 0.85), gy: sp(0, 6, 0.85), glanceT: 3, glance: 0, leanX: sp(0, 6, 0.7), leanZ: sp(0, 6, 0.7), hairX: sp(0, 9, 0.32), hairZ: sp(0, 9, 0.32), coatX: sp(0.12, 6, 0.3), coatZ: sp(0, 6, 0.3), jabX: sp(0, 11, 0.3), jabZ: sp(0, 11, 0.3),
+    ikL: sp(0, 9, 1), ikR: sp(0, 9, 1), reachT: 9, tgR: new THREE.Vector3(), tgL: new THREE.Vector3(), prev: new THREE.Vector3(), vel: new THREE.Vector3() };
   const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3(), inv = new THREE.Matrix4();
   const localOf = (obj, out) => { obj.getWorldPosition(out); root.updateMatrixWorld(true); return out.applyMatrix4(inv.copy(root.matrixWorld).invert()); };
   const EXPR = new Set(Object.keys(EXPR_MAP));
@@ -194,19 +236,77 @@ export function createProfessor() {
     const md = st.mode, m = st.modeT;
     for (const k in st.w) { const w = st.w[k]; if (w > 0.002) POSE[k]((j, x = 0, y = 0, z = 0) => add(j, x * w, y * w, z * w), t); }
     if (md === 'bonk') bonkPose(add, m);
-    if (md === 'cast' && m < 1.3) { const k = Math.min(1, m * 5) * (1 - Math.max(0, (m - 1.0) / 0.3)); add('uarmL', -1.45 * k, 0, 0.1 * k); add('farmL', -0.15 * k); add('handL', 0.75 * k); add('chest', -0.08 * k, 0.2 * k); }
-    if (md === 'eat' && m < 2.0) { const k = Math.min(1, m * 3) * (1 - Math.max(0, (m - 1.6) / 0.4)); add('uarmR', -0.95 * k, 0, -0.25 * k); add('farmR', -1.75 * k); add('head', 0.12 * k); }
+    st.actOut = ACT[md] && m < ACT_DUR[md] ? ACT[md](add, m, st.actOpts) : null;
+    // breathing (chest and shoulders), slow weight shifts, legs trailing them
+    const br = Math.sin(t * 1.05), wsv = st.ws.value; add('chest', br * 0.022); add('uarmL', 0, 0, br * 0.018); add('uarmR', 0, 0, -br * 0.018); add('neck', -br * 0.01);
+    add('hips', 0, wsv * 0.05, wsv * 0.05); add('spine', 0, -wsv * 0.03, -wsv * 0.04); add('thighL', wsv * 0.08); add('thighR', -wsv * 0.08); add('shinL', Math.max(0, wsv) * 0.12); add('shinR', Math.max(0, -wsv) * 0.12);
     if (st.twitch > 0) { add('handL', Math.sin(st.twitch * 40) * 0.3 * st.twitch); add('footR', Math.sin(st.twitch * 30) * 0.4 * st.twitch); }
-    add('head', st.look.y * -0.25, st.look.x * 0.45, 0);
+    add('head', st.gy.value * -0.25, st.gx.value * 0.45, 0); add('neck', st.gy.value * -0.08, st.gx.value * 0.12, 0); // the head follows the eyes
   };
+  // ------------------------------------------------ motion layer: joint springs, two-bone hand IK, secondary motion
+  const js = {}; for (const j in JOINTS) js[j] = { x: new THREE.Vector3(), v: new THREE.Vector3(), init: false };
+  const filterPose = (dt, boost) => { const n = Math.ceil(dt * 30 * boost / 0.4); const h = dt / n; for (const j in JOINTS) { const b = B[j]; if (!b) continue; const S = js[j], tg = b.rotation; if (!S.init) { S.x.set(tg.x, tg.y, tg.z); S.init = true; } const w = JOINTS[j] * boost;
+    for (let i = 0; i < n; i++) for (const ax of ['x', 'y', 'z']) { S.v[ax] += (w * w * (tg[ax] - S.x[ax]) - 2 * w * S.v[ax]) * h; S.x[ax] += S.v[ax] * h; } b.rotation.set(S.x.x, S.x.y, S.x.z); } };
+  const V3X = new THREE.Vector3(1, 0, 0), IM = new THREE.Matrix4(), IQ = new THREE.Quaternion(), IQ2 = new THREE.Quaternion();
+  const armLen = (sd) => { const u = L.restOf('uarm' + sd), f = L.restOf('farm' + sd), h = L.restOf('hand' + sd); return [u.distanceTo(f), f.distanceTo(h) + 0.075]; }; const LEN = { L: armLen('L'), R: armLen('R') };
+  const clampN = (v, a, b) => Math.max(a, Math.min(b, v));
+  function ik(sd, target, w) { // analytic two-bone IK in the chest frame: the palm reaches `target` (world), elbow tucked back and out
+    if (w < 0.01) return; const ua = B['uarm' + sd], fa = B['farm' + sd]; const [L1, L2] = LEN[sd]; B.chest.updateMatrixWorld(true);
+    const t = target.clone().applyMatrix4(IM.copy(B.chest.matrixWorld).invert()).sub(ua.position); const D = clampN(t.length(), Math.abs(L1 - L2) + 1e-3, (L1 + L2) * 0.995); const dh = t.normalize();
+    const pole = new THREE.Vector3(sd === 'L' ? 0.45 : -0.45, -0.35, -1).normalize(); const n = new THREE.Vector3().crossVectors(dh, pole); if (n.lengthSq() < 1e-6) n.set(1, 0, 0); n.normalize();
+    const a1 = Math.acos(clampN((L1 * L1 + D * D - L2 * L2) / (2 * L1 * D), -1, 1)); let u = dh.clone().applyAxisAngle(n, a1); const u2 = dh.clone().applyAxisAngle(n, -a1); if (u2.dot(pole) > u.dot(pole)) u = u2;
+    const hx = n.clone(), yc = u.clone().negate(), zc = new THREE.Vector3().crossVectors(hx, yc); if (zc.dot(pole) > 0) { hx.negate(); zc.negate(); }
+    IM.makeBasis(hx, yc, zc); IQ.setFromRotationMatrix(IM); ua.quaternion.slerp(IQ, w);
+    const f = dh.clone().multiplyScalar(D).sub(u.clone().multiplyScalar(L1)).normalize(); IQ2.setFromAxisAngle(V3X, Math.atan2(-f.dot(zc), f.dot(u))); fa.quaternion.slerp(IQ2, w);
+  }
+  const W = new THREE.Vector3(), W2 = new THREE.Vector3();
+  function motion(dt, t) {
+    const md = st.mode, m = st.modeT; const fast = (md === 'throw' && m > 0.28 && m < 0.7) || (md === 'dodge' && m < 0.3) || md === 'hurt' ? 1.7 : 1;
+    filterPose(dt, fast); root.updateMatrixWorld(true);
+    // IK targets: chin (think / ponder), mouth (eat), the casting palm under the apple, an idle touch of the orbiting apple
+    let wl = 0, wr = 0; const tR = W.set(0, 0, 0), tL = W2.set(0, 0, 0);
+    if (st.w.think > 0.05 || st.w.ponder > 0.05) { jaw.localToWorld(tR.set(0.01, -0.05 + Math.sin(t * 5) * 0.004 * st.w.ponder, 0.07)); wr = Math.max(st.w.think * 0.9, st.w.ponder * 0.55); }
+    if (md === 'eat' && m < ACT_DUR.eat) { jaw.localToWorld(tR.set(0.02, -0.01, 0.13 - ss(0.45, 0.6, m) * 0.05 + ss(0.7, 0.95, m) * 0.05)); wr = ss(0.05, 0.4, m) * (1 - ss(1.5, 1.95, m)); }
+    if (md === 'cast' && m < ACT_DUR.cast) { B.chest.localToWorld(tL.set(0.1, 0.14, 0.36)); wl = ss(0.05, 0.35, m) * (1 - ss(1.3, 1.7, m)) * 0.85; }
+    st.reachT -= dt; if (md === 'idle' && st.idleMode === 'battle' && st.reachT < 0) { st.reachT = 9 + Math.random() * 6; st.reach = 1.4; }
+    if (st.reach > 0) { st.reach -= dt; const k = Math.sin(Math.max(0, st.reach / 1.4) * Math.PI); if (md === 'idle') { apple.getWorldPosition(tR).add(new THREE.Vector3(0, -0.05, 0)); wr = Math.max(wr, k * 0.6); } }
+    if (wr > 0.01) st.tgR.copy(tR); if (wl > 0.01) st.tgL.copy(tL); // keep the last target while the weight eases out
+    st.ikR.target = wr; st.ikL.target = wl; st.ikR.update(dt); st.ikL.update(dt); if (st.ikR.value > 0.01) ik('R', st.tgR, clampN(st.ikR.value, 0, 1)); if (st.ikL.value > 0.01) ik('L', st.tgL, clampN(st.ikL.value, 0, 1));
+    // eyes lead, the head follows: glances at the apple now and then, saccades from the face rig
+    st.glanceT -= dt; if (st.glanceT < 0) { st.glance = st.glance ? 0 : 1; st.glanceT = st.glance ? 0.5 + Math.random() * 0.6 : 2.5 + Math.random() * 4; }
+    let lx = st.look.x, ly = st.look.y; if (st.glance && md === 'idle' && st.w.sleep < 0.5) { const ap = localOf(apple, W.set(0, 0, 0)); const hd = localOf(head, new THREE.Vector3()); lx = clampN((ap.x - hd.x) * 1.4, -1, 1); ly = clampN(-(ap.y - hd.y) * 1.6, -0.6, 0.8); }
+    if (md === 'cast' || md === 'eat') { lx *= 0.3; ly = md === 'eat' ? 0.4 : 0.25; } st.gx.target = lx; st.gy.target = ly; st.gx.update(dt); st.gy.update(dt);
+    L.gg.look[0] = clampN(lx * 2.2, -2.2, 2.2); L.gg.look[1] = clampN(ly * 1.6, -1, 2);
+    // weight shifts every few seconds
+    st.wsT -= dt; if (st.wsT < 0) { st.wsT = 2.5 + Math.random() * 3.5; st.ws.target = (Math.random() * 2 - 1) * (st.w.sleep > 0.5 ? 0.2 : 1); } st.ws.update(dt);
+    // secondary: hair, coat tails and jabot lag behind the head and the body, flutter in the wind
+    const v = st.vel, hv = js.head.v, cv = js.chest.v, wind = Math.sin(t * 2.3) * 0.5 + Math.sin(t * 3.7 + 1) * 0.3;
+    st.hairX.target = clampN(-hv.x * 0.07 - cv.x * 0.04 + v.y * 0.12 + v.z * 0.1 + wind * 0.03, -0.35, 0.35); st.hairZ.target = clampN(-hv.z * 0.07 - hv.y * 0.03 + v.x * 0.14 + wind * 0.02, -0.3, 0.3);
+    st.coatX.target = 0.12 + Math.sin(t * 1.3) * 0.05 + clampN(v.y * 0.25 + v.z * 0.35 + Math.abs(v.x) * 0.15, -0.2, 0.7) + (md === 'cast' && m < 1.5 ? 0.3 : 0) - (st.dead ? 0.1 : 0); st.coatZ.target = Math.sin(t * 0.9) * 0.04 + clampN(v.x * 0.35, -0.4, 0.4);
+    st.jabX.target = clampN(-v.z * 0.4 + v.y * 0.3 - cv.x * 0.08 + wind * 0.05, -0.6, 0.5); st.jabZ.target = clampN(v.x * 0.4 - cv.z * 0.05, -0.4, 0.4);
+    for (const k of ['hairX', 'hairZ', 'coatX', 'coatZ', 'jabX', 'jabZ']) st[k].update(dt);
+    if (B.hair) B.hair.rotation.set(st.hairX.value, 0, st.hairZ.value); if (B.coat) B.coat.rotation.set(st.coatX.value, 0, st.coatZ.value); jabot.rotation.set(st.jabX.value, 0, st.jabZ.value);
+  }
+  // ------------------------------------------------ artifact slots: objects worn or used by Newton (sizes in metres at hero scale)
+  const SLOT = { head: ['head', [0, 0.2, 0]], neck: ['neck', [0, 0.02, 0.06]], back: ['chest', [0, 0.06, -0.16]], belt: ['hips', [0.13, 0.0, 0.08]], leftHand: ['handL', [0, -0.08, 0.02]], rightHand: ['handR', [0, -0.08, 0.02]], feet: [['footL', 'footR'], [0, -0.03, 0.04]], coat: ['chest', [0, 0.06, 0.13]], orbit: [null, [0, 0, 0]] };
+  const anchors = new Map(); const orbitAnchor = new THREE.Group(); orbitAnchor.name = 'orbitSlot'; root.add(orbitAnchor); const orbitList = [];
+  const anchor = (bone, off) => { const k = bone + ':' + off.join(); if (anchors.has(k)) return anchors.get(k); const a = new THREE.Group(); a.scale.setScalar(1 / sc); a.position.set(off[0] / sc, off[1] / sc, off[2] / sc); B[bone].add(a); anchors.set(k, a); return a; };
   const pickIdle = () => { const pool = ['chill', 'ponder', 'invent', 'write', 'think'].filter((k) => k !== st.idle); st.idle = pool[Math.floor(Math.random() * pool.length)]; st.idleT = 0; st.nextIdle = 6 + Math.random() * 4; };
 
   const api = {
     root, head, jaw, ctrl, arms, legs, torso, body, ghost, impactTime: IMPACT,
+    get mode() { return st.mode; }, get modeT() { return st.modeT; },
     handWorld(i = 1, out = new THREE.Vector3()) { root.updateMatrixWorld(true); return hands[i].getWorldPosition(out); },
     headWorld(out = new THREE.Vector3()) { root.updateMatrixWorld(true); return head.getWorldPosition(out); },
     headTopWorld(out = new THREE.Vector3()) { root.updateMatrixWorld(true); return headTop.getWorldPosition(out); },
     appleWorld(out = new THREE.Vector3()) { root.updateMatrixWorld(true); return apple.getWorldPosition(out); },
+    /** world position of a rig bone (hips, spine, chest, neck, head, uarmL/R, farmL/R, handL/R, thighL/R, shinL/R, footL/R, hair, coat) */
+    boneWorld(name, out = new THREE.Vector3()) { root.updateMatrixWorld(true); return (B[name] || root).getWorldPosition(out); },
+    /** wear / hold an object: slot = head | neck | back | belt | leftHand | rightHand | feet (both; a clone goes on the right foot) | orbit | coat. Units are metres at hero scale. */
+    attach(slot, obj) { const S = SLOT[slot]; if (!S || !obj) return obj; if (slot === 'orbit') { orbitAnchor.add(obj); orbitList.push(obj); return obj; }
+      if (slot === 'feet') { anchor('footL', [S[1][0], S[1][1], S[1][2]]).add(obj); const c = obj.clone(); c.userData.slotTwin = true; obj.userData.slotTwinOf = c; anchor('footR', S[1]).add(c); return obj; }
+      anchor(S[0], S[1]).add(obj); return obj; },
+    detach(slot, obj) { if (!obj) return; if (slot === 'orbit') { const i = orbitList.indexOf(obj); if (i >= 0) orbitList.splice(i, 1); } obj.userData.slotTwinOf?.removeFromParent(); obj.removeFromParent(); },
     setExpr(e) { st.expr = EXPR.has(e) ? e : 'smug'; st.hold = 0; },
     talk(sec = 1.2) { st.talk = Math.max(st.talk, sec); L.talk(sec); },
     lookAt(x, y) { st.look.set(x, y); },
@@ -216,9 +316,10 @@ export function createProfessor() {
     act(mode, opts = {}) {
       if (mode === 'attack') mode = 'throw';
       if (mode === 'sleep') { st.mode = 'sleep'; st.modeT = 0; st.dead = 0; L.setExpression('sleepy'); st.shown = 'sleep'; if (opts.instant !== false) { for (const k in st.w) st.w[k] = k === 'sleep' ? 1 : 0; st.lift.value = st.lift.target = BODY.sleep[0]; st.appleVis = 0; } return undefined; }
-      st.mode = mode; st.modeT = 0;
+      st.mode = mode; st.modeT = 0; st.actOpts = opts;
+      if (mode === 'dodge') { st.actOpts = { dir: opts.dir ?? (Math.random() < 0.5 ? -1 : 1) }; st.expr = 'shock'; st.hold = 0.7; return 0.16; }
       if (mode === 'bonk') { st.jolt.kick(14); st.onDone = opts.onDone || null; L.setExpression('surprised'); st.shown = 'bonk'; return new Promise((res) => { st.done = res; }); }
-      if (mode === 'throw') { anim.play('throw'); st.count = Math.max(1, opts.count | 0 || 1); st.expr = 'smug'; st.hold = 1; return IMPACT; }
+      if (mode === 'throw') { st.count = Math.max(1, opts.count | 0 || 1); st.expr = 'smug'; st.hold = 1; return IMPACT; }
       if (mode === 'cast') { L.setExpression('surprised', 0.4); st.hold = 0; }
       if (mode === 'think') { st.expr = 'think'; st.hold = 2.2; }
       if (mode === 'eat') { st.expr = 'delight'; st.hold = 2.4; }
@@ -229,11 +330,11 @@ export function createProfessor() {
     },
     update(dt) {
       dt = Math.min(dt, 0.05); st.t += dt; st.modeT += dt; const t = st.t, md = st.mode, m = st.modeT;
-      const dur = { think: 2.3, eat: 2.1, bonk: 2.5 }[md] ?? 1.6;
+      const dur = { think: 2.3, bonk: 2.5, ...ACT_DUR }[md] ?? 1.6;
       if (md !== 'idle' && md !== 'die' && md !== 'sleep' && m > dur) { st.mode = 'idle'; if (md === 'bonk') { st.shown = ''; st.onDone?.(); st.done?.(); st.onDone = st.done = null; } }
       // which pose is wanted, blended smoothly
       st.idleT += dt; if (st.idleMode === 'menu' && st.mode === 'idle' && st.idleT > st.nextIdle) pickIdle();
-      const busy = ['throw', 'cast', 'eat', 'hurt', 'cheer', 'bonk', 'die'].includes(st.mode);
+      const busy = ['throw', 'cast', 'eat', 'hurt', 'cheer', 'bonk', 'die', 'dodge'].includes(st.mode);
       const want = st.mode === 'sleep' ? 'sleep' : st.mode === 'think' ? 'think' : busy ? 'float' : st.idleMode === 'menu' || st.idleMode === 'lock' ? st.idle : 'float';
       for (const k in st.w) st.w[k] += ((k === want && st.mode !== 'bonk' ? 1 : 0) - st.w[k]) * Math.min(1, dt * (st.mode === 'bonk' ? 6 : 2.2));
       // body: blended levitation height, recline and drift; knockback springs; dying drops him
@@ -242,12 +343,14 @@ export function createProfessor() {
       px += st.w.ponder * Math.sin(t * 0.45) * 0.45; const bob = (1 - st.w.sleep) * (st.mode === 'bonk' ? 0 : 1) * Math.sin(t * 1.6) * 0.05;
       st.lift.target = st.dead ? -0.02 : lift + bob; for (const k of ['lift', 'kx', 'kz', 'spin', 'tilt', 'jolt']) st[k].update(dt);
       st.tilt.target = md === 'hurt' && m < 0.6 ? -0.35 : 0;
-      body.position.set(st.kx.value * 0.1 + px, st.lift.value + st.jolt.value * 0.02, st.kz.value * 0.1 + pz);
-      body.rotation.set(st.tilt.value + rotX, st.spin.value + st.w.ponder * Math.cos(t * 0.45) * 0.6, Math.sin(t * 0.9) * 0.03 * (1 - st.w.sleep));
+      const ao = st.actOut || {}; body.position.set(st.kx.value * 0.1 + px + (ao.side || 0) + st.ws.value * 0.02, st.lift.value + st.jolt.value * 0.02 + (ao.lift || 0), st.kz.value * 0.1 + pz);
+      if (dt > 0) { st.vel.subVectors(body.position, st.prev).multiplyScalar(1 / dt); st.vel.clampLength(0, 6); } st.prev.copy(body.position);
+      st.leanX.target = clampN(st.vel.z * 0.22 + (ao.lean || 0), -0.4, 0.4); st.leanZ.target = clampN(-st.vel.x * 0.28 + (ao.roll || 0), -0.45, 0.45); st.leanX.update(dt); st.leanZ.update(dt); // tilt into motion
+      body.rotation.set(st.tilt.value + rotX + st.leanX.value, st.spin.value + st.w.ponder * Math.cos(t * 0.45) * 0.6, Math.sin(t * 0.9) * 0.03 * (1 - st.w.sleep) + st.leanZ.value);
       if (st.spin.value > TAU * 0.98 && st.spin.target >= TAU) { st.spin.value -= TAU; st.spin.target -= TAU; }
       if (st.mode === 'sleep') { st.twitch = Math.max(0, st.twitch - dt * 2); if (Math.random() < dt * 0.12) { st.twitch = 1; if (Math.random() < 0.5) L.talk(0.5); } }
-      anim.update(dt);
-      if (B.coat) { B.coat.rotation.x = 0.12 + Math.sin(t * 1.3) * 0.06 + Math.max(0, st.lift.vel) * 0.05 - rotX * 0.4; B.coat.rotation.z = Math.sin(t * 0.9) * 0.04; }
+      anim.update(dt); motion(dt, t);
+      orbitList.forEach((o, i) => { const a2 = st.orbit + Math.PI + (i / Math.max(1, orbitList.length)) * TAU; o.position.set(Math.cos(a2) * 0.7 + px, st.lift.value + 1.15 + Math.sin(a2 * 2) * 0.08, Math.sin(a2) * 0.6 + pz); o.rotation.y = a2; });
       // face
       if (st.talk > 0) st.talk -= dt; if (st.hold > 0) st.hold -= dt; else if (st.expr !== 'smug' && st.expr !== 'annoyed') st.expr = 'smug';
       if (st.mode === 'bonk') { const ph = m < 0.9 ? 'surprised' : m < 1.35 ? 'surprised' : m < 2.2 ? 'happy' : 'smile'; if (st.shown !== 'bonk:' + ph) { st.shown = 'bonk:' + ph; L.setExpression(ph); } }
@@ -266,13 +369,13 @@ export function createProfessor() {
       let pos = orbitPos.clone(); apple.rotation.y += dt * 2; apple.rotation.z = Math.sin(t * 1.3) * 0.2;
       if (md === 'throw' && m < 1.4) {
         const hand = localOf(hands[1], tmp2); const fwd = new THREE.Vector3(0.25, 1.35, 3.2);
-        if (m < 0.3) pos.lerp(hand, Math.min(1, m / 0.25)); else if (m < IMPACT) pos.copy(hand).lerp(fwd, (m - 0.3) / (IMPACT - 0.3)); else if (m < 1.0) pos.copy(fwd).lerp(orbitPos, (m - IMPACT) / (1.0 - IMPACT)).add(new THREE.Vector3(0, Math.sin((m - IMPACT) / (1 - IMPACT) * Math.PI) * 0.6, 0));
+        if (m < 0.36) pos.lerp(hand, ss(0, 0.2, m)); else if (m < IMPACT) pos.copy(hand).lerp(fwd, (m - 0.36) / (IMPACT - 0.36)); else if (m < 1.0) pos.copy(fwd).lerp(orbitPos, (m - IMPACT) / (1.0 - IMPACT)).add(new THREE.Vector3(0, Math.sin((m - IMPACT) / (1 - IMPACT) * Math.PI) * 0.6, 0));
         apple.rotation.x += dt * 18;
         while (extras.length < st.count - 1) { const e = makeApple(); ctrl.add(e); extras.push(e); }
         extras.forEach((e, i) => { e.visible = m > 0.3 && m < 1.0; const s2 = (i + 1) * (i % 2 ? -1 : 1) * 0.55; e.position.copy(pos).add(new THREE.Vector3(s2, Math.abs(s2) * 0.3, -Math.abs(s2) * 0.2).multiplyScalar(Math.sin(Math.min(1, Math.max(0, (m - 0.3) / 0.25)) * Math.PI / 2) * (m < IMPACT ? 1 : Math.max(0, 1 - (m - IMPACT) * 2)))); e.rotation.x += dt * 18; });
       } else extras.forEach((e) => (e.visible = false));
-      if (md === 'cast' && m < 1.3) { const palm = localOf(hands[0], tmp2); pos.lerp(palm.add(new THREE.Vector3(0.0, 0.08, 0.18)), Math.min(1, m * 4) * (1 - Math.max(0, (m - 1.0) / 0.3))); apple.rotation.y += dt * 6; }
-      if (md === 'eat' && m < 2.0) { const hd = localOf(head, tmp2).add(new THREE.Vector3(0, -0.07, 0.12)); const k = Math.min(1, m * 2.5) * (1 - Math.max(0, (m - 1.6) / 0.4)); pos.lerp(hd, k); if (m > 0.6 && !st.bitten) { st.bitten = 1; apple.userData.bite(true); L.talk(0.7); } }
+      if (md === 'cast' && m < ACT_DUR.cast) { const palm = localOf(hands[0], tmp2); pos.lerp(palm.add(new THREE.Vector3(0.0, 0.14 + Math.sin(m * 6) * 0.015, 0.03)), ss(0.05, 0.4, m) * (1 - ss(1.3, 1.7, m))); apple.rotation.y += dt * (6 + 10 * ss(0.4, 1.1, m)); }
+      if (md === 'eat' && m < ACT_DUR.eat) { const hd = localOf(hands[1], tmp2).add(new THREE.Vector3(0, 0.03, 0.03)); const k = ss(0.05, 0.4, m) * (1 - ss(1.5, 1.95, m)); pos.lerp(hd, k); if (m > 0.6 && !st.bitten) { st.bitten = 1; apple.userData.bite(true); L.talk(0.7); } }
       if (st.bitten && md !== 'eat') { st.bitten += dt; if (st.bitten > 2.5) { st.bitten = 0; apple.userData.bite(false); } }
       if (st.dead) pos.y = Math.max(0.08, pos.y - st.modeT * 1.2);
       st.appleVis += ((st.mode === 'sleep' || (st.mode === 'bonk' && m < 1.9) ? 0 : 1) - st.appleVis) * Math.min(1, dt * 4); apple.scale.setScalar(Math.max(0.001, st.appleVis)); apple.visible = st.appleVis > 0.02;

@@ -7,6 +7,12 @@ import * as THREE from 'three';
 import { Strip, Paper } from '../ui3d/objects.js';
 import { Surf, RAMP, pxTex, frontMat, sideMat, slab, wood, rivet, mesh, uiRig, wrapText, PX, PXP } from '../ui3d/craft.js';
 import { audio } from '../core/audio.js';
+import { narrate, stopAll as stopLines, voiceOnly } from '../story/dialogue.js';
+import { hud } from '../ui3d/hud.js';
+
+// the storyteller reads each chapter card aloud (the card itself is drawn by hud.js)
+const NUMW = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen', 'Twenty'];
+if (hud && !hud.__voiced && hud.chapter) { const ch = hud.chapter; hud.chapter = function (num, title, note = '') { try { voiceOnly('narrator', `Chapter ${NUMW[num] || num}. ${String(title || '').replace(/[“”"]/g, '')}.`); } catch (e) { /* */ } return ch.call(this, num, title, note); }; hud.__voiced = true; }
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 export const clamp01 = (x) => Math.max(0, Math.min(1, x));
@@ -111,7 +117,7 @@ const _f = V(), _s = V();
 export class Director {
   constructor(engine, input, { bars = true } = {}) {
     this.engine = engine; this.input = input; this.t = 0; this.speed = 1; this.last = performance.now(); this.cues = []; this.skipped = false; this.ended = false; this.disposed = false;
-    this.frame = null; this.onSkip = null; uiRig(engine);
+    this.frame = null; this.onSkip = null; uiRig(engine); this.holds = []; this.narrLines = [];
     this.group = new THREE.Group(); this.group.name = 'cinematic'; engine.ui.scene.add(this.group);
     this.bars = bars ? new Letterbox(this.group) : null; this.narr = new Narration(this.group); this.cards = [];
     const eat = () => true;
@@ -121,18 +127,30 @@ export class Director {
   }
   get W() { return this.engine.uiW; } get H() { return this.engine.uiH; } get band() { return this.H * BAND; }
   at(t, fn) { this.cues.push({ t, fn }); this.cues.sort((a, b) => a.t - b.t); return this; }
-  say(text, o) { return this.narr.say(text, { maxW: Math.min(18, this.W * 1.8), ...o }); } // narrower on a portrait screen
+  // the chronicle line is VOICED by the narrator and inked onto a strip on the beam as it is read (story/dialogue.js)
+  say(text, o = {}) { // queued: a chronicle line never talks over the previous one
+    const slot = { finished: false, line: null };
+    this.narrChain = (this.narrChain || Promise.resolve()).then(() => new Promise((res) => {
+      if (this.ended || this.skipped) { slot.finished = true; return res(); }
+      const p = narrate(text, { wait: false, ...o }); slot.line = p.line; p.line.spoken.then(() => { slot.finished = true; res(); });
+    }));
+    this.narrLines.push(slot); return slot;
+  }
+  /** hold the clock at time t until ok() is true (a voiced line still being spoken); max seconds as a safety net */
+  hold(t, ok, max = 14) { this.holds.push({ t, ok, max, waited: 0 }); this.holds.sort((a, b) => a.t - b.t); return this; }
   card(name, epithet) { const c = new NameCard(this.group, name, epithet); this.cards.push(c); return c; }
-  skip() { if (this.skipped || this.ended) return; this.skipped = true; this.cues = []; this.narr.clear(); for (const c of this.cards) c.hide(); audio.play('page_turn', { vol: 0.7 }); this.onSkip?.(); }
+  skip() { if (this.skipped || this.ended) return; this.skipped = true; this.cues = []; this.narr.clear(); stopLines(); for (const c of this.cards) c.hide(); audio.play('page_turn', { vol: 0.7 }); this.onSkip?.(); }
   end() { if (this.ended) return; this.ended = true; this.restoreShafts(); this.cues = []; this.bars?.hide(); this.narr.clear(); for (const c of this.cards) c.hide(); this.input.remove(this.handler); if (window.__cine === this) window.__cine = null; this._res(); }
   // advance the timeline by real time; hold while the page-turn wipe still covers the picture
-  step(dt) { this.t += dt; while (!this.ended && this.cues.length && this.cues[0].t <= this.t) this.cues.shift().fn(this.t); if (!this.ended) this.frame?.(this.t, dt); }
+  step(dt) {
+    if (!this.skipped && !this.seeking) for (const h of this.holds) { if (h.done || h.t < this.t - 1e-6) continue; if (this.t + dt < h.t) break; h.waited += dt; if (h.ok() || h.waited > h.max) { h.done = true; continue; } dt = Math.max(0, h.t - this.t); break; }
+    this.t += dt; while (!this.ended && this.cues.length && this.cues[0].t <= this.t) this.cues.shift().fn(this.t); if (!this.ended) this.frame?.(this.t, dt); }
   sunShafts() {
     const E = this.engine, cam = E.world?.camera; if (!E.rays || !E.raysPos || !cam) return; if (this.raysWas == null) this.raysWas = E.rays.enabled; if (!this.raysWas) return;
     const f = cam.getWorldDirection(_f), s = _s.copy(E.raysPos).sub(cam.position).normalize(); E.rays.enabled = f.dot(s) > 0.8;
   }
   restoreShafts() { if (this.raysWas != null && this.engine.rays) this.engine.rays.enabled = this.raysWas; this.raysWas = null; }
-  seek(t) { while (!this.ended && this.t < t) this.step(Math.min(1 / 30, t - this.t)); }
+  seek(t) { this.seeking = true; while (!this.ended && this.t < t) this.step(Math.min(1 / 30, t - this.t)); this.seeking = false; }
   update() {
     if (this.disposed) return;
     const now = performance.now(); const rdt = Math.min(0.25, Math.max(0, (now - this.last) / 1000)); this.last = now;

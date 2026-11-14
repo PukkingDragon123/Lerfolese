@@ -38,9 +38,10 @@ export class ThoughtBubble extends Body {
   set(sc) {
     const key = sc ? JSON.stringify(sc) : ''; if (key === this.key) return; this.key = key;
     if (!sc) { this.st.target = 0; return; }
-    const numW = sc.num ? measure(sc.num, 'num2') : 0, hintW = measure(sc.hint, 'tiny'), labW = measure(sc.label, 'tiny');
-    const rowW = 16 + (numW ? numW + 4 : 0) + 9 + 11; const Wt = Math.max(rowW, hintW, labW) + 26, bodyH = 46, Ht = bodyH + 13; const S = new Surf(Wt, Ht);
-    // the cloud: an ellipse with a scalloped rim, and two trailing puffs below-left towards the foe
+    // lettering: NanoPlus x2 for the number, PixelSans for the label and the hint (ink on the parchment cloud)
+    const numW = sc.num ? measure(sc.num, 'num2') : 0, hintW = sc.hint ? measure(sc.hint, 'body') : 0, labW = sc.label ? measure(sc.label, 'body') : 0;
+    const rowW = 16 + (numW ? numW + 4 : 0) + 9 + 11; const Wt = Math.max(rowW, hintW, labW) + 30; const rowY = 8;
+    const labY = rowY + 16 + 12, hintY = (sc.label ? labY : rowY + 16) + 12; const bodyH = (sc.hint ? hintY : sc.label ? labY : rowY + 16) + 9, Ht = bodyH + 13; const S = new Surf(Wt, Ht);
     const cx = Wt / 2, cy = bodyH / 2 + 1, rx = Wt / 2 - 4, ry = bodyH / 2 - 4; const bumps = [];
     const nb = Math.max(8, Math.round(Wt / 9)); for (let i = 0; i < nb; i++) { const a = (i / nb) * Math.PI * 2; bumps.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, 4.6 + ((i * 7) % 3) * 0.6]); }
     const puffs = [[Wt * 0.3, bodyH + 3.5, 3.6], [Wt * 0.22, bodyH + 9.5, 2.4]];
@@ -51,16 +52,16 @@ export class ThoughtBubble extends Body {
     for (let y = 0; y < Ht; y++) for (let x = 0; x < Wt; x++) if (mask(x, y) && !mask(x + 2, y + 2)) S.shift(x, y, -1);
     S.inkEdge('#2a1418');
     // the scene: [icon] [number] -> [Newton | itself]
-    let x = Math.round((Wt - rowW) / 2) + 2; const rowY = 7;
+    let x = Math.round((Wt - rowW) / 2) + 2;
     try { S.blit(sprite(sc.icon), x, rowY + 1); } catch { /* unknown icon */ } x += 16;
     if (sc.num) { inscribe(S, sc.num, x, rowY + 16, 'num2', 'ink', { color: sc.who === 'you' ? '#8a1a1c' : '#1e3a5a' }); x += numW + 4; }
     glyph(S, ARROW, { k: '#4a2a1a' }, x, rowY + 5); x += 9;
     if (sc.who === 'you') glyph(S, NEWTON, NPAL, x, rowY + 3); else glyph(S, FOE, FPAL, x, rowY + 4);
-    if (sc.label) inscribe(S, sc.label, Math.round((Wt - labW) / 2), rowY + 26, 'tiny', 'ink', { color: '#4a2a1a' });
-    if (sc.hint) inscribe(S, sc.hint, Math.round((Wt - hintW) / 2), rowY + 35, 'tiny', 'ink', { color: sc.who === 'you' ? '#8a1a1c' : '#1e5a5a' });
+    if (sc.label) inscribe(S, sc.label, Math.round((Wt - labW) / 2), labY, 'body', 'ink', { color: '#4a2a1a' });
+    if (sc.hint) inscribe(S, sc.hint, Math.round((Wt - hintW) / 2), hintY, 'body', 'ink', { color: sc.who === 'you' ? '#8a1a1c' : '#1e5a5a' });
     if (this.tex && (this.canvas.width !== Wt * Surf.K(Wt, Ht) || this.canvas.height !== Ht * Surf.K(Wt, Ht))) { this.tex.dispose(); this.tex = null; }
     S.toCanvas(this.canvas); if (!this.tex) { this.tex = pxTex(this.canvas); this.mat.map = this.tex; this.mat.needsUpdate = true; } else this.tex.needsUpdate = true;
-    this.w = Wt / PXP * 1.8; this.h = Ht / PXP * 1.8; this.sheet.geometry = sheet(this.w, this.h, { curl: 0.06, sag: 0.02, segX: 6, segY: 4 }); // big enough to read at a glance
+    this.w = Wt / PXP * 1.6; this.h = Ht / PXP * 1.6; this.sheet.geometry = sheet(this.w, this.h, { curl: 0.06, sag: 0.02, segX: 6, segY: 4 }); // big enough to read at a glance
     this.sheet.position.set(0, this.h / 2, 0); // the group origin is the tip of the last puff, over the foe's head
     this.group.visible = true; this.st.target = 1; if (this.st.value < 0.2) this.st.value = 0.2; this.kick(0.6);
   }

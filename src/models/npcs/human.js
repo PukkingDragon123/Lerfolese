@@ -26,10 +26,15 @@ export function sculptHead(S, J, H, o) {
   if (hair !== 'bald') S.blob(P(0, 0.086, -0.04), [R(0.099), R(0.1), R(0.11)], 'head', { k: R(0.03), tag: ht });
   else { S.blob(P(0, 0.02, -0.075), [R(0.09), R(0.07), R(0.06)], 'head', { k: R(0.02), tag: 'hair' }); S.sym((s) => S.blob(P(0.08 * s, 0.05, -0.02), [R(0.025), R(0.04), R(0.05)], 'head', { k: R(0.015), tag: 'hair' })); }
   if (hair === 'curls') for (let i = 0; i < 26; i++) { const a = (i / 26) * Math.PI * 2 * 2.618, u = 0.15 + ((i * 0.37) % 0.8); const y = 0.06 + u * 0.1, r = Math.sqrt(1 - u * u) * 0.1; S.blob(P(Math.sin(a) * r, y, -0.04 + Math.cos(a) * r * 1.1), [R(0.026), R(0.024), R(0.026)], 'head', { k: R(0.01), tag: 'hair' }); }
-  if (hair === 'long' || hair === 'wild' || o.veil) {
+  if ((hair === 'long' || hair === 'wild') && !o.veil) {
     const n = hair === 'wild' ? 11 : 8, len = o.hairLen ?? (hair === 'wild' ? 0.36 : 0.3);
     for (let i = 0; i < n; i++) { const a = (i / (n - 1) - 0.5) * 2.6; const tip = P(Math.sin(a) * (0.13 + (hair === 'wild' ? 0.06 : 0)), 0.04 - len, -0.08 - Math.abs(Math.sin(a)) * 0.02 + (hair === 'wild' ? (i % 2) * 0.05 : 0)); S.limb(P(Math.sin(a) * 0.085, 0.07, -0.05 + Math.cos(a) * 0.02), tip, R(0.034), R(0.012), i % 2 ? 'neck' : 'head', { k: R(0.02), tag: ht }); }
-    if (o.veil) S.limb(P(0, 0.06, -0.08), P(0, -0.55, -0.16), R(0.1), R(0.16), 'neck', { k: R(0.03), tag: 'veil' });
+  }
+  if (o.veil) { // a draped mantle, not hair: a hood set back over the crown, a gold fillet across the brow, broad folds onto the shoulders and down the back
+    S.blob(P(0, 0.1, -0.035), [R(0.112), R(0.098), R(0.122)], 'head', { k: R(0.025), tag: 'veil' });
+    for (let i = 0; i < 14; i++) { const a = (i / 13 - 0.5) * 3.3; S.blob(P(Math.sin(a) * 0.108, 0.085 + Math.cos(a) * 0.012, -0.03 + Math.cos(a) * 0.1), [R(0.016), R(0.011), R(0.016)], 'head', { k: R(0.006), tag: 'trim' }); }
+    S.sym((s) => { S.limb(P(0.098 * s, 0.07, -0.02), P(0.2 * s, -0.27, -0.03), R(0.04), R(0.085), 'neck', { k: R(0.03), tag: 'veil' }); S.limb(P(0.07 * s, 0.07, -0.09), P(0.14 * s, -0.5, -0.17), R(0.05), R(0.1), 'neck', { k: R(0.03), tag: 'veil' }); });
+    S.limb(P(0, 0.08, -0.11), P(0, -0.56, -0.2), R(0.1), R(0.17), 'neck', { k: R(0.03), tag: 'veil' });
   }
   if (o.beard) { S.blob(P(0, -0.065, 0.075), [R(0.074), R(0.068), R(0.052)], 'jaw', { k: R(0.02), tag: 'beard', imp: 2 }); S.limb(P(0, -0.1, 0.09), P(0, o.beard === 'long' ? -0.24 : -0.17, 0.085), R(0.045), R(0.012), 'jaw', { k: R(0.02), tag: 'beard' }); S.sym((s) => S.blob(P(0.05 * s, -0.01, 0.07), [R(0.02), R(0.05), R(0.03)], 'jaw', { k: R(0.012), tag: 'beard' })); }
   if (o.wreath) for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; S.blob(P(Math.sin(a) * 0.098, 0.105 + Math.cos(a) * 0.012, -0.03 + Math.cos(a) * 0.104), [R(0.022), R(0.012), R(0.034)], 'head', { k: R(0.006), tag: 'laurel', dir: [Math.cos(a), 0.5, -Math.sin(a)] }); }

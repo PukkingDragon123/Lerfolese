@@ -21,6 +21,7 @@ import { tweens, Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
 import { vpick } from '../core/util.js';
 import { eventIntro } from './cinematic.js';
+import { save } from '../core/save.js';
 import { eventCutscene, reactionCutscene } from './eventcine.js';
 import { stageCast } from '../models/npcs/index.js';
 import { Particles } from '../gfx/particles.js';
@@ -57,7 +58,7 @@ function signPost(text) { const g = new THREE.Group(); mk(S.limb(1.4, 0.05, 0.05
 export default class EventScene extends UIScreen {
   async enter(node) {
     const run = this.game.run; const seen = new Set(run.seenEvents);
-    const pool = EVENTS.filter((e) => !seen.has(e.id)); const forced = EVENTS.find((e) => e.id === new URLSearchParams(location.search).get('event')); const ev = (this.ev = forced || run.rng.pick(pool.length ? pool : EVENTS)); run.seenEvents.push(ev.id);
+    const pool = EVENTS.filter((e) => !seen.has(e.id) && (!e.unlock || save.meta?.unlocked?.(e.id))); const forced = EVENTS.find((e) => e.id === new URLSearchParams(location.search).get('event')); const ev = (this.ev = forced || run.rng.pick(pool.length ? pool : EVENTS)); run.seenEvents.push(ev.id);
     const j = this.game.journal; (j.events[ev.id] ||= 0); j.events[ev.id]++; this.game.saveJournal();
     // world
     const sc = (this.scene = new THREE.Scene()); let st; try { st = await realStage(ev.theme, 30 + ev.id.length, this.engine.renderer, { event: ev.id }); sc.environment = st.env; sc.environmentIntensity = 0.75; sc.background = st.background; } catch (e) { console.warn('event stage fallback', e); st = buildStage(ev.theme, 30 + ev.id.length); } sc.add(st.group); sc.fog = new THREE.Fog(0xe8c09a, 30, 95);

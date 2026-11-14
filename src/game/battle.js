@@ -9,6 +9,9 @@ import { foeLines, artifactLines, immuneTo } from './data/synergy.js';
 const NOOP = new Proxy({}, { get: () => async () => {} });
 export const HAND_MAX = 10;
 export const HELD_MAX = 3; // things manifested in mid-air at once
+// HARD difficulty, tuned with tools/sim.mjs against a synergy-hunting player who dodges half the blows:
+// normals ~75-85% won, elites ~30-40%, guardians ~10-20%. Foes' HP and blows scale by tier and grow every floor.
+export const DIFF = { hp: { normal: 2.2, elite: 2.6, guardian: 3.0 }, dmg: { normal: 2.6, elite: 2.0, guardian: 1.8 }, hpFloor: 0.03, dmgFloor: 0.025, per: { hydra: 0.9, hydra_elder: 0.75, hydra_head: 0.8 }, dmgPer: { hydra_head: 0.7 } };
 
 export class Battle {
   constructor({ run, enemies, rng, fx, kind = 'normal' }) {
@@ -29,10 +32,10 @@ export class Battle {
 
   // HARD difficulty: foes are tougher than their base sheet, and grow a little every floor of the run
   tier(def) { return def.guardian ? 'guardian' : def.elite ? 'elite' : 'normal'; }
-  diffHp(def) { const f = Math.max(0, this.run.floor || 0); return ({ normal: 1.3, elite: 1.18, guardian: 1.12 })[this.tier(def)] * (1 + f * 0.03); }
-  diffDmg(def) { const f = Math.max(0, this.run.floor || 0); return ({ normal: 1.35, elite: 1.22, guardian: 1.15 })[this.tier(def)] * (1 + f * 0.025); }
+  diffHp(def, id) { const f = Math.max(0, this.run.floor || 0); return DIFF.hp[this.tier(def)] * (DIFF.per[id] ?? 1) * (1 + f * DIFF.hpFloor); }
+  diffDmg(def, id) { const f = Math.max(0, this.run.floor || 0); return DIFF.dmg[this.tier(def)] * (DIFF.dmgPer[id] ?? 1) * (1 + f * DIFF.dmgFloor); }
   spawnEnemy(id, opts = {}) {
-    const def = ENEMIES[id]; const hp = Math.round(this.rng.int(def.hp[0], def.hp[1]) * this.diffHp(def));
+    const def = ENEMIES[id]; const hp = Math.round(this.rng.int(def.hp[0], def.hp[1]) * this.diffHp(def, id));
     const e = { uid: uid('e'), id, def, hp, maxHp: hp, block: 0, st: {}, turn: 0, alive: true, intent: null, loot: null, lootTurns: 0, pendingHeads: 0, parent: opts.parent || null, slot: opts.slot ?? this.enemies.length };
     this.enemies.push(e);
     if (def.heads) for (let i = 0; i < def.heads; i++) this.spawnEnemy('hydra_head', { parent: e.uid, slot: i });
@@ -69,7 +72,7 @@ export class Battle {
     for (const f of [...this.field]) await this.fieldTurnStart(f);
     if (this.checkEnd()) return;
     let n = 6 + (this.has('thread') ? 1 : 0) + (this.turn === 1 && this.has('antikythera') ? 1 : 0);
-    if (this.has('statues')) n = Math.min(n, 3); // the admirers crowd your table: a hand of three
+    if (this.has('statues')) { n = Math.min(n, 3); this.fx.artifact?.('statues'); } // the admirers crowd your table: a hand of three
     if (!P.retain) { /* normal */ } else n = Math.max(0, n - this.handCount());
     P.retain = false;
     await this.drawCards(n);
@@ -160,7 +163,7 @@ export class Battle {
   }
   // decide the odds of every artifact for one throw, on the battle's seeded RNG
   rollOdds(mv, e, obj) {
-    const { odds } = artifactLines(this, mv, e, obj); return odds.map((o) => { let r = this.rng.next(); for (const x of o.outcomes) { if ((r -= x.p) <= 0) return { text: o.text, ...x }; } const x = o.outcomes[o.outcomes.length - 1]; return { text: o.text, ...x }; });
+    const { odds } = artifactLines(this, mv, e, obj); return odds.map((o) => { let r = this.rng.next(); for (const x of o.outcomes) { if ((r -= x.p) <= 0) return { text: o.text, art: o.art, ...x }; } const x = o.outcomes[o.outcomes.length - 1]; return { text: o.text, art: o.art, ...x }; });
   }
   headsAlive(body) { return this.enemies.filter((x) => x.alive && x.parent === body.uid).length; }
 
@@ -265,8 +268,9 @@ export class Battle {
   async checkDiscovery(mv) {
     if (!mv || mv.n < 2) return null; const run = this.run; const known = (run.discovered ||= []);
     if (known.includes(mv.key)) return null; known.push(mv.key); run.stats.combos = (run.stats.combos || 0) + 1;
-    if (this.flags.pickedThisTurn) { await this.fx.discovered?.(mv); return null; } this.flags.pickedThisTurn = true;
-    const opts = discoveryChoices(run, 3); const pick = await this.fx.discoverPick?.(mv, opts); const id = opts.includes(pick) ? pick : opts[0]; if (!id) return null;
+    if (mv.special?.law) { (run.laws ||= []).push(mv.special.key); this.fx.artifact?.('law:' + mv.special.key); }
+    if (this.flags.pickedThisTurn && !mv.special?.law) { await this.fx.discovered?.(mv); return null; } this.flags.pickedThisTurn = true; // a Law always offers its pick
+    const opts = discoveryChoices(run, 3, mv.special?.law ? 1 : 0); const pick = await this.fx.discoverPick?.(mv, opts, this.calc(mv, this.heldTarget({ comps: mv.comps }, null, mv))); const id = opts.includes(pick) ? pick : opts[0]; if (!id) return null;
     const c = mkCard(id); run.deck.push(c); const slot = this.slotOf([{ ...c }]);
     if (this.handCount() < HAND_MAX) { this.hand.push(slot); await this.fx.drew?.([slot]); } else this.discard.push(slot.cards[0]);
     return id;
@@ -308,7 +312,8 @@ export class Battle {
     }
     if (a.blind) for (const t of this.alive()) this.addSt(t, 'blind', a.blind);
     const targets = a.spread ? this.alive() : [target];
-    const zap = a.charge || 0; const hp0 = target.hp + target.block; const planned = this.calc(mv, target, opts).total;
+    const zap = a.charge || 0; const hp0 = target.hp + target.block; const plan = this.calc(mv, target, opts); const planned = plan.total;
+    for (const id of new Set([...plan.lines.filter((l) => l.art && (l.mul ?? 1) !== 1).map((l) => l.art), ...(opts.rolled || []).map((r) => r.art)])) this.fx.artifact?.(id);
     for (const t of targets) await this.strike(mv, t, 1, opts);
     if (a.chainWet) for (const t of this.alive()) if (!targets.includes(t) && t.st.wet) { await this.fx.chain?.(t); await this.strike(mv, t, 1, opts); } // Spark + Water
     if (a.shove) for (const t of targets) if (t.alive) this.addSt(t, 'shoved', a.shove);
@@ -490,7 +495,7 @@ export class Battle {
   }
   pickIntent(e) { e.intent = e.def.ai(e, this, this.rng); if (e.loot) e.lootTurns++; e.next = this.has('antikythera') ? e.def.ai({ ...e, turn: e.turn + 1, st: { ...e.st } }, this, this.rng) : null; }
 
-  attackValue(e, base) { let d = Math.round(base * this.diffDmg(e.def)) + (e.st.strength || 0); if (e.st.weak) d = Math.floor(d * 0.75); return Math.max(0, d); }
+  attackValue(e, base) { let d = Math.round(base * this.diffDmg(e.def, e.id)) + (e.st.strength || 0); if (e.st.weak) d = Math.floor(d * 0.75); return Math.max(0, d); }
 
   async enemyAct(e) {
     const it = e.intent; if (!it) return;

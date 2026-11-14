@@ -15,7 +15,7 @@ const BUILD = {
     props: (ctx, J, H) => waxWings(ctx, J, H, { span: 1.15 }),
     idle(P, t, st, ctx) { const fly = ['fly', 'fall'].includes(ctx.api.pose); const fl = Math.sin(t * (ctx.api.pose === 'fall' ? 14 : 6.5));
       for (const [s, L] of [[1, '_L'], [-1, '_R']]) { if (fly) { P['wing1' + L] = [0, 0, (0.15 + fl * 0.75) * s]; P['wing2' + L] = [0, 0.1 * s, -fl * 0.3 * s]; } else { P['wing1' + L] = [0, -0.6 * s, -0.25 * s]; P['wing2' + L] = [0, -0.9 * s, 0.1 * s]; P['wing3' + L] = [0, -0.5 * s, 0]; } } } }),
-  pythia: humanNPC({ id: 'pythia', H: 1.62, sex: 'f', hair: 'long', hairC: '#1e1418', veil: true, veilC: '#7a5aa8', skin: '#e8b898', eye: '#7a5a3a', garment: 'robe', cloth: '#ece6f2', cloth2: '#7a5aa8', trim: '#c09040', pose: 'sit', wreath: true }),
+  pythia: humanNPC({ id: 'pythia', H: 1.62, sex: 'f', hair: 'long', hairC: '#1e1418', veil: true, veilC: '#d8c8ec', skin: '#e8b898', eye: '#7a5a3a', garment: 'robe', cloth: '#ece6f2', cloth2: '#7a5aa8', trim: '#c09040', pose: 'sit', wreath: true }),
   sisyphus: humanNPC({ id: 'sisyphus', H: 1.8, bulk: 1.25, hair: 'curls', hairC: '#2a1a12', beard: 'full', skin: '#c08860', eye: '#5a4030', garment: 'loin', cloth: '#9a7a50', pose: 'push', browTilt: 0.25 }),
   narcissus: humanNPC({ id: 'narcissus', H: 1.75, bulk: 0.85, hair: 'curls', hairC: '#e0b850', skin: '#f0c8a8', eye: '#3a8ab0', garment: 'chiton', cloth: '#f8f4ec', trim: '#d8a838', wreath: true, pose: 'kneel', browTilt: -0.1 }),
   prometheus: humanNPC({ id: 'prometheus', H: 2.45, bulk: 1.35, hair: 'long', hairC: '#3a2418', beard: 'long', skin: '#c88a64', eye: '#b06020', garment: 'loin', cloth: '#6a4a3a', pose: 'chained', browTilt: 0.2 }),

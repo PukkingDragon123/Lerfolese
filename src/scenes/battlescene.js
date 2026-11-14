@@ -21,7 +21,10 @@ import { audio } from '../core/audio.js';
 import { vpick, vrange, clamp, roman } from '../core/util.js';
 import { RNG } from '../core/util.js';
 import { POWERS, BASICS } from '../game/data/cards.js';
-import { HeldLayer, heldFx, loreLines } from './manifest.js';
+import { HeldLayer, heldFx, loreLines, mathLines } from './manifest.js';
+import { DodgeQTE } from './dodge.js';
+import { ITEMS } from '../game/data/items.js';
+import { foeNature } from '../game/data/synergy.js';
 import { IntentLayer } from './intents.js';
 import { battleIntro } from './cinematic.js';
 
@@ -43,6 +46,9 @@ export class BattleScene {
     this.battle = new Battle({ run, enemies: encounter.enemies, rng, fx: this.fx(), kind: encounter.kind });
     for (const e of this.battle.enemies) this.addEnemyView(e);
     this.held = new HeldLayer(this); // PLACE -> MERGE -> End Turn RELEASES (prepared objects wait in the air)
+    this.dodgeQTE = new DodgeQTE(this); // the timed dodge on enemy blows
+    // the artifacts that bend the arithmetic hang as leather tags on the HUD (they twitch when they trigger)
+    this.artTags = {}; for (const id of run.items) { const d = ITEMS[id]; if (!d || !(d.math || id === 'talaria')) continue; this.hudB.addLaw(d.name, d.text); this.artTags[id] = this.hudB.laws?.[this.hudB.laws.length - 1]; }
     this.intents = new IntentLayer(this); this.thinkK = 0; // foes' thought bubbles; the camera's 'thinking' zoom
     { const names = [...new Set(this.battle.enemies.filter((e) => !e.def.isHead).map((e) => e.def.name))]; this.hudB.setObjective(`Defeat ${names.length > 1 ? names.slice(0, -1).join(', ') + ' & ' + names.at(-1) : names[0] || 'the foe'}`); }
     this.engine.setWorld(this.scene, this.camera);
@@ -225,7 +231,7 @@ export class BattleScene {
         if (S.done || S.hand.drag) return;
         const hits = S.rayUI(S.cardMeshes()); const s = S.hand.pick(hits);
         if (s !== S.hand.hover) { S.hand.hover = s; S.hand.layout(); if (s) { audio.play('ui_hover', { vol: 0.5 }); S.showCardTip(s); } else S.tooltip.hide(); }
-        if (!s) S.showHeldTip(S.held?.pick());
+        if (!s) { const h = S.held?.pick(); if (h || S._heldTip) S.showHeldTip(h); if (!h) S.showFoeTip(S.rayWorld()); }
         S.engine.canvas.classList.toggle('show-cursor', true);
       },
       dragstart() {
@@ -292,7 +298,8 @@ export class BattleScene {
     if (pv.kind === 'self') return [[[mv.comps.some((c) => /apple/.test(c.id)) ? 'EAT ' : 'ON NEWTON ', '#2d6e6a'], [mv.name, '#3a2410']], [[describeSelf(mv.self).join(' · '), '#2a160c']]];
     if (pv.kind === 'field') return [[['FIELD ', '#5f8a3a'], [mv.field.name, '#3a2410']], [[fieldDesc(mv.field), '#2a160c']], ...(B.manifestBlock(s) ? [] : [[['Higher up, in the air: MANIFEST it instead', '#8a6a44']]])];
     if (pv.kind === 'manifest') { const a = mv.attack; const foe = tgt.aim && B.enemies.find((e) => e.uid === tgt.aim); return [[['PLACE ', '#4e2e7e'], [mv.name, '#3a2410'], [foe ? `  aimed at ${foe.def.name}` : '', '#8a1a1c']], [['Its 3D model appears on the field. Merge Laws into it.', '#2a160c']], [[a.launched ? `${a.m} kg × ${a.v} m/s, launched at End Turn` : 'Needs Force or Motion to fly at End Turn', '#5a3622']]]; }
-    if (pv.kind === 'manipulate') { const a = mv.attack; const t = pv.target; return [[['MERGE → ', '#4e2e7e'], [mv.name, '#3a2410']], [[a.perHit ? `${a.m}kg × ${a.v}m/s${a.hits > 1 ? ' ×' + a.hits : ''}` : describeAttack(a)[0] || '', '#2a160c'], [t && pv.est ? `  → ${t.def.name} ${pv.est.total}` : '', '#c8443a']], [[describeAttack(a).slice(a.perHit ? 1 : 0, 3).join(' · ') || 'Winds it up: +1 m/s', '#5a3622']]]; }
+    if (pv.kind === 'manipulate') { const t = pv.target; return [[['MERGE → ', '#4e2e7e'], [mv.name, '#3a2410'], [t ? `  → ${t.def.name}` : '', '#8a1a1c']], ...mathLines(pv.est?.lines || mv.attack.lines, 13, 7)]; }
+    if (pv.kind === 'manipulate-old') { const a = mv.attack; const t = pv.target; return [[['MERGE → ', '#4e2e7e'], [mv.name, '#3a2410']], [[a.perHit ? `${a.m}kg × ${a.v}m/s${a.hits > 1 ? ' ×' + a.hits : ''}` : describeAttack(a)[0] || '', '#2a160c'], [t && pv.est ? `  → ${t.def.name} ${pv.est.total}` : '', '#c8443a']], [[describeAttack(a).slice(a.perHit ? 1 : 0, 3).join(' · ') || 'Winds it up: +1 m/s', '#5a3622']]]; }
     if (pv.kind === 'object') return [[['USE ON OBJECT', '#6b4c9a']], [[pv.text, '#2a160c']]];
     return null;
   }
@@ -306,12 +313,25 @@ export class BattleScene {
     const b = s.base; this.tooltip.show(lines, clamp(b.x + (lore ? 9 : 6.4), -this.ui.W + 4, this.ui.W - 4.5), b.y + (lore ? 6.5 : 3.5), 10, lore ? { maxW: W } : {});
   }
   // hovering something held in the air: its Move, its target, how to aim and release it
+  // hovering a foe: its nature (what it resists, what breaks it), so the merge can be planned against it
+  showFoeTip(t) {
+    const uid = t?.type === 'enemy' ? t.uid : null; if (uid === this._foeTip) return; this._foeTip = uid; if (!uid) { this.tooltip.hide(); return; }
+    const e = this.battle.enemies.find((x) => x.uid === uid); if (!e) return; const nat = foeNature(e); const v = this.enemyViews.get(uid); const p = this.engine.worldToUI(v.api.root.position.clone().add(new THREE.Vector3(0, v.h * 0.7, 0)));
+    const lines = [[[e.def.name, '#3a2410'], [`  ${e.hp}/${e.maxHp}`, '#8a1a1c']], ...nat.map((x) => [[x.mul < 1 ? 'RESISTS: ' : 'WEAK: ', x.mul < 1 ? '#9e2218' : '#2e6a1e'], [x.text, '#2a160c']]), ...(e.def.weakness ? [[[e.def.weakness, '#8a6a44']]] : [])];
+    this.tooltip.show(lines, clamp(p.x - 7, -this.ui.W + 4, this.ui.W - 4.5), p.y + 3, 10, { maxW: 13 });
+  }
   showHeldTip(h) {
     if (h?.uid === this._heldTip) return; this._heldTip = h?.uid || null; if (!h) { this.tooltip.hide(); return; }
     const o = this.battle.held.find((x) => x.uid === h.uid); if (!o) return; const pv = this.battle.heldPreview(o); const a = pv.mv.attack; const v = this.held.views.get(o.uid); const p = this.engine.worldToUI(v.g.position);
+    if (pv.est || a.fizzle) { this.tooltip.show([[[pv.mv.name, '#3a2410'], [pv.target ? `  → ${pv.target.def.name}` : '', '#8a1a1c']], ...mathLines(pv.est?.lines || a.lines, 14), [['Drop Laws on it. Click it for its card. Drag it onto a foe to aim.', '#8a6a44']]], clamp(p.x + 6, -this.ui.W + 4, this.ui.W - 4.5), p.y + 3.2, 10, { maxW: 14 }); return; }
     this.tooltip.show([[[pv.mv.name, '#3a2410']], [[a.perHit ? `${a.m}kg × ${a.v}m/s${a.hits > 1 ? ' ×' + a.hits : ''}` : describeAttack(a)[0] || '', '#2a160c'], [pv.target && pv.est ? `  → ${pv.target.def.name} ${pv.est.total}` : '', '#c8443a']], [['Drop Laws on it to change it. Drag it onto a foe to aim.', '#5a3622']], [['The bell releases it.', '#8a6a44']]], clamp(p.x + 4.5, -this.ui.W + 4, this.ui.W - 4.5), p.y + 2.5, 10);
   }
   toast(text) { hud.toast(text); }
+  // Newton slips aside in mid-air (a perfect dodge goes further) and floats back
+  sidestep(k = 1) {
+    const r = this.prof.root; const z0 = this.prof.homeZ ?? (this.prof.homeZ = r.position.z), y0 = this.prof.homeY ?? (this.prof.homeY = r.position.y);
+    tweens.to(r.position, { z: z0 - 0.9 * k, y: y0 + 0.35 * k }, 0.12, { ease: 'outQuad' }).then(() => tweens.to(r.position, { z: z0, y: y0 }, 0.45, { delay: 0.25, ease: 'inOutQuad' }));
+  }
 
   syncHand(from) { const W = this.ui.W, H = this.ui.H; this.hand.sync(this.battle.hand, this.battle, from || { x: -W + 2.2, y: -H + 2.4 }); }
 
@@ -380,6 +400,15 @@ export class BattleScene {
     const S = this; const W = () => S.ui.W, H = () => S.ui.H;
     return {
       ...heldFx(S),
+      // a blow is coming: the rings close as the foe strikes (the lunge is timed to land on the ring)
+      async dodge(e, h, it, scale) {
+        if (!S.dodgeQTE.on) return null; const v = S.enemyViews.get(e.uid); const lead = h ? 0.6 : 0.85;
+        const res = S.dodgeQTE.run(e, { lead, scale });
+        setTimeout(() => { if (!v || !S.battle) return; v.api.act('attack'); if ((h || !S.lungedFor) && !it?.charge) S.fx3d.lunge(v.api.root, S.enemySlotPos(e), S.prof.root.position.x); }, Math.max(0, (lead - 0.4) * 1000));
+        S.lungedFor = null; const r = await res; if (r !== 'miss') S.sidestep(r === 'perfect' ? 1 : 0.6); return r;
+      },
+      async dodged(e, res) { const p = S.prof.headWorld(new THREE.Vector3()); S.popNumber(p, 'DODGE!', { color: '#cfe07a', stroke: '#1e3320', size: 1.3 }); audio.play('whoosh_soft'); await tweens.wait(0.2); },
+      artifact(id) { const t = S.artTags?.[id]; if (t) { t.kick?.(1.6); t.pop?.kick?.(3); } if (!String(id).startsWith('law:')) audio.play('chime_soft', { vol: 0.35, minGap: 0.2 }); },
       async battleStart(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); await S.chapterCard(B); await tweens.wait(0.25); const lead = B.enemies.find((e) => !e.def.isHead); if (lead) S.bark(lead, vpick(lead.def.barks.start), 2.6); await tweens.wait(0.8); S.bark('player', vpick(PLAYER_BARKS.start), 2.4); },
       async playerTurn(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); S.hudB.setTurn(B.turn); S.showBanner('Your Turn', `TURN ${roman(B.turn)}`); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); },
       async drew(slots) { S.syncHand(); audio.play('card_slide', { vol: 0.8 }); for (let i = 0; i < Math.min(slots.length, 6); i++) audio.play('card_slide', { delay: i * 0.07, vol: 0.6 }); await tweens.wait(0.12); },
@@ -428,7 +457,8 @@ export class BattleScene {
       fieldUpdate(f) { const fv = S.fieldViews.get(f.uid); fv?.group.scale.setScalar(1.15); fv && tweens.to(fv.group.scale, { x: 1, y: 1, z: 1 }, 0.4, { ease: 'outBack' }); },
       async enemyAct(e, it) {
         const v = S.enemyViews.get(e.uid); if (!v) return;
-        v.api.act(it.kind === 'attack' ? 'attack' : 'cast'); if (it.kind === 'attack' && !it.charge) await S.fx3d.lunge(v.api.root, S.enemySlotPos(e), S.prof.root.position.x); hud.feed(`${e.def.name}: ${it.label || (it.kind === 'attack' ? 'attacks' : it.kind)}`, 'foe');
+        const qte = it.kind === 'attack' && S.dodgeQTE.on && S.battle.player.dodge > 0; S.lungedFor = qte ? null : e.uid;
+        if (!qte) { v.api.act(it.kind === 'attack' ? 'attack' : 'cast'); if (it.kind === 'attack' && !it.charge) await S.fx3d.lunge(v.api.root, S.enemySlotPos(e), S.prof.root.position.x); } else v.api.act('cast'); hud.feed(`${e.def.name}: ${it.label || (it.kind === 'attack' ? 'attacks' : it.kind)}`, 'foe');
         if (it.label) S.bark(e, it.kind === 'attack' ? null : vpick(e.def.barks.special), 1.4);
         audio.play(it.kind === 'attack' ? 'whoosh_heavy' : it.kind === 'buff' ? 'buff' : 'debuff', { vol: 0.8 });
         const sfx = { satyr: it.kind === 'attack' ? 'drunk_laugh' : 'hiccup', medusa: 'snake_hiss', kobalos: 'goblin_laugh', minotaur: it.charge ? 'bull_roar' : 'bull_snort', minotaur_king: 'bull_roar', hydra: 'monster_growl', hydra_head: 'monster_growl', hydra_elder: 'monster_roar' }[e.id];
@@ -437,6 +467,7 @@ export class BattleScene {
         await tweens.wait(0.35);
       },
       async playerHit(dmg, o) {
+        if (o.dodge === 'good') S.popNumber(S.prof.headWorld(new THREE.Vector3()).add(new THREE.Vector3(-0.7, 0.6, 0)), 'HALF', { color: '#cfe07a', stroke: '#1e3320', size: 1.0 });
         S.prof.act('hurt'); const p = S.prof.headWorld(new THREE.Vector3()); if (dmg > 0) S.fx3d.hitPlayer(S.prof.root, p, dmg);
         if (dmg > 0) { hud.feed(`Sir Isaac takes ${dmg}`, 'hurt'); S.popNumber(p, dmg, { color: '#f6b3a0', stroke: '#3a0f18', size: 1.5 }); S.burst(p.clone().add(new THREE.Vector3(0, -0.6, 0)), 'wood', 16); audio.play('hit_wood'); S.engine.shake(Math.min(0.55, 0.12 + dmg / 50)); S.engine.flash(0.12, 0xc8443a, 0.25); if (Math.random() < 0.35) S.bark('player', vpick(PLAYER_BARKS.hit), 1.3); }
         if (o.blocked) { S.popNumber(p.clone().add(new THREE.Vector3(0.8, 0.4, 0)), `-${o.blocked}`, { color: '#a8dcef', stroke: '#16304f', size: 1.0 }); audio.play('shield_block'); }

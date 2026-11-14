@@ -31,16 +31,17 @@ class Game {
   // -------------------------------------------------------------- flow
   async boot() {
     bootMsg('Loading fonts…', 10);
-    await Promise.all(['16px "Alagard"', '32px "Alagard"', '700 40px "Pixelify"', '32px "VT323"', '700 22px "Silkscreen"', '400 22px "Silkscreen"', '40px "Caveat"', '700 18px "Caveat"', '40px "HomemadeApple"', '40px "Jacquard"', '24px "Jacquard"', '8px "Tiny5"', '400 8px "Silkscreen"'].map((f) => document.fonts.load(f).catch(() => {})));
+    await Promise.all(['16px "Alagard"', '32px "Alagard"', '700 40px "Pixelify"', '32px "VT323"', '700 22px "Silkscreen"', '400 22px "Silkscreen"', '40px "Caveat"', '700 18px "Caveat"', '40px "HomemadeApple"', '40px "Jacquard"', '24px "Jacquard"', '8px "Tiny5"', '400 8px "Silkscreen"', '11px "PixelSans"', '13px "NanoPlus"', '12px "RuneMono"', '24px "RuneMono"', '9px "MicroPixel"', '48px "Alagard"'].map((f) => document.fonts.load(f).catch(() => {})));
     const q = new URLSearchParams(location.search);
-    if (!q.get('battle') && !q.get('node')) { // the orchard loading screen: Newton sleeps while everything else preloads behind him
-      bootMsg('Waking the orchard…', 60); const pre = this.preload();
-      await this.toMenu({ intro: true, preload: pre });
+    if (!q.get('battle') && !q.get('node') && !q.get('scene')) { // the loading time-lapse: an apple lives and dies while everything preloads
+      bootMsg('Planting the apple…', 60); const pre = this.preload();
+      const { LoadingScene } = await import('./scenes/menu.js'); this.scene = new LoadingScene(this); await this.scene.enter({ preload: pre });
       requestAnimationFrame(() => setTimeout(() => $('boot').classList.add('gone'), 200)); return;
     }
     bootMsg('Tuning gravity strings…', 40); await audio.init();
     bootMsg('Convincing the gods…', 80);
     $('boot').classList.add('gone');
+    if (q.get('scene')) { const k = q.get('scene'); if (k === 'sky') return this.toSky(); if (k === 'gallery') return this.toGallery(); return this.toMenu({ from: k === 'loading-end' ? 'loading' : null }); } // debug: ?scene=garden|sky|gallery
     if (q.get('battle')) return this.debugBattle(q.get('battle').split(','), q.get('kind') || 'normal');
     if (q.get('node')) { this.run = newRun(Number(q.get('seed')) || 1234); attachRun?.(this.run, this.journal); const n = Object.values(this.run.map.nodes).find((x) => x.type === q.get('node')); if (n) return this.enterNode(n.id); }
     return this.toMenu();
@@ -48,7 +49,7 @@ class Game {
 
   async debugBattle(enemies, kind) {
     this.run = newRun(Number(new URLSearchParams(location.search).get('seed')) || 1234);
-    const q = new URLSearchParams(location.search); if (q.get('deck')) this.run.deck = q.get('deck').split(',').map((id) => ({ uid: 'd' + Math.random(), id, type: 'basic', up: 0 }));
+    const q = new URLSearchParams(location.search); if (q.get('deck')) this.run.deck = q.get('deck').split(',').map((id) => ({ uid: 'd' + Math.random(), id, type: 'basic', up: 0 })); if (q.get('items')) this.run.items.push(...q.get('items').split(',')); // debug: ?items=statues,tyche
     const bs = new BattleScene(this); this.scene = bs;
     const res = await bs.run(this.run, { enemies, kind });
     console.info('battle result', res);
@@ -59,13 +60,15 @@ class Game {
     let done = 0, total = 1; const self = this;
     const promise = (async () => {
       const { preloadTasks } = await import('./models/realworld.js');
-      const tasks = [() => audio.init(), () => import('./scenes/mapscene.js'), () => import('./scenes/event.js'), () => import('./scenes/journal.js'), ...preloadTasks(self.engine.renderer)];
+      const tasks = [() => audio.init(), () => import('./scenes/mapscene.js'), () => import('./scenes/event.js'), () => import('./scenes/journal.js'), () => import('./scenes/sky.js'), () => import('./scenes/gallery.js'), ...preloadTasks(self.engine.renderer)];
       total = tasks.length; let i = 0;
       const worker = async () => { while (i < tasks.length) { const t = tasks[i++]; try { await t(); } catch (e) { console.warn('preload', e); } done++; } };
       await Promise.all([worker(), worker(), worker()]);
     })().catch((e) => console.warn('preload failed', e));
     return { promise, progress: () => done / total };
   }
+  async toSky() { const { SkyScene } = await import('./scenes/sky.js'); await this.swap(async () => { this.scene = new SkyScene(this); await this.scene.enter(); }, { color: 0x0a0c20 }); }
+  async toGallery() { const { GalleryScene } = await import('./scenes/gallery.js'); await this.swap(async () => { this.scene = new GalleryScene(this); await this.scene.enter(); }, { color: 0x0a0a18 }); }
   async toMenu(opts = {}) {
     const { MenuScene } = await import('./scenes/menu.js');
     if (this.scene) return this.swap(async () => { this.scene = new MenuScene(this); await this.scene.enter(opts); }, { color: 0x07050d });

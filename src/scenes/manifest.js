@@ -5,7 +5,7 @@
 // release / aim); this file only draws them. The objects reuse the projectile art from fieldviews.js.
 import * as THREE from 'three';
 import { projectileModel } from './fieldviews.js';
-import { Tag, Strip, Signboard } from '../ui3d/objects.js';
+import { Tag, Strip, Signboard, Paper } from '../ui3d/objects.js';
 import { uiPos, wrapText, PXP } from '../ui3d/craft.js';
 import { Card3D } from '../ui3d/cards3d.js';
 import { describeCard, BASICS } from '../game/data/cards.js';
@@ -55,6 +55,7 @@ class HeldView {
     this.hit = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), new THREE.MeshBasicMaterial({ visible: false })); this.hit.userData.target = { type: 'held', uid: o.uid }; this.g.add(this.hit);
     this.tag = new Tag('0', { icon: 'sword' }); L.S.ui.root.add(this.tag.group);
     this.mark = new Tag('TARGET', { icon: 'down', style: 'burn' }); L.S.ui.root.add(this.mark.group); // hangs beside the foe it will hit
+    this.mulTag = new Tag('x1', { style: 'burn' }); this.mulTag.group.visible = false; L.S.ui.root.add(this.mulTag.group); // the product of every multiplier
     this.rebuild(true);
   }
   // the object itself, rebuilt from its current Move art whenever a Law changes it
@@ -65,7 +66,11 @@ class HeldView {
     this.liftT = this.art.falling ? 0.9 : 0; this.pop = first ? 1 : 0.6;
     this.refresh();
   }
-  refresh() { const pv = (this.pv = this.L.S.battle.heldPreview(this.o)); this.tag.set(pv.est ? String(pv.est.total) : '?'); }
+  refresh() {
+    const pv = (this.pv = this.L.S.battle.heldPreview(this.o)); const e = pv.est; const a = pv.mv.attack;
+    this.tag.set(a.fizzle ? 'FIZZLE' : !e ? '?' : e.lo !== e.hi ? `${e.lo}-${e.hi}` : String(e.total));
+    const k = e ? e.mul : 1; this.mulTag.group.visible = !!e && !a.fizzle && Math.abs(k - 1) > 0.01; if (this.mulTag.group.visible) this.mulTag.set('x' + fmtMul(k));
+  }
   pos(out = V()) { return out.copy(this.g.position); }
   target() { return this.pv?.target ? this.L.S.enemyPos(this.pv.target) : null; }
   update(dt, t) {
@@ -93,10 +98,11 @@ class HeldView {
     if (Math.random() < dt * 3) P.spawn({ pos: [top.x, top.y - 0.3, top.z], vel: [0, -2.2, 0], life: 1.6, size: 16, color: '#cdb6f0', sprite: 'star4' });
     // the damage tag hangs just above it, in the UI layer
     const ui = this.L.S.engine.worldToUI(_t.copy(q).add(V(0, 1.0 + (a.falling ? 0.2 : 0), 0))); uiPos(this.tag.group, ui.x, ui.y, 3); this.tag.group.scale.setScalar(((40 - 3) / 40) * 0.95); this.tag.update(dt, null);
+    if (this.mulTag.group.visible) { uiPos(this.mulTag.group, ui.x + this.tag.w * 0.5 + this.mulTag.w * 0.55 + 0.15, ui.y - 0.12, 3.1); this.mulTag.group.scale.setScalar(((40 - 3.1) / 40) * 0.9); this.mulTag.update(dt, null); }
     const foe = this.pv?.target, fv = foe && this.L.S.enemyViews.get(foe.uid); this.mark.group.visible = !!fv && !this.L.insp;
     if (fv) { const mp = this.L.S.engine.worldToUI(_t.copy(fv.api.root.position).add(V(-0.75, fv.h * 0.62, 0))); const k = this.L.targetSlot(this); uiPos(this.mark.group, mp.x - 1.2, mp.y + k * 0.9, 3.2); this.mark.group.scale.setScalar(((40 - 3.2) / 40) * 0.9); this.mark.update(dt, null); }
   }
-  dispose() { const S = this.L.S; S.scene.remove(this.g, this.str, this.dots); this.strGeo.dispose(); this.dotGeo.dispose(); this.str.material.dispose(); this.dots.material.dispose(); for (const t of [this.tag, this.mark]) { t.group.parent?.remove(t.group); t.tex?.dispose(); } }
+  dispose() { const S = this.L.S; S.scene.remove(this.g, this.str, this.dots); this.strGeo.dispose(); this.dotGeo.dispose(); this.str.material.dispose(); this.dots.material.dispose(); for (const t of [this.tag, this.mark, this.mulTag]) { t.group.parent?.remove(t.group); t.tex?.dispose(); } }
 }
 
 export class HeldLayer {
@@ -150,7 +156,7 @@ export class HeldLayer {
   async fly(o, mv, foe) {
     const v = this.views.get(o.uid); if (!v) return; const S = this.S; v.flying = true; v.art = mv.art;
     const to = foe ? S.enemyPos(foe) : v.target() || V(3, 1, 0); const from = v.g.position.clone(); const path = flightPath(from, to, mv.art);
-    S.scene.remove(v.str); v.tag.group.visible = false; v.mark.group.visible = false; audio.play(mv.art.falling ? 'whoosh_heavy' : 'whoosh_soft'); audio.play('string_pluck', { vol: 0.6 }); S.prof.act('cast');
+    S.scene.remove(v.str); v.tag.group.visible = false; v.mark.group.visible = false; v.mulTag.group.visible = false; audio.play(mv.art.falling ? 'whoosh_heavy' : 'whoosh_soft'); audio.play('string_pluck', { vol: 0.6 }); S.prof.act('cast');
     S.burst(from, 'magic', 10);
     const dur = mv.art.falling ? 0.85 : mv.art.fast ? 0.32 : 0.55; const st = { k: 0 };
     await tweens.to(st, { k: 1 }, dur, { ease: mv.art.falling ? 'linear' : 'inQuad', onUpdate: () => { v.g.position.copy(path(st.k)); v.model.rotation.x += mv.art.spin ? 0.7 : 0.25; v.model.rotation.z += 0.2; if (Math.random() < 0.7) S.glowParts.spawn({ pos: [v.g.position.x, v.g.position.y, v.g.position.z], vel: [0, 0, 0], life: 0.35, size: 30, size1: 4, color: mv.art.hot ? '#ffb04a' : mv.art.electric ? '#fff3b0' : '#cdb6f0', sprite: 'star4' }); } });
@@ -182,9 +188,13 @@ export function heldFx(S) {
       v.rebuild(); S.burst(v.g.position, ids.includes('heat') ? 'fire' : ids.includes('spark') ? 'zap' : 'magic', 14); S.prof.act('cast'); await tweens.wait(0.15);
     },
     aimed(o) { L().views.get(o.uid)?.refresh(); },
-    async release(o, mv, foe) { await L().fly(o, mv, foe); },
-    async fizzle(o, why) { const v = L().views.get(o.uid); if (v) S.burst(v.g.position, 'smoke', 12); audio.play('whoosh_soft'); if (why) S.bark?.('player', why, 2.2); L().remove(o); await tweens.wait(0.3); },
-    async discoverPick(mv, opts) { return discoveryPick(S, mv, opts); },
+    async release(o, mv, foe, rolled) {
+      const v = L().views.get(o.uid); const odd = (rolled || []).filter((r) => r.mul !== 1);
+      if (v && odd.length) { S.popNumber(v.g.position.clone().add(new THREE.Vector3(0, 0.8, 0)), odd.map((r) => 'x' + fmtMul(r.mul)).join(' '), { color: odd.every((r) => r.mul > 1) ? '#ffe08a' : '#f6b3a0', stroke: '#3a1f08', size: 1.3 }); audio.play(odd.every((r) => r.mul > 1) ? 'coins_handful' : 'coin_single', { vol: 0.6 }); await tweens.wait(0.35); }
+      await L().fly(o, mv, foe);
+    },
+    async fizzle(o, why, kind) { const v = L().views.get(o.uid); if (v) { S.burst(v.g.position, 'smoke', 12); if (kind) S.popNumber(v.g.position.clone().add(new THREE.Vector3(0, 0.6, 0)), kind === 'odds' ? 'EMPTY' : 'FIZZLE', { color: '#f6b3a0', stroke: '#3a0f18', size: 1.4 }); } audio.play(kind ? 'ui_error' : 'whoosh_soft'); if (kind) await tweens.wait(0.5); if (why) S.bark?.('player', why, 2.2); L().remove(o); await tweens.wait(0.3); },
+    async discoverPick(mv, opts, calc) { return discoveryPick(S, mv, opts, calc); },
     async discovered(mv) { S.toast?.(`Discovered: ${mv.name}`); },
     unheld(o) { L().remove(o); },
   };
@@ -199,17 +209,24 @@ export function loreLines(card, maxW = 19) {
 }
 // what a placed object will do: the Move, the arithmetic, its target, and what every merged card contributes
 function infoLines(pv, o, B) {
-  const a = pv.mv.attack; const out = [[[pv.mv.name, '#3a2410']]];
-  out.push([[a.perHit ? `${a.m} kg × ${a.v} m/s = ${a.perHit}${a.hits > 1 ? ' × ' + a.hits + ' hits' : ''}` : (a.charge ? `Zap ${a.charge}` : a.burn ? `Burn ${a.burn}` : 'No punch yet'), '#2a160c']]);
-  out.push([[a.launched ? (pv.target && pv.est ? `Flies at ${pv.target.def.name}: ${pv.est.total} damage` : 'Flies at the nearest foe') : 'Not launched yet: merge Force or Motion', a.launched ? '#8a1a1c' : '#8f2a2e']]);
+  const a = pv.mv.attack; const out = [[[pv.mv.name, '#3a2410'], [pv.mv.special?.law ? '  a Law of Nature' : '', '#7a2a6a']]];
+  out.push(...mathLines(pv.est?.lines || a.lines, 15));
+  out.push([[a.fizzle ? 'It will FIZZLE: ' + a.fizzle.split(':')[0].split('.')[0] : a.launched ? (pv.target && pv.est ? `Flies at ${pv.target.def.name}: ${pv.est.lo !== pv.est.hi ? pv.est.lo + ' to ' + pv.est.hi : pv.est.total} damage` : 'Flies at the nearest foe') : 'Not launched yet: merge Force or Motion', a.launched && !a.fizzle ? '#8a1a1c' : '#8f2a2e']]);
   const seen = new Set(); for (const c of o.comps) { if (seen.has(c.id)) continue; seen.add(c.id); const d = BASICS[c.id]; if (!d?.desc) continue; wrapText(`${d.name}: ${d.desc.skill}`, 'handS', Math.round(15 * PXP) - 30).forEach((l, i) => out.push(i ? [[l, '#4e2e1a']] : [[d.name + ':', '#1e5a5a'], [l.slice(d.name.length + 1), '#4e2e1a']])); }
   out.push([['Click it again to turn it back. Drag it onto a foe to aim.', '#8a6a44']]); return out;
 }
 // a discovery: three new cards fanned out above the table, pick one (it goes straight to your hand and your deck)
-export function discoveryPick(S, mv, opts) {
+export function discoveryPick(S, mv, opts, calc = null) {
   return new Promise((resolve) => {
-    const E = S.engine, ui = E.ui.scene; const W = E.uiW, H = E.uiH; const g = new THREE.Group(); ui.add(g);
-    const title = new Signboard(['A Discovery!'], { sub: mv.name, hang: 1.1 }); title.group.scale.setScalar(Math.min(1, (W * 1.1) / title.w)); uiPos(title.group, 0, H - 2.0, 7); g.add(title.group);
+    const E = S.engine, ui = E.ui.scene; const W = E.uiW, H = E.uiH; const g = new THREE.Group(); ui.add(g); const law = mv.special?.law;
+    const title = new Signboard([law ? 'A Law of Nature!' : 'A Discovery!'], { sub: mv.name, hang: 1.1, style: law ? 'gild' : undefined });
+    // a hidden Law is written out in full: its effect, the arithmetic, the note (and it goes into the Journal)
+    let note = null; if (law || calc) {
+      note = new Paper({ font: 'handS', title: 'head', maxW: 9.5, pin: true, kind: 'letter', seal: !!law });
+      const lines = [[[mv.name, law ? '#6a1a6a' : '#3a2410']], ...(law ? [[[mv.special.effect || '', '#8a1a1c']]] : []), ...mathLines((calc?.lines) || mv.attack.lines, 9.5, 6), ...(mv.special?.note ? [[[mv.special.note, '#8a6a44']]] : []), [[law ? 'Written into your Journal.' : 'New combination: in your Journal.', '#5a3622']]];
+      note.show(lines, 0, 0, 6.5, { title: true }); note.group.position.set(-W * 0.64 * (40 - 6.5) / 40, (H * 0.05 + note.h / 2) * (40 - 6.5) / 40, 6.5); note.baseScale = (40 - 6.5) / 40 * 0.95; g.add(note.group);
+      if (law) { audio.play('eureka'); S.engine.flash?.(0.25, 0xffe08a, 0.5); }
+    } title.group.scale.setScalar(Math.min(1, (W * 1.1) / title.w)); uiPos(title.group, 0, H - 2.0, 7); g.add(title.group);
     const lbl = new Strip([[['Choose a new card for your deck', '#2a160c']]], { maxW: 16 }); uiPos(lbl.group, 0, -H * 0.42, 7); g.add(lbl.group);
     const cards = opts.map((id, i) => { const c = new Card3D(mkCard(id)); c.pos.snap((i - 1) * 5.6, -H - 5, 6); c.flip.set(1); c.flip.target = 0; c.target = { x: (i - 1) * 5.6 * (40 - 6) / 40, y: 0.2, z: 6, rz: (i - 1) * -0.05, s: 1.1 }; c.id = id; g.add(c.group); return c; });
     audio.play('magic_shimmer'); audio.play('card_fan'); S.prof?.act?.('cheer');
@@ -221,6 +238,21 @@ export function discoveryPick(S, mv, opts) {
         lbl.set([[[`${BASICS[h.id]?.name || h.id} joins your deck`, '#3e6a22']]]);
         setTimeout(() => { E.remove(upd); S.input.remove(handler); ui.remove(g); resolve(h.id); }, 750); return true; },
       key: eat, down: eat, dragstart: eat, drag: eat, dragend: eat, wheel: eat });
-    const upd = { update(dt, t) { for (const c of cards) c.update(dt, t); title.update(dt, null, t); lbl.update(dt, null); } }; E.add(upd);
+    const upd = { update(dt, t) { for (const c of cards) c.update(dt, t); title.update(dt, null, t); lbl.update(dt, null); note?.update(dt, null); } }; E.add(upd);
   });
+}
+
+// ---- the arithmetic, as ink: base m×v, every multiplier on its own line (green synergy, red anti-synergy, gold
+// artifact, purple Law, blue odds), then the result. Shared by the card view, the hover note and the drop preview.
+export const fmtMul = (k) => { const r = Math.round(k * 100) / 100; return Number.isInteger(r) ? String(r) : String(r).replace(/^0\./, '.').replace(/(\.\d\d)\d+$/, '$1'); };
+const KCOL = { base: '#2a160c', syn: '#2e6a1e', anti: '#9e2218', art: '#7a4a14', law: '#6a1a6a', named: '#3e2a6a', foe: '#1e4a6a', odds: '#1e3a7a', note: '#5a3622', total: '#2a160c' };
+export function mathLines(lines, maxW = 15, max = 9) {
+  const out = []; const maxT = Math.round(maxW * PXP) - 30; let n = 0;
+  for (const l of lines || []) {
+    if (n >= max && l.kind !== 'total') continue; n++;
+    const lead = l.kind === 'base' ? '' : l.kind === 'total' ? '' : l.kind === 'odds' && l.mul == null ? '? ' : l.mul != null && l.mul !== 1 ? `×${fmtMul(l.mul)} ` : '· ';
+    const txt = l.kind === 'base' ? `${l.text} = ${+(l.value ?? 0).toFixed(1)}` : l.text;
+    wrapText(lead + txt, 'handS', maxT).slice(0, 2).forEach((w, i) => out.push(i || !lead ? [[w, KCOL[l.kind] || '#2a160c']] : [[lead, KCOL[l.kind] || '#2a160c'], [w.slice(lead.length), l.kind === 'total' ? '#2a160c' : '#3a2a1a']]));
+  }
+  return out;
 }

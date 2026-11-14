@@ -3,10 +3,15 @@ import { RNG, uid } from '../core/util.js';
 import { STARTER_DECK, POWERS, BASICS, CARD_POOL, MUTATIONS } from './data/cards.js';
 import { ITEMS, ITEM_POOLS } from './data/items.js';
 import { ENCOUNTERS, ENEMIES } from './data/enemies.js';
-import { LOOT } from './data/items.js';
+import { LOOT, EXTRA_LOOT } from './data/items.js';
 import { SPECIALS, computeMove, baseOf } from './combos.js';
 import { save } from '../core/save.js';
 
+// content unlocked by the wizard frog (save.meta, from the star gallery). Anything not flagged `unlock` is base content.
+export function unlocked(id) {
+  const def = ITEMS[id] || BASICS[id] || POWERS[id]; if (!def?.unlock) return true;
+  try { return !!save.meta?.unlocked?.(id); } catch (e) { return false; }
+}
 export function mkCard(id, up = 0) { return { uid: uid('c'), id, type: POWERS[id] ? 'power' : 'basic', up }; }
 export function mkMove(ids, name) { const comps = ids.map((id) => ({ id, up: 0 })); return { uid: uid('c'), type: 'move', comps, up: 0, name: name || computeMove(comps).name }; }
 
@@ -31,8 +36,9 @@ export function attachRun(run) {
   run.journal = save.journal;
   run.onDiscover = (mv) => {
     const j = save.journal; const e = j.combos[mv.key];
-    if (!e) { j.combos[mv.key] = { name: mv.name, count: 1, loop: run.loop, special: !!mv.special, note: mv.special?.note || '', best: mv.attack.total }; run.stats.combos++; }
-    else { e.count++; e.best = Math.max(e.best || 0, mv.attack.total); }
+    const math = (mv.attack.lines || []).map((l) => (l.kind === 'base' ? l.text : l.kind === 'total' ? l.text : `×${+(l.mul ?? 1).toFixed(3)} ${l.text}`)).slice(0, 5);
+    if (!e) { j.combos[mv.key] = { name: mv.name, count: 1, loop: run.loop, special: !!mv.special, law: !!mv.special?.law, note: mv.special?.note || '', best: mv.attack.total, math }; run.stats.combos++; }
+    else { e.count++; e.best = Math.max(e.best || 0, mv.attack.total); e.math = math; if (mv.special?.law) e.law = true; }
     j.bestHit = Math.max(j.bestHit || 0, mv.attack.total);
     save.saveJournal();
   };
@@ -119,13 +125,13 @@ export function cardChoices(run, n = 3, rare = 0) {
   return out;
 }
 // a discovery's offer: three different new cards (science cards mostly, now and then a rare one or a Law of nature)
-export function discoveryChoices(run, n = 3) {
+export function discoveryChoices(run, n = 3, rare = 0) {
   const r = run.rng; const out = []; let guard = 0;
-  while (out.length < n && guard++ < 60) { const roll = r.next(); const id = roll < 0.08 ? r.pick(CARD_POOL.powers) : roll < 0.2 ? r.pick(CARD_POOL.rare) : r.pick(CARD_POOL.discover); if (!out.includes(id)) out.push(id); }
+  while (out.length < n && guard++ < 80) { const roll = r.next(); const id = roll < 0.08 + rare * 0.1 ? r.pick(CARD_POOL.powers) : roll < 0.2 + rare * 0.3 ? r.pick(CARD_POOL.rare) : r.pick(CARD_POOL.discover); if (!out.includes(id) && unlocked(id)) out.push(id); }
   return out;
 }
 export function itemChoices(run, pool, n = 1) {
-  const avail = ITEM_POOLS[pool].filter((i) => !run.items.includes(i));
+  const avail = ITEM_POOLS[pool].filter((i) => !run.items.includes(i) && unlocked(i));
   return run.rng.shuffle([...avail]).slice(0, n);
 }
 // a won battle pays only what the foes carried: gold, and their own drops (cards come from discoveries)
@@ -136,7 +142,7 @@ export function battleRewards(run, kind, enemies = []) {
     const def = ENEMIES[id] || {}; const L = def.loot || LOOT[id] || LOOT[id?.replace(/_.*$/, '')] || null;
     gold += Math.round((L?.gold ? r.int(L.gold[0], L.gold[1]) : def.guardian ? r.int(60, 80) : def.elite ? r.int(25, 35) : r.int(8, 14)) * gm);
     const chance = def.guardian || def.elite ? 1 : L?.chance ?? 0.4;
-    const drop = (L?.items || []).filter((x) => ITEMS[x] && !run.items.includes(x) && !loot.includes(x));
+    const drop = [...(L?.items || []), ...(EXTRA_LOOT[id] || [])].filter((x) => ITEMS[x] && !run.items.includes(x) && !loot.includes(x) && unlocked(x));
     if (drop.length && r.chance(chance)) loot.push(r.pick(drop)); else gold += Math.round(r.int(4, 9) * gm);
   }
   if (kind === 'guardian') for (const x of itemChoices(run, 'guardian', 2)) if (!loot.includes(x)) loot.push(x);

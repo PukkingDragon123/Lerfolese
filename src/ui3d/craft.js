@@ -232,30 +232,79 @@ const NUMG = {
   '+': ['......', '..##..', '..##..', '######', '######', '..##..', '..##..', '......', '......'], '-': ['.....', '.....', '.....', '#####', '#####', '.....', '.....', '.....', '.....'], ' ': ['...', '...', '...', '...', '...', '...', '...', '...', '...'],
   '!': ['##', '##', '##', '##', '##', '##', '..', '##', '##'],
 };
+// The user's pixel font pack (assets/fonts/pack) + Alagard. Every font is rasterised at its NATIVE pixel size (measured
+// in Chromium: the size with zero partial-alpha pixels) and binarised; larger sizes are integer pixel-doublings of that
+// native raster (scale), never a re-hinted larger size. So one font pixel is always a whole number of texels and the
+// surfaces (K-prescaled, nearest sampled) keep every stroke crisp at any zoom.
+//   Alagard 16 / 32 / 48 (native)  titles, labels, buttons, banners, card names
+//   PixelSans 11 (x1, x2, x3)      body text, dialogue, card text        (cap 7, x 5, asc 8, desc 3)
+//   NanoPlus 13 (x1, x2, x3)       numbers, damage, counters             (cap 8, x 6)
+//   RuneMono 12 / 24 (native)      magic and astral inscriptions         (caps only, cap 5 / 10)
+//   MicroPixel 9                   micro captions on tight plates        (cap 5)
+// lineH = line pitch (leading included), base = line top -> baseline; space = word gap in native px (tighter than the
+// fonts' 5px defaults so lines read as words, not letters); track = extra px between letters.
+export const NATIVE = { Alagard: [16, 32, 48], PixelSans: [11], NanoPlus: [13], RuneMono: [12, 24], MicroPixel: [9] };
 export const FONT = {
-  title: { font: 'Alagard', size: 32, weight: 400, lineH: 30, base: 23 }, head: { font: 'Alagard', size: 16, weight: 400, lineH: 16, base: 12 },
-  hand: { font: 'Caveat', size: 18, weight: 700, lineH: 18, base: 13 }, handS: { font: 'Caveat', size: 16, weight: 700, lineH: 16, base: 12 },
-  print: { font: 'VT323', size: 16, weight: 400, lineH: 14, base: 11 }, caps: { font: 'Silkscreen', size: 8, weight: 400, lineH: 9, base: 7 }, capsB: { font: 'Silkscreen', size: 8, weight: 700, lineH: 9, base: 7 },
-  cap: { font: 'Alagard', size: 48, weight: 400, lineH: 44, base: 34 },
-  tiny: { font: 'Tiny5', size: 8, weight: 400, lineH: 8, base: 6 }, num: { bitmap: NUMG, scale: 1, lineH: 11, base: 9 }, num2: { bitmap: NUMG, scale: 2, lineH: 20, base: 18 }, bold: { font: 'Pixelify', size: 13, weight: 700, lineH: 13, base: 10 }, big: { font: 'Pixelify', size: 26, weight: 700, lineH: 24, base: 19 },
+  title: { font: 'Alagard', size: 32, weight: 400, lineH: 30, base: 23, space: 8, cap: 22 }, head: { font: 'Alagard', size: 16, weight: 400, lineH: 16, base: 12, space: 4, cap: 11 },
+  cap: { font: 'Alagard', size: 48, weight: 400, lineH: 44, base: 34, cap: 33 },
+  body: { font: 'PixelSans', size: 11, weight: 400, lineH: 13, base: 9, space: 3 }, body2: { font: 'PixelSans', size: 11, scale: 2, weight: 400, lineH: 26, base: 18, space: 3 },
+  hand: { font: 'PixelSans', size: 11, weight: 400, lineH: 13, base: 9, space: 3 }, handS: { font: 'PixelSans', size: 11, weight: 400, lineH: 12, base: 9, space: 3 },
+  print: { font: 'PixelSans', size: 11, weight: 400, lineH: 12, base: 9, space: 3 }, caps: { font: 'PixelSans', size: 11, weight: 400, lineH: 10, base: 8, space: 3 }, capsB: { font: 'PixelSans', size: 11, weight: 400, lineH: 10, base: 8, space: 3 },
+  tiny: { font: 'MicroPixel', size: 9, weight: 400, lineH: 8, base: 6, space: 2 },
+  num: { font: 'NanoPlus', size: 13, weight: 400, lineH: 11, base: 9, space: 3 }, num2: { font: 'NanoPlus', size: 13, scale: 2, weight: 400, lineH: 20, base: 18, space: 3 },
+  bold: { font: 'NanoPlus', size: 13, weight: 400, lineH: 12, base: 10, space: 3 }, big: { font: 'NanoPlus', size: 13, scale: 2, weight: 400, lineH: 22, base: 18, space: 3 },
+  rune: { font: 'RuneMono', size: 12, weight: 400, lineH: 9, base: 7 }, runeL: { font: 'RuneMono', size: 24, weight: 400, lineH: 15, base: 12 },
+  numg: { bitmap: NUMG, scale: 1, lineH: 11, base: 9 },
 };
+const CAPH = { Alagard: 11 / 16, PixelSans: 7, NanoPlus: 8, RuneMono: 5 / 12, MicroPixel: 5 };
+for (const f of Object.values(FONT)) if (f.font && f.cap == null) { const c = CAPH[f.font]; f.cap = (c < 1 ? Math.round(c * f.size) : c) * (f.scale || 1); }
 const gCanvas = document.createElement('canvas'); const gCtx = gCanvas.getContext('2d', { willReadFrequently: true });
-const glyphCache = new Map();
+const glyphCache = new Map(); const advCache = new Map();
 function fontOf(f) { return typeof f === 'string' ? FONT[f] : f; }
-export function measure(str, f) { f = fontOf(f); if (f.bitmap) { let w = 0; for (const ch of String(str)) w += ((f.bitmap[ch] || f.bitmap[' '])[0].length + 1) * f.scale; return Math.max(0, w - f.scale); } gCtx.font = `${f.weight} ${f.size}px "${f.font}"`; return Math.ceil(gCtx.measureText(str).width); }
-// binarised glyph run: { w, h, base, on(x,y) } with the baseline at row `base`
+const cssFont = (f) => `${f.weight || 400} ${f.size}px "${f.font}"`;
+// word layout at native size: [[word, x]], total advance (custom word gap + tracking, whole pixels)
+function layout(str, f) {
+  const key = cssFont(f) + '|' + (f.space ?? '') + '|' + (f.track || 0) + '|' + str; let L = advCache.get(key); if (L) return L;
+  gCtx.font = cssFont(f); const words = String(str).split(' '); const sp = f.space ?? Math.round(gCtx.measureText(' ').width); const tr = f.track || 0; let x = 0; const runs = [];
+  words.forEach((w, i) => { if (i) x += sp; if (!w) return; if (tr) { for (const ch of w) { runs.push([ch, x]); x += Math.round(gCtx.measureText(ch).width) + tr; } x -= tr; } else { runs.push([w, x]); x += Math.round(gCtx.measureText(w).width); } });
+  L = { runs, w: x }; if (advCache.size > 4000) advCache.clear(); advCache.set(key, L); return L;
+}
+export function measure(str, f) { f = fontOf(f); if (f.bitmap) { let w = 0; for (const ch of String(str)) w += ((f.bitmap[ch] || f.bitmap[' '])[0].length + 1) * f.scale; return Math.max(0, w - f.scale); } return layout(str, f).w * (f.scale || 1); }
+// binarised glyph run: { w, h, base, on(x,y) } with the baseline at row 0 (y < 0 above it); drawn at native size and
+// pixel-multiplied by f.scale
 export function runMask(str, f) {
-  f = fontOf(f); const key = f.bitmap ? `#bm${f.scale}|${str}` : `${f.font}|${f.size}|${f.weight}|${str}`; let m = glyphCache.get(key); if (m) return m;
+  f = fontOf(f); const key = f.bitmap ? `#bm${f.scale}|${str}` : `${cssFont(f)}|${f.scale || 1}|${f.space ?? ''}|${f.track || 0}|${str}`; let m = glyphCache.get(key); if (m) return m;
   if (f.bitmap) { const sc = f.scale; const cols = []; for (const ch of String(str)) { const g = f.bitmap[ch] || f.bitmap[' ']; for (let i = 0; i < g[0].length; i++) cols.push(g.map((r) => r[i] === '#')); cols.push(null); }
     const gh = 9 * sc; m = { w: Math.max(0, cols.length - 1) * sc, h: gh, by: gh, top: -gh, bot: 0, on: (x, y) => { const c = cols[Math.floor(x / sc)]; const r = Math.floor((y + gh) / sc); return x >= 0 && y < 0 && y >= -gh && !!c && !!c[r]; } }; glyphCache.set(key, m); return m; }
-  const w = Math.max(1, measure(str, f) + 4), h = Math.ceil(f.size * 1.6) + 4; gCanvas.width = w; gCanvas.height = h;
-  gCtx.font = `${f.weight} ${f.size}px "${f.font}"`; gCtx.textBaseline = 'alphabetic'; gCtx.fillStyle = '#fff'; gCtx.clearRect(0, 0, w, h); const by = Math.ceil(f.size * 1.15); gCtx.fillText(str, 2, by);
+  const L = layout(str, f); const k = f.scale || 1; const w = Math.max(1, L.w + 6), h = Math.ceil(f.size * 1.6) + 4; gCanvas.width = w; gCanvas.height = h;
+  gCtx.font = cssFont(f); gCtx.textBaseline = 'alphabetic'; gCtx.fillStyle = '#fff'; gCtx.clearRect(0, 0, w, h); const by = Math.ceil(f.size * 1.15);
+  for (const [t, x] of L.runs) gCtx.fillText(t, 2 + x, by);
   const id = gCtx.getImageData(0, 0, w, h).data; const bits = new Uint8Array(w * h); let x1 = 0;
   for (let i = 0; i < w * h; i++) if (id[i * 4 + 3] >= 120) { bits[i] = 1; x1 = Math.max(x1, i % w); }
-  m = { w: Math.max(0, x1 - 1), h, by, on: (x, y) => { x += 2; y += by; return x >= 0 && y >= 0 && x < w && y < h && bits[y * w + x] === 1; }, top: -by, bot: h - by };
-  if (glyphCache.size > 600) glyphCache.clear(); glyphCache.set(key, m); return m;
+  const on1 = (x, y) => { x += 2; y += by; return x >= 0 && y >= 0 && x < w && y < h && bits[y * w + x] === 1; };
+  m = k === 1 ? { w: Math.max(0, x1 - 1), h, by, on: on1, top: -by, bot: h - by } : { w: Math.max(0, x1 - 1) * k, h: h * k, by: by * k, on: (x, y) => on1(Math.floor(x / k), Math.floor(y / k)), top: -by * k, bot: (h - by) * k };
+  if (glyphCache.size > 800) glyphCache.clear(); glyphCache.set(key, m); return m;
 }
-export function wrapText(str, f, maxW) { const words = String(str).split(' '); const out = []; let cur = ''; for (const w of words) { const t = cur ? cur + ' ' + w : w; if (measure(t, f) > maxW && cur) { out.push(cur); cur = w; } else cur = t; } if (cur) out.push(cur); return out; }
+// greedy wrap, then rebalance so the last line never holds a lone short word (no orphans) when it can borrow one
+export function wrapText(str, f, maxW) {
+  const words = String(str).split(' '); const out = []; let cur = ''; for (const w of words) { const t = cur ? cur + ' ' + w : w; if (measure(t, f) > maxW && cur) { out.push(cur); cur = w; } else cur = t; } if (cur) out.push(cur);
+  if (out.length > 1) { const last = out[out.length - 1]; if (!last.includes(' ') || measure(last, f) < maxW * 0.28) { const prev = out[out.length - 2].split(' '); if (prev.length > 2) { const moved = prev.pop(); const nl = moved + ' ' + last; if (measure(nl, f) <= maxW) { out[out.length - 2] = prev.join(' '); out[out.length - 1] = nl; } } } }
+  return out;
+}
+
+// pixel text straight onto a 2D canvas (card faces, journal pages, canvas labels): the binarised native raster drawn as
+// k x k blocks (k = f.scale), with an optional 1-font-pixel outline and drop shadow on the same grid. Row runs are
+// filled as rectangles, so there is never a soft or partial pixel. (x, baseY) in canvas px; returns the drawn width.
+export function drawPixelText(g, str, x, baseY, f, { color = '#2a160c', outline = null, shadow = null, align = 'left', k = null } = {}) {
+  f = fontOf(f); str = String(str); if (!str) return 0; const K = k || f.scale || 1; const nf = (f.scale || 1) === 1 ? f : { ...f, scale: 1 }; const m = runMask(str, nf);
+  const W = m.w * K; x = Math.round(align === 'center' ? x - W / 2 : align === 'right' ? x - W : x); baseY = Math.round(baseY);
+  const X0 = -2, X1 = m.w + 3, Y0 = m.top, Y1 = m.bot; const lit = (X, Y) => m.on(X, Y);
+  const fillSet = (test, col, dy = 0) => { g.fillStyle = col; for (let Y = Y0 - 1; Y <= Y1 + 1; Y++) { let run = -1; for (let X = X0; X <= X1 + 1; X++) { const on = X <= X1 && test(X, Y); if (on && run < 0) run = X; if (!on && run >= 0) { g.fillRect(x + run * K, baseY + (Y + dy) * K, (X - run) * K, K); run = -1; } } } };
+  const dil = (X, Y) => lit(X, Y) || lit(X - 1, Y) || lit(X + 1, Y) || lit(X, Y - 1) || lit(X, Y + 1) || lit(X - 1, Y - 1) || lit(X + 1, Y - 1) || lit(X - 1, Y + 1) || lit(X + 1, Y + 1);
+  if (shadow) fillSet(outline ? dil : lit, shadow, 1);
+  if (outline) fillSet(dil, outline);
+  fillSet(lit, color); return W;
+}
 
 // draw one run of text with a style; (x, baseline). Returns width.
 // styles: ink | engrave | carve | gild | burn | chalk | stamp | emb | enamel
@@ -266,7 +315,7 @@ export function inscribe(S, str, x, baseY, f, style = 'ink', { color = '#2a160c'
   const rampAt = (X, Y) => ramp || S.ramp(X, Y);
   switch (style) {
     case 'ink': case 'stamp': {
-      const small = f.bitmap || f.lineH <= 11; const drop = small ? 0 : style === 'stamp' ? 0.16 : 0.03; const c2 = color; let i = 0;
+      const small = f.bitmap || f.lineH <= 11 || ((f.scale || 1) === 1 && f.size <= 13); const drop = small ? 0 : style === 'stamp' ? 0.16 : 0.03; const c2 = color; let i = 0;
       for (const [X, Y] of pts) { i++; if (hsh(X, Y, seed) < drop) { S.shift(X, Y, -1); continue; } S.pix(X, Y, c2); }
       if (style === 'ink' && !small) for (const [X, Y] of pts) if (hsh(X, Y, seed + 7) > 0.985 && !on(X + 1, Y + 1)) S.shift(X + 1, Y + 1, -1);
       break;

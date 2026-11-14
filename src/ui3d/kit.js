@@ -2,28 +2,32 @@
 import * as THREE from 'three';
 import { Spring } from '../core/tween.js';
 import { Paper } from './objects.js';
-import { Surf, SurfTex, RAMP, pxTex, frontMat, sideMat, slab, wood, brass, groove, rivet, inscribe, measure, inkHull } from './craft.js';
+import { Surf, SurfTex, RAMP, pxTex, frontMat, sideMat, slab, wood, brass, groove, rivet, inscribe, measure, inkHull, drawPixelText, FONT } from './craft.js';
 import { GR } from '../gfx/art/ramps.js';
 import { hash2 } from '../gfx/art/core.js';
 
 function mk(g, m, p, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; p.add(o); return o; }
 export const UIF = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.6, toneMapped: false, ...o });
-export function canvasTexture(c) { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.minFilter = THREE.LinearMipmapLinearFilter; return t; }
+// canvas -> texture: mipmapped (trilinear + anisotropic) when minified, NEAREST when magnified, so pixel art and pixel
+// text drawn in whole blocks never go soft on a zoomed card or page
+export function canvasTexture(c) { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.NearestFilter; return t; }
 
-// text drawn on a canvas -> plane mesh (world units: height h)
-export function textPlane(lines, { w = 4, h = 1, font = 'VT323', size = 48, color = '#2a160c', bg = null, align = 'center', weight = 400, stroke = null, pad = 10, lineH = 1.05, basic = true } = {}) {
+// text -> plane mesh (world units: w x h). Pixel fonts only: `font`/`size` pick the role font (Alagard for display
+// faces, NanoPlus for numbers, RuneMono for runes, PixelSans for everything else) at the nearest whole multiple of its
+// native size, drawn as crisp blocks on a canvas of ~2x the on-screen pixels.
+const ROLE = (font, size) => /alagard/i.test(font) ? (size >= 40 ? 'cap' : size >= 24 ? 'title' : 'head') : /nano|num/i.test(font) ? 'num' : /rune/i.test(font) ? 'rune' : 'body';
+export function textPlane(lines, { w = 4, h = 1, font = 'PixelSans', size = 48, color = '#2a160c', bg = null, align = 'center', stroke = null, pad = 10, lineH = 1.15, basic = true } = {}) {
   const px = 128; const cw = Math.max(16, Math.round(w * px)), ch = Math.max(16, Math.round(h * px));
-  const c = document.createElement('canvas'); c.width = cw; c.height = ch; const g = c.getContext('2d');
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch; const g = c.getContext('2d'); const f = ROLE(font, size); const F = FONT[f];
+  const nat = F.cap / (F.scale || 1); const k = F.font === 'Alagard' ? 1 : Math.max(1, Math.round((size * 0.62) / nat));
   const draw = (ls) => {
-    g.clearRect(0, 0, cw, ch);
-    if (bg) bg(g, cw, ch);
-    const arr = Array.isArray(ls) ? ls : [ls]; g.font = `${weight} ${size}px "${font}"`; g.textAlign = align; g.textBaseline = 'middle';
-    const total = arr.length * size * lineH; let y = ch / 2 - total / 2 + (size * lineH) / 2;
+    g.clearRect(0, 0, cw, ch); if (bg) bg(g, cw, ch);
+    const arr = Array.isArray(ls) ? ls : [ls]; const LH = Math.round(F.lineH / (F.scale || 1) * k * lineH); let y = Math.round(ch / 2 - (arr.length * LH) / 2 + LH / 2 + (nat * k) / 2);
     for (const l of arr) {
-      const segs = typeof l === 'string' ? [[l, color]] : l; let x = align === 'center' ? cw / 2 : align === 'left' ? pad : cw - pad;
-      if (align === 'center' && segs.length > 1) { const wsum = segs.reduce((s, [t]) => s + g.measureText(t).width, 0); x = cw / 2 - wsum / 2; g.textAlign = 'left'; }
-      for (const [t, col] of segs) { if (stroke) { g.lineWidth = stroke[1]; g.strokeStyle = stroke[0]; g.lineJoin = 'round'; g.strokeText(t, x, y); } g.fillStyle = col; g.fillText(t, x, y); if (segs.length > 1) x += g.measureText(t).width; }
-      g.textAlign = align; y += size * lineH;
+      const segs = typeof l === 'string' ? [[l, color]] : l; const ws = segs.map(([t]) => measure(t, f) / (F.scale || 1) * k); const wsum = ws.reduce((a, b) => a + b, 0);
+      let x = align === 'center' ? cw / 2 - wsum / 2 : align === 'left' ? pad : cw - pad - wsum;
+      segs.forEach(([t, col], i) => { drawPixelText(g, t, x, y, f, { color: col || color, outline: stroke ? stroke[0] : null, k }); x += ws[i]; });
+      y += LH;
     }
   };
   draw(lines);

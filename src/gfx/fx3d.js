@@ -6,6 +6,9 @@
 // - Attack choreography helpers: anticipation lean, fast lunge, delayed recoil back to the slot.
 // - Magic (only for magic / energy / law moves and casts): animated ground rune decal, swirling energy ribbons,
 //   a fresnel energy orb, flickering branching 3D lightning, layered noise-shader flames and a gravity swirl.
+// - Newton's casts and throws (watched from prof.mode): a pixel-crisp rune circle drawing itself under him, motes
+//   spiralling up into the apple, a bloom where they meet; thrown apples leave a banded glowing trail shedding
+//   fine pixel sparkles, and every hit gets a small crisp impact bloom.
 import * as THREE from 'three';
 import { tweens } from '../core/tween.js';
 
@@ -112,8 +115,69 @@ const SWIRL_FS = `uniform float uT, uLife; varying vec2 vUv;
 const UV_VS = `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const smat = (fs, col = '#9a7cf0', vs = UV_VS, extra = {}) => new THREE.ShaderMaterial({ vertexShader: vs, fragmentShader: fs, uniforms: { uT: { value: 0 }, uLife: { value: 0 }, uCol: { value: new THREE.Color(col) } }, side: THREE.DoubleSide, ...ADD, ...extra });
 
+// a rune circle that draws itself in (sweeping rings, then glyphs and a turning triangle), quantised to a pixel grid
+const RUNE2_FS = `uniform float uT, uLife; uniform vec3 uCol; varying vec2 vUv;
+  void main(){ vec2 p = (floor(vUv * 128.0) + 0.5) / 64.0 - 1.0; float r = length(p); float a = atan(p.y, p.x); float s = fract(a / 6.2832 + 0.25);
+    float d1 = smoothstep(0.0, 0.3, uLife), d2 = smoothstep(0.15, 0.45, uLife); float w = 0.018;
+    float ring = step(abs(r - 0.93), w) * step(s, d1) + step(abs(r - 0.82), w * 0.8) * step(1.0 - s, d1) + step(abs(r - 0.5), w * 0.8) * step(s, d2);
+    float ticks = step(0.83, r) * step(r, 0.92) * step(0.75, fract(a * 9.549 + uT * 0.4)) * step(s, d1);
+    float glyph = step(0.56, r) * step(r, 0.76) * step(0.5, fract(a * 3.8197 - uT * 0.3)) * step(0.35, fract(r * 11.0 + a * 1.4)) * d2;
+    float tri = 0.0; for (int i = 0; i < 3; i++) { float ang = float(i) * 2.0944 + uT * 0.35; vec2 n = vec2(cos(ang), sin(ang)); tri += step(abs(dot(p, n) - 0.25), 0.012) * step(r, 0.5); } tri *= d2;
+    float m = clamp(ring + ticks * 0.8 + glyph * 0.6 + tri * 0.8, 0.0, 1.0) * step(r, 1.0); float life = 1.0 - smoothstep(0.72, 1.0, uLife); float pulse = 0.85 + 0.15 * sin(uT * 9.0);
+    gl_FragColor = vec4(mix(uCol, vec3(1.0), step(0.95, m) * 0.25) * m * life * 1.7 * pulse, m * life); }`;
+// an impact bloom: a crisp expanding ring, a shrinking core and four short rays, on a 48px grid
+const BLOOM_FS = `uniform float uT, uLife; uniform vec3 uCol; varying vec2 vUv;
+  void main(){ vec2 p = (floor(vUv * 48.0) + 0.5) / 24.0 - 1.0; float r = length(p); float a = atan(p.y, p.x);
+    float e = 1.0 - pow(1.0 - uLife, 3.0); float R = 0.15 + 0.8 * e; float w = 0.09 * (1.0 - uLife) + 0.03;
+    float ring = step(abs(r - R), w); float core = step(r, 0.34 * (1.0 - e)); float rays = step(0.94, abs(cos(a * 2.0))) * step(r, R * 1.2) * step(R * 0.45, r) * (1.0 - step(0.5, uLife));
+    float m = clamp(ring + core + rays, 0.0, 1.0); float fade = 1.0 - smoothstep(0.55, 1.0, uLife);
+    gl_FragColor = vec4(mix(uCol, vec3(1.0), clamp(core + ring * (1.0 - uLife) * 0.6, 0.0, 1.0)) * m * fade * 2.0, m * fade); }`;
+// a glowing trail: banded alpha (pixel-art steps), white-hot head fading through the colour to nothing
+const TRAIL_VS = `attribute float aU; varying float vU; varying float vS; attribute float aS; void main(){ vU = aU; vS = aS; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
+const TRAIL_FS = `uniform vec3 uCol; uniform float uFade; varying float vU; varying float vS;
+  void main(){ float b = floor(pow(vU, 1.4) * 4.0) / 4.0; float edge = step(abs(vS), 0.35 + 0.65 * vU); float a = b * edge * uFade; if (a <= 0.01) discard;
+    gl_FragColor = vec4(mix(uCol, vec3(1.0), step(0.75, b) * step(abs(vS), 0.45)) * a * 1.8, a); }`;
+// fine pixel sparkles: a 5x5-texel cross that twinkles (arms shrink), white core, tinted arms
+const SPARK_VS = `attribute vec4 aC; varying vec4 vC; uniform float uPx; void main(){ vC = aC; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = uPx * aC.a; gl_Position = projectionMatrix * mv; }`;
+const SPARK_FS = `varying vec4 vC; void main(){ vec2 g = floor(gl_PointCoord * 5.0) - 2.0; float d = abs(g.x) + abs(g.y); float cross = step(min(abs(g.x), abs(g.y)), 0.0);
+    float arm = step(d, vC.a > 0.6 ? 2.0 : 1.0); float m = cross * arm; if (m < 0.5) discard; gl_FragColor = vec4(mix(vC.rgb, vec3(1.0), step(d, 0.0)) * 1.8, 1.0); }`;
+class Sparkles {
+  constructor(scene, cap = 260) {
+    this.cap = cap; this.list = []; const g = new THREE.BufferGeometry(); this.pos = new Float32Array(cap * 3); this.col = new Float32Array(cap * 4);
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('aC', new THREE.BufferAttribute(this.col, 4)); g.setDrawRange(0, 0); this.g = g;
+    this.pts = new THREE.Points(g, new THREE.ShaderMaterial({ vertexShader: SPARK_VS, fragmentShader: SPARK_FS, uniforms: { uPx: { value: 13 * Math.min(2, window.devicePixelRatio || 1) } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+    this.pts.frustumCulled = false; this.pts.renderOrder = 6; this.pts.userData.noInk = true; this.pts.userData.noAO = true; scene.add(this.pts); this.c = new THREE.Color();
+  }
+  spawn(p, { vel = null, life = 0.6, col = '#ffe8a0', seek = null, swirl = 0, drag = 2 } = {}) { if (this.list.length >= this.cap) this.list.shift(); this.list.push({ p: p.clone(), v: vel ? vel.clone() : new THREE.Vector3(), life, age: 0, col: new THREE.Color(col), seek, swirl, drag, ph: Math.random() * 6 }); }
+  update(dt) {
+    let n = 0; for (let i = this.list.length - 1; i >= 0; i--) { const q = this.list[i]; q.age += dt; if (q.age > q.life) { this.list.splice(i, 1); continue; }
+      if (q.seek) { const tg = q.seek(); const d = V3.copy(tg).sub(q.p); const L = d.length(); if (L < 0.06 && q.age > 0.2) { this.list.splice(i, 1); continue; } d.normalize(); const sw = S3.crossVectors(d, UP).multiplyScalar(q.swirl * Math.min(1, L)); q.v.addScaledVector(d, 26 * dt).addScaledVector(sw, 9 * dt); q.v.multiplyScalar(Math.exp(-q.drag * dt)); }
+      else q.v.multiplyScalar(Math.exp(-q.drag * dt)).y -= 0.4 * dt;
+      q.p.addScaledVector(q.v, dt); }
+    for (const q of this.list) { if (n >= this.cap) break; this.pos.set([q.p.x, q.p.y, q.p.z], n * 3); const k = q.age / q.life; const tw = 0.5 + 0.5 * Math.sin(q.age * 26 + q.ph); this.col.set([q.col.r, q.col.g, q.col.b, (k < 0.75 ? (tw > 0.35 ? 1 : 0.55) : 0.55)], n * 4); n++; }
+    this.g.setDrawRange(0, n); this.g.attributes.position.needsUpdate = true; this.g.attributes.aC.needsUpdate = true;
+  }
+}
+class Trail {
+  constructor(scene, col, n = 26, width = 0.11) {
+    this.n = n; this.w = width; this.hist = []; const g = new THREE.BufferGeometry(); this.pos = new Float32Array(n * 2 * 3); const u = new Float32Array(n * 2), sd = new Float32Array(n * 2); const idx = [];
+    for (let i = 0; i < n; i++) { u[i * 2] = u[i * 2 + 1] = i / (n - 1); sd[i * 2] = -1; sd[i * 2 + 1] = 1; if (i < n - 1) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } }
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('aU', new THREE.BufferAttribute(u, 1)); g.setAttribute('aS', new THREE.BufferAttribute(sd, 1)); g.setIndex(idx); this.g = g;
+    this.mat = new THREE.ShaderMaterial({ vertexShader: TRAIL_VS, fragmentShader: TRAIL_FS, uniforms: { uCol: { value: new THREE.Color(col) }, uFade: { value: 1 } }, side: THREE.DoubleSide, ...ADD });
+    this.mesh = new THREE.Mesh(g, this.mat); this.mesh.frustumCulled = false; this.mesh.renderOrder = 5; this.mesh.userData.noInk = true; this.mesh.userData.noAO = true; scene.add(this.mesh);
+  }
+  push(p, cam) {
+    this.hist.push(p.clone()); while (this.hist.length > this.n) this.hist.shift(); const H = this.hist; const N = this.n; const off = N - H.length; const vd = new THREE.Vector3();
+    for (let i = 0; i < N; i++) { const j = Math.max(0, i - off); const a = H[Math.min(H.length - 1, j)], b = H[Math.min(H.length - 1, j + 1)] || a, c = H[Math.max(0, j - 1)];
+      const tng = V3.subVectors(b, c); if (tng.lengthSq() < 1e-8) tng.set(1, 0, 0); vd.subVectors(cam.position, a).normalize(); const side = S3.crossVectors(tng, vd).normalize().multiplyScalar(this.w * (0.25 + 0.75 * (i / (N - 1))));
+      this.pos.set([a.x - side.x, a.y - side.y, a.z - side.z, a.x + side.x, a.y + side.y, a.z + side.z], i * 6); }
+    this.g.attributes.position.needsUpdate = true;
+  }
+  dispose() { this.mesh.removeFromParent(); this.g.dispose(); this.mat.dispose(); }
+}
+
 export class FX3D {
-  constructor(S) { this.S = S; this.scene = S.scene; this.debris = new Debris(S.scene); this.splats = new Splats(S.scene); this.debris.onSplat = (kind, p, size) => this.splats.add(kind, p, size * rnd(4, 7)); this.knocks = []; this.items = []; this.emitters = []; this.falls = []; }
+  constructor(S) { this.S = S; this.scene = S.scene; this.debris = new Debris(S.scene); this.splats = new Splats(S.scene); this.debris.onSplat = (kind, p, size) => this.splats.add(kind, p, size * rnd(4, 7)); this.knocks = []; this.items = []; this.emitters = []; this.falls = []; this.sparkles = new Sparkles(S.scene); this.trails = []; this.lastMode = ''; this.castCol = '#9fd8ff'; this.pendingCast = null; this.castAt = -9; this.clock = 0; }
   // ---- gore (medieval storytelling: dark crimson, physical)
   blood(p, n, dir = 1, kind = 'blood') { this.debris.burst(kind, p, n, dir, 0.8); }
   spurt(p, dir = 1, dur = 0.35, up = 0.6, kind = 'blood') { this.emitters.push({ p: p.clone(), vel: new THREE.Vector3(dir * 3.2, 3 + up * 3, 0.4), t: 0, dur, acc: 0, kind }); }
@@ -130,6 +194,7 @@ export class FX3D {
     this.dust(new THREE.Vector3(p.x, 0.05, p.z), big ? 10 : 5);
     this.sparks(p, big ? 10 : 5, okind === 'burn' || kind === 'fire' ? 'fire' : okind === 'zap' ? 'zap' : 'hit');
     if (v) this.knock(v.api.root, dir, Math.min(1.4, 0.35 + dmg / 30) * (crit ? 1.4 : 1));
+    this.bloom(p.clone().add(new THREE.Vector3(0, 0, 0.35)), kind === 'apple' ? '#ffd890' : okind === 'zap' || kind === 'zap' ? '#9ef0ff' : okind === 'burn' || kind === 'fire' ? '#ffa040' : kind === 'magic' ? '#c8b0ff' : '#fff0c8', (big ? 1.3 : 0.9) * (crit ? 1.25 : 1));
     // magic looks only for energy / elemental / untyped (law) moves
     if (okind === 'zap' || kind === 'zap') this.lightning(p.clone().add(new THREE.Vector3(-0.6, 2.2, 0.2)), p);
     if (okind === 'burn' || kind === 'fire') this.flame(new THREE.Vector3(p.x, 0, p.z + 0.2), big ? 1.6 : 1.1);
@@ -138,7 +203,15 @@ export class FX3D {
   }
   hitPlayer(root, p, dmg) { // Sir Isaac is wood: splinters, sawdust and a flake of coat paint, never blood
     this.debris.burst('wood', p.clone().add(new THREE.Vector3(0.2, -0.5, 0.2)), dmg >= 15 ? 12 : 7, -1, 0.9); this.debris.burst('paint', p.clone().add(new THREE.Vector3(0.1, -0.7, 0.2)), dmg >= 15 ? 3 : 1, -1, 0.7); const P = this.S.parts; if (P) for (let i = 0; i < 8; i++) P.spawn({ pos: [p.x + rnd(-0.2, 0.2), p.y - 0.5, p.z + 0.3], vel: [rnd(-1.6, 0.6), rnd(0.2, 1.4), rnd(-0.5, 0.5)], life: rnd(0.5, 1), size: rnd(10, 18), size1: 26, color: pick(['#e8cc94', '#d4b07a', '#f2deb0']), alpha: 0.8, sprite: 'smoke', drag: 2.5 }); this.dust(new THREE.Vector3(root.position.x, 0.05, root.position.z), 4); if (root) this.knock(root, -1, Math.min(1.2, 0.3 + dmg / 25)); }
-  cast(pos, col = '#a888ff') { this.rune(new THREE.Vector3(pos.x, 0, pos.z), 2.4, col); this.ribbons(pos, col); }
+  cast(pos, col = '#a888ff') { this.castCol = col; if (this.clock - this.castAt < 0.4) return; this.pendingCast = { pos: pos.clone(), col, t: 0.15 }; }
+  castMagic(pos, col = this.castCol) { // the rune draws itself under him, motes spiral up into the apple, a bloom where they meet
+    this.castAt = this.clock; this.pendingCast = null; const P = this.S.prof; const target = () => (P?.appleWorld ? P.appleWorld(new THREE.Vector3()) : pos.clone().add(new THREE.Vector3(0, 1.3, 0)));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 2.3).rotateX(-Math.PI / 2), smat(RUNE2_FS, col)); m.position.set(pos.x, 0.05, pos.z); m.renderOrder = 2; m.userData.noInk = true; this.add(m, 1.9, (k, it) => { m.rotation.y = it.t * 0.5; });
+    for (let i = 0; i < 36; i++) { const a = (i / 36) * Math.PI * 2, r = 1.0 + Math.random() * 0.2; const p = new THREE.Vector3(pos.x + Math.cos(a) * r, 0.1 + Math.random() * 0.2, pos.z + Math.sin(a) * r * 0.9); this.sparkles.spawn(p, { vel: new THREE.Vector3(0, 1.2 + Math.random(), 0), life: 1.6, col: i % 3 ? col : '#ffffff', seek: target, swirl: 1.4, drag: 2.6 }); }
+    this.after(1.0, () => { const t = target(); this.bloom(t, col, 1.1); for (let i = 0; i < 14; i++) { const a = Math.random() * 6.28; this.sparkles.spawn(t, { vel: new THREE.Vector3(Math.cos(a) * 2.2, Math.sin(a) * 2.2, (Math.random() - 0.5)), life: 0.45, col }); } });
+  }
+  after(sec, fn) { this.items.push({ mesh: new THREE.Object3D(), life: sec, t: 0, upd: null, done: fn }); }
+  bloom(p, col = '#ffe2a0', size = 0.9) { const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), smat(BLOOM_FS, col)); m.position.copy(p); m.renderOrder = 7; m.userData.noInk = true; return this.add(m, 0.42, () => { m.quaternion.copy(this.S.camera.quaternion); }); }
   dust(pos, n) { const P = this.S.parts; if (!P) return; for (let i = 0; i < n; i++) { const a = Math.random() * 6.28; P.spawn({ pos: [pos.x, pos.y + 0.05, pos.z], vel: [Math.cos(a) * rnd(1, 2.6), rnd(0.3, 1.1), Math.sin(a) * rnd(0.6, 1.6)], life: rnd(0.5, 0.9), size: rnd(18, 30), size1: 44, color: pick(['#c8a478', '#b08a60', '#dcc09a']), alpha: 0.75, sprite: 'smoke', drag: 3 }); } }
   sparks(pos, n, kind = 'hit') { const G = this.S.glowParts; if (!G) return; const cols = kind === 'fire' ? ['#ffb040', '#ff7a1a', '#ffe08a'] : kind === 'zap' ? ['#e8fbff', '#8ee8ff', '#ffffff'] : ['#fff6cf', '#ffe08a', '#ffffff']; for (let i = 0; i < n; i++) G.spawn({ pos: [pos.x, pos.y, pos.z + 0.3], vel: [rnd(-4, 4), rnd(-1, 5), rnd(-1.5, 1.5)], life: rnd(0.2, 0.45), size: rnd(10, 18), color: pick(cols), sprite: kind === 'fire' ? 'ember' : 'spark2', grav: kind === 'fire' ? -2 : 9, drag: 2 }); }
   // spring knockback: root offset + lean-back tilt + stagger dip, settling back to where it started
@@ -170,7 +243,13 @@ export class FX3D {
     build(); let acc = 0; return this.add(g, 0.5, (k, it, dt) => { acc += dt; if (acc > 0.06) { acc = 0; build(); } g.visible = Math.random() > 0.15; mat.opacity = 1 - k; });
   }
   update(dt) {
-    this.debris.update(dt); this.splats.update(dt);
+    this.clock += dt; this.debris.update(dt); this.splats.update(dt); this.sparkles.update(dt);
+    const P = this.S.prof, md = P?.mode ?? '', mt = P?.modeT ?? 0;
+    if (md !== this.lastMode) { if (md === 'cast') this.castMagic(P.root.position, this.castCol); if (md === 'throw') this.trails.push({ tr: new Trail(this.scene, '#ffcf7a'), t: 0, spark: 0 }); this.lastMode = md; }
+    if (this.pendingCast && (this.pendingCast.t -= dt) <= 0) this.castMagic(this.pendingCast.pos, this.pendingCast.col);
+    for (let i = this.trails.length - 1; i >= 0; i--) { const T = this.trails[i]; T.t += dt; const ap = P?.appleWorld?.(new THREE.Vector3()); const live = md === 'throw' && mt > 0.3 && mt < 1.05;
+      if (ap && live) { T.tr.push(ap, this.S.camera); T.spark += dt; while (T.spark > 0.025) { T.spark -= 0.025; this.sparkles.spawn(ap.clone().add(new THREE.Vector3(rnd(-0.06, 0.06), rnd(-0.06, 0.06), rnd(-0.06, 0.06))), { vel: new THREE.Vector3(rnd(-0.4, 0.4), rnd(-0.2, 0.5), rnd(-0.3, 0.3)), life: rnd(0.3, 0.6), col: pick(['#ffd890', '#ffb060', '#ffffff']) }); } }
+      if (!live) { T.tr.mat.uniforms.uFade.value -= dt * 4; if (T.tr.mat.uniforms.uFade.value <= 0 || T.t > 3) { T.tr.dispose(); this.trails.splice(i, 1); } } }
     for (let i = this.emitters.length - 1; i >= 0; i--) { const em = this.emitters[i]; em.t += dt; em.acc += dt; while (em.acc > 0.03) { em.acc -= 0.03; this.debris.burst(em.kind, em.p, 2, 1, 1, em.vel); } if (em.t > em.dur) this.emitters.splice(i, 1); }
     for (let i = this.falls.length - 1; i >= 0; i--) { const f = this.falls[i]; f.t += dt; f.v.y -= 15 * dt; f.root.position.addScaledVector(f.v, dt); f.root.rotation.z -= f.w * dt; if (f.root.position.y < 0) { f.root.position.y = 0; f.v.y = Math.abs(f.v.y) * 0.35; f.v.x *= 0.6; f.w *= 0.6; } if (f.t > 2) this.falls.splice(i, 1); }
     for (let i = this.knocks.length - 1; i >= 0; i--) {
@@ -182,7 +261,7 @@ export class FX3D {
       const it = this.items[i]; it.t += dt; const k = Math.min(1, it.t / it.life);
       it.mesh.traverse((o) => { if (o.material?.uniforms) { o.material.uniforms.uT.value = it.t; o.material.uniforms.uLife.value = k; } });
       it.upd?.(k, it, dt);
-      if (it.t >= it.life) { this.scene.remove(it.mesh); it.mesh.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); }); it.mesh.userData.mat?.dispose(); this.items.splice(i, 1); }
+      if (it.t >= it.life) { it.done?.(); this.scene.remove(it.mesh); it.mesh.traverse((o) => { o.geometry?.dispose(); o.material?.dispose?.(); }); it.mesh.userData.mat?.dispose(); this.items.splice(i, 1); }
     }
   }
 }
