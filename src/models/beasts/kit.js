@@ -217,7 +217,7 @@ export function createGeneric(spec, seed = 1) {
   const bm = api.own(A.mat); if (A.wound) woundMat(bm, A.wound, spec.blood || [0.12, 0.004, 0.006]); const body = skinned(A.geo, bm, B, model);
   const ctx = { B, api, model, root, body, seed, sc, own: (m) => api.own(m), J: joints(spec.bones), st, vars: {}, spec_h: spec.height, spec };
   spec.props?.(ctx);
-  for (const m of [...model.children]) m.traverse((o) => { if (o.isMesh && api.mats.indexOf(o.material) < 0 && o.material.map) o.material = api.own(o.material); });
+  for (const m of [...model.children]) m.traverse((o) => { if (o.isMesh && !o.userData.keepMat && api.mats.indexOf(o.material) < 0 && o.material.map) o.material = api.own(o.material); });
   const clips = spec.clips || {}; const holdOf = (m) => (clips[m] ? clips[m][clips[m].length - 1][0] : 1.3);
   api.impactTime = spec.impact ?? 0.4; api.attackTime = holdOf('attack'); api.head = B.map.head || B.bones[1]; api.bones = B.map;
   const parentOf = Object.fromEntries(spec.bones.map(([n, p]) => [n, p])); const SPR = {};

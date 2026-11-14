@@ -63,15 +63,15 @@ const ICO = [new THREE.IcosahedronGeometry(1, 0), new THREE.IcosahedronGeometry(
 function clump(F, c, R, n, size, cc, r, { lit = 0.6, flat = false, droop = 0 } = {}) {
   // a leaf mass: a few overlapping faceted lumps (jittered low-poly icosahedra) filling the clump's ellipsoid, flat
   // normals, a planar-projected pixel leaf texture, darker towards the crown's heart (ambient occlusion in the vertex colour)
-  const k = Math.max(1, Math.min(4, Math.round(n / 9))); const det = n >= 18 ? 1 : 0; const col = new THREE.Color(); void size; void lit;
+  const k = Math.max(2, Math.min(6, Math.round(n / 6))); const det = 0; const col = new THREE.Color(); void size; void lit;
   for (let b = 0; b < k; b++) {
-    const dir = rvec(r); if (flat) dir.y *= 0.35; const off = k > 1 ? 0.42 + r() * 0.2 : 0; const sc = (k > 1 ? 0.62 : 0.85) + r() * 0.18;
+    const dir = rvec(r); if (flat) dir.y *= 0.35; const off = 0.42 + r() * 0.3; const sc = 0.5 + r() * 0.2;
     const ctr = c.clone().add(V(dir.x * R.x * off, dir.y * R.y * off - droop * 0.5, dir.z * R.z * off)); const seed = r() * 100;
     const pos = ICO[det].attributes.position; const tri = [];
-    for (let i = 0; i < pos.count; i++) { const u = V(pos.getX(i), pos.getY(i), pos.getZ(i)); const h = Math.sin(u.x * 12.9898 + u.y * 78.233 + u.z * 37.719 + seed) * 43758.5453; const j = 0.82 + (h - Math.floor(h)) * 0.34;
+    for (let i = 0; i < pos.count; i++) { const u = V(pos.getX(i), pos.getY(i), pos.getZ(i)); const h = Math.sin(u.x * 12.9898 + u.y * 78.233 + u.z * 37.719 + seed) * 43758.5453; const j = 0.78 + (h - Math.floor(h)) * 0.44;
       tri.push(ctr.clone().add(V(u.x * R.x * sc * j, u.y * R.y * sc * j * (flat ? 0.8 : 1) - (u.y < 0 ? droop * 0.3 : 0), u.z * R.z * sc * j))); }
     for (let i = 0; i < tri.length; i += 3) { const [p0, p1, p2] = [tri[i], tri[i + 1], tri[i + 2]]; const nf = V().crossVectors(p1.clone().sub(p0), p2.clone().sub(p0)).normalize(); const fc = p0.clone().add(p1).add(p2).multiplyScalar(1 / 3);
-      const depth = clamp(fc.clone().sub(cc).length() / Math.max(0.3, R.x * 1.6), 0, 1); const ao = clamp(0.52 + 0.26 * (nf.y * 0.5 + 0.5) + 0.24 * depth, 0.45, 1.04); col.setRGB(ao, ao, ao * 0.97);
+      const depth = clamp(fc.clone().sub(cc).length() / Math.max(0.3, R.x * 1.6), 0, 1); const ao = clamp(0.66 + 0.2 * (nf.y * 0.5 + 0.5) + 0.18 * depth, 0.6, 1.06); col.setRGB(ao, ao, ao * 0.97);
       const ax = Math.abs(nf.x), ay = Math.abs(nf.y), az = Math.abs(nf.z); const s2 = 1.1; const b0 = F.count;
       for (const q of [p0, p1, p2]) { const [u, v] = ay >= ax && ay >= az ? [q.x, q.z] : ax >= az ? [q.z, q.y] : [q.x, q.y]; F.vert(q, q.clone().sub(ctr).normalize(), u * s2, v * s2, col, 0.5 + depth * 0.5); } // smooth normals for the ink pass; the material's flat shading lights the facets
       F.i.push(b0, b0 + 1, b0 + 2); }
@@ -84,7 +84,7 @@ const LMASS = new Map();
 export function leafMassTex(kind) {
   if (LMASS.has(kind)) return LMASS.get(kind); const img = leafAtlas(kind).image; const w = img.width, h = img.height; const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
   const d = g.getImageData(0, 0, w, h); { const src = document.createElement('canvas'); src.width = w; src.height = h; const sg = src.getContext('2d'); sg.drawImage(img, 0, 0); const sd = sg.getImageData(0, 0, w, h).data; let R = 0, G = 0, B = 0, N = 0; for (let i = 0; i < sd.length; i += 4) if (sd[i + 3] > 128) { R += sd[i]; G += sd[i + 1]; B += sd[i + 2]; N++; } N = Math.max(1, N); void d;
-    g.fillStyle = `rgb(${(R / N) * 0.42 | 0},${(G / N) * 0.48 | 0},${(B / N) * 0.42 | 0})`; g.fillRect(0, 0, w, h); g.globalAlpha = 0.75; for (const [x, y] of [[w / 2, h / 2], [-w / 2, h / 2], [w / 2, -h / 2], [-w / 2, -h / 2]]) g.drawImage(src, x, y); g.globalAlpha = 1; g.filter = 'none'; for (const [x, y] of [[0, 0], [w / 3, h / 4], [-w / 3, -h / 4]]) g.drawImage(src, x, y); }
+    g.fillStyle = `rgb(${(R / N) * 0.62 | 0},${Math.min(255, (G / N) * 0.74) | 0},${(B / N) * 0.5 | 0})`; g.fillRect(0, 0, w, h); g.globalAlpha = 1; for (const [x, y] of [[w / 2, h / 2], [-w / 2, h / 2], [w / 2, -h / 2], [-w / 2, -h / 2]]) g.drawImage(src, x, y); g.globalAlpha = 1; g.filter = 'none'; for (const [x, y] of [[0, 0], [w / 3, h / 4], [-w / 3, -h / 4]]) g.drawImage(src, x, y); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapLinearFilter; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; LMASS.set(kind, t); return t;
 }
 const barkTex = (kind) => pixelBark(kind);

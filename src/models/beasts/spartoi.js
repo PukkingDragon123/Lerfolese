@@ -1,41 +1,12 @@
-// Spartoi: a dragon's-tooth skeleton hoplite (1.8 m). Bronze muscle cuirass with leather pteruges over a bare-bone
-// frame: knobbed humerus, paired forearm bones, bony fists, femurs with kneecaps under bronze greaves, skeletal feet,
-// a grinning skull with green-lit sockets inside a crested Corinthian helmet. Hoplon shield on the left arm (painted
-// dragon of Ares) and a dory spear in the right fist. Attack: draw the spear back behind the shield, lunge-thrust
-// (impact), recover. Death: the bones fold and the warrior crashes down in a rattling heap.
-import { THREE, K, hex, humanRows, sculptHuman, sculptFist, fistFrame, asset, prop, createGeneric, onBone, add, lerp3, fallSide } from './kit.js';
+// Spartoi on the human base: a dragon's-tooth hoplite built on the Limbo human body (wiry build) whose flesh is
+// repainted as stained, cracked bone with dark hollows between ribs and limb bones, a bronze muscle cuirass and
+// greaves, leather pteruges; a crested Corinthian helmet over the skull, a hoplon with the dragon of Ares on the
+// left forearm and a dory in the right fist. Animation: the engine's strike as a spear thrust; it falls in a heap.
+import { THREE, K, hex, limboBeast, mount, recolor, near } from './humanoid.js';
+import { prop } from './kit.js';
 
-const H = 1.8;
-const BONES = humanRows(H, { sw: 1.05 });
-const J = Object.fromEntries(BONES.map(([n, , p]) => [n, p]));
-const BRZ = { s: 'metal', c: hex('#94643a'), me: 0.6, ro: 0.3, rivet: 0.06 };
-const PAL = {
-  bronze: BRZ, bone: { s: 'bone', c: hex('#cfc2a2'), cavK: 0.9 }, leather: { s: 'leather', c: hex('#7a4426') }, socket: { s: 'dark', c: hex('#1a2a1c'), e: [26, 70, 36] },
-  teeth: { s: 'bone', c: hex('#f0e6cc') }, default: { s: 'bone', c: hex('#e2d6b8') },
-};
-function sculpt(S) {
-  sculptHuman(S, J, H, { bulk: 0.92, arms: false, legs: false, tags: { body: 'bronze', neck: 'bronze' } });
-  for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2; S.box([Math.sin(a) * 0.15, 0.835, Math.cos(a) * 0.12], [0.035, 0.085, 0.008], 0.005, 'hips', { k: 0.004, tag: 'leather', dir: [Math.sin(a), 0, Math.cos(a)], up: [0, 1, 0] }); }
-  S.blob([0, 0.94, -0.01], [0.15, 0.05, 0.12], 'hips', { k: 0.02, tag: 'leather' });
-  S.sym((s, L) => {
-    const sh = J['uparm' + L], el = J['forearm' + L], wr = J['hand' + L], hp = J['thigh' + L], kn = J['shin' + L], an = J['foot' + L];
-    S.blob(sh, [0.06, 0.055, 0.06], ['clav' + L, 'uparm' + L], { k: 0.015, tag: 'bronze' });
-    S.limb(sh, el, 0.021, 0.018, 'uparm' + L, { k: 0.008, tag: 'bone' }); S.blob(el, [0.03, 0.028, 0.028], 'forearm' + L, { k: 0.008, tag: 'bone' });
-    for (const o of [-1, 1]) S.limb([el[0] + 0.011 * o, el[1], el[2] + 0.009 * o], [wr[0] + 0.009 * o, wr[1], wr[2] + 0.007 * o], 0.015, 0.013, 'forearm' + L, { k: 0.006, tag: 'bone' });
-    sculptFist(S, J, L, H, 0.82, 'bone');
-    S.limb(hp, kn, 0.026, 0.022, 'thigh' + L, { k: 0.008, tag: 'bone' }); S.blob(hp, [0.04, 0.035, 0.035], 'thigh' + L, { k: 0.01, tag: 'bone' }); S.blob([kn[0], kn[1], kn[2] + 0.025], [0.028, 0.03, 0.02], 'shin' + L, { k: 0.008, tag: 'bone' });
-    S.limb(kn, an, 0.02, 0.016, 'shin' + L, { k: 0.006, tag: 'bone' });
-    S.limb(lerp3(kn, an, 0.08), lerp3(kn, an, 0.92), 0.045, 0.034, 'shin' + L, { k: 0.01, tag: 'bronze' }); // greave
-    S.box([an[0], 0.02, an[2] + 0.05], [0.03, 0.01, 0.06], 0.008, 'foot' + L, { k: 0.008, tag: 'bone' });
-    for (let i = 0; i < 4; i++) S.limb([an[0] + (i - 1.5) * 0.016, 0.02, an[2] + 0.1], [an[0] + (i - 1.5) * 0.019, 0.012, an[2] + 0.15], 0.008, 0.006, 'foot' + L, { k: 0.003, tag: 'bone' });
-  });
-  // skull: cranium, cheekbones, sockets lit green, nasal cavity, grinning jaw
-  S.blob([0, 1.68, 0.02], [0.082, 0.095, 0.1], 'head', { k: 0.02, tag: 'bone', imp: 3 }); S.blob([0, 1.63, 0.06], [0.07, 0.06, 0.07], 'head', { k: 0.02, tag: 'bone', imp: 3 });
-  S.sym((s) => { S.blob([0.032 * s, 1.655, 0.118], [0.022, 0.02, 0.025], 'head', { k: 0.008, tag: 'socket', sub: true }); S.blob([0.032 * s, 1.655, 0.1], [0.008, 0.008, 0.008], 'head', { k: 0.002, tag: 'socket', imp: 4 }); });
-  S.blob([0, 1.625, 0.125], [0.01, 0.014, 0.02], 'head', { k: 0.004, tag: 'socket', sub: true });
-  S.blob([0, 1.585, 0.07], [0.055, 0.03, 0.055], 'jaw', { k: 0.012, tag: 'teeth', imp: 3 }); S.box([0, 1.604, 0.11], [0.04, 0.004, 0.03], 0.002, 'head', { k: 0.003, tag: 'socket', sub: true });
-}
-const A = () => asset('spartoi', { bones: BONES, sculpt, pal: PAL, cell: 0.0105, target: 10500, atlas: 512, maxChart: 0.012, woundScale: 0.7, woundSkip: ['socket'] });
+const BRZ = { s: 'metal', c: hex('#8a6a3e'), me: 0.6, ro: 0.4 };
+const BONE = hex('#cfc2a2'), TEE = [150, 150, 150], SKIRT = [110, 70, 40];
 const HELM_PAL = { bronze: { ...BRZ, rivet: 0 }, crest: { s: 'fur', c: hex('#8a2a22'), fs: 60, flow: 0.15, strand: 0.3 }, default: BRZ };
 function helmet(S) { // Corinthian: hollow domed shell, T-shaped face opening, cheek guards, nasal, horsehair crest on a stand
   S.blob([0, 1.685, 0.025], [0.105, 0.12, 0.125], 'p', { k: 0.02, tag: 'bronze' });
@@ -64,36 +35,32 @@ const shieldMat = () => K.uvMat('spartoi-shield', 256, 128, (u, v, o) => { // u 
   const coil = Math.abs(((a + r * 9) % (Math.PI * 2)) - Math.PI) < 0.45 && r > 0.18 && r < 0.78; const ring = Math.abs(r - 0.82) < 0.025;
   K.tone(coil ? hex('#1e1a1a') : ring ? hex('#6a2418') : hex('#8a3a26'), K.band(0.55 + Math.cos(a) * 0.12 - r * 0.1, 4), o.col); if (coil || ring) o.me = 0.1; else o.me = 0.15;
 });
-const CLIPS = {
-  attack: [[0, {}],
-    [0.3, { _pos: [0, -0.05, -0.12], hips: [0, 0.3, 0], spine1: [-0.05, 0.15, 0], spine2: [-0.05, 0.1, 0], head: [0.05, -0.3, 0], uparm_R: [-0.4, 0, 0.9], forearm_R: [-1.5, 0, 0], hand_R: [0.6, 0, 0], thigh_L: [-0.4, 0, 0], shin_L: [0.5, 0, 0], thigh_R: [0.25, 0, 0], shin_R: [0.3, 0, 0] }],
-    [0.38, { _pos: [0, -0.1, 0.4], hips: [0.12, -0.25, 0], spine1: [0.15, -0.15, 0], spine2: [0.1, -0.1, 0], head: [0.1, 0.1, 0], uparm_R: [-1.3, -0.2, 0.5], forearm_R: [-0.2, 0, 0], hand_R: [2.5, 0, 0], thigh_L: [-0.7, 0, 0], shin_L: [0.55, 0, 0], thigh_R: [0.45, 0, 0], shin_R: [0.1, 0, 0] }],
-    [0.55, { _pos: [0, -0.08, 0.32], hips: [0.1, -0.2, 0], spine1: [0.12, -0.12, 0], uparm_R: [-1.2, -0.2, 0.45], forearm_R: [-0.3, 0, 0], hand_R: [2.45, 0, 0], thigh_L: [-0.6, 0, 0], shin_L: [0.5, 0, 0], thigh_R: [0.4, 0, 0] }], [0.85, {}]],
-  cast: [[0, {}], [0.3, { spine2: [-0.1, 0, 0], head: [-0.3, 0, 0], jaw: [0.5, 0, 0], uparm_R: [-0.6, 0, 0.3], forearm_R: [-1.0, 0, 0] }], [0.5, { jaw: [0.1, 0, 0], head: [-0.25, 0.2, 0] }], [0.7, { jaw: [0.5, 0, 0] }], [1.3, {}]],
-  hurt: [[0, {}], [0.1, { _pos: [0, 0.02, -0.18], spine1: [-0.15, 0.1, 0.08], spine2: [-0.12, 0.1, 0], head: [-0.4, 0.5, 0.25], jaw: [0.6, 0, 0], uparm_L: [0.3, 0, 0.3], thigh_R: [0.4, 0, 0], shin_R: [0.4, 0, 0] }], [0.3, { head: [0.15, -0.2, -0.1], jaw: [0.3, 0, 0] }], [0.65, {}]],
-  die: [[0, {}], [0.15, { spine2: [-0.25, 0, 0], head: [-0.6, 0.4, 0.3], jaw: [0.8, 0, 0], uparm_L: [0, 0, 0.6], uparm_R: [0, 0, -0.6] }],
-    [0.4, { hips: [0.3, 0, 0], spine1: [0.35, 0, 0.1], spine2: [0.3, 0, 0], head: [0.6, 0, 0.4], jaw: [0.6, 0, 0], thigh_L: [-1.3, 0, 0], thigh_R: [-1.2, 0, 0], shin_L: [1.9, 0, 0], shin_R: [1.8, 0, 0], uparm_L: [-0.6, 0, 0.3], uparm_R: [-0.6, 0, -0.3] }],
-    [0.75, { hips: [0.3, 0, 0], spine1: [0.4, 0, 0.3], spine2: [0.35, 0.2, 0.2], head: [0.7, 0.6, 0.6], jaw: [0.9, 0, 0], thigh_L: [-1.4, 0, 0.3], thigh_R: [-1.0, 0, -0.2], shin_L: [2.0, 0, 0], shin_R: [1.6, 0, 0], uparm_L: [-0.9, 0, 0.8], uparm_R: [-0.3, 0, -1.0], forearm_R: [-0.8, 0, 0] }]],
+
+const sparHook = (paint, P, spec) => {
+  const H = P.H, sk = spec.skin;
+  const wrap = (fn) => (c, o) => {
+    fn(c, o);
+    if (near(o, SKIRT, 0.16)) { const a = Math.atan2(c.x, c.z); const f = ((a / Math.PI) * 10 % 1 + 1) % 1; return recolor(o, f < 0.1 || f > 0.9 ? [36, 22, 14] : hex('#6a4a30'), SKIRT, 0, c, 'leather'); } // pteruges strips
+    if (near(o, TEE, 0.1) && lumOf(o) > 40) { const ab = c.nz > 0.3 && Math.abs(c.x) < 0.07 * H && c.y < P.bustY && Math.abs((((c.y / H) * 28) % 1) - 0.5) < 0.08; return recolor(o, hex('#8a6a3e'), TEE, ab ? -0.2 : 0, c, 'metal', 0.85); } // muscle cuirass
+    if (!near(o, sk, 0.14)) return;
+    if (c.part === 'calf' && c.nz > -0.2) return recolor(o, hex('#8a6a3e'), sk, 0.05, c, 'metal', 0.8); // greaves
+    const along = c.part === 'farm' || c.part === 'calf' || c.part === 'uarm' || c.part === 'thigh'; const gap = along ? Math.abs(Math.sin(Math.atan2(c.x - Math.sign(c.x) * 0.1 * H, c.z) * 2)) < 0.18 : false; // the gap between paired limb bones
+    const joint = [P.elbowY, P.kneeY, P.wristY, P.ankleY, P.shoulderY].some((y) => Math.abs(c.y - y) < 0.012 * H);
+    recolor(o, BONE, sk, (gap ? -0.32 : 0) + (joint ? -0.12 : 0), c, 'bone', 0.9);
+  };
+  return { ...paint, body: wrap(paint.body), skin: wrap(paint.skin), hand: wrap(paint.hand) };
 };
-const SPEC = {
-  id: 'spartoi', bones: BONES, height: H + 0.25, asset: A, blood: [0.03, 0.025, 0.02], clips: CLIPS, impact: 0.38,
-  follow: { head: [20, 0.35], jaw: [14, 0.22] },
-  props(ctx) {
-    const { B } = ctx; const hm = prop('spartoi-helm', helmet, HELM_PAL, { cell: 0.007, target: 3200, atlas: 256 }); onBone(B, 'head', K.mesh(hm.geo, hm.mat));
-    const sp = prop('spartoi-spear', spear, SPEAR_PAL, { cell: 0.008, target: 1200, atlas: 256, maxChart: 0.01 }); const F = fistFrame(J, '_R');
-    const g = K.mesh(sp.geo, sp.mat); g.position.copy(F.wr).addScaledVector(F.z, 0.042 * H); g.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(F.z, F.y, F.x.clone().negate())); onBone(B, 'hand_R', g);
-    const sh = K.mesh(shieldGeo(), shieldMat()); const el = new THREE.Vector3(...J.forearm_L), wr = new THREE.Vector3(...J.hand_L); const c = el.clone().lerp(wr, 0.45); const fd = wr.clone().sub(el).normalize();
-    sh.position.copy(c).add(new THREE.Vector3(0.08, 0, 0)); sh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(1, 0, 0)); sh.rotateOnWorldAxis(fd, 0); onBone(B, 'forearm_L', sh); ctx.vars.shield = sh;
+const lumOf = (o) => o[0] * 0.3 + o[1] * 0.59 + o[2] * 0.11;
+export const warmSpartoi = () => { prop('spartoi-helm', helmet, HELM_PAL, { cell: 0.007, target: 3200, atlas: 256 }); prop('spartoi-spear', spear, SPEAR_PAL, { cell: 0.008, target: 1200, atlas: 256, maxChart: 0.01 }); };
+export const createSpartoi = (seed = 1) => limboBeast({
+  id: 'spartoi', height: 1.85, blood: [0.03, 0.025, 0.02], speed: 1.05, sway: 0.5, impact: 0.45,
+  app: { skin: 0xcfc2a2, hair: 0x222222, hairStyle: 'bald', build: 'wiry', age: 0.9, eyeColor: 0x0a0a0a, height: 1 },
+  outfit: { torso: { tex: 'c_tee', color: 0x969696 }, legs: { tex: 'c_skirt', color: 0x6e4628 }, legsKind: 'skirt' }, overrides: { eyeH: 1.3 }, hook: sparHook,
+  build(ctx) {
+    const { L, sc } = ctx; const hr = L.restOf('head');
+    const hm = prop('spartoi-helm', helmet, HELM_PAL, { cell: 0.007, target: 3200, atlas: 256 }); const hg = new THREE.Group(); const hmesh = K.mesh(hm.geo, hm.mat); hmesh.position.set(0, -1.593, -0.0216); hg.add(hmesh); hg.scale.setScalar(1.05); mount(ctx, 'head', hg, { at: [0, 0.0, 0.01 * sc] });
+    const sp = prop('spartoi-spear', spear, SPEAR_PAL, { cell: 0.008, target: 1200, atlas: 256, maxChart: 0.01 }); const sm = K.mesh(sp.geo, sp.mat); sm.rotation.x = Math.PI / 2; mount(ctx, 'handR', sm, { at: [0, -0.08 * sc, 0.01 * sc] });
+    const sh = K.mesh(shieldGeo(), shieldMat()); sh.rotation.y = Math.PI / 2; mount(ctx, 'farmL', sh, { at: [0.07 * sc, -0.12 * sc, 0.02 * sc] }); void hr;
   },
-  idle(P, t, st) {
-    const br = Math.sin(t * 1.7), sw = Math.sin(t * 0.6); const twitch = Math.max(0, Math.sin(t * 1.3) - 0.94) * 6; // a bony rattle now and then
-    add(P, 'hips', 0, 0.12 + sw * 0.03); add(P, 'spine1', 0.02, 0.05); add(P, 'spine2', br * 0.015); add(P, 'neck', 0, -0.15 + Math.sin(t * 0.5) * 0.1); add(P, 'head', 0.05 + twitch * 0.1, -0.1 + Math.sin(t * 0.5 + 0.5) * 0.12, twitch * 0.15); add(P, 'jaw', 0.05 + twitch * 0.2 + (st.talk > 0 ? Math.abs(Math.sin(t * 18)) * 0.5 : 0));
-    add(P, 'uparm_L', -0.55, -0.4, -0.25); add(P, 'forearm_L', -1.1, 0.6, 0); // shield up across the body
-    add(P, 'uparm_R', -0.25, 0.2, 0.25); add(P, 'forearm_R', -1.2, 0.2, 0); add(P, 'hand_R', 0.1, 0, 0); // spear upright
-    add(P, 'thigh_L', -0.25, 0, -0.06); add(P, 'shin_L', 0.3); add(P, 'thigh_R', 0.12, 0, 0.06); add(P, 'shin_R', 0.15); add(P, 'foot_L', -0.05); // braced stance
-  },
-  gait(P, g, a) { add(P, 'thigh_L', Math.sin(g) * 0.5 * a); add(P, 'thigh_R', -Math.sin(g) * 0.5 * a); add(P, 'shin_L', Math.max(0, Math.cos(g)) * 0.6 * a); add(P, 'shin_R', Math.max(0, -Math.cos(g)) * 0.6 * a); },
-  death: (T, m, ctx) => fallSide(T, m, ctx, { drop: 0.22, rot: 1.34, lift: 0.03, slide: 0.05, t0: 0.4, t1: 0.72 }),
-};
-export const createSpartoi = (seed) => createGeneric(SPEC, seed);
-export const warmSpartoi = () => void A();
+  pose(add, t, st, ctx) { const tw = Math.max(0, Math.sin(t * 1.3) - 0.94) * 6; add('head', 0.04 + tw * 0.1, -0.1, tw * 0.15); add('thighL', -0.2, 0, -0.06); add('shinL', 0.25); add('thighR', 0.1, 0, 0.06); if (ctx.anim.mode === 'idle') { add('uarmL', -0.5, 0, 0.1); add('farmL', -1.0); add('farmR', -1.1); add('handR', 0.15); } }, // shield up, spear upright
+}, seed);

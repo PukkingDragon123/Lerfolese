@@ -1,13 +1,15 @@
-// Event characters: clothed Greek humans built on the beast pipeline (beasts/kit.js: implicit sculpt -> skinned,
-// unwrapped, cel-painted mesh). A parametric body (build, sex, height), a sculpted head (skull, face, nose, brows,
-// eyes, ears, lips, chin), hair styles (curls, long, wild, bald with a fringe, veil), beards, garments (chiton, robe,
-// peplos, loincloth, towel, belt, sash) and a library of held poses (kneel, push, chained, fly, fall, bathe, offer)
-// blended in under the talk / point / cheer / laugh / hurt clips. Built lazily, cached per character.
-import { THREE, K, hex, humanRows, sculptHuman, asset, createGeneric, rigidSkinned, add, fallSide } from '../beasts/kit.js';
+// Event characters on the SAME human base as Newton: the Limbo Phobia engine (src/models/limbo), realistic low-poly
+// (octagon rings, flat shading, its hand-made pixel page) with Greek dress repainted through a paint hook (chiton,
+// peplos, robe, loincloth, towel with folds and trims), hair and beards from the engine's styles, age and build
+// pushed per character, and a library of held poses (kneel, push, chained, fly, fall, bathe, offer, sit...) blended
+// under the talk / point / cheer / laugh / hurt clips. sculptHead stays for the Sphinx's sculpted human face.
+import { THREE, K, hex, limboBeast, mount, recolor, near } from '../beasts/humanoid.js';
+import { makeBones, rigidSkinned } from '../beasts/rig.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
+const add = (P, n, x = 0, y = 0, z = 0) => { const o = (P[n] ||= [0, 0, 0]); o[0] += x; o[1] += y; o[2] += z; };
 
-// ------------------------------------------------------------------ the head, relative to the head joint
+// ------------------------------------------------------------------ the sculpted head (the Sphinx's face), relative to the head joint
 export function sculptHead(S, J, H, o) {
   const h = J.head, k = (H / 1.7) * (o.headK ?? 1); const P = (x, y, z) => [h[0] + x * k, h[1] + y * k, h[2] + z * k]; const R = (v) => v * k; const fem = o.sex === 'f';
   S.blob(P(0, 0.066, -0.01), [R(0.085), R(0.1), R(0.1)], 'head', { k: R(0.03), tag: 'skin', imp: 3 });
@@ -41,27 +43,8 @@ export function sculptHead(S, J, H, o) {
 }
 
 // ------------------------------------------------------------------ garments (in body-height units)
-function sculptClothes(S, J, H, o) {
-  const P = (x, y, z) => [x * H, y * H, z * H]; const R = (v) => v * H; const b = o.bulk ?? 1; const g = o.garment || 'chiton';
-  if (o.sex === 'f') S.sym((s) => S.blob(P(0.045 * s, 0.735, 0.05), [R(0.04), R(0.036), R(0.034)], 'spine3', { k: R(0.02), tag: g === 'none' ? 'skin' : 'cloth' }));
-  if (['chiton', 'robe', 'peplos'].includes(g)) {
-    S.blob(P(0, 0.7, -0.004), [R(0.112 * b), R(0.1), R(0.083 * b)], 'spine2', { k: R(0.03), tag: 'cloth' });
-    S.blob(P(0, 0.62, 0), [R(0.092 * b), R(0.07), R(0.07 * b)], 'spine1', { k: R(0.03), tag: 'cloth' });
-    const bottom = g === 'chiton' ? 0.33 : 0.035, r1 = g === 'chiton' ? 0.13 : 0.135;
-    S.limb(P(0, 0.58, 0), P(0, bottom, 0.01), R(0.1 * b), R(r1 * b), 'hips', { k: R(0.03), tag: 'cloth' });
-    S.blob(P(0, 0.595, 0), [R(0.098 * b), R(0.012), R(0.075 * b)], 'spine1', { k: R(0.006), tag: 'trim' }); // the girdle
-    S.limb(P(0.1, 0.8, 0.02), P(-0.08, 0.6, 0.06), R(0.02), R(0.02), ['spine3', 'spine1'], { k: R(0.01), tag: 'cloth2' }); // a draped himation fold
-    if (g === 'peplos') S.blob(P(0, 0.64, 0.01), [R(0.12 * b), R(0.05), R(0.09 * b)], 'spine1', { k: R(0.02), tag: 'cloth2' });
-  }
-  if (g === 'loin') { // a short wrapped kilt with a knotted belt (it covers the hips and the tops of the thighs)
-    S.limb(P(0, 0.565, 0), P(0, 0.415, 0.006), R(0.096 * b), R(0.118 * b), 'hips', { k: R(0.02), tag: 'cloth' });
-    S.blob(P(0, 0.56, 0.004), [R(0.1 * b), R(0.014), R(0.08 * b)], 'hips', { k: R(0.006), tag: 'trim' });
-  }
-  if (g === 'towel') { S.limb(P(0.11, 0.81, 0.0), P(0.06, 0.62, 0.06), R(0.04), R(0.05), ['spine3', 'spine2'], { k: R(0.02), tag: 'cloth' }); S.blob(P(0, 0.515, 0.005), [R(0.098 * b), R(0.06), R(0.078 * b)], 'hips', { k: R(0.02), tag: 'cloth' }); }
-  if (o.sash) S.limb(P(0.11, 0.8, 0.03), P(-0.1, 0.57, 0.04), R(0.016), R(0.016), ['spine3', 'spine1'], { k: R(0.008), tag: 'trim' });
-}
 
-// ------------------------------------------------------------------ held poses (blended in by weight)
+// ------------------------------------------------------------------ held poses (authored on the generic humanoid names, mapped to the engine's joints)
 export const POSES = {
   stand(P, t) { add(P, 'uparm_L', 0.05, 0, 0.12); add(P, 'uparm_R', 0.05, 0, -0.12); add(P, 'forearm_L', -0.2); add(P, 'forearm_R', -0.2); },
   kneel(P) { add(P, '_pos', 0, -0.42, 0); add(P, 'thigh_L', -1.45); add(P, 'shin_L', 1.45); add(P, 'thigh_R', -0.1); add(P, 'shin_R', 1.75); add(P, 'foot_R', 0.5); add(P, 'spine1', 0.25); add(P, 'spine2', 0.15); add(P, 'neck', 0.25); add(P, 'head', 0.35); add(P, 'uparm_L', -0.7); add(P, 'forearm_L', -0.6); add(P, 'uparm_R', -0.4, 0, -0.1); add(P, 'forearm_R', -0.4); },
@@ -87,67 +70,85 @@ const CLIPS = {
   die: [[0, {}], [0.2, { spine2: [-0.3, 0, 0], head: [-0.4, 0.2, 0], uparm_L: [0, 0, 0.7], uparm_R: [0, 0, -0.7] }], [0.6, { spine1: [0.3, 0, 0], thigh_L: [-0.6, 0, 0], shin_L: [1.0, 0, 0] }]],
 };
 
+
+const MAPN = { hips: 'hips', spine1: 'spine', spine2: 'chest', spine3: 'chest', neck: 'neck', head: 'head', uparm_L: 'uarmL', uparm_R: 'uarmR', forearm_L: 'farmL', forearm_R: 'farmR', hand_L: 'handL', hand_R: 'handR', thigh_L: 'thighL', thigh_R: 'thighR', shin_L: 'shinL', shin_R: 'shinR', foot_L: 'footL', foot_R: 'footR' };
+const mapClip = (keys) => keys.map(([t, P]) => { const Q = {}; for (const [n, r] of Object.entries(P)) { if (n === '_pos') Q._pos = r; const m = MAPN[n]; if (m) add(Q, m, ...r); } return [t, Q]; });
+const HAIR = { curls: 'curly', long: 'long', bald: 'bald', wild: 'afro' };
+const numOf = (c) => parseInt(String(c || '#888888').replace('#', ''), 16);
+/** Greek dress painted over the engine's garments: cloth with folds, a woven trim at hems and neckline */
+const dressHook = (o) => (paint, P, spec) => {
+  const H = P.H; const C1 = hex(o.cloth || '#efe6d2'), C2 = hex(o.cloth2 || o.cloth || '#d8c8a8'), TR = hex(o.trim || '#b08a3a'); const TOP = [128, 128, 128], LEG = [100, 100, 100];
+  const wrap = (fn) => (c, o2) => {
+    fn(c, o2); const fold = Math.cos(Math.atan2(c.x, c.z) * 13 + c.y * 9) * 0.08;
+    if (near(o2, TOP, 0.08) && Math.abs(o2[0] - 128) < 40) { const hem = Math.abs(c.y - P.shoulderY) < 0.012 * H || Math.abs(c.y - P.elbowY - 0.04 * H) < 0.01 * H; return recolor(o2, hem ? TR : C1, TOP, fold, c, 'cloth', 0.3); }
+    if (near(o2, LEG, 0.08) && Math.abs(o2[0] - 100) < 40) { const hem = c.y < P.kneeY + 0.02 * H && c.y > P.kneeY - 0.01 * H; return recolor(o2, hem ? TR : C2, LEG, fold, c, 'cloth', 0.3); }
+    if (near(o2, spec.skin, 0.12)) recolor(o2, spec.skin, spec.skin, 0, c, 'skin', o.age ?? 0.2);
+  };
+  return { ...paint, body: wrap(paint.body), skin: wrap(paint.skin) };
+};
+const OUTFIT = (o) => {
+  const g = o.garment || 'chiton'; const top = { tex: 'c_tee', color: 0x808080 }, leg = { tex: 'c_skirt', color: 0x646464 };
+  if (g === 'loin' || g === 'towel') return { legs: leg, legsKind: 'skirt' };
+  return { torso: top, legs: leg, legsKind: 'skirt' };
+};
+
 // ------------------------------------------------------------------ the builder
 /**
- * o: { id, H, sex 'm'|'f', bulk, skin, hair, hairC, beard, beardC, garment, cloth, cloth2, trim, eye, veil, wreath, sash, belly,
- *      headK, nose, browTilt, props(ctx), extraBones(rows), sculpt(S, J), pal{}, idle(P,t,st,ctx), hover(t,st,ctx), follow{} }
+ * o: { id, H, sex 'm'|'f', bulk, skin, hair, hairC, beard, beardC, garment, cloth, cloth2, trim, eye, veil, wreath, sash, belly, age,
+ *      props(ctx, J, H), idle(P, t, st, ctx), hover(t, st, ctx), pose }
  */
 export function humanNPC(o) {
   const H = o.H ?? 1.75, fem = o.sex === 'f';
-  const BONES = humanRows(H, { sw: fem ? 0.9 : 1, hw: fem ? 1.08 : 1 }); o.extraBones?.(BONES, H); const J = Object.fromEntries(BONES.map(([n, , p]) => [n, p]));
-  const PAL = {
-    skin: { s: 'skin', c: hex(o.skin || '#e0a982') }, blush: { s: 'skin', c: hex(o.blush || '#e89a8a') }, brow: { s: 'skin', c: hex(o.browC || o.hairC || '#4a2c1c') },
-    lip: { s: 'skin', c: hex(o.lip || (fem ? '#b24a52' : '#a85a50')) }, hair: { s: 'hair', c: hex(o.hairC || '#4a2c1c'), fs: 44 }, beard: { s: 'hair', c: hex(o.beardC || o.hairC || '#4a2c1c'), fs: 60 },
-    eye: { s: 'eye', c: hex(o.eye || '#5a7ac0'), white: hex('#f4eee2'), irisR: 0.55, pupil: 'round', iris: 0.95 }, cloth: { s: 'cloth', c: hex(o.cloth || '#efe6d2'), folds: 13 },
-    cloth2: { s: 'cloth', c: hex(o.cloth2 || o.cloth || '#d8c8a8'), folds: 8 }, trim: { s: 'cloth', c: hex(o.trim || '#b08a3a'), folds: 30 }, veil: { s: 'cloth', c: hex(o.veilC || '#e8e0f0'), folds: 16 },
-    laurel: { s: 'scale', c: hex('#6aa040'), sz: 0.012 }, default: { s: 'skin', c: hex(o.skin || '#e0a982') }, ...(o.pal || {}),
+  const build = o.belly ? 'heavy' : (o.bulk ?? 1) > 1.15 ? 'broad' : (o.bulk ?? 1) < 0.9 ? 'slim' : 'average';
+  const app = { skin: numOf(o.skin || '#e0a982'), hair: numOf(o.veil ? o.veilC || '#d8c8ec' : o.hairC || '#4a2c1c'), hairStyle: o.veil ? 'long' : HAIR[o.hair] || 'short', facialHair: o.beard ? 'beard' : 'none', build, bodyShape: fem ? 0.9 : 0.2, age: o.age ?? (o.beard === 'long' ? 0.75 : 0.25), eyeColor: numOf(o.eye || '#5a7ac0'), height: 1 };
+  const clips = {}; for (const [k, v] of Object.entries(CLIPS)) clips[k] = mapClip(v);
+  return (seed = 1) => {
+    const spec = {
+      id: 'npc-' + o.id, height: H, app, outfit: OUTFIT(o), hook: dressHook(o), overrides: { hairVolume: o.hair === 'wild' ? 1.5 : 1.1 }, clips, wounds: false, sway: 0.7, attack: 'attack', fall: true,
+      hover: o.hover,
+      build(ctx) {
+        ctx.vars.J = {};
+        if (o.wreath) { const lm = K.uvMat('npc-laurel', 32, 16, (u, v, o2) => { const leaf = Math.abs(((u * 18) % 1) - 0.5) < 0.3; K.tone(leaf ? hex('#4a7a34') : hex('#3a5a28'), K.band(0.5 + Math.cos(u * 6.28) * 0.15), o2.col); });
+          const l = new K.Loft(4, 18).set((t, p) => p.set(0, t * 0.02, 0), () => [0.105, 0.11], {}); const w = K.mesh(l.geo, lm); mount(ctx, 'head', w, { at: [0, (ctx.P.browY + 0.03 - ctx.L.restOf('head').y) * ctx.sc, (ctx.P.hcz - ctx.L.restOf('head').z) * ctx.sc] }); }
+        o.props?.(ctx, ctx.vars.J, H);
+      },
+      pose(addL, t, st, ctx) {
+        const api = ctx.api, v = ctx.vars; const dt = Math.min(0.1, Math.max(0, t - (v.lt ?? t))); v.lt = t; v.w ||= {};
+        const want = api.pose || 'stand'; for (const k of Object.keys(POSES)) { const target = k === want ? 1 : 0; v.w[k] = (v.w[k] ?? (k === want ? 1 : 0)) + (target - (v.w[k] ?? 0)) * Math.min(1, dt * (api.poseRate ?? 5)); }
+        const Pz = {}; add(Pz, 'neck', 0, Math.sin(t * 0.45) * 0.12 + (api.lookY ?? 0)); add(Pz, 'head', 0.03 + (api.lookX ?? 0), Math.sin(t * 0.6 + 1) * 0.1, 0);
+        for (const [k, w] of Object.entries(v.w)) if (w > 0.005) { const Q = {}; POSES[k](Q, t, st); for (const [b, r] of Object.entries(Q)) add(Pz, b, r[0] * w, r[1] * w, r[2] * w); }
+        o.idle?.(Pz, t, st, ctx);
+        let pos = null; for (const [n, r] of Object.entries(Pz)) { if (n === '_pos') { pos = r; continue; } const m = MAPN[n]; if (m) addL(m, r[0], r[1], r[2]); else if (v.wing?.[n]) v.wing[n].rotation.set(r[0], r[1], r[2]); }
+        v.posePos = pos;
+      },
+      update(dt, ctx) { const p = ctx.vars.posePos; if (p) { ctx.model.position.x += p[0]; ctx.model.position.y += p[1]; ctx.model.position.z += p[2]; } },
+    };
+    const api = limboBeast(spec, seed); api.H = H; api.J = {}; api.pose = o.pose || 'stand'; return api;
   };
-  const sculpt = (S) => {
-    sculptHuman(S, J, H, { bulk: o.bulk ?? (fem ? 0.82 : 1), belly: o.belly, tags: { body: 'skin' } });
-    sculptClothes(S, J, H, o); sculptHead(S, J, H, o); o.sculpt?.(S, J, H);
-  };
-  const A = () => asset('npc:' + o.id, { bones: BONES, sculpt, pal: PAL, cell: 0.011 * (H / 1.75), target: 11000, atlas: 640, maxChart: 0.02, wounds: 0 });
-  const SPEC = {
-    id: o.id, bones: BONES, height: H, asset: A, clips: { ...CLIPS, ...(o.clips || {}) }, impact: 0.45,
-    follow: { head: [18, 0.45], ...(o.follow || {}) },
-    props: o.props ? (ctx) => o.props(ctx, J, H) : undefined,
-    idle(P, t, st, ctx) {
-      const v = ctx.vars; const now = t; const dt = Math.min(0.1, Math.max(0, now - (v.lt ?? now))); v.lt = now; v.w ||= {};
-      const want = ctx.api.pose || 'stand'; for (const k of Object.keys(POSES)) { const target = k === want ? 1 : 0; v.w[k] = (v.w[k] ?? (k === want ? 1 : 0)) + (target - (v.w[k] ?? 0)) * Math.min(1, dt * (ctx.api.poseRate ?? 5)); }
-      const br = Math.sin(t * 1.5); add(P, 'spine2', br * 0.015); add(P, 'neck', 0, Math.sin(t * 0.45) * 0.12 + (ctx.api.lookY ?? 0)); add(P, 'head', 0.03 + (ctx.api.lookX ?? 0), Math.sin(t * 0.6 + 1) * 0.1, Math.sin(t * 0.4) * 0.04);
-      add(P, 'jaw', st.talk > 0 ? Math.abs(Math.sin(t * 15)) * 0.22 : 0);
-      for (const [k, w] of Object.entries(v.w)) if (w > 0.005) { const Q = {}; POSES[k](Q, t, st); for (const [b, r] of Object.entries(Q)) add(P, b, r[0] * w, r[1] * w, r[2] * w); }
-      o.idle?.(P, t, st, ctx);
-    },
-    hover: o.hover, after: o.after, death: (T, m, ctx) => fallSide(T, m, ctx),
-  };
-  return (seed = 1) => { const api = createGeneric(SPEC, seed); api.J = J; api.H = H; api.pose = o.pose || 'stand'; return api; };
 }
 
 // ------------------------------------------------------------------ shared props
-/** big feathered wings on wing1..3 bones (Icarus): primaries, secondaries, coverts; wax-yellow with drips */
-export function wingBones(rows, H, back = -0.11) {
-  for (const [s, L] of [[1, '_L'], [-1, '_R']]) rows.push(['wing1' + L, 'spine3', [0.09 * s, 0.78 * H, back * H]], ['wing2' + L, 'wing1' + L, [0.3 * s, 0.84 * H, (back - 0.05) * H]], ['wing3' + L, 'wing2' + L, [0.55 * s, 0.86 * H, (back - 0.08) * H]]);
-}
+/** wing bones (kept for callers; the engine body carries the wings on its own chain) */
+export function wingBones() {}
 const add3l = (a, d, l, dy) => { const n = Math.hypot(...d); return [a[0] + (d[0] / n) * l, a[1] + (d[1] / n) * l + dy * l, a[2] + (d[2] / n) * l]; };
 const feather = (a, dir, len, w) => new K.Loft(10, 6).set(K.curve([a, add3l(a, dir, len * 0.5, -0.02), add3l(a, dir, len, -0.06)]), (t) => [w * Math.sin(Math.min(1, t * 1.15 + 0.12) * Math.PI) * 0.9 + 0.004, 0.006], { ref: (t, n) => n.set(0, 1, 0) }).geo;
+/** Icarus' wax-and-feather wings on their own shoulder/elbow/hand chain behind the engine's shoulders (metres) */
 export function waxWings(ctx, J, H, { span = 1.0, col = '#f2e6c8', tip = '#d8b060', wax = '#f0c040', key = 'icarus-feather', drips = true } = {}) {
-  const fm = ctx.own(K.uvMat(key, 32, 128, (u, v, o) => {
+  const fm = K.uvMat(key, 32, 128, (u, v, o) => {
     const shaft = Math.abs(u - 0.5) < 0.04; const barb = Math.sin(v * 80 + Math.abs(u - 0.5) * 34) > 0.82; const drip = drips && v < 0.18 && Math.sin(u * 40) > 0.4;
-    K.tone(drip ? hex(wax) : v > 0.75 ? hex(tip) : hex(col), K.band(0.55 + Math.cos(u * 6.28) * 0.18 + (shaft ? 0.25 : 0) + (barb ? -0.1 : 0), 4), o.col);
-  }));
-  const parts = [];
+    K.tone(drip ? hex(wax) : v > 0.75 ? hex(tip) : hex(col), K.band(0.55 + Math.cos(u * 6.28) * 0.12 + (shaft ? 0.2 : 0) + (barb ? -0.1 : 0)), o.col);
+  });
+  const k = H / 1.75; const rows = [['wroot', null, [0, 0, 0]]];
+  for (const [s, L] of [[1, '_L'], [-1, '_R']]) rows.push(['wing1' + L, 'wroot', [0.1 * s * k, 0.18 * k, -0.1 * k]], ['wing2' + L, 'wing1' + L, [0.3 * s * k, 0.24 * k, -0.15 * k]], ['wing3' + L, 'wing2' + L, [0.55 * s * k, 0.26 * k, -0.18 * k]]);
+  const B = makeBones(rows); const parts = [];
   for (const [s, L] of [[1, '_L'], [-1, '_R']]) {
-    const w1 = J['wing1' + L], w2 = J['wing2' + L], w3 = J['wing3' + L]; const tip = [w3[0] + 0.32 * s * span, w3[1] - 0.02, w3[2] - 0.04];
-    for (let i = 0; i < 11; i++) { const k = i / 10; const a = [lerp(w3[0], tip[0], k), lerp(w3[1], tip[1], k), lerp(w3[2], tip[2], k)]; parts.push([feather(a, [s * (0.3 + k * 0.9), -0.3, -0.5 + k * 0.2], (0.62 - Math.abs(k - 0.4) * 0.2) * span * H / 1.75, 0.07), 'wing3' + L]); }
-    for (let i = 0; i < 10; i++) { const k = i / 9; const a = [lerp(w2[0], w3[0], k), lerp(w2[1], w3[1], k), lerp(w2[2], w3[2], k)]; parts.push([feather(a, [s * 0.15, -1, -0.25], 0.52 * span * H / 1.75, 0.07), 'wing2' + L]); }
-    for (let i = 0; i < 9; i++) { const k = i / 8; const a = [lerp(w1[0], w3[0], k), lerp(w1[1], w3[1], k) + 0.02, lerp(w1[2], w3[2], k)]; parts.push([feather(a, [s * 0.1, -1, -0.15], 0.24 * span, 0.06), k < 0.5 ? 'wing2' + L : 'wing3' + L]); }
+    const w1 = B.map['wing1' + L].userData.rest.toArray(), w2 = B.map['wing2' + L].userData.rest.toArray(), w3 = B.map['wing3' + L].userData.rest.toArray(); const tip3 = [w3[0] + 0.32 * s * span * k, w3[1] - 0.02, w3[2] - 0.04];
+    for (let i = 0; i < 11; i++) { const q = i / 10; parts.push([feather([lerp(w3[0], tip3[0], q), lerp(w3[1], tip3[1], q), lerp(w3[2], tip3[2], q)], [s * (0.3 + q * 0.9), -0.3, -0.5 + q * 0.2], (0.62 - Math.abs(q - 0.4) * 0.2) * span * k, 0.07), 'wing3' + L]); }
+    for (let i = 0; i < 10; i++) { const q = i / 9; parts.push([feather([lerp(w2[0], w3[0], q), lerp(w2[1], w3[1], q), lerp(w2[2], w3[2], q)], [s * 0.15, -1, -0.25], 0.52 * span * k, 0.07), 'wing2' + L]); }
+    for (let i = 0; i < 9; i++) { const q = i / 8; parts.push([feather([lerp(w1[0], w3[0], q), lerp(w1[1], w3[1], q) + 0.02, lerp(w1[2], w3[2], q)], [s * 0.1, -1, -0.15], 0.24 * span * k, 0.06), q < 0.5 ? 'wing2' + L : 'wing3' + L]); }
   }
-  rigidSkinned(ctx.B, parts, fm, ctx.model);
+  const g = new THREE.Group(); mount(ctx, 'chest', g); rigidSkinned(B, parts, fm, g); ctx.vars.wing = B.map;
 }
-/** a held object (apple, pipes...) parented to a hand bone at the clenched fist */
-export function inHand(ctx, J, H, side, obj, off = [0, -0.05, 0.04]) {
-  const L = side === 'L' ? '_L' : '_R'; const b = ctx.B.map['hand' + L]; if (!b) return obj; const j = J['hand' + L];
-  obj.position.set(off[0] * H, off[1] * H, off[2] * H); b.add(obj); void j; return obj;
-}
+/** a held object (apple, pipes...) in the engine's clenched fist */
+export function inHand(ctx, J, H, side, obj, off = [0, -0.05, 0.04]) { mount(ctx, side === 'L' ? 'handL' : 'handR', obj, { at: [off[0] * H, -0.08 * ctx.sc + off[1] * H * 0.3, off[2] * H] }); return obj; }
 export { THREE, K, hex };

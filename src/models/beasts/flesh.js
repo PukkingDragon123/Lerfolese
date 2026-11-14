@@ -310,9 +310,9 @@ function unwrap(P3, N3, { SI, SW }, idx, { atlas, pad, maxChart }) {
 /** uncached UV bake for charkit's paintSurface: per covered texel the rest-pose point, normal and dominant bone */
 export function bake(geo, size, names) {
   size = geo.userData.atlas || size; // the page size the charts were packed for
-  const pa = geo.attributes.position, na = geo.attributes.normal, ua = geo.attributes.uv, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, idx = geo.index.array;
+  const pa = geo.attributes.position, na = geo.attributes.normal, ua = geo.attributes.uv, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, idx = geo.index ? geo.index.array : Uint32Array.from({ length: pa.count }, (_, i) => i);
   const N = size * size; const P = new Float32Array(N * 3), NN = new Float32Array(N * 3), B = new Uint8Array(N), cov = new Uint8Array(N);
-  const dom = (v) => { let bw = -1, b = 0; for (let j = 0; j < 4; j++) { const w = sw.getComponent(v, j); if (w > bw) { bw = w; b = si.getComponent(v, j); } } return b; };
+  const dom = (v) => { if (!sw) return 0; let bw = -1, b = 0; for (let j = 0; j < 4; j++) { const w = sw.getComponent(v, j); if (w > bw) { bw = w; b = si.getComponent(v, j); } } return b; };
   for (let t = 0; t < idx.length; t += 3) {
     const a = idx[t], b = idx[t + 1], c = idx[t + 2]; const ax = ua.getX(a) * size, ay = ua.getY(a) * size, bx = ua.getX(b) * size, by = ua.getY(b) * size, cx = ua.getX(c) * size, cy = ua.getY(c) * size;
     const d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy); if (Math.abs(d) < 1e-9) continue;
