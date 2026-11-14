@@ -127,11 +127,11 @@ const RUNE2_FS = `uniform float uT, uLife; uniform vec3 uCol; varying vec2 vUv;
     gl_FragColor = vec4(mix(uCol, vec3(1.0), step(0.95, m) * 0.25) * m * life * 2.6 * pulse, m * life); }`;
 // an impact bloom: a crisp expanding ring, a shrinking core and four short rays, on a 48px grid
 const BLOOM_FS = `uniform float uT, uLife; uniform vec3 uCol; varying vec2 vUv;
-  void main(){ vec2 p = (floor(vUv * 48.0) + 0.5) / 24.0 - 1.0; float r = length(p); float a = atan(p.y, p.x);
-    float e = 1.0 - pow(1.0 - uLife, 3.0); float R = 0.15 + 0.8 * e; float w = 0.09 * (1.0 - uLife) + 0.03;
-    float ring = step(abs(r - R), w); float core = step(r, 0.34 * (1.0 - e)); float rays = step(0.94, abs(cos(a * 2.0))) * step(r, R * 1.2) * step(R * 0.45, r) * (1.0 - step(0.5, uLife));
-    float m = clamp(ring + core + rays, 0.0, 1.0); float fade = 1.0 - smoothstep(0.55, 1.0, uLife);
-    gl_FragColor = vec4(mix(uCol, vec3(1.0), clamp(core + ring * (1.0 - uLife) * 0.6, 0.0, 1.0)) * m * fade * 2.0, m * fade); }`;
+  void main(){ vec2 p = vUv * 2.0 - 1.0; float a = atan(p.y, p.x); float r = length(p); // an impact flash: sharp straight rays (no rings, no round blobs), full resolution
+    float e = 1.0 - pow(1.0 - uLife, 3.0); float L = 0.25 + 0.75 * e; float k8 = abs(cos(a * 4.0)); float ray = step(0.985 - 0.02 * (1.0 - uLife), k8) * step(r, L) * step(L * 0.35, r);
+    float k4 = abs(cos(a * 2.0 + 0.785)); float spike = step(0.996, k4) * step(r, L * 0.6);
+    float m = clamp(ray + spike, 0.0, 1.0); float fade = 1.0 - smoothstep(0.45, 1.0, uLife);
+    gl_FragColor = vec4(mix(uCol, vec3(1.0), 0.35) * m * fade * 2.0, m * fade); }`;
 // a glowing trail: banded alpha (pixel-art steps), white-hot head fading through the colour to nothing
 const TRAIL_VS = `attribute float aU; varying float vU; varying float vS; attribute float aS; void main(){ vU = aU; vS = aS; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
 const TRAIL_FS = `uniform vec3 uCol; uniform float uFade; varying float vU; varying float vS;
@@ -206,8 +206,8 @@ export class FX3D {
   cast(pos, col = '#a888ff') { this.castCol = col; if (this.clock - this.castAt < 0.4) return; this.pendingCast = { pos: pos.clone(), col, t: 0.15 }; }
   castMagic(pos, col = this.castCol) { // the rune draws itself under him, motes spiral up into the apple, a bloom where they meet
     this.castAt = this.clock; this.pendingCast = null; const P = this.S.prof; const target = () => (P?.appleWorld ? P.appleWorld(new THREE.Vector3()) : pos.clone().add(new THREE.Vector3(0, 1.3, 0)));
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 2.3).rotateX(-Math.PI / 2), smat(RUNE2_FS, col)); m.position.set(pos.x, 0.05, pos.z); m.renderOrder = 2; m.userData.noInk = true; this.add(m, 1.9, (k, it) => { m.rotation.y = it.t * 0.5; });
-    for (let i = 0; i < 36; i++) { const a = (i / 36) * Math.PI * 2, r = 1.0 + Math.random() * 0.2; const p = new THREE.Vector3(pos.x + Math.cos(a) * r, 0.1 + Math.random() * 0.2, pos.z + Math.sin(a) * r * 0.9); this.sparkles.spawn(p, { vel: new THREE.Vector3(0, 1.2 + Math.random(), 0), life: 1.6, col: i % 3 ? col : '#ffffff', seek: target, swirl: 1.4, drag: 2.6 }); }
+    void RUNE2_FS; // (no rune circle on the ground: motes rise from four straight lines that cross under him)
+    for (let i = 0; i < 36; i++) { const u = (i % 9) / 8 - 0.5, side = i % 4; const p = new THREE.Vector3(pos.x + (side < 2 ? u * 2.2 : (side === 2 ? 1 : -1) * 0.8), 0.1 + Math.random() * 0.2, pos.z + (side < 2 ? (side ? 1 : -1) * 0.8 : u * 2.2)); this.sparkles.spawn(p, { vel: new THREE.Vector3(0, 1.2 + Math.random(), 0), life: 1.6, col: i % 3 ? col : '#ffffff', seek: target, swirl: 1.4, drag: 2.6 }); }
     this.after(1.0, () => { const t = target(); this.bloom(t, col, 1.1); for (let i = 0; i < 14; i++) { const a = Math.random() * 6.28; this.sparkles.spawn(t, { vel: new THREE.Vector3(Math.cos(a) * 2.2, Math.sin(a) * 2.2, (Math.random() - 0.5)), life: 0.45, col }); } });
   }
   after(sec, fn) { this.items.push({ mesh: new THREE.Object3D(), life: sec, t: 0, upd: null, done: fn }); }

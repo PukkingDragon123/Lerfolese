@@ -33,7 +33,7 @@ const SKIP = Symbol('skip');
 const BEATS = ['title', 'garden', 'cards', 'throw', 'fight', 'snake', 'grab', 'painting', 'sky'];
 const fast = () => (window.__storyFast > 1 ? Math.min(2, window.__storyFast) : 1);
 const GOLDEN = { bloom: [0.45, 0.6, 0.82], exposure: 0.86, grade: { warmth: 0.48, vignette: 0.52, sat: 1.04, contrast: 1.1, lift: [0.02, 0.012, 0.03], gain: [1.04, 0.98, 0.9] } };
-const SPOT = { teacher: V(-1.45, 0, 2.55), kid: V(0.15, 0, 3.95), kidStart: V(-9.5, 0, 8.5), bench: V(-2.35, 0, 1.85), basket: V(1.75, 0, 1.05), con: V(-0.66, 1.12, 3.25), snake: V(6.0, 0, 8.0), drop: V(0.55, 0, 4.55), snakeOut: V(7, 0, 11) };
+const SPOT = { teacher: V(-1.45, 0, 2.55), kid: V(0.15, 0, 3.95), kidStart: V(-9.5, 0, 8.5), bench: V(-2.35, 0, 1.85), basket: V(1.75, 0, 1.05), con: V(-0.66, 1.12, 3.25), snake: V(4.2, 0, 7.4), drop: V(0.55, 0, 4.55), snakeOut: V(7, 0, 11) };
 
 export class PrologueScene extends UIScreen {
   constructor(game, { replay = false } = {}) {
@@ -60,7 +60,7 @@ export class PrologueScene extends UIScreen {
   async build() {
     await ensureFonts();
     this.bars = new Letterbox(this.root); this.bars.show(); window.__storyBand = true;
-    this.hint = fcaption('Esc · skip the prologue', { x: this.W - 4.4, y: this.H - 2.6, style: 'pale' });
+    this.hint = fcaption('Esc · skip the prologue', { x: this.W - 4.4, y: this.H - 2.6, style: 'pale' }); setTimeout(() => this.hint?.show(false), 9000); // a short hint, then the picture is clean
     this.pushHandler();
     this.engine.add(this); window.__prologue = { skip: () => this.skip(), pick: (i) => window.__story?.pick?.(i), drop: (k) => this.mergeCard(k), takeApple: () => this.takeApple?.(), scene: this, get beat() { return BEATS[this.scene?.beatI ?? 0]; } };
     await this.buildGarden();
@@ -207,7 +207,7 @@ export class PrologueScene extends UIScreen {
     await this.say('isaac_kid', 'An apple is for THROWING!', k);
     const ap = this.windfall[0]; const at = ap.position.clone(); at.y = this.hAt(at.x, at.z);
     this.shot(V(2.2, 0.7, 6.4), at.clone().add(V(-0.2, 0.6, -0.4)), 32, 0); await this.w(k.walkTo(at.clone().add(V(-0.3, 0, -0.25)), 1.6));
-    k.act('grab'); audio.play('wood_creak', { vol: 0.2, rate: 1.6 }); await this.wait(0.42); ap.parent.remove(ap); ap.scale.setScalar(0.085 / k.sc * 0 + 0.085); k.hand(1).add(ap); ap.position.set(0, -0.02, 0.03); await this.wait(0.55);
+    k.act('grab'); this.holdGrab = true; audio.play('wood_creak', { vol: 0.2, rate: 1.6 }); await this.wait(0.42); ap.parent.remove(ap); ap.scale.setScalar(0.085 / k.sc * 0 + 0.085); k.hand(1).add(ap); ap.position.set(0, -0.02, 0.03); await this.wait(0.55);
     k.st.faceYaw = Math.atan2(SPOT.basket.x - k.root.position.x, SPOT.basket.z - k.root.position.z); await this.wait(0.5);
     { const kp = k.root.position.clone(), d = SPOT.basket.clone().sub(kp).setY(0).normalize(); const sd = V(-d.z, 0, d.x); if (sd.z < 0) sd.negate(); this.shot(kp.clone().addScaledVector(d, -2.1).addScaledVector(sd, 1.2).add(V(0, 1.3, 0)), SPOT.basket.clone().add(V(0, 0.35, 0)).lerp(kp.clone().add(V(0, 0.9, 0)), 0.35), 36, 0); }
     k.act('throw'); audio.play('whoosh_soft', { vol: 0.6, delay: THROW_RELEASE * 0.8 }); await this.wait(THROW_RELEASE);
@@ -240,7 +240,7 @@ export class PrologueScene extends UIScreen {
       if (!this.skipped) await this.engine.wipe(async () => { this.endBattle(); }, { color: 0x0b0806 }); else this.endBattle();
     }
   }
-  endBattle() { if (this.bs) { try { this.bs.dispose(); } catch (e) { console.warn(e); } this.bs = null; } fstop(); this.world(this.gardenScene); this.gardenFx(); this.root.visible = true; this.hint?.show(true); this.paused = false; if (!this.handler && !this.skipped) this.pushHandler(); if (this.raccoon) { this.gardenScene.remove(this.raccoon.root); this.raccoon = null; } audio.playMusic('journal'); }
+  endBattle() { if (this.bs) { if (this.bs.tutUpd) this.engine.remove(this.bs.tutUpd); try { this.bs.dispose(); } catch (e) { console.warn(e); } this.bs = null; } fstop(); this.world(this.gardenScene); this.gardenFx(); this.root.visible = true; this.paused = false; if (!this.handler && !this.skipped) this.pushHandler(); if (this.raccoon) { this.gardenScene.remove(this.raccoon.root); this.raccoon = null; } audio.playMusic('journal'); }
 
   // SNAKE: later; the teacher reads; a snake brings a golden apple
   async b_snake() {
@@ -256,11 +256,11 @@ export class PrologueScene extends UIScreen {
     // a SNAKE, low in the grass, carrying something golden
     const { createSnake } = await import('../models/npcs/snake.js'); const S = createSnake({ hAt: this.hAt }); this.gardenScene.add(S.root); this.snake = S; S.place(SPOT.snake, Math.atan2(SPOT.drop.x - SPOT.snake.x, SPOT.drop.z - SPOT.snake.z));
     const ga = this.goldApple(); S.mouth.add(ga); ga.position.set(0, 0.0, 0.03); S.jawOpen(0.65); this.gold = ga;
-    this.track(() => { const h = S.headWorld(V()); return { p: h.clone().add(V(0.9, 0.12, 1.1)), l: h.clone().add(V(-0.25, 0.04, 0)), fov: 30 }; }, 3.5);
-    audio.play('snake_hiss', { vol: 0.7 }); const go = S.slitherTo(SPOT.drop.clone().add(V(0.35, 0, 0.18)), 0.55);
+    this.track(() => { const h = S.headWorld(V()); return { p: h.clone().add(V(1.1, 0.75, 1.5)), l: h.clone().add(V(-0.2, 0.0, 0)), fov: 32 }; }, 3.5);
+    audio.play('snake_hiss', { vol: 0.7 }); const go = S.slitherTo(SPOT.drop.clone().add(V(0.35, 0, 0.18)), 0.85);
     await this.wait(2.2); audio.play('snake_hiss', { vol: 0.5, rate: 0.85 }); await this.w(go);
     S.lift(0.16); await this.wait(0.7); S.jawOpen(0); this.dropGold(); audio.play('apple_squish', { vol: 0.3, rate: 1.5 }); audio.play('chime_soft', { vol: 0.6 }); audio.play('magic_shimmer', { vol: 0.5 });
-    this.shot(SPOT.drop.clone().add(V(0.8, 0.35, 1.2)), SPOT.drop.clone().add(V(0, 0.1, 0)), 30, 0); await this.wait(1.1);
+    this.shot(SPOT.drop.clone().add(V(0.9, 0.85, 1.4)), SPOT.drop.clone().add(V(0, 0.1, 0)), 30, 0); await this.wait(1.1);
     S.lift(0.05); S.slitherTo(SPOT.snakeOut, 0.7); setTimeout(() => { if (this.snake === S) { this.gardenScene.remove(S.root); this.snake = null; } }, 9000);
     k.lookAtWorld(() => this.gold.getWorldPosition(V())); k.setExpr('surprised', 3); this.face(k, { d: 1.4, side: -0.6, up: 0.1, fov: 28 });
     await this.say('isaac_kid', 'Teacher... a GOLD apple.', k);
@@ -272,22 +272,23 @@ export class PrologueScene extends UIScreen {
     const k = this.kid, m = this.teacher;
     if (!this.gold) { const bp = this.benchPos(); this.placeAt(m, bp.seat, bp.yaw); m.sit(0.47); m.read(true); m.caneFree = { top: bp.caneTop, tip: bp.caneTip }; this.placeAt(k, V(0.35, 0, 3.55), 2.2); this.gold = this.goldApple(); this.gardenScene.add(this.gold); this.gold.position.copy(SPOT.drop).setY(this.hAt(SPOT.drop.x, SPOT.drop.z) + 0.06); this.goldGround = true; }
     const gp = this.gold.getWorldPosition(V()); k.lookAtWorld(() => this.gold.getWorldPosition(V()));
-    this.shot(gp.clone().add(V(0.95, 0.55, 1.35)), gp.clone().add(V(-0.2, 0.2, 0)), 30, 0); this.shot(gp.clone().add(V(0.7, 0.4, 1.0)), gp.clone().add(V(-0.1, 0.12, 0)), 28, 8);
+    this.shot(gp.clone().add(V(0.6, 0.95, 1.6)), gp.clone().add(V(-0.25, 0.25, -0.2)), 30, 0); this.shot(gp.clone().add(V(0.45, 0.8, 1.3)), gp.clone().add(V(-0.2, 0.2, -0.15)), 28, 8);
     this.cap = fcaption('Pick up the golden apple', { anchor: () => this.gold.getWorldPosition(V()).add(V(0, 0.25, 0)), style: 'gold' }); this.applePick = true;
     await this.w(new Promise((r) => { this.takeApple = () => { if (!this.applePick) return; this.applePick = false; r(); }; }));
     this.cap?.remove(); this.cap = null; audio.play('card_pick'); audio.duckMusic?.(0.05, 6); audio.stopMusic?.(2);
+    { const near = gp.clone().add(V(-0.36, 0, -0.24)); k.lookAtWorld(() => this.gold.getWorldPosition(V())); await this.w(k.walkTo(near, 1.3)); k.st.faceYaw = Math.atan2(gp.x - near.x, gp.z - near.z); }
     // SLOW MOTION: he reaches; the world thickens
     this.tween(0.6, (u) => { this.timeK = 1 - u * 0.84; }); audio.play('whoosh_heavy', { rate: 0.45, vol: 0.9 }); audio.play('gravity_hum', { rate: 0.55, vol: 0.8 }); audio.play('magic_shimmer', { rate: 0.5, vol: 0.7 });
     const beat = setInterval(() => { if (this.skipped) return clearInterval(beat); audio.play('hit_heavy', { rate: 0.32, vol: 0.45 }); }, 900); this.heartbeat = beat;
-    k.walkTo(gp.clone().add(V(0.28, 0, 0.32)).setY(0), 1.0); k.act('grab'); this.shot(gp.clone().add(V(0.55, 0.22, 0.75)), gp.clone().add(V(0, 0.18, 0)), 24, 0); this.shot(gp.clone().add(V(0.35, 0.18, 0.5)), gp.clone().add(V(0, 0.15, 0)), 20, 3.2);
+    k.act('grab'); this.shot(gp.clone().add(V(0.55, 0.8, 1.3)), gp.clone().add(V(-0.2, 0.5, -0.15)), 28, 0); this.shot(gp.clone().add(V(0.4, 0.62, 1.0)), gp.clone().add(V(-0.16, 0.4, -0.12)), 24, 3.2);
     await this.wait(1.4);
     // the teacher looks up from his book... and screams
     this.shot(m.headWorld(V()).add(V(0.9, 0.05, 1.2)), m.headWorld(V()), 24, 0); m.read(false); m.act('lookup'); audio.play('page_turn', { rate: 0.5 }); await this.wait(0.9);
     m.act('scream'); this.engine.shake(0.25); audio.play('monster_roar', { rate: 1.4, vol: 0.35 }); this.say('teacher', 'ISAAC, NO!', m, { wait: false, hold: 2 }); this.shot(m.headWorld(V()).add(V(0.6, 0.0, 0.8)), m.headWorld(V()), 20, 1.6);
     await this.wait(1.7);
     // the touch
-    this.shot(gp.clone().add(V(0.4, 0.15, 0.55)), gp.clone().add(V(0, 0.1, 0)), 22, 0); await this.wait(0.5);
-    this.gold.parent?.remove(this.gold); k.hand(1).add(this.gold); this.gold.position.set(0, -0.02, 0.04); this.goldGround = false;
+    this.shot(gp.clone().add(V(0.38, 0.5, 0.85)), gp.clone().add(V(-0.1, 0.25, -0.1)), 24, 0); await this.wait(0.5);
+    this.gold.parent?.remove(this.gold); k.hand(1).add(this.gold); this.gold.position.set(0, -0.02, 0.04); this.goldGround = false; this.holdGrab = false;
     clearInterval(beat); audio.play('implosion', { vol: 1 }); audio.play('thunder', { rate: 0.6, vol: 0.9 }); audio.play('glass_shatter', { rate: 0.5, vol: 0.5 }); this.engine.shake(0.6);
     // THE SHOCKWAVE: time stops behind the front; the world goes black and white
     const S = (this.shock = shockPass(this.engine)); const sp = this.gold.getWorldPosition(V()).project(this.cam); const c = new THREE.Vector2(sp.x * 0.5 + 0.5, sp.y * 0.5 + 0.5);
@@ -305,7 +306,7 @@ export class PrologueScene extends UIScreen {
     if (!this.shock) { this.shock = shockPass(this.engine); this.shock.set({ white: 1, k: 0 }); }
     this.frozen = false; this.timeK = 1; this.world(P.scene); this.engine.setFx({ bloom: [0.35, 0.6, 0.86], exposure: 0.95, grade: { warmth: 0.25, vignette: 0.3, sat: 1.0, contrast: 1.04 }, rays: false, ink: { strength: 0.55 } });
     const PP = (this.paintFx = paintPass(this.engine)); PP.set(1); audio.playMusic('journal');
-    this.shot(V(-0.4, 1.55, 10.6), V(-0.3, 1.35, 0), 38, 0); this.shot(V(-0.3, 1.5, 8.6), V(-0.2, 1.35, 0), 36, 22);
+    this.shot(V(-0.5, 1.55, 8.4), V(-0.5, 1.2, 0), 42, 0); this.shot(V(-0.4, 1.5, 7.2), V(-0.4, 1.2, 0), 40, 22);
     await this.tween(2.4, (u) => this.shock.set({ white: 1 - ease(u), gray: 0, k: 0 }));
     this.shock.dispose(); this.shock = null;
     await this.narr('And the boy woke inside a painting.', { show: false });
@@ -314,7 +315,7 @@ export class PrologueScene extends UIScreen {
     await this.say('god', 'For that, you are bound to the realm of the gods. Forever.', g);
     await this.say('isaac_kid', 'I only wanted to know why things fall.', kd);
     await this.say('god', 'I know. That is why I pity you.', g);
-    this.shot(V(-0.1, 1.45, 5.2), P.handsWorld(V()), 30, 9);
+    this.shot(V(-0.3, 1.4, 4.6), P.handsWorld(V()), 34, 9);
     await this.say('god', 'Keep the apple. It bends what is real: gravity, motion... even time.', g);
     await this.say('god', 'Learn its rules, before it learns yours.', g, { show: false });
     audio.play('magic_shimmer', { vol: 0.7 }); await this.tween(2.6, (u) => P.touch(ease(u)));
@@ -334,13 +335,13 @@ export class PrologueScene extends UIScreen {
     this.engine.flash(1, 0xfff8ee, 2.2);
     await this.narr('He woke above the clouds.');
     await this.narr('A tower was waiting.', { show: false });
-    await this.wait(0.6);
+    await this.wait(3.2);
   }
 
   // ------------------------------------------------------------------ set pieces
   placeAt(a, p, yaw) { a.stop?.(); a.root.position.set(p.x, this.hAt(p.x, p.z), p.z); if (yaw != null) { a.root.rotation.y = yaw; a.st.faceYaw = null; } }
   benchPos() { const b = SPOT.bench; const yaw = 0.55; const f = V(Math.sin(yaw), 0, Math.cos(yaw)), r = V(Math.cos(yaw), 0, -Math.sin(yaw)); const y = this.hAt(b.x, b.z); return { seat: b.clone().addScaledVector(f, 0.06).addScaledVector(r, -0.12), yaw, caneTop: b.clone().addScaledVector(r, 0.55).addScaledVector(f, 0.12).setY(y + 0.92), caneTip: b.clone().addScaledVector(r, 0.75).addScaledVector(f, 0.42).setY(y) }; }
-  goldApple() { const ga = P3.apple({ kind: 'gold' }); ga.scale.setScalar(0.1); const l = new THREE.PointLight(0xffc860, 0.6, 1.6, 2); ga.add(l); ga.userData.light = l; return ga; }
+  goldApple() { const ga = P3.apple({ kind: 'gold' }); ga.scale.setScalar(0.1); const mats = []; ga.traverse((o) => { if (o.isMesh && o.material?.emissive) { o.material = o.material.clone(); o.material.emissive.set(0x5a3a08); o.material.emissiveIntensity = 0.5; mats.push(o.material); } }); ga.userData.mats = mats; return ga; } // a warm inner glow in its own surface (no light pool on the grass)
   dropGold() { const g = this.gold; const p = g.getWorldPosition(V()); g.parent.remove(g); this.gardenScene.add(g); g.position.copy(p); this.goldGround = true; let vy = 0, vx = -0.35; const gy = this.hAt(p.x, p.z) + 0.06;
     this.ups.push({ t: 0, d: 2.0, real: false, res: () => {}, fn: () => { const dt = 1 / 60; vy -= 9.8 * dt; g.position.y += vy * dt; g.position.x += vx * dt; vx *= 0.97; g.rotation.z -= vx * 0.25; if (g.position.y < gy) { g.position.y = gy; if (vy < -0.6) audio.play('wood_knock', { vol: 0.25, rate: 1.8 }); vy = -vy * 0.35; } } }); }
   makeConstruct() { // a turned brass stand with a glass collar, floating in the air between them; the cards' laws gather on it
@@ -358,12 +359,15 @@ export class PrologueScene extends UIScreen {
     if (what === 'rotation' && !C.swirl) { const sw = new THREE.Group(); for (const [rx, rz] of [[0, 0], [Math.PI / 2, 0], [Math.PI / 2, Math.PI / 2]]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.008, 3, 6), new THREE.MeshStandardMaterial({ color: 0xd8b060, metalness: 0.8, roughness: 0.35, flatShading: true })); r.rotation.set(rx, 0, rz); sw.add(r); } C.hold.add(sw); C.swirl = sw; audio.play('spin_whoosh'); }
   }
   dropConstruct() { const C = this.con; if (!C) return; this.tween(0.6, (u) => C.g.scale.setScalar(Math.max(0.001, 1 - ease(u)))).then(() => { this.gardenScene.remove(C.g); }); this.con = null; }
-  cloudBank(sc) { // faceted low-poly cloud banks under the camera's path: flat-bottomed, angular, warm-lit tops and violet undersides
-    const top = new THREE.MeshStandardMaterial({ color: 0xffe2c8, emissive: 0x6a4a40, emissiveIntensity: 0.35, roughness: 1, flatShading: true, fog: false }); const list = [];
-    for (let i = 0; i < 26; i++) {
-      const g = new THREE.Group(); const n = 3 + Math.floor(Math.random() * 4);
-      for (let k = 0; k < n; k++) { const geo = new THREE.IcosahedronGeometry(1, 0); const p = geo.attributes.position; for (let v = 0; v < p.count; v++) { if (p.getY(v) < -0.2) p.setY(v, -0.35); } geo.computeVertexNormals(); const m = new THREE.Mesh(geo, top); m.scale.set(2.4 + Math.random() * 2, 1.0 + Math.random() * 0.9, 1.6 + Math.random()); m.position.set(k * 2.4 - n * 1.1, Math.random() * 0.5, (Math.random() - 0.5) * 1.5); m.rotation.y = Math.random() * 3; g.add(m); }
-      const s = 2 + Math.random() * 3; g.scale.setScalar(s); g.position.set((Math.random() - 0.5) * 150, -10 - Math.random() * 12, -20 - Math.random() * 150); g.traverse((o) => { o.userData.noInk = true; }); sc.add(g); list.push(g);
+  cloudBank(sc) { // sculpted cumulus banks below the camera's path: flat bases, billowing faceted tops in tiers, warm sunlit crowns, violet shade
+    const top = new THREE.MeshStandardMaterial({ color: 0xfff0e2, emissive: 0x7a5048, emissiveIntensity: 0.32, roughness: 1, flatShading: true, fog: false }); const list = [];
+    const lump = (g, x, y, z, sx, sy, sz) => { const geo = new THREE.IcosahedronGeometry(1, 1); const p = geo.attributes.position; for (let v = 0; v < p.count; v++) { const yy = p.getY(v); if (yy < -0.15) p.setY(v, -0.15 - (yy + 0.15) * 0.1); p.setX(v, p.getX(v) * (1 + Math.sin(v * 1.7) * 0.06)); } geo.computeVertexNormals(); const m = new THREE.Mesh(geo, top); m.scale.set(sx, sy, sz); m.position.set(x, y, z); m.rotation.y = Math.random() * 3; g.add(m); };
+    for (let i = 0; i < 22; i++) {
+      const g = new THREE.Group(); const n = 3 + Math.floor(Math.random() * 3); const W = n * 1.9;
+      for (let k = 0; k < n; k++) lump(g, k * 1.9 - W / 2 + 0.9, 0, (Math.random() - 0.5) * 1.2, 1.5 + Math.random() * 0.6, 0.9 + Math.random() * 0.4, 1.3); // the flat-based body
+      for (let k = 0; k < n - 1; k++) lump(g, k * 1.9 - W / 2 + 1.8, 0.9 + Math.random() * 0.4, (Math.random() - 0.5) * 0.8, 1.1 + Math.random() * 0.4, 0.9 + Math.random() * 0.5, 1.0); // billows
+      lump(g, (Math.random() - 0.5) * W * 0.3, 1.7 + Math.random() * 0.4, 0, 0.9, 0.8 + Math.random() * 0.4, 0.8); // the crown
+      const s = 2.2 + Math.random() * 2.6; g.scale.setScalar(s); g.position.set((Math.random() - 0.5) * 150, -10 - Math.random() * 12, -20 - Math.random() * 150); g.traverse((o) => { o.userData.noInk = true; }); sc.add(g); list.push(g);
     }
     return list;
   }
@@ -401,8 +405,9 @@ export class PrologueScene extends UIScreen {
     const k = this.paused ? 0 : this.timeK; const sdt = rdt * k;
     for (const u of [...this.ups]) { u.t += u.real === false ? sdt : rdt; const q = Math.min(1, u.t / u.d); u.fn(q); if (q >= 1) { this.ups.splice(this.ups.indexOf(u), 1); u.res(); } }
     if (!this.paused && this.sc === this.gardenScene) {
+      if (this.holdGrab && this.kid.st.gest === 'grab' && this.kid.st.gt > 0.5) this.kid.st.gt = 0.5; // hold the reach until the touch
       for (const a of this.actors) a.update(sdt); this.raccoon?.update(sdt); this.snake?.update(sdt); if (sdt > 0) this.O?.update?.(sdt, t); this.parts?.update(sdt, t); this.dust?.update(sdt, t);
-      if (this.gold) { this.gold.rotation.y += sdt * 1.2; const l = this.gold.userData.light; if (l) l.intensity = (this.goldHover ? 1.6 : 0.7) + Math.sin(c.t * 3) * 0.15; if (this.goldGround && Math.random() < sdt * 6) { const p = this.gold.getWorldPosition(V()); this.parts.burst(1, { pos: [p.x + (Math.random() - 0.5) * 0.2, p.y + Math.random() * 0.15, p.z + (Math.random() - 0.5) * 0.2], vel: [0, 0.25, 0], life: 1.2, size: 6, color: '#ffd860', sprite: 'star4', drag: 0.5 }); } }
+      if (this.gold) { this.gold.rotation.y += sdt * 1.2; for (const mt of this.gold.userData.mats || []) mt.emissiveIntensity = (this.goldHover ? 1.1 : 0.45) + Math.sin(c.t * 3) * 0.12; if (this.goldGround && Math.random() < sdt * 6) { const p = this.gold.getWorldPosition(V()); this.parts.burst(1, { pos: [p.x + (Math.random() - 0.5) * 0.2, p.y + Math.random() * 0.15, p.z + (Math.random() - 0.5) * 0.2], vel: [0, 0.25, 0], life: 1.2, size: 6, color: '#ffd860', sprite: 'star4', drag: 0.5 }); } }
       if (this.con) { const C = this.con; C.pop = Math.max(0, C.pop - sdt * 3); C.spin *= Math.exp(-sdt * 1.5); C.hold.rotation.y += sdt * (0.6 + C.spin + C.hover * 2 + (C.swirl ? 3 : 0)); C.hold.position.y = Math.sin(c.t * 1.6) * 0.04 + C.hover * 0.05; C.hold.scale.setScalar(1 + Math.sin(C.pop * Math.PI) * 0.2); if (C.arrow) C.arrow.position.x = -0.24 - Math.sin(c.t * 4) * 0.03; }
     } else if (this.sc === this.paint?.scene) this.paint.update(rdt);
     if (this.clouds) for (const m of this.clouds) m.position.x += rdt * 0.4;
@@ -414,7 +419,7 @@ export class PrologueScene extends UIScreen {
 
 /** play the prologue on the running game; it ends in the tower-top menu */
 export async function playPrologue(game, opts = {}) {
-  let done, scene; await game.swap(async () => { scene = new PrologueScene(game, opts); game.scene = scene; done = scene.run(); await scene.ready; }, { color: 0x000000 });
+  let done, scene; await game.swap(async () => { scene = new PrologueScene(game, opts); game.scene = scene; done = scene.run(); await scene.ready; }, { color: 0x000000, style: 'galaxy' });
   await done;
-  await game.toMenu({ from: 'prologue', wipe: { color: 0xfff6e8 } });
+  await game.toMenu({ from: 'prologue', wipe: { color: 0xfff6e8, style: 'galaxy' } });
 }

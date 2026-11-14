@@ -33,7 +33,7 @@ const TiltShiftShader = {
 // reprojected with last frame's view-projection; the frame is smeared along that screen velocity (8 taps, clamped). A
 // still camera gives zero velocity, so the image stays exactly as crisp as before.
 const MotionBlurShader = {
-  uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, uHasDepth: { value: 0 }, uInvVP: { value: new THREE.Matrix4() }, uPrevVP: { value: new THREE.Matrix4() }, uStrength: { value: 0.5 }, uMax: { value: 0.035 }, uNear: { value: 0.1 }, uFar: { value: 400 } },
+  uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, uHasDepth: { value: 0 }, uInvVP: { value: new THREE.Matrix4() }, uPrevVP: { value: new THREE.Matrix4() }, uStrength: { value: 0.35 }, uMax: { value: 0.022 }, uNear: { value: 0.1 }, uFar: { value: 400 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: `uniform sampler2D tDiffuse, tDepth; uniform float uHasDepth, uStrength, uMax; uniform mat4 uInvVP, uPrevVP; varying vec2 vUv;
   void main(){
@@ -109,9 +109,9 @@ const RaysShader = {
 };
 
 // Scene-change transitions (engine.wipe): one smooth full-resolution pass (no pixel grid, no dithering).
-//   style 'cloud'  : five painted cumulus banks (sculpted silhouettes, never blobs: flat bases, billowing towering tops
-//                    from domain-warped ridged noise, torn wisps, sunlit rims, cool undersides) sweep across from
-//                    alternate sides with parallax until the sky is full; on the way out they sail on across and away.
+//   style 'cloud'  : five painted cumulus banks (sculpted, never blobs: billow-noise cauliflower heads thinning upward
+//                    above flat cool bases, crisp edges with torn wisps, sunlit flanks with a gold lining, violet shade)
+//                    sweep in from alternate sides with parallax until the sky is full; on the way out they sail away.
 //   style 'galaxy' : the screen is swallowed from the edges by a turning spiral galaxy: fine stars stream down the arms
 //                    into the vortex, violet / teal / rose nebula blooms, a golden apple-light core with soft glints, a
 //                    glowing gold rim on the advancing edge (no radial blobs: the core is a turning bar of light).
@@ -125,50 +125,62 @@ const WipeShader = {
   float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
   float fbm5(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++){ s += a * vn(p); p = mat2(1.6, 1.2, -1.2, 1.6) * p + vec2(1.7, 9.2); a *= 0.5; } return s; }
   float fbm3(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 3; i++){ s += a * vn(p); p = mat2(1.6, 1.2, -1.2, 1.6) * p + vec2(1.7, 9.2); a *= 0.5; } return s / 0.875; }
-  float bankTop(float u, float seed){ float r1 = 1.0 - abs(vn(vec2(u * 3.2 + seed, seed)) * 2.0 - 1.0), r2 = 1.0 - abs(vn(vec2(u * 7.5 + seed * 2.0, seed)) * 2.0 - 1.0); return 0.78 + 0.6 * r1 * r1 + 0.2 * r2; } // billows: ridged noise -> towering heads
+  // cumulus density at P (bank space, scaled), hh = height above the flat base in bank heights, ends = distance inside the bank's ends
+  float billow(vec2 p){ return 0.62 * abs(vn(p) * 2.0 - 1.0) + 0.3 * abs(vn(mat2(1.6, 1.2, -1.2, 1.6) * p + vec2(1.7, 9.2)) * 2.0 - 1.0) + 0.12 * abs(vn(mat2(-0.4, 3.0, -3.0, -0.4) * p + vec2(5.1, 2.3)) * 2.0 - 1.0); } // three octaves: heads, then sub-heads; no specks
+  // one bank of separate cumulus clouds at screen point (x, y) in bank space: each cell along x holds a cloud with its own
+  // flat base, a broad dome envelope (wider than tall) and a billowing edge; the union of the two nearest clouds
+  float cumulus(float x, float y, float base, float seed, float fq, float t){
+    float cw = 0.62; float ci = floor(x / cw); float D = -1.0; float n = billow(vec2(x + t, y) * fq + seed);
+    for (int k = -1; k <= 1; k++) { float c = ci + float(k); float r1 = h21(vec2(c, seed)), r2 = h21(vec2(c + 3.1, seed)), r3 = h21(vec2(c + 7.3, seed));
+      float cx = (c + 0.5 + (r1 - 0.5) * 0.5) * cw; float w = 0.33 + r2 * 0.2; float hgt = 0.3 + r3 * 0.26; float by = base + (r1 - 0.5) * 0.06;
+      if (y < by) continue; float dx = (x - cx) / w; float e = 1.0 - dx * dx * (0.8 + 0.2 * r2) - (y - by) / hgt; // a broad dome on a flat base
+      D = max(D, e * 0.75 + (n - 0.42) * 0.55 - (1.0 - smoothstep(0.0, 0.015, y - by)) * 0.0); }
+    return D; }
   void main(){
     vec2 uv = vUv; float T = clamp(uT, 0.0, 1.0); vec2 q = vec2((uv.x - 0.5) * uAspect, uv.y - 0.5);
     if (uStyle < 0.5) {
-      // ================= CLOUDS: painted cumulus BANKS (no blobs). Each bank is a sculpted silhouette: a flat base,
-      // a billowing top profile (domain-warped ridged noise -> towering heads, shoulders and dips), a torn leading edge
-      // and wisps. Shading follows the silhouette: the top's slope gives a normal (sunlit rims on the sun side), inner
-      // billow folds come from warped noise, the underside cools to blue-violet above the flat base. Edges are crisp
-      // (about a pixel of antialiasing), wisps are soft. Higher banks sit in front, so their flat bases overlap the
-      // billowing tops below. Closing: banks sweep in from alternate sides; opening: they sail on across and away.
-      float px = 1.5 / uRes.y; vec3 col = vec3(0.0); float alpha = 0.0; float hw = 0.5 * uAspect;
-      for (int bi = 0; bi < 5; bi++) { float fb = float(bi); float dir = mod(fb, 2.0) < 0.5 ? 1.0 : -1.0; // banks enter from the left (+1) or right (-1)
-        float base = -0.62 + fb * 0.255; float amp = 0.34 + 0.05 * sin(fb * 2.3); float seed = fb * 7.31 + 1.7; float par = 1.0 + fb * 0.12;
-        float Ti = clamp(T * 1.35 - fb * 0.07, 0.0, 1.0); float e = Ti * Ti * (3.0 - 2.0 * Ti);
-        float xs = q.x * dir + uTime * 0.01 * par; // bank space: x grows in the direction of travel
-        float span = hw + 0.75; float lead = uPhase < 0.5 ? -span + 2.0 * span * e : 1e3; float trail = uPhase < 0.5 ? -1e3 : -span + 2.0 * span * (1.0 - e);
-        vec2 wq = vec2(xs * 1.6 + seed, q.y * 1.6); vec2 warp = vec2(fbm3(wq * 1.3 + 3.0), fbm3(wq * 1.3 + 8.0)) - 0.5;
-        float u = xs + warp.x * 0.12 - uTime * 0.012 * par; // the silhouette drifts slowly
-        float top = base + amp * bankTop(u, seed) + warp.y * 0.05;
-        float y = q.y; float dTop = top - y; float dBase = y - base;
-        float frontE = lead - xs + (fbm3(vec2(y * 5.0 + seed, uTime * 0.2)) - 0.5) * 0.16; float backE = xs - trail + (fbm3(vec2(y * 5.0 - seed, uTime * 0.2)) - 0.5) * 0.16;
-        float inside = min(min(dTop, dBase * 3.0), min(frontE, backE) * 0.6);
-        // torn wisps beyond the top and the leading edge: stretched noise, soft
-        float wisp = smoothstep(0.55, 0.85, fbm5(vec2(u * 9.0, y * 26.0) + seed)) * smoothstep(0.06, 0.0, -dTop) * step(dBase, 1.0) * smoothstep(-0.02, 0.05, min(frontE, backE));
-        float a = smoothstep(0.0, px, inside); a = max(a, wisp * 0.55); if (a <= 0.002) continue;
-        // shading: the top's slope gives a normal near the rim; inner billow folds deeper in; cool underside near the base
-        float slope = amp * (bankTop(u + 0.01, seed) - bankTop(u - 0.01, seed)) / 0.02 * dir;
-        vec3 nTop = normalize(vec3(-slope * 0.6, 1.0, 0.35)); float fold = fbm5(vec2(u * 4.0, y * 5.5) + warp * 2.0 + seed); vec3 nIn = normalize(vec3((fold - 0.5) * 1.4, 0.55 - smoothstep(0.0, 0.2, dTop) * 0.2, 0.8));
-        vec3 n = normalize(mix(nTop, nIn, smoothstep(0.0, 0.07, dTop))); vec3 L = normalize(vec3(-0.55, 0.7, 0.45)); float dif = clamp(dot(n, L) * 0.5 + 0.5, 0.0, 1.0);
-        float under = 1.0 - smoothstep(0.0, 0.16, dBase); float hgt = clamp((y - base) / max(0.05, amp), 0.0, 1.0);
-        vec3 shadow = mix(vec3(0.27, 0.25, 0.42), vec3(0.47, 0.39, 0.55), hgt); vec3 litC = mix(vec3(0.95, 0.82, 0.8), vec3(1.0, 0.94, 0.86), hgt);
-        vec3 c = mix(shadow, litC, smoothstep(0.25, 0.85, dif)); c = mix(c, vec3(0.3, 0.32, 0.52), under * 0.75); // cool flat underside
-        c += vec3(1.0, 0.72, 0.4) * smoothstep(0.02, 0.0, dTop) * smoothstep(0.55, 0.9, dif) * 0.8; // the sunlit rim
-        c *= 0.82 + 0.18 * (fb / 4.0); c = mix(c, vec3(0.5, 0.42, 0.6), (1.0 - fb / 4.0) * 0.12); // aerial perspective: lower banks a touch hazier
-        col = mix(col, c, a); alpha = a + alpha * (1.0 - a); }
-      if (T > 0.985) { col = mix(vec3(0.34, 0.3, 0.46), col, alpha); alpha = 1.0; }
+      // ================= CLOUDS: three parallax decks of real cumulus. Each deck's density is domain-warped billow noise
+      // at six octaves (fractal cauliflower edges at every scale, so no round lobes or circles), and coverage is a bias
+      // that sweeps across from the deck's entering side, so the leading edge follows the clouds' own contours (never a
+      // straight cut). Light comes from the low sun (upper right): two density taps toward it give sunlit flanks, cool
+      // shaded creases and a thin gold lining only where an edge faces the sun. Far decks are hazier. Opening: the decks
+      // keep travelling and the trailing edges sweep the sky clear.
+      vec3 col = vec3(0.0); float alpha = 0.0;
+      // the cloud wall behind the decks fades in only near full cover, so full cover is never a flat colour
+      float bA = smoothstep(0.5, 0.9, T); if (bA > 0.0) { float hz = fbm3(vec2(q.x * 1.6 + uTime * 0.01, q.y * 3.0) + 11.0);
+        col = mix(vec3(0.36, 0.33, 0.47), vec3(0.74, 0.6, 0.62), smoothstep(-0.55, 0.55, q.y + (hz - 0.5) * 0.4)); col *= bA; alpha = bA; }
+      for (int li = 0; li < 3; li++) { float fl = float(li); float dir = li == 1 ? -1.0 : 1.0; float S = 3.6 - fl * 0.95; float seed = fl * 17.3 + 3.1;
+        float Ti = clamp((T - fl * 0.07) / 0.86, 0.0, 1.0); float e = Ti * Ti * (3.0 - 2.0 * Ti);
+        float xn = dir > 0.0 ? uv.x : 1.0 - uv.x; float travel = 0.35 + fl * 0.2;
+        float off = uPhase < 0.5 ? e * travel : travel * (2.0 - e); // the cloud field drifts with the sweep, and keeps going when it opens
+        float b = uPhase < 0.5 ? (mix(-0.2, 1.45, e) - xn) * 1.1 : (xn - mix(1.45, -0.2, e)) * 1.1;
+        b += -(q.y - (0.28 - fl * 0.28)) * (q.y - (0.28 - fl * 0.28)) * 2.2 * (1.0 - e); // mid-sweep each deck sits in its own band
+        b = min(b, 0.1 + fl * 0.06); if (b < -0.75) continue; // capped: even at full cover each deck keeps gaps, so the sky reads as layered masses
+        vec2 sun = normalize(vec2(0.75 * dir, 0.6)) / uAspect;
+        float d0 = 0.0, l0 = 0.0, l1 = 0.0, l2 = 0.0;
+        for (int k = 0; k < 3; k++) { float tk = k == 0 ? 0.0 : (k == 1 ? 0.022 : 0.075);
+          vec2 P = vec2(((xn + sun.x * tk - 0.5) * uAspect - off + uTime * (0.004 + fl * 0.004)) * 0.62, q.y + sun.y * tk * uAspect) * S + seed; // wider than tall
+          vec2 w = vec2(fbm3(P * 0.5), fbm3(P * 0.5 + 5.2)); P += (w - 0.5) * 0.5;
+          float n = 0.0, am = 0.5, nn = 0.0, nl = 0.0; vec2 Q = P; for (int o = 0; o < 6; o++) { if (k > 0 && o > 3) break; n += am * abs(vn(Q) * 2.0 - 1.0); nn += am; if (o == 3) nl = n / nn; Q = mat2(1.7, 1.15, -1.15, 1.7) * Q + vec2(3.1, 7.7); am *= 0.48; }
+          // full octaves shape the edge; only the broad octaves light the body, so volumes read smooth inside
+          if (k == 0) { d0 = n / nn * 1.25 + b - 0.52; l0 = nl * 1.25 + b; } else if (k == 1) l1 = nl * 1.25 + b; else l2 = nl * 1.25 + b; }
+        float a = smoothstep(0.0, 0.018 + fl * 0.006, d0); if (a <= 0.002) continue;
+        float dif = clamp(0.6 + (l0 - l1) * 4.2 + (l0 - l2) * 1.1, 0.0, 1.0);
+        float inner = smoothstep(0.0, 0.3, d0); dif *= mix(1.0, 0.82, inner * (1.0 - dif));
+        vec3 deep = vec3(0.3, 0.27, 0.38), sh = vec3(0.46, 0.41, 0.53), mid = vec3(0.68, 0.56, 0.6), lit = vec3(0.96, 0.8, 0.64);
+        vec3 c = mix(deep, sh, smoothstep(0.0, 0.28, dif)); c = mix(c, mid, smoothstep(0.28, 0.62, dif)); c = mix(c, lit, smoothstep(0.62, 0.95, dif));
+        c += vec3(1.0, 0.66, 0.34) * (1.0 - smoothstep(0.0, 0.05, d0)) * smoothstep(0.55, 0.9, dif) * 0.45; // gold lining on sun-facing edges only
+        c = mix(c, vec3(0.5, 0.44, 0.54), (1.0 - fl / 2.0) * 0.32); // aerial haze on the far decks
+        col = c * a + col * (1.0 - a); alpha = a + alpha * (1.0 - a); } // premultiplied 'over': nearer decks in front
+      if (T > 0.985) { col += (1.0 - alpha) * vec3(0.5, 0.44, 0.56); alpha = 1.0; }
       if (alpha < 0.003) discard;
-      gl_FragColor = vec4(col, alpha);
+      gl_FragColor = vec4(col / max(alpha, 1e-3), alpha);
     } else {
       // ================= GALAXY
       vec2 c = vec2((uCenter.x - 0.5) * uAspect, uCenter.y - 0.5); vec2 p = q - c; float r = length(p) + 1e-4; float a = atan(p.y, p.x); float R = r / (0.5 * length(vec2(uAspect, 1.0)));
       float spin = uTime * 0.9 + (uPhase < 0.5 ? T : 2.0 - T) * 3.5; float s = a / 6.2832 + log(r) * 0.55 - spin * 0.16;
-      float arms = 0.5 + 0.5 * cos(6.2832 * 2.0 * s); float v = R + (arms - 0.5) * 0.3 + (fbm3(vec2(s * 6.0, r * 5.0)) - 0.5) * 0.2;
-      float thr = uPhase < 0.5 ? 1.08 - T * 1.42 : (1.0 - T) * 1.42 - 0.34; float rim = v - thr;
+      float arms = 0.5 + 0.5 * cos(6.2832 * 2.0 * s); float v = R * 0.72 + (arms - 0.5) * 0.6 + (fbm3(vec2(s * 6.0, r * 5.0)) - 0.5) * 0.34; // the edge advances along the spiral arms, not as a ring
+      float thr = uPhase < 0.5 ? 1.25 - T * 1.8 : (1.0 - T) * 1.8 - 0.55; float rim = v - thr;
       float alpha = smoothstep(0.0, 0.03, rim); if (alpha <= 0.0) discard;
       vec2 w = vec2(cos(a + log(r) * 2.2 + spin * 0.5), sin(a + log(r) * 2.2 + spin * 0.5)) * r; float n1 = fbm5(w * 3.2 + 4.0), n2 = fbm5(w * 5.0 - uTime * 0.05 + 9.0), n3 = fbm3(w * 2.0 + 21.0);
       vec3 col = vec3(0.008, 0.006, 0.022);
@@ -231,7 +243,7 @@ export class Engine {
     // anime/cartoon black ink lines on the 3D world
     this.inkForced = new URLSearchParams(location.search).get('ink') === '1';
     this.ink = new InkPass(this.world.scene, this.world.camera, size.x, size.y); this.ink.u.uThick.value = Math.max(0.75, this.pixelRatio * 0.55); this.composer.addPass(this.ink); // thin: about 1 screen px
-    this.mblur = new ShaderPass(MotionBlurShader); this.composer.addPass(this.mblur); this._prevVP = new THREE.Matrix4(); this._vp = new THREE.Matrix4(); this._mbPos = new THREE.Vector3(); this._mbInit = false; this.motionBlur = 0.5; // subtle camera motion blur
+    this.mblur = new ShaderPass(MotionBlurShader); this.composer.addPass(this.mblur); this._prevVP = new THREE.Matrix4(); this._vp = new THREE.Matrix4(); this._mbPos = new THREE.Vector3(); this._mbInit = false; this.motionBlur = 0.32; // subtle camera motion blur
     this.rays = new ShaderPass(RaysShader); this.rays.enabled = false; this.composer.addPass(this.rays);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.55, 0.55, 0.82);
     this.composer.addPass(this.bloom);
@@ -372,7 +384,7 @@ export class Engine {
     if (this.rays.enabled && this.raysPos) { const p = this._sunP || (this._sunP = new THREE.Vector3()); p.copy(this.raysPos).project(cam); const u = this.rays.uniforms; u.uSun.value.set(p.x * 0.5 + 0.5, p.y * 0.5 + 0.5); u.uAspect.value = this.aspect; u.uFade.value = p.z > 1 ? 0 : 1 - Math.min(1, Math.max(0, Math.max(Math.abs(p.x), Math.abs(p.y)) - 1.1) / 0.8); }
     // motion blur: this frame's inverse view-projection against last frame's (the shake is part of the motion)
     if (this.mblur) { const mu = this.mblur.uniforms; cam.updateMatrixWorld(); this._vp.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); if (!this._mbInit || this._mbCam !== cam || cam.position.distanceTo(this._mbPos) > 1.2) { this._prevVP.copy(this._vp); this._mbInit = true; this._mbCam = cam; } this._mbPos.copy(cam.position); // (a hard cut is not motion)
-      mu.uInvVP.value.copy(this._vp).invert(); mu.uPrevVP.value.copy(this._prevVP); const dep = this.ink?.enabled ? this.ink.rt?.depthTexture : null; mu.tDepth.value = dep; mu.uHasDepth.value = dep ? 1 : 0; mu.uStrength.value = (this.motionBlur ?? 0.5) * Math.min(1, (1 / 60) / Math.max(1 / 240, rdt)); this.mblur.enabled = this.motionBlur > 0; }
+      mu.uInvVP.value.copy(this._vp).invert(); mu.uPrevVP.value.copy(this._prevVP); const dep = this.ink?.enabled ? this.ink.rt?.depthTexture : null; mu.tDepth.value = dep; mu.uHasDepth.value = dep ? 1 : 0; mu.uStrength.value = (this.motionBlur ?? 0.32) * Math.min(1, (1 / 60) / Math.max(1 / 240, rdt)); this.mblur.enabled = this.motionBlur > 0; }
     this.renderer.setRenderTarget(null);
     this.renderer.clear();
     this.composer.render(rdt);
@@ -390,4 +402,4 @@ export class Engine {
   ndcToUI(ndc, out = new THREE.Vector3()) { return out.set(ndc.x * this.uiW, ndc.y * this.uiH, 0); }
 }
 
-export { damp };
+export { damp, WipeShader };

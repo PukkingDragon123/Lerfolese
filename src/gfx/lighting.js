@@ -32,7 +32,7 @@ export function stageLights(scene, { theme = 'meadow', sunDir = new THREE.Vector
   const L = { ...(LIGHT_LOOKS[theme] || LIGHT_LOOKS.meadow), ...(look || {}) }; const g = new THREE.Group(); g.name = 'stageLights';
   const d = sunDir.clone().normalize(); if (d.y < 0.35) { d.y = 0.35; d.normalize(); } // keep shadows readable even at golden hour
   const sun = new THREE.DirectionalLight(L.sun, L.k); sun.position.copy(target).addScaledVector(d, 30); sun.target.position.copy(target);
-  sun.castShadow = true; sun.shadow.mapSize.set(mapSize, mapSize); sun.shadow.bias = -0.00022; sun.shadow.normalBias = 0.028; sun.shadow.radius = 2.5; g.add(sun, sun.target);
+  sun.castShadow = true; sun.shadow.mapSize.set(mapSize, mapSize); sun.shadow.bias = -0.00022; sun.shadow.normalBias = 0.028; sun.shadow.radius = 4; sun.shadow.blurSamples = 16; /* soft penumbrae */ g.add(sun, sun.target);
   const hemi = new THREE.HemisphereLight(L.sky, L.gnd, L.hemi); g.add(hemi);
   // warm light thrown back up by the sunlit ground: lights chins, sleeves, the undersides of crowns
   const bounce = new THREE.DirectionalLight(L.bounce, L.bk); bounce.position.copy(target).add(new THREE.Vector3(-d.x * 6, -8, -d.z * 6 + 4)); bounce.target.position.copy(target).setY(1); g.add(bounce, bounce.target);

@@ -1,16 +1,19 @@
-// THE TOWER-TOP MENU (LERFOLESE). Young Isaac stands on the prow of the clockwork tower at sunset, coat stirring in
-// the wind, looking out over valleys, a river, villages, forests and far mountains, with clouds drifting BELOW him and
-// birds wheeling round the tower. Halley the old mop dog sits at his side. The menu is the sky itself:
-//   - FLOATING CLOUD BUTTONS carry forged Alagard lettering ("Resume" + "New Game", or "New Adventure"); they part,
-//     swirl and lift their text on hover, puff when pressed. Pressing one glides it to the prow: Isaac steps off onto
-//     it, Halley hops on, and the cloud sails down into the land (then game.newRun() / game.continueRun()).
-//   - physical things on the terrace: the JOURNAL (a book on a lectern that flips open), the SETTINGS dial (a brass
-//     dial you turn notch by notch: music volume), the SPYGLASS (raise it and look out to the far mountains).
-//   - SWIPE LEFT (drag, wheel, Left arrow, or the "Hall of Memories" sign) turns round and walks in through the stair
-//     door: the Achievement Hall (scenes/hall.js). Clicking Halley pets him (and shows the credits he guards).
+// THE TOWER-TOP MENU. Young Isaac stands on the prow of the clockwork tower at sunset, looking out over valleys, a
+// river, villages, forests and far mountains, with clouds drifting BELOW him and birds wheeling round the tower;
+// Halley the old mop dog sits at his side. No title, very little text: the menu is the sky itself.
+//   - CLOUD BUTTONS: sculpted low-poly cumulus that drift and breathe; on hover they part and swirl and their single
+//     forged word ("Resume" / "New", or "Begin") rises out; a press puffs them. Pressing a run cloud glides it to the
+//     prow: Isaac steps off onto it, Halley hops on, and it sails down into the land (game.newRun / game.continueRun).
+//   - SMALL CLOUDS carrying objects that explain themselves, naming themselves only on hover: a leather book (the
+//     Journal; its cover flips open), a brass dial (music volume: each press turns it a notch, three pips show the
+//     level), a glowing memory crystal (the Hall; it sparkles when new shards are waiting).
+//   - the SPYGLASS on the terrace: raise it to look out at the far mountains.
+//   - SWIPE LEFT (drag, wheel, Left arrow) or the crystal cloud: turn round and go in through the stair door to the
+//     Hall of Memories (scenes/hall.js). Click Halley to pet him (he guards the credits).
 // The first visit after loading opens on an establishing shot of the whole tower lit by the low sun, sweeping up to
-// the hero shot (click to skip). Lighting is moody and natural: the low sun is the key, everything else is dusk.
-//   game.toMenu({ from: 'loading' | 'hall' | null })  ->  new MenuScene(game).enter(opts)
+// the hero shot (click to skip). Lighting is moody and natural: the low sun is the key, the sunset sky is the image-
+// based fill (a PMREM of the sky shader), everything else is dusk.
+//   game.toMenu({ from: 'loading' | 'hall' | 'prologue' | null })  ->  new MenuScene(game).enter(opts)
 import * as THREE from 'three';
 import { UIScreen } from '../ui3d/widgets.js';
 import { Note } from '../ui3d/kit.js';
@@ -83,10 +86,10 @@ export class MenuScene extends UIScreen {
     else add('Begin', 'new', 0.4, 0.16, 10.5, 5, { w: 3.6 });
     // the way into the tower: a small cloud carrying a glowing memory crystal (more sparks when new shards wait)
     { const g = new THREE.Group(); const cm = new THREE.MeshStandardMaterial({ color: 0x9a86d8, emissive: 0x6a4ab8, emissiveIntensity: this.fresh ? 1.2 : 0.6, roughness: 0.15, metalness: 0.2, flatShading: true });
-      const geo = new THREE.LatheGeometry([[0.001, -0.42], [0.13, -0.18], [0.16, 0.2], [0.001, 0.48]].map(([x, y]) => new THREE.Vector2(x, y)), 5); const cr = new THREE.Mesh(geo, cm); cr.rotation.z = 0.2; g.add(cr);
+      const geo = new THREE.LatheGeometry([[0.001, -0.42], [0.13, -0.18], [0.16, 0.2], [0.001, 0.48]].map(([x, y]) => new THREE.Vector2(x, y)), 5); const cr = new THREE.Mesh(geo, cm); cr.rotation.z = 0.2; g.add(cr); g.scale.setScalar(0.55);
       for (let i = 0; i < 2; i++) { const c2 = new THREE.Mesh(geo, cm); c2.scale.setScalar(0.5); c2.position.set(i ? 0.18 : -0.17, -0.12, 0.05); c2.rotation.z = i ? -0.5 : 0.6; g.add(c2); }
       const l = new THREE.PointLight(0x9a7aff, this.fresh ? 2.5 : 1.0, 3, 1.6); l.position.z = 0.4; g.add(l); this.hallCrystal = { cm, l };
-      this.hallCloud = add('Memories', 'hall', -0.74, 0.26, 6.2, 21, { w: 1.6, icon: g, labelOnHover: true, unit: 0.009, h: 0.8 }); this.hallCloud.spinIcon = true; }
+      this.hallCloud = add('Memories', 'hall', -0.72, 0.3, 7.5, 21, { w: 1.6, icon: g, labelOnHover: true, unit: 0.009, h: 0.8 }); this.hallCloud.spinIcon = true; }
     // the journal: a small cloud carrying a leather book whose cover flips open
     { const book = new THREE.Group(); const S = new Surf(48, 32); parchment(S, 0, 0, 48, 32, { seed: 3, torn: 0, tone: 4 }); inscribeLines(S, ['m = F/a', 'apple ~ moon?'], { x: 3, y: 4, w: 42, h: 24 }, 'hand', 'ink', {});
       const pages = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.36), [lmat('parch'), lmat('parch'), new THREE.MeshStandardMaterial({ map: pxTex(S.toCanvas()), roughness: 0.9 }), lmat('parch'), lmat('parch'), lmat('parch')]); pages.position.y = 0.03; book.add(pages);
@@ -94,7 +97,7 @@ export class MenuScene extends UIScreen {
       const hinge = new THREE.Group(); hinge.position.set(-0.26, 0.065, 0); book.add(hinge); const cover = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.025, 0.4), lmat('leather')); cover.position.x = 0.27; hinge.add(cover);
       const clasp = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.09), lmat('brass')); clasp.position.set(0.52, 0, 0); hinge.add(clasp); const emb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.05, 0), lmat('gold')); emb.scale.y = 0.3; emb.position.set(0.27, 0.016, 0); hinge.add(emb);
       book.rotation.x = 0.9; book.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-      this.journalCloud = add('Journal', 'journal', -0.62, -0.5, 5.2, 31, { w: 1.5, icon: book, labelOnHover: true, unit: 0.0085, h: 0.75 }); this.journalCloud.hinge = hinge; this.journalCloud.open = new Spring(0, 7, 0.6); }
+      this.journalCloud = add('Journal', 'journal', -0.64, -0.1, 6.6, 31, { w: 1.5, icon: book, labelOnHover: true, unit: 0.0085, h: 0.75 }); this.journalCloud.hinge = hinge; this.journalCloud.open = new Spring(0, 7, 0.6); }
     // settings: a small cloud carrying a brass dial; each press turns it one notch (music volume), three pips show the level
     { const dial = new THREE.Group(); const S = new Surf(40, 40); for (let y = 0; y < 40; y++) for (let x = 0; x < 40; x++) { const d = Math.hypot(x - 19.5, y - 19.5); if (d > 19.5) continue; const an = Math.atan2(y - 19.5, x - 19.5); const tick = d > 15 && d < 18.5 && Math.abs(((an / (Math.PI * 2)) * 24 + 48) % 1 - 0.5) > 0.38; S.set(x, y, RAMP.brass, d > 18.5 ? 1 : tick ? 0 : d > 14 ? 3 : 4 - (x + y < 30 ? 0 : 1)); }
       const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.28, 0.05, 12), [lmat('brass'), new THREE.MeshStandardMaterial({ map: pxTex(S.toCanvas()), metalness: 0.7, roughness: 0.4 }), lmat('brass')]); disc.rotation.x = Math.PI / 2; dial.add(disc);
@@ -103,7 +106,7 @@ export class MenuScene extends UIScreen {
       const pipM = []; for (let i = 0; i < 3; i++) { const m = new THREE.MeshStandardMaterial({ color: 0x3a2a14, emissive: 0xffb040, emissiveIntensity: 0, metalness: 0.6, roughness: 0.4, flatShading: true }); const pip = new THREE.Mesh(new THREE.OctahedronGeometry(0.035, 0), m); pip.position.set(-0.1 + i * 0.1, -0.36, 0.02); dial.add(pip); pipM.push(m); }
       dial.traverse((o) => { if (o.isMesh) o.castShadow = true; });
       const steps = [0, 0.3, 0.6, 0.9]; const cur = steps.reduce((x, y) => (Math.abs(y - this.game.settings.music) < Math.abs(x - this.game.settings.music) ? y : x));
-      const b = (this.dialCloud = add('Music', 'settings', 0.7, -0.56, 5.2, 41, { w: 1.4, icon: dial, labelOnHover: true, unit: 0.0085, h: 0.75 })); b.knob = knob; b.pips = pipM; b.notch = steps.indexOf(cur); b.turn = new Spring(-b.notch * Math.PI / 2, 10, 0.42); this.setPips(b); }
+      const b = (this.dialCloud = add('Music', 'settings', 0.7, -0.14, 6.6, 41, { w: 1.4, icon: dial, labelOnHover: true, unit: 0.0085, h: 0.75 })); b.knob = knob; b.pips = pipM; b.notch = steps.indexOf(cur); b.turn = new Spring(-b.notch * Math.PI / 2, 10, 0.42); this.setPips(b); }
   }
   setPips(b) { b.pips.forEach((m, i) => { m.emissiveIntensity = i < b.notch ? 1.6 : 0; m.color.set(i < b.notch ? 0xffc860 : 0x3a2a14); }); }
   // ---------------------------------------------------------------- the spyglass on the terrace (an object, not a label: raise it to look out)

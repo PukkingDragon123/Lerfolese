@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>html,body{margin:0;background:#000}canvas{display:block}</style></head><body>
+<script type="module">
+// Transition preview: tools/wipetest.html?style=0|1&phase=0|1&t=0..1&time=s  (renders the engine's wipe over a sunset backdrop)
+import * as THREE from 'three';
+import { WipeShader } from '../src/core/engine.js';
+const P = new URLSearchParams(location.search), W = 960, H = 540;
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(W, H); document.body.appendChild(r.domElement);
+const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#2b2238'); gr.addColorStop(0.45, '#b06a5a'); gr.addColorStop(0.62, '#3a2a2e'); gr.addColorStop(1, '#141018');
+g.fillStyle = gr; g.fillRect(0, 0, W, H); g.fillStyle = '#1c1418'; for (let x = 0; x < W; x += 40) g.fillRect(x, H * 0.62 - (x * 37 % 50), 40, H);
+const bg = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) }));
+const mat = new THREE.ShaderMaterial({ ...WipeShader, uniforms: THREE.UniformsUtils.clone(WipeShader.uniforms), transparent: true, depthTest: false });
+const u = mat.uniforms; u.uStyle.value = +(P.get('style') || 0); u.uPhase.value = +(P.get('phase') || 0); u.uT.value = +(P.get('t') || 0.5); u.uTime.value = +(P.get('time') || 3);
+u.uRes.value.set(W, H); u.uAspect.value = W / H;
+const s = new THREE.Scene(); s.add(bg); const q = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); q.frustumCulled = false; q.renderOrder = 1; s.add(q);
+r.render(s, new THREE.Camera()); window.__done = true;
+</script></body></html>

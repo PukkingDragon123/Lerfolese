@@ -66,7 +66,7 @@ class HeldView {
     this.mark = new FTag('TARGET', { color: '#ff8a70', font: 'head' }); L.S.ui.root.add(this.mark.group); // floats beside the foe it will hit
     this.mulTag = new FTag('x1', { color: '#c8a8ff', font: 'num' }); this.mulTag.group.visible = false; L.S.ui.root.add(this.mulTag.group); // the product of every multiplier
     // the attack vignette: a little pixel-art panel of Sir Isaac performing this object's strike (appears once it is launched)
-    this.vig = null; this.vigM = new THREE.Mesh(new THREE.PlaneGeometry(64 * 0.034, 40 * 0.034), new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false, depthWrite: false })); this.vigM.visible = false; this.vigS = new Spring(0, 12, 0.5); L.S.ui.root.add(this.vigM);
+    this.vig = null; this.vigM = new THREE.Mesh(new THREE.PlaneGeometry(64 * 0.07, 40 * 0.07), new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false, depthWrite: false })); this.vigM.visible = false; this.vigS = new Spring(0, 12, 0.5); L.S.ui.root.add(this.vigM);
     this.rebuild(true);
   }
   // the object itself, rebuilt from its current Move art whenever a Law changes it
@@ -111,7 +111,7 @@ class HeldView {
     if (Math.random() < dt * 3) P.spawn({ pos: [top.x, top.y - 0.3, top.z], vel: [0, -2.2, 0], life: 1.6, size: 16, color: '#cdb6f0', sprite: 'star4' });
     // the damage tag hangs just above it, in the UI layer
     const ui = this.L.S.engine.worldToUI(_t.copy(q).add(V(0, 1.0 + (a.falling ? 0.2 : 0), 0))); uiPos(this.tag.group, ui.x, ui.y, 3); this.tag.group.scale.setScalar((40 - 3) / 40); this.tag.update(dt, null);
-    this.vigS.update(dt); const vs = Math.max(0, this.vigS.value); this.vigM.visible = !!this.vig && vs > 0.02 && !this.L.insp; if (this.vigM.visible) { this.vig.update(dt); uiPos(this.vigM, ui.x, ui.y + 1.5, 3.05); this.vigM.scale.set(vs * (40 - 3.05) / 40, Math.max(0.02, vs) * (40 - 3.05) / 40, 1); this.vigM.rotation.z = Math.sin(t * 1.3 + this.seed) * 0.03; }
+    this.vigS.update(dt); const vs = Math.max(0, this.vigS.value); this.vigM.visible = !!this.vig && vs > 0.02 && !this.L.insp; if (this.vigM.visible) { this.vig.update(dt); uiPos(this.vigM, ui.x + 3.4, ui.y + 1.2, 3.05); this.vigM.scale.set(vs * (40 - 3.05) / 40, Math.max(0.02, vs) * (40 - 3.05) / 40, 1); this.vigM.rotation.z = Math.sin(t * 1.3 + this.seed) * 0.03; }
     if (this.mulTag.group.visible) { uiPos(this.mulTag.group, ui.x + this.tag.w * 0.5 + this.mulTag.w * 0.55 + 0.15, ui.y - 0.12, 3.1); this.mulTag.group.scale.setScalar(((40 - 3.1) / 40) * 0.9); this.mulTag.update(dt, null); }
     const foe = this.pv?.target, fv = foe && this.L.S.enemyViews.get(foe.uid); this.mark.group.visible = !!fv && !this.L.insp;
     if (fv) { const mp = this.L.S.engine.worldToUI(_t.copy(fv.api.root.position).add(V(-0.75, fv.h * 0.62, 0))); const k = this.L.targetSlot(this); uiPos(this.mark.group, mp.x - 1.2, mp.y + k * 0.9, 3.2); this.mark.group.scale.setScalar(((40 - 3.2) / 40) * 0.9); this.mark.update(dt, null); }
@@ -175,20 +175,20 @@ export class HeldLayer {
     S.scene.remove(v.str); for (const t of [v.tag, v.mark, v.mulTag]) t.group.visible = false; v.vigS.target = 0; audio.play('string_pluck', { vol: 0.6 });
     // 1. the push-in (a quick cut on the first throw of a turn, an ease for the rest)
     const first = !this._cutDone; this._cutDone = true; setTimeout(() => { this._cutDone = false; }, 2500);
-    cam.shot(V(pp.x + 1.9, 1.75, pp.z + 3.4), V(pp.x + 0.6, 1.35, pp.z), { snap: first, speed: 6, fov: 30 });
+    cam.shot(V(pp.x + 2.3, 1.8, pp.z + 4.6), V(pp.x + 0.7, 1.25, pp.z), { snap: first, speed: 6, fov: 30 });
     prof.face(Math.atan2(to.x - pp.x, to.z - pp.z) * 0.8 + 0.1); const I = prof.act(style, { object: true }) ?? 0.6;
     if (style === 'timestop') { S.prepT.stop(I + 0.1); audio.play('clockwork', { vol: 0.7 }); audio.play('magic_shimmer', { vol: 0.6 }); }
     if (style === 'gravity') audio.play('gravity_hum', { vol: 0.7 }); if (style === 'spin') audio.play('spin_whoosh', { vol: 0.5, delay: 0.2 }); if (style === 'hurl') audio.play('grunt_hurt', { vol: 0.35, delay: I - 0.15 });
     // 2. the object follows his grip through the wind-up
-    const grip = (out) => { if (style === 'hurl') return prof.handWorld(0, out).add(prof.handWorld(1, _t)).multiplyScalar(0.5).add(V(0, 0.25, 0)); if (style === 'gravity') return out.copy(to).add(V(0, 3.6, 0)); if (style === 'timestop') return prof.handWorld(0, out).add(V(0.55, 0.15, 0.1)); if (style === 'spin') return prof.handWorld(1, out).add(V(0, 0.3, 0)); return prof.handWorld(1, out).add(V(0, 0.06, 0)); };
-    const from0 = v.g.position.clone(); const st = { k: 0 }; const gp = V();
-    await tweens.to(st, { k: 1 }, I, { ease: 'linear', onUpdate: () => { const u = Math.min(1, st.k * I / Math.min(0.35, I * 0.6)); const e = u * u * (3 - 2 * u); grip(gp); v.g.position.lerpVectors(from0, gp, e); v.model.rotation.y += style === 'spin' ? 0.9 : 0.12; if (style === 'timestop' && st.k > 0.4) v.model.rotation.y -= 0.12; } });
+    const grip = (out) => { if (style === 'hurl') return prof.handWorld(0, out).add(prof.handWorld(1, _t)).multiplyScalar(0.5).add(V(0, 0.25, 0)); if (style === 'gravity') return out.copy(to).add(V(0, 3.6, 0)); if (style === 'timestop') return prof.handWorld(0, out).add(V(0.55, 0.15, 0.1)); if (style === 'spin') return prof.handWorld(1, out).add(V(0.12, 0.26, 0.12)); return prof.handWorld(1, out).add(V(0.1, 0.05, 0.1)); };
+    const from0 = v.g.position.clone(); const st = { k: 0 }; const gp = V(); const s0 = v.model.scale.x, sHand = s0 * (style === 'hurl' ? 0.8 : 0.42); // held in the hand it is hand-sized
+    await tweens.to(st, { k: 1 }, I, { ease: 'linear', onUpdate: () => { const u = Math.min(1, st.k * I / Math.min(0.35, I * 0.6)); const e = u * u * (3 - 2 * u); grip(gp); v.g.position.lerpVectors(from0, gp, e); v.model.scale.setScalar(s0 + (sHand - s0) * e); v.model.rotation.y += style === 'spin' ? 0.9 : 0.12; if (style === 'timestop' && st.k > 0.4) v.model.rotation.y -= 0.12; } });
     // 3. the strike: the camera whips after the object down its path
     const from = v.g.position.clone(); const path = flightPath(from, to, mv.art);
     audio.play(mv.art.falling ? 'whoosh_heavy' : style === 'hurl' ? 'whoosh_heavy' : 'whoosh_soft'); if (style === 'timestop') { S.engine.flash(0.15, 0xdfe8ff, 0.25); audio.play('glass_shatter', { vol: 0.25 }); }
     S.burst(from, 'magic', 8); S.engine.shake(style === 'hurl' || style === 'gravity' ? 0.25 : 0.1);
     cam.shot(V((from.x + to.x) / 2 - 0.6, Math.max(from.y, to.y) + 0.9, Math.max(from.z, to.z) + 4.6), V((from.x * 0.3 + to.x * 0.7), to.y, to.z), { speed: 5.5, fov: 31 });
-    const dur = mv.art.falling ? 0.62 : style === 'hurl' ? 0.5 : mv.art.fast ? 0.28 : 0.42; const fl = { k: 0 };
+    const dur = mv.art.falling ? 0.62 : style === 'hurl' ? 0.5 : mv.art.fast ? 0.28 : 0.42; const fl = { k: 0 }; tweens.to(v.model.scale, { x: s0, y: s0, z: s0 }, 0.18, { ease: 'outQuad' });
     await tweens.to(fl, { k: 1 }, dur, { ease: mv.art.falling ? 'linear' : 'inQuad', onUpdate: () => { v.g.position.copy(path(fl.k)); v.model.rotation.x += mv.art.spin || style === 'spin' ? 0.7 : 0.25; v.model.rotation.z += 0.2; if (Math.random() < 0.7) S.glowParts.spawn({ pos: [v.g.position.x, v.g.position.y, v.g.position.z], vel: [0, 0, 0], life: 0.3, size: 26, size1: 4, color: mv.art.hot ? '#ffb04a' : mv.art.electric ? '#fff3b0' : '#e8e0d0', sprite: 'star4' }); } });
     // 4. impact framing: hold on the foe a moment, then ease back (the battle applies the damage right after this)
     cam.shot(V(to.x - 1.8, to.y + 0.7, to.z + 3.6), to, { speed: 8, fov: 29 }); setTimeout(() => { if (!this._cutDone) cam.release(2.2); }, 650); prof.face(S.profRy ?? 0.55); setTimeout(() => prof.face(null), 1200);

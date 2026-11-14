@@ -91,7 +91,7 @@ export class BattleHUD {
     uiPos(this.pouch.group, -W + 6.2 * k, H - 2.5 * k, 1.2); this.pouch.group.scale.setScalar(0.9 * k);
     this.note.place(W - 0.5 * k, H - 0.45 * k, 1.5);
     if (this.mode === 'map') return;
-    uiPos(this.bell.group, W - 2.0 * k, -H + 3.0 * k, 1.2); this.bell.group.scale.setScalar(0.85 * k);
+    uiPos(this.bell.group, W - 3.0 * k, -H + 3.2 * k, 1.2); this.bell.group.scale.setScalar(0.85 * k);
     this.layoutLaws();
   }
   layoutLaws() { const W = this.engine.uiW, H = this.engine.uiH, k = this.k; let x = -W + 0.6 * k; for (const l of this.laws) { l.group.scale.setScalar(k); uiPos(l.group, x + (l.w / 2) * k, H - 7.1 * k, 1.4); x += (l.w + 0.25) * k; } }
@@ -107,7 +107,7 @@ export class BattleHUD {
   setObjective(text) { this._set('obj', text, () => { this.objective = plain(text); this.writeNote(); }); }
   setTurn(n) { this._set('turn', n, () => { this.turn = n; this.writeNote(); }); }
   setRedraws() {} // (Second Thoughts were removed)
-  setEnd(on, label) { if (!this.bell) return; this._set('end', on + (label || ''), () => { this.bell.setEnabled(on); this.bell.setLabel(on ? 'End Turn' : label && label !== 'End Turn' ? label : 'Time flows', on ? 'SPACE' : ''); }); }
+  setEnd(on, label) { if (!this.bell) return; this._set('end', on + (label || ''), () => { this.bell.setEnabled(on); this.bell.setLabel(on ? 'End Turn' : 'Time flows', on ? 'SPACE' : ''); }); }
   ringEnd() { this.bell?.ring(); }
   // hit tests: screen px (bin drop) or the current pointer ray (bell / bin / law hover)
   ray(objs) { const r = new THREE.Raycaster(); r.setFromCamera(hud.input.ndc, this.engine.ui.camera); return r.intersectObjects(objs, true)[0]; }

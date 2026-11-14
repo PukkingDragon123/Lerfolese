@@ -211,8 +211,8 @@ export class TimeApple extends Body {
     const stem = M(lathe([[0.06, 0], [0.05, 0.25], [0.035, 0.42]], 6), mats().wood, this.apple); stem.position.y = 0.72; stem.rotation.z = -0.2;
     const ls = new THREE.Shape(); ls.moveTo(0, 0); ls.quadraticCurveTo(0.3, 0.2, 0.62, 0.05); ls.quadraticCurveTo(0.3, -0.16, 0, 0); const leaf = M(new THREE.ShapeGeometry(ls, 4), new THREE.MeshStandardMaterial({ color: 0xd8b040, metalness: 0.6, roughness: 0.35, side: THREE.DoubleSide, flatShading: true, toneMapped: false }), this.apple); leaf.position.set(0.05, 0.86, 0); leaf.rotation.set(0.4, 0.3, 0.5);
     // the clockwork: a brass ring of twelve hour ticks, and a tiny hand
-    this.ring = new THREE.Group(); p.add(this.ring); const rm = mats().brass;
-    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; const tk = M(new THREE.BoxGeometry(i % 3 ? 0.08 : 0.14, 0.26, 0.06), rm, this.ring); tk.position.set(Math.cos(a) * 1.45, Math.sin(a) * 1.45, 0); tk.rotation.z = a + Math.PI / 2; }
+    this.clock = new THREE.Group(); p.add(this.clock); const rm = mats().brass;
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; const tk = M(new THREE.BoxGeometry(i % 3 ? 0.08 : 0.14, 0.26, 0.06), rm, this.clock); tk.position.set(Math.cos(a) * 1.45, Math.sin(a) * 1.45, 0); tk.rotation.z = a + Math.PI / 2; }
     this.hand = M(new THREE.BoxGeometry(0.07, 0.62, 0.05), rm, p); this.hand.geometry.translate(0, 0.31, 0); this.hand.position.z = 1.0;
     const stand = M(lathe([[0.001, 0], [0.9, 0], [0.95, 0.1], [0.6, 0.2], [0.25, 0.26], [0.2, 0.55], [0.001, 0.58]], 8), mats().wood, p, 0.03); stand.position.y = -1.95;
     this.label = new FloatText(null, { font: 'head', align: 'center', lighten: false }); this.label.group.position.set(0, -2.55, 0.4); p.add(this.label.group);
@@ -226,7 +226,7 @@ export class TimeApple extends Body {
     this.press.update(dt); this.glow.target = this.enabled ? (this.hover ? 1.4 : 0.45 + Math.sin(t * 2.2) * 0.15) : 0.05; this.glow.update(dt); this.updateBody(dt, this.enabled ? p : null); this.label.update(dt);
     this.goldM.emissiveIntensity = Math.max(0, this.glow.value); this.apple.scale.set(1 - this.press.value * 0.01, 1 + this.press.value * 0.012, 1); this.apple.rotation.y += dt * (this.hover ? 1.6 : 0.4);
     // the clock: ticks while time is stopped (one step a second), races while it flows
-    this.spin += dt * (this.enabled ? 0 : 6); const step = this.enabled ? Math.floor(t) * (Math.PI / 6) : this.spin; this.ring.rotation.z = -step * 0.2; this.hand.rotation.z = -step;
+    this.spin += dt * (this.enabled ? 0 : 6); const step = this.enabled ? Math.floor(t) * (Math.PI / 6) : this.spin; this.clock.rotation.z = -step * 0.2; this.hand.rotation.z = -step;
   }
 }
 
@@ -246,3 +246,18 @@ export class CloudTip {
   dispose() { this.E?.remove(this); this.T.dispose(); this.C.group.parent?.remove(this.C.group); this.C.mesh.geometry.dispose(); }
 }
 function wrapLines(t, maxW) { const ws = String(t).split(' '); const out = []; let cur = ''; for (const w of ws) { const n = cur ? cur + ' ' + w : w; if (measure(n, 'body') > maxW && cur) { out.push(cur); cur = w; } else cur = n; } if (cur) out.push(cur); return out; }
+
+/** a reading panel on a cloud (the Panel api: set(title, lines, titleColor), update(dt, p), group, scroll.h / scroll.open / scroll.kick) */
+export class CloudPanel {
+  constructor(title, lines, { w = 12, h = 6, titleColor = '#3a2410' } = {}) {
+    this.w = w; this.C = new Cloud3D(w, h); this.C.hoverLift = 0.15; this.group = this.C.group; this.T = new FloatText(null, { font: 'body', align: 'left', lighten: false, depth: 0.03 }); this.C.pivot.add(this.T.group);
+    this.scroll = { h, open: new Spring(1, 9, 0.6), kick: (k) => this.C.kick(k) }; this.set(title, lines, titleColor);
+  }
+  set(title, lines, titleColor = '#5a1a22') {
+    const maxW = Math.round((this.w - 1.4) / Math.max(0.02, this.T.k || 0.06) * 0.98) || 220; const out = [[[title, titleColor]]];
+    for (const l of lines) { const runs = typeof l === 'string' ? [[l, '#2a160c']] : l; const txt = runs.map((r) => r[0]).join(''); for (const w of wrapLines(txt, Math.min(maxW, 260))) out.push([[w, runs[0][1] || '#2a160c']]); }
+    this.T.set(out, { fonts: out.map((_, i) => (i ? 'body' : 'head')) }); this.T.show(); this.T.group.position.set(0, 0, 0.55); this.T.group.scale.setScalar(1);
+    this.C.resize(Math.max(this.w * 0.6, this.T.w + 1.4), this.T.h + 1.0); this.scroll.h = this.C.h;
+  }
+  update(dt, p) { this.scroll.open.update(dt); this.C.update(dt, p); this.T.update(dt); }
+}

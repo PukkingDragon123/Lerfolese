@@ -17,6 +17,7 @@ export const STYLES = {
   crystal: { ramp: ['#1a1036', '#3a2470', '#6a48b0', '#9a7ee0', '#cab8ff', '#f4eeff'], side: '#2a1a50', back: '#08060e', metal: 0.2, rough: 0.2, pit: 0.04 },
 };
 const hx = (c) => new THREE.Color(c);
+const OCC = new THREE.MeshBasicMaterial({ color: 0x7f7fff }); // ink occluder: letters hide the outlines of what stands behind them
 const h2 = (x, y) => { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n); };
 
 /** the glyph mask as a dense grid: cells[y][x] (y = 0 at the top of the cap line) */
@@ -68,7 +69,7 @@ export function forgedText(str, { font = 'head', unit = 0.03, depth = 3, style =
   const { cells, W, H } = grid(str, font, 1);
   const face = new THREE.MeshStandardMaterial({ map: faceTexture(cells, W, H, S, seed), metalness: S.metal, roughness: S.rough, emissive: hx(S.ramp[3]), emissiveIntensity: glow, emissiveMap: null });
   const side = new THREE.MeshStandardMaterial({ color: hx(S.side), metalness: S.metal * 0.8, roughness: Math.min(1, S.rough + 0.15), flatShading: true });
-  const m = new THREE.Mesh(extrudeCells(cells, W, H, unit, 0, depth * unit), [face, side]); m.castShadow = true; m.receiveShadow = true; m.userData.noInk = true; G.add(m);
-  if (backing) { const d = dilate(cells, W, H); const bm = new THREE.MeshStandardMaterial({ color: hx(S.back), roughness: 0.9, metalness: 0.2 }); const b = new THREE.Mesh(extrudeCells(d, W, H, unit, -unit * 0.6, depth * unit * 0.55), [bm, bm]); b.castShadow = true; b.userData.noInk = true; G.add(b); }
+  const m = new THREE.Mesh(extrudeCells(cells, W, H, unit, 0, depth * unit), [face, side]); m.castShadow = true; m.receiveShadow = true; m.userData.inkOccluder = OCC; G.add(m);
+  if (backing) { const d = dilate(cells, W, H); const bm = new THREE.MeshStandardMaterial({ color: hx(S.back), roughness: 0.9, metalness: 0.2 }); const b = new THREE.Mesh(extrudeCells(d, W, H, unit, -unit * 0.6, depth * unit * 0.55), [bm, bm]); b.castShadow = true; b.userData.inkOccluder = OCC; G.add(b); }
   G.userData.size = [W * unit, H * unit]; G.userData.face = face; G.userData.side = side; return G;
 }

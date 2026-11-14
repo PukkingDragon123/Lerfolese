@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import { Paper, Strip, carvedSign } from '../ui3d/objects.js';
 import { uiPos, mesh, turned, plainMat } from '../ui3d/craft.js';
 import * as S from '../models/sculpt.js';
-import { UIScreen, Panel } from '../ui3d/widgets.js';
-import { CloudButton as Button3D } from '../ui3d/instruments.js'; // choices are soft clouds
+import { UIScreen } from '../ui3d/widgets.js';
+import { CloudButton as Button3D, CloudPanel as Panel } from '../ui3d/instruments.js'; // choices are soft clouds
 import { textPlane } from '../ui3d/kit.js';
 import { buildStage, PROPS } from '../models/world.js';
 import { realStage } from '../models/realworld.js';

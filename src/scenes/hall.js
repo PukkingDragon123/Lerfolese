@@ -1,15 +1,17 @@
 // THE HALL OF MEMORIES: inside the clockwork tower (swipe left from the tower top; swipe right / Right arrow / the
-// "Tower Top" sign to go back up). A tall round hall of dark masonry: brass gears turning high in the walls, a gallery
-// ring, tall arched windows holding the last of the sunset, a stepped plinth with the GOLDEN APPLE floating above it,
-// orbited by brass rings, books, a quill-scroll, a globe and a goblet. Its warm light is the hall's key light.
+// small cloud carrying a golden arrow to go back up). No titles: a tall round hall of dark masonry, brass gears
+// turning high in the walls, a gallery ring, tall leaded windows holding the last of the sunset, a stepped plinth with
+// the GOLDEN APPLE floating above it, orbited by brass rings, books, a scroll, a globe and a goblet. Its warm light is
+// the hall's key light (plus a small PMREM environment of that warm room for real reflections on the metals).
 // Around it orbit the MEMORY SHARDS: faceted crystal rifts, each holding a living pixel-art glimpse of a moment
 // (gfx/vignettes.js: the raccoon fight, Icarus, the Hydra, the Bookworm Queen ...). Every shard is an achievement
 // (outer ring) or a hard CHALLENGE (inner, higher ring, larger) from core/save.js:
-//   - not earned: a crust of dark stone covers the crystal, faint cold light in its cracks; hover shows the challenge
+//   - not earned: a crust of dark stone covers the crystal, faint cold light in its cracks
 //   - earned, not yet claimed: gold light pours from the cracks and pulses; click to SHATTER the crust: the pieces
-//     burst outward, a fanfare, a flash, the memory comes alive, and the REWARD is revealed in forged letters
+//     burst outward, a fanfare, a flash, the memory comes alive and the REWARD's name rises in forged letters
 //     (new artifacts / cards / events / stages for good, or cosmetic upgrades to the tower itself)
 //   - claimed: clear crystal, the scene plays; hover turns it toward you, it glows and plays faster
+// Text is minimal: on hover, one short line (the feat to perform); on a claim, the reward's name.
 // The ring turns slowly; it halts while you hover; the wheel, Left arrow or a leftward drag spin it.
 //   game.toHall({ from: 'tower' }); debug: ?scene=hall (&grant=all | &grant=<id>: mark earned, to test the reveal)
 import * as THREE from 'three';
@@ -51,7 +53,7 @@ export class HallScene extends UIScreen {
     try { const pm = new THREE.PMREMGenerator(this.engine.renderer); const es = new THREE.Scene(); es.background = new THREE.Color(0x0a0608); // a dark room lit by the apple: warm low glow, cold windows high up
       const glow = (c, w, h, p, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })); m.position.copy(p); m.rotation.y = ry; es.add(m); };
       glow(new THREE.Color(3.0, 1.9, 0.8), 3, 3, V(0, 0, -6), 0); glow(new THREE.Color(1.6, 1.0, 0.45), 6, 2, V(0, -3, 0), 0); glow(new THREE.Color(0.25, 0.22, 0.5), 2, 8, V(-8, 3, 0), Math.PI / 2); glow(new THREE.Color(0.5, 0.25, 0.3), 2, 8, V(8, 3, 2), -Math.PI / 2);
-      this._env = pm.fromScene(es, 0.06, 0.1, 50); sc.environment = this._env.texture; sc.environmentIntensity = 0.5; pm.dispose(); } catch (e) { console.warn('env map', e); }
+      this._env = pm.fromScene(es, 0.04, 0.1, 50); sc.environment = this._env.texture; sc.environmentIntensity = 0.5; pm.dispose(); } catch (e) { console.warn('env map', e); }
     this.engine.setWorld(sc, this.camera);
     this.engine.setFx({ bloom: [0.7, 0.6, 0.78], ao: 0.9, exposure: 0.95, grade: { sat: 1.1, vib: 0.25, contrast: 1.14, vignette: 0.6, warmth: 0.06, lift: [0.006, 0.004, 0.014], gain: [1.04, 0.98, 0.92], toe: 0.05 }, ink: { fade: [12, 40], strength: 0.7 } });
     this.engine.add(this); this.pushInput(); audio.setAmbSet(['wind']); audio.playMusic(audio.manifest?.music?.hall ? 'hall' : 'journal');

@@ -74,7 +74,7 @@ void main(){ vec2 p = gl_PointCoord * 2.0 - 1.0; p.y = -p.y; float r = length(p)
     float wings = exp(-(w1.x * w1.x * 16.0 + w1.y * w1.y * 40.0)) + exp(-(w2.x * w2.x * 16.0 + w2.y * w2.y * 40.0)); a = clamp(body * 1.4 + wings * 0.55, 0.0, 1.0); c = mix(c * 0.95, vec3(0.05, 0.04, 0.04), clamp(body * 1.6, 0.0, 1.0)); }
   else if (s < 9.5) { float st = 1.0 + vVar * 0.6; float qy = (p.y + 0.25) * 1.2 / st; float tear = length(vec2(p.x * 1.6, max(qy, 0.0) * 0.45 + min(qy, 0.0))); a = smoothstep(0.5, 0.38, tear); vec2 hl = p - vec2(-0.1, -0.25); c *= 0.75 + 0.6 * exp(-dot(hl, hl) * 30.0); }
   else if (s < 10.5) { for (int i = 0; i < 5; i++) { float an = 3.14159 * (0.1 + 0.2 * float(i)); vec2 d = vec2(cos(an), sin(an) * 0.8) * (0.25 + 0.35 * vVar) - vec2(0.0, 0.3); a += exp(-dot(p - d, p - d) * 90.0); } a = clamp(a, 0.0, 1.0); }
-  else { float k = vVar / 4.0; float e = r + sin(atan(p.y, p.x) * 5.0 + k * 3.0) * 0.08; a = smoothstep(0.35 + 0.5 * k, 0.1 + 0.35 * k, e) * (1.0 - k * 0.65) * smoothstep(0.0, 0.25 + 0.3 * k, e + 0.05); }
+  else { float k = vVar / 4.0; float an = atan(p.y, p.x); float e = r * (1.0 + 0.18 * sin(an * 3.0 + k * 2.0) + 0.1 * sin(an * 7.0 - k * 3.0)) / (0.45 + 0.5 * k); a = smoothstep(1.0, 0.35, e) * (0.9 - k * 0.65); c *= 0.85 + 0.25 * smoothstep(0.6, 0.0, length(p - vec2(-0.15, 0.2))); } // a soft, ragged dust billow that spreads and thins
   a *= vColor.a; if (a < 0.01) discard; gl_FragColor = vec4(c, a); }`;
 
 export class Motes {

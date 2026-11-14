@@ -55,7 +55,7 @@ export function tutorialBattle(game) {
       if (ev === 'intro') { // the teacher hobbles to the edge of the clearing; a crane down onto the two of them and the raccoon
         teacher = createTeacher(); teacher.hAt = S.stage?.hAt || null; teacher.root.position.set(-5.4, 0, -1.1); teacher.root.rotation.y = 0.9; S.scene.add(teacher.root); S.tutTeacher = teacher;
         teacher.lookAtWorld(() => S.enemyViews?.values().next().value?.api.root.position.clone().add(V(0, 0.5, 0)) || V(3, 0.5, 0));
-        upd = { update: (dt) => { if (S.done && !teacher) return; teacher?.update(dt); } }; S.engine.add(upd);
+        upd = { update: (dt) => { if (S.done && !teacher) return; teacher?.update(dt); } }; S.engine.add(upd); S.tutUpd = upd;
         const kid = S.prof; kid.root.rotation.y = 0.75;
         two(S, V(-1.2, 1.1, 5.4), V(1.6, 0.6, 0), 30); await wait(0.6);
         await say(S, 'A bandit. A very round one.', { act: 'point' });
@@ -66,10 +66,9 @@ export function tutorialBattle(game) {
       if (ev === 'battleStart') return;
       if (ev === 'playerTurn') {
         const t = B.turn; const mv = (ids) => { try { return computeMove(flatten(ids.map(card))).attack; } catch (e) { return null; } };
-        if (t === 1 && once('t1')) { const a = mv(['apple', 'force']); two(S, V(-5.6, 1.3, 3.0), V(-3.8, 1.0, 0.2), 26); await say(S, `Merge FORCE into APPLE: ${a ? `${a.m} × ${a.v}` : 'mass × velocity'}.`); await say(S, 'Aim. Then End Turn.', { act: 'present' }); rel(S); }
+        if (t === 1 && once('t1')) { const a = mv(['apple', 'force']); two(S, V(-5.6, 1.3, 3.0), V(-3.8, 1.0, 0.2), 26); await say(S, `Merge FORCE into APPLE: ${a ? `${a.m} × ${a.v}` : 'mass × velocity'}.`); await say(S, 'Aim. Time waits while you think.', { act: 'present' }); rel(S); }
         else if (t === 2 && once('t2')) { const a = mv(['apple', 'force', 'rotation']); two(S, V(-5.6, 1.3, 3.0), V(-3.8, 1.0, 0.2), 26); await say(S, `Add SPIN: ${a ? `${a.hits} × ${a.perHit}` : 'two strikes'}. Laws multiply.`); rel(S); }
-        else if (t === 3 && once('t3')) { two(S, V(-5.6, 1.3, 3.0), V(-3.8, 1.0, 0.2), 26); await say(S, 'When he lunges, click as the blow lands.', { act: 'point' }); rel(S); }
-        else if (t === 4 && once('t4')) await say(S, 'Every push is pushed back, child. Remember that.', { show: false });
+        else if (t === 3 && once('t3')) await say(S, 'Every push is pushed back, child. Remember that.', { show: false });
         return;
       }
       if (ev === 'steal' && once('steal')) { await say(S, 'He stole a card! Hit him!', { act: 'alarm', wait: false }); return; }

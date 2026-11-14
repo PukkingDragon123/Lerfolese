@@ -99,7 +99,7 @@ export class BattleScene {
     this.lights = stageLights(sc, { theme: this.theme, sunDir: stage.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4), mapSize: this.engine.quality === 'low' ? 1024 : this.engine.quality === 'medium' ? 2048 : 4096 }); this.contact = new ContactShadows(sc, { hAt: stage.hAt });
     // 2D pixel-art sun billboard far behind the stage, along the sky dome's setting-sun direction
     // dusk practicals, R.O.O.M.-style: warm braziers that actually light the fighters, a cool arcane rim, Sir Isaac's spirit glow
-    const rim = new THREE.DirectionalLight(0xffb070, 0.32); rim.position.set(6, 5, -9); const arc = new THREE.DirectionalLight(0x9ab8ff, 0.26); arc.position.set(-7, 6, -10); sc.add(rim, arc);
+    const rim = new THREE.DirectionalLight(0xffb070, 0.55); rim.position.set(6, 5, -9); const arc = new THREE.DirectionalLight(0x9ab8ff, 0.4); /* rim lights: separate the silhouettes from the dusk */ arc.position.set(-7, 6, -10); sc.add(rim, arc);
     this.fires = [];
     for (const [x, z, s] of [[-6.4, -2.4, 1.6], [7.0, -3.2, 1.7]]) {
       const l = new THREE.PointLight(0xff8a3a, 15, 11, 1.8); l.position.set(x, 1.5, z + 0.4); sc.add(l); this.fires.push({ l, x, z, s, ph: Math.random() * 9 });
@@ -176,7 +176,7 @@ export class BattleScene {
       if (v.api.anchorPos) { const body = this.enemyViews.get(v.e.parent); if (body?.api.anchor) body.api.anchor(v.api.anchorIdx ?? 0, v.api.anchorPos); if (!body?.e.alive) v.api.anchorPos = null; }
       const top = new THREE.Vector3().copy(v.api.root.position); top.y += v.e.def.isHead ? 1.0 : v.h + 0.45; const bot = v.api.root.position.clone(); bot.y += v.e.def.isHead ? -0.9 : -0.1;
       const pt = this.engine.worldToUI(top), pb = this.engine.worldToUI(bot);
-      v.hud.update(dt, pb.x, Math.max(pb.y - 0.5, -this.ui.H + 7.4), pt.y + 0.6); v.hud.setVisible(v.e.alive);
+      v.hud.update(dt, pb.x, Math.max(pb.y - 0.5, -this.ui.H + 7.4), pt.y + 0.6); v.hud.setVisible(v.e.alive && !this.dilemmaOn);
     }
     for (const [, fv] of this.fieldViews) fv.update(dt, t);
     for (const f of this.fires) {
@@ -353,11 +353,11 @@ export class BattleScene {
   }
   async endTurn() {
     if (this.battle.phase !== 'player' || this.busy) return;
-    this.busy = true; this.hudB.ringEnd(); this.tooltip.hide(); this.preview.hide();
+    this.busy = true; try { this.hudB.ringEnd(); } catch (e) { console.warn('end turn button', e); } this.tooltip.hide(); this.preview.hide();
     // time flows again: a ripple races out from the golden apple, colour returns, the hanging dust drifts on; then it all plays out
     const ap = new THREE.Vector3(); this.hudB.bell.group.getWorldPosition(ap); ap.project(this.engine.ui.camera); this.engine.ripple([ap.x * 0.5 + 0.5, ap.y * 0.5 + 0.5], 1.2, 1);
     audio.play('clockwork', { vol: 0.6 }); audio.play('whoosh_heavy', { vol: 0.4, delay: 0.1 }); await tweens.wait(0.4);
-    await this.battle.endTurn(); this.busy = false; this.afterAction();
+    try { await this.battle.endTurn(); } finally { this.busy = false; } this.afterAction();
   }
   afterAction() {
     for (const e of this.battle.enemies) this.refreshEnemy(e);
@@ -548,7 +548,7 @@ export class BattleScene {
       async revive() { S.wear?.trigger('golden_apple'); audio.play('apple_crunch'); S.bark('player', 'A golden apple a day keeps the reaper away!', 2.5); S.burst(S.prof.headWorld(new THREE.Vector3()), 'heal', 50); },
       async endTurn(B) { S.prepT.k = 0; S.syncHand(); S.hand.removeViews([...S.hand.views.keys()].filter((uid) => !B.hand.some((s) => s.cards.some((c) => c.uid === uid))), { x: W() - 7.4, y: -H() + 2.4, s: 0.4 }); audio.play('card_fan', { vol: 0.6 }); await tweens.wait(0.35); },
       async intents(B) { for (const e of B.enemies) S.refreshEnemy(e); },
-      won() {}, lost() {},
+      won() {}, lost() { S.prof.act('die'); S.engine.shake(0.45); S.engine.hitStop(140); audio.play('body_fall', { vol: 0.9 }); S.burst(S.prof.root.position.clone().add(new THREE.Vector3(0, 0.3, 0)), 'smoke', 20); },
       async bark(who, text) { S.bark(who, text); },
     };
   }
@@ -590,7 +590,7 @@ export class BattleScene {
 
   eureka(mv) {
     audio.play('eureka'); audio.duckMusic(0.3, 2.5); this.prof.act('cheer'); this.engine.flash(0.18, 0xffe08a, 0.4);
-    this.showBanner('Eureka!', mv.name.toUpperCase(), 'arc', 1.0); hud.feed(`Here Sir Isaac discovered ${mv.name}, and wrote it in his Journal.`, 'arc');
+    this.showBanner('Eureka!', mv.name.toUpperCase(), 'arc', 1.0); 
     this.bark('player', mv.special?.note || vpick(['EUREKA! ...I am writing that down.', 'Note to self: that was brilliant.', 'Peer review is for cowards.']), 3);
     for (let i = 0; i < 30; i++) this.glowParts.spawn({ pos: [this.prof.headWorld(new THREE.Vector3()).x, 3, 1], vel: [vrange(-4, 4), vrange(2, 7), vrange(-1, 1)], life: 1.5, size: 40, color: vpick(['#ffe08a', '#e8fbff', '#b48cff']), sprite: 'star4', grav: 4 });
   }

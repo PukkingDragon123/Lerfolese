@@ -138,7 +138,7 @@ export async function dilemmaScene(S, d, e) {
   const mid = pp.clone().lerp(foeP, 0.5); cam.shot(V(pp.x - 1.6, 2.3, pp.z + 3.2), V(foeP.x, foeP.y + 0.2, foeP.z), { speed: 2.4, fov: 30 });
   const title = new FloatText([[d.title, '#ffe6a8']], { font: 'title', align: 'center', lighten: false }); S.ui.scene.add(title.group); title.place(0, S.ui.H - 1.6, 9); title.show();
   const sub = new FloatText([[d.riddle ? 'A RIDDLE' : 'A DILEMMA', '#c8b494']], { font: 'head', align: 'center', lighten: false }); S.ui.scene.add(sub.group); sub.place(0, S.ui.H - 3.1, 9); sub.show();
-  const loop = { update: (dt) => { title.update(dt); sub.update(dt); const pp9 = S.ui.pointerPlane(9); for (const o of opts) o.B.update(dt, pp9); speech?.update(dt); if (speech) { const p = S.engine.worldToUI(S.enemyPos(e, 1.0).add(V(0, 0.5, 0))); speech.at(p.x, p.y); } } };
+  const loop = { update: (dt) => { title.update(dt); sub.update(dt); const pp9 = S.ui.pointerPlane(9); for (const o of opts) o.B.update(dt, pp9); speech?.update(dt); speech?.at(0, -S.ui.H * 0.42); } }; // the spoken line sits low and central, like a subtitle
   let speech = null; const opts = []; S.engine.add(loop);
   await tweens.wait(0.9); fv?.api.act?.('cast');
   // 2. the foe speaks (voiced), close on it
@@ -173,7 +173,7 @@ export async function dilemmaReply(S, d, opt, e) {
   const cam = S.shotCam; let D = null; try { D = await import('../story/dialogue.js'); } catch (err) { D = null; }
   if (opt.reply && (e.alive || e.fled)) {
     const foeP = S.enemyPos(e, 0.75); cam.shot(V(foeP.x - 2.2, foeP.y + 0.5, foeP.z + 3.8), V(foeP.x, foeP.y + 0.3, foeP.z), { speed: 4, fov: 29 });
-    const sp = new FloatSpeech(S.ui.scene, opt.reply, { who: e.def.name, color: '#ff9a7a', life: 99 }); const loop = { update: (dt) => { sp.update(dt); const p = S.engine.worldToUI(S.enemyPos(e, 1.0).add(V(0, 0.5, 0))); sp.at(p.x, p.y); } }; S.engine.add(loop);
+    const sp = new FloatSpeech(S.ui.scene, opt.reply, { who: e.def.name, color: '#ff9a7a', life: 99 }); const loop = { update: (dt) => { sp.update(dt); sp.at(0, -S.ui.H * 0.42); } }; S.engine.add(loop);
     try { D?.voiceOnly?.('foe', opt.reply); } catch (err) { /* */ } S.enemyViews.get(e.uid)?.api.talk?.(1.2); await waitRead(S, opt.reply); sp.drop(); setTimeout(() => { S.engine.remove(loop); sp.dispose(); }, 700);
   }
   cam.release(2); S.hand.hideAll = false; S.hand.layout(); S.dilemmaOn = false;

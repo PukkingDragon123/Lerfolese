@@ -4,7 +4,8 @@
       "files": [
         "sfx/ui_hover_1.mp3",
         "sfx/ui_hover_2.mp3",
-        "sfx/ui_hover_3.mp3"
+        "sfx/ui_hover_3.mp3",
+        "sfx/ui_hover_4.mp3"
       ],
       "vol": 0.33
     },
@@ -18,13 +19,15 @@
     },
     "ui_back": {
       "files": [
-        "sfx/ui_back_1.mp3"
+        "sfx/ui_back_1.mp3",
+        "sfx/ui_back_2.mp3"
       ],
       "vol": 0.34
     },
     "ui_error": {
       "files": [
-        "sfx/ui_error_1.mp3"
+        "sfx/ui_error_1.mp3",
+        "sfx/ui_error_2.mp3"
       ],
       "vol": 0.28
     },
@@ -113,8 +116,7 @@
     "paper_rustle": {
       "files": [
         "sfx/paper_rustle_1.mp3",
-        "sfx/paper_rustle_2.mp3",
-        "sfx/paper_rustle_3.mp3"
+        "sfx/paper_rustle_2.mp3"
       ],
       "vol": 0.27
     },
@@ -158,6 +160,13 @@
         "sfx/coin_single_1.mp3",
         "sfx/coin_single_2.mp3",
         "sfx/coin_single_3.mp3"
+      ],
+      "vol": 0.36
+    },
+    "coin": {
+      "files": [
+        "sfx/coin_1.mp3",
+        "sfx/coin_2.mp3"
       ],
       "vol": 0.36
     },
@@ -326,6 +335,12 @@
       ],
       "vol": 0.56
     },
+    "rumble": {
+      "files": [
+        "sfx/rumble_1.mp3"
+      ],
+      "vol": 0.6
+    },
     "water_splash": {
       "files": [
         "sfx/water_splash_1.mp3",
@@ -483,6 +498,12 @@
       ],
       "vol": 0.84
     },
+    "glass_break": {
+      "files": [
+        "sfx/glass_break_1.mp3"
+      ],
+      "vol": 0.7
+    },
     "eureka": {
       "files": [
         "sfx/eureka_1.mp3",
@@ -507,8 +528,7 @@
     "hiccup": {
       "files": [
         "sfx/hiccup_1.mp3",
-        "sfx/hiccup_2.mp3",
-        "sfx/hiccup_3.mp3"
+        "sfx/hiccup_2.mp3"
       ],
       "vol": 0.45
     },
@@ -547,8 +567,7 @@
     "goblin_laugh": {
       "files": [
         "sfx/goblin_laugh_1.mp3",
-        "sfx/goblin_laugh_2.mp3",
-        "sfx/goblin_laugh_3.mp3"
+        "sfx/goblin_laugh_2.mp3"
       ],
       "vol": 0.5
     },
@@ -566,8 +585,7 @@
     },
     "bull_snort": {
       "files": [
-        "sfx/bull_snort_1.mp3",
-        "sfx/bull_snort_2.mp3"
+        "sfx/bull_snort_1.mp3"
       ],
       "vol": 0.56
     },
@@ -639,6 +657,36 @@
         "sfx/horse_neigh_1.mp3"
       ],
       "vol": 0.56
+    },
+    "dog_bark": {
+      "files": [
+        "sfx/dog_bark_1.mp3"
+      ],
+      "vol": 0.45
+    },
+    "sting_victory": {
+      "files": [
+        "sfx/sting_victory_1.mp3"
+      ],
+      "vol": 0.6
+    },
+    "sting_defeat": {
+      "files": [
+        "sfx/sting_defeat_1.mp3"
+      ],
+      "vol": 0.6
+    },
+    "sting_reward": {
+      "files": [
+        "sfx/sting_reward_1.mp3"
+      ],
+      "vol": 0.55
+    },
+    "sting_eureka": {
+      "files": [
+        "sfx/sting_eureka_1.mp3"
+      ],
+      "vol": 0.6
     }
   },
   "amb": {
@@ -706,8 +754,17 @@
       ],
       "vol": 0.5,
       "loop": true,
-      "title": "Ultralounge",
-      "artist": "Kevin MacLeod"
+      "title": "[Chiptune] Medieval: The Old Tower Inn",
+      "artist": "RandomMind"
+    },
+    "hall": {
+      "files": [
+        "music/hall.mp3"
+      ],
+      "vol": 0.5,
+      "loop": true,
+      "title": "Napping on a Cloud",
+      "artist": "congusbongus"
     },
     "map": {
       "files": [
@@ -715,8 +772,8 @@
       ],
       "vol": 0.5,
       "loop": true,
-      "title": "Bossa Antigua",
-      "artist": "Kevin MacLeod"
+      "title": "Chiptune Adventures: Stage 2",
+      "artist": "Juhani Junkala"
     },
     "battle": {
       "files": [
@@ -724,8 +781,8 @@
       ],
       "vol": 0.5,
       "loop": true,
-      "title": "Hep Cats",
-      "artist": "Kevin MacLeod"
+      "title": "Retro Game Music Pack: Level 1",
+      "artist": "Juhani Junkala"
     },
     "battle2": {
       "files": [
@@ -733,8 +790,8 @@
       ],
       "vol": 0.5,
       "loop": true,
-      "title": "Dispersion Relation",
-      "artist": "Kevin MacLeod"
+      "title": "Retro Game Music Pack: Level 2",
+      "artist": "Juhani Junkala"
     },
     "elite": {
       "files": [
@@ -742,17 +799,17 @@
       ],
       "vol": 0.5,
       "loop": true,
-      "title": "Rocket Power",
-      "artist": "Kevin MacLeod"
+      "title": "8-bit - Perilous Dungeon",
+      "artist": "HydroGene"
     },
     "boss": {
       "files": [
         "music/boss.mp3"
       ],
-      "vol": 0.55,
+      "vol": 0.5,
       "loop": true,
-      "title": "Tango de Manzana",
-      "artist": "Kevin MacLeod"
+      "title": "Chiptune Adventures: Boss Fight",
+      "artist": "Juhani Junkala"
     },
     "event": {
       "files": [
@@ -760,8 +817,8 @@
       ],
       "vol": 0.5,
       "loop": true,
-      "title": "Zazie",
-      "artist": "Kevin MacLeod"
+      "title": "Gods Forbid",
+      "artist": "Centurion_of_war"
     },
     "shop": {
       "files": [
@@ -769,8 +826,8 @@
       ],
       "vol": 0.5,
       "loop": true,
-      "title": "Lobby Time",
-      "artist": "Kevin MacLeod"
+      "title": "Apple Cider",
+      "artist": "Zane Little Music"
     },
     "journal": {
       "files": [
@@ -778,8 +835,8 @@
       ],
       "vol": 0.5,
       "loop": true,
-      "title": "Night on the Docks (Piano)",
-      "artist": "Kevin MacLeod"
+      "title": "Free NES Music Pack: 23 Chill",
+      "artist": "Phillip Miller (pmiller)"
     },
     "sting_victory": {
       "files": [
@@ -787,7 +844,7 @@
       ],
       "vol": 0.6,
       "loop": false,
-      "title": "Sax jingle 02 (rising run)",
+      "title": "8-Bit jingle 12",
       "artist": "Kenney"
     },
     "sting_defeat": {
@@ -796,7 +853,7 @@
       ],
       "vol": 0.6,
       "loop": false,
-      "title": "Sax jingle 07 (sinking \"wah-wah\")",
+      "title": "8-Bit jingle 00",
       "artist": "Kenney"
     },
     "sting_reward": {
@@ -805,7 +862,7 @@
       ],
       "vol": 0.6,
       "loop": false,
-      "title": "Pizzicato jingle 10 (rising)",
+      "title": "8-Bit jingle 08",
       "artist": "Kenney"
     },
     "sting_eureka": {
@@ -814,8 +871,8 @@
       ],
       "vol": 0.6,
       "loop": false,
-      "title": "Sax jingle 15 (ta-da)",
-      "artist": "Kenney"
+      "title": "sfx_sounds_fanfare1",
+      "artist": "Juhani Junkala"
     }
   }
 }
