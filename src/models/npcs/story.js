@@ -179,13 +179,17 @@ export function createCosmicSelf() {
     Object.assign(sh.uniforms, U);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vVN; varying vec3 vVP;').replace('#include <project_vertex>', '#include <project_vertex>\nvVP = -mvPosition.xyz; vVN = normalize(normalMatrix * normal);');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vVN; varying vec3 vVP;\n' + GALAXY_FRAG)
-      .replace('vec4 diffuseColor = vec4( diffuse, opacity );', 'vec2 suv = gl_FragCoord.xy / max(uRes.y, 1.0); float fr = pow(1.0 - abs(dot(normalize(vVN), normalize(vVP))), 2.2); vec3 gc = galaxy(suv - vec2(0.5 * uRes.x / uRes.y, 0.5), uTime); gc = mix(gc, vec3(1.0, 0.86, 0.5), smoothstep(0.55, 0.95, fr) * 0.85); vec4 diffuseColor = vec4(gc, uAlpha * mix(0.82, 1.0, fr));');
+      .replace('vec4 diffuseColor = vec4( diffuse, opacity );', 'vec2 suv = gl_FragCoord.xy / max(uRes.y, 1.0); float fr = pow(1.0 - abs(dot(normalize(vVN), normalize(vVP))), 2.2); vec3 gc = galaxy(suv - vec2(0.5 * uRes.x / uRes.y, 0.5), uTime); gc = mix(gc, vec3(1.0, 0.86, 0.5), smoothstep(0.78, 1.0, fr) * 0.7); vec4 diffuseColor = vec4(gc, uAlpha);');
   };
   mat.customProgramCacheKey = () => 'cosmic-self';
   const hide = new Set();
   api.root.traverse((o) => { if (o.isPoints) { o.visible = false; hide.add(o); return; } if (o.isMesh || o.isSkinnedMesh) { if (o.geometry?.type === 'PlaneGeometry') { o.visible = false; return; } o.material = mat; o.userData.noInk = true; } });
+  // two small star-eyes in the dark of the face
+  const eyeM = new THREE.MeshBasicMaterial({ color: 0xfff2c0, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+  const star = new THREE.Shape(); for (let i = 0; i <= 8; i++) { const a = (i / 8) * TAU, r = i % 2 ? 0.006 : 0.022; star[i ? 'lineTo' : 'moveTo'](Math.cos(a) * r, Math.sin(a) * r); }
+  const eyes = [-1, 1].map((sd) => { const e = new THREE.Mesh(new THREE.ShapeGeometry(star), eyeM); e.position.set(sd * 0.034, -0.035, 0.1); e.userData.noInk = true; api.head.add(e); return e; });
   api.galaxy = U; const up = api.update; api.update = (dt) => { up(dt); U.uTime.value += dt; for (const o of hide) o.visible = false; };
-  api.setAlpha = (a) => { U.uAlpha.value = a; };
+  api.setAlpha = (a) => { U.uAlpha.value = a; eyeM.opacity = a; for (const e of eyes) e.rotation.z += 0.02; };
   api.setRes = (w, h) => U.uRes.value.set(w, h);
   return api;
 }

@@ -12,9 +12,9 @@ for (const [s, L] of [[1, '_L'], [-1, '_R']]) BONES.push(
 BONES.push(['tail1', 'hips', [0, 0.86, -0.12]]);
 const J = Object.fromEntries(BONES.map(([n, , p]) => [n, p]));
 const PAL = {
-  skin: { s: 'skin', c: hex('#cdb6cc') }, feather: { s: 'feather', c: hex('#3c3f66'), tip: hex('#2a6a78'), sz: 0.03 }, hair: { s: 'hair', c: hex('#46285a'), fs: 34 },
-  scale: { s: 'scale', c: hex('#c9a142'), sz: 0.012 }, brow: { s: 'skin', c: hex('#3a2040') }, lip: { s: 'skin', c: hex('#7a3a6a') },
-  eye: { s: 'eye', c: hex('#ffd23a'), glow: [255, 200, 60], pupil: 'round', pupilR: 0.22 }, default: { s: 'skin', c: hex('#cdb6cc') },
+  skin: { s: 'skin', c: hex('#c4a894') }, feather: { s: 'feather', c: hex('#4a3e36'), tip: hex('#8a7a66'), sz: 0.03 }, hair: { s: 'hair', c: hex('#2a2024'), fs: 34 },
+  scale: { s: 'scale', c: hex('#a89060'), sz: 0.012 }, brow: { s: 'skin', c: hex('#3a2a24') }, lip: { s: 'skin', c: hex('#8a5048') },
+  eye: { s: 'eye', c: hex('#c88a2a'), pupil: 'round', pupilR: 0.3 }, default: { s: 'skin', c: hex('#c4a894') },
 };
 function sculpt(S) {
   sculptHuman(S, J, H, { bulk: 0.78, arms: false, legs: false, tags: { body: 'skin', chest: 'feather' } });
@@ -46,7 +46,7 @@ const A = () => asset('harpy', { bones: BONES, sculpt, pal: PAL, cell: 0.012, ta
 
 const featherMat = () => K.uvMat('harpy-feather', 32, 128, (u, v, o) => {
   const top = Math.abs(((u + 0.25) % 0.5) - 0.25) < 0.03; const barb = Math.sin(v * 70 + Math.abs(u - 0.5) * 30) > 0.8;
-  K.tone(v > 0.78 ? hex('#b07a3a') : v > 0.55 ? hex('#2a6a78') : hex('#3c3f66'), K.band(0.5 + Math.cos(u * 6.28) * 0.2 + (top ? 0.25 : 0) + (barb ? -0.12 : 0), 4), o.col);
+  K.tone(v > 0.78 ? hex('#9a8670') : v > 0.55 ? hex('#5a4a3e') : hex('#463a32'), K.band(0.5 + Math.cos(u * 6.28) * 0.2 + (top ? 0.25 : 0) + (barb ? -0.12 : 0), 4), o.col);
 });
 const feather = (a, dir, len, w) => new K.Loft(10, 6).set(K.curve([a, add3l(a, dir, len * 0.5, -0.02), add3l(a, dir, len, -0.05)]), (t) => [w * Math.sin(Math.min(1, t * 1.15 + 0.12) * Math.PI) * 0.9 + 0.004, 0.005], { ref: (t, n) => n.set(0, 1, 0) }).geo;
 const add3l = (a, d, l, dy) => { const n = Math.hypot(...d); return [a[0] + (d[0] / n) * l, a[1] + (d[1] / n) * l + dy * l, a[2] + (d[2] / n) * l]; };

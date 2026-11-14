@@ -6,10 +6,10 @@ import { THREE, K, hex, humanRows, sculptHuman, fistFrame, asset, prop, createGe
 const H = 3.1;
 const BONES = humanRows(H, { sw: 1.25, hw: 1.2 });
 const PAL = {
-  skin: { s: 'skin', c: hex('#66748a'), belly: hex('#7c8494') }, brow: { s: 'skin', c: hex('#56607a'), L: -0.04 },
-  eye: { s: 'eye', c: hex('#ffc23a'), glow: [255, 180, 50], white: hex('#efe6d2'), iris: 0.98, irisR: 0.52, pupil: 'round', pupilR: 0.2 },
+  skin: { s: 'skin', c: hex('#9a7a62'), belly: hex('#a88a70') }, brow: { s: 'skin', c: hex('#7e6250'), L: -0.04 },
+  eye: { s: 'eye', c: hex('#6a4a2a'), white: hex('#e2d8c4'), iris: 0.98, irisR: 0.52, pupil: 'round', pupilR: 0.2 },
   mouth: { s: 'dark', c: hex('#5a1a24') }, pelt: { s: 'fur', c: hex('#6e4a2c'), fs: 26, back: hex('#7e5634') }, strap: { s: 'leather', c: hex('#4a2c1a') }, nail: { s: 'keratin', c: hex('#c8bca8') },
-  default: { s: 'skin', c: hex('#66748a') },
+  default: { s: 'skin', c: hex('#9a7a62') },
 };
 function sculpt(S) {
   const J = Object.fromEntries(BONES.map(([n, , p]) => [n, p]));

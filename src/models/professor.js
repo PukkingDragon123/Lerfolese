@@ -55,20 +55,20 @@ function appleParts() {
   const path = (t, p) => p.set(0, (t - 0.5) * 2 * R * 0.92 - (t > 0.9 ? (t - 0.9) * R * 1.6 : 0) + (t < 0.1 ? (0.1 - t) * R * 1.2 : 0), 0);
   const rad = (t) => { const r = R * Math.sin(Math.PI * Math.min(1, Math.max(0, 0.04 + t * 0.92))) * (1 + 0.1 * Math.sin(t * Math.PI * 1.15) - 0.06 * t); return [r, r]; };
   const shape = (a) => 1 + 0.025 * Math.cos(a * 5);
-  const geo = new K.Loft(26, 28).set(path, rad, { ref: (t, n) => n.set(0, 0, 1), shape }).geo;
+  const geo = new K.Loft(9, 10).set(path, rad, { ref: (t, n) => n.set(0, 0, 1), shape }).geo; // low poly
   const bitten = geo.clone(); { const p = bitten.attributes.position; const d = new THREE.Vector3(1, 0.1, 0.25).normalize(); for (let i = 0; i < p.count; i++) { const v = new THREE.Vector3().fromBufferAttribute(p, i); const k = v.clone().normalize().dot(d); if (k > 0.55) { v.multiplyScalar(1 - (k - 0.55) * 1.1); p.setXYZ(i, v.x, v.y, v.z); } } bitten.computeVertexNormals(); }
   const skin = (bite) => K.uvMat(bite ? 'apple-bitten' : 'apple', 128, 128, (u, v, o) => {
-    const lit = Math.cos((u - 0.12) * TAU); const streak = Math.abs(((u * 23 + Math.sin(v * 5) * 0.4) % 1) - 0.5) < 0.12 && v > 0.55;
-    K.tone(streak ? [238, 120, 52] : [214, 28, 44], lit > 0.55 ? 0.66 : lit < -0.35 ? 0.32 : 0.5, o.col);
+    const px = Math.floor(u * 64), py = Math.floor(v * 64); const streak = (Math.floor(u * 23 + Math.sin(v * 5) * 0.4) % 2 === 0) && v > 0.5 && ((px + py) % 3 !== 0);
+    K.tone(streak ? [226, 102, 46] : [200, 30, 42], 0.5, o.col);
     if (v > 0.9) K.tone([150, 160, 40], 0.45, o.col); else if (v < 0.07) K.tone([120, 30, 30], 0.35, o.col);
     if (K.vnoise(u * 60, v * 40, 3) > 0.84) K.tone([252, 210, 160], 0.6, o.col); // lenticel speckles
-    if (Math.hypot((u - 0.08) * 2.4, v - 0.66) < 0.06) { o.col[0] = 255; o.col[1] = 248; o.col[2] = 250; } // crisp anime gloss
     if (bite && Math.hypot((u - 0.22) * 2, v - 0.5) < 0.2) { K.tone([250, 238, 200], 0.6, o.col); if (Math.hypot((u - 0.22) * 2, v - 0.5) > 0.18) K.tone([200, 30, 40], 0.4, o.col); }
   });
   const stem = new K.Loft(8, 8).set(K.curve([[0, R * 0.62, 0], [0.006, R * 0.95, 0.002], [0.016, R * 1.2, 0.004]]), (t) => 0.0055 * (1 - t * 0.4), { ref: (t, n) => n.set(0, 0, 1) }).geo;
   const ls = new THREE.Shape(); ls.moveTo(0, 0); ls.quadraticCurveTo(0.022, 0.012, 0.05, 0.004); ls.quadraticCurveTo(0.03, -0.014, 0, 0);
   const leaf = new THREE.ShapeGeometry(ls, 6); { const p = leaf.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin(p.getX(i) / 0.05 * Math.PI) * 0.006 - Math.abs(p.getY(i)) * 0.3); leaf.computeVertexNormals(); }
   APPLE = { geo, bitten, mat: skin(false), matB: skin(true), stem, leaf, stemMat: K.uvMat('apple-stem', 16, 16, (u, v, o) => K.tone([110, 70, 40], 0.5, o.col)), leafMat: K.uvMat('apple-leaf', 32, 32, (u, v, o) => { K.tone([76, 168, 64], Math.abs(v - 0.5) < 0.04 ? 0.7 : u > 0.5 ? 0.42 : 0.56, o.col); }, { side: THREE.DoubleSide }) };
+  for (const k of ['mat', 'matB', 'stemMat', 'leafMat']) APPLE[k].flatShading = true;
   return APPLE;
 }
 function makeApple() {
@@ -79,14 +79,14 @@ function makeApple() {
 // long wavy 17th-century locks over the Limbo hair cap: cel tubes (chestnut, crisp highlight band, darker underside)
 function wavyLocks(P) {
   const g = new THREE.Group(); let s = 17; const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  const m = K.uvMat('hero-locks', 64, 256, (u, v, o) => { const lit = Math.cos(u * TAU); const ring = lit > 0.4 && v > 0.12 && v < 0.2; const c = ring ? [176, 112, 72] : lit < -0.2 ? [46, 26, 20] : [92, 56, 36]; o.col[0] = c[0]; o.col[1] = c[1]; o.col[2] = c[2]; });
+  const m = K.uvMat('hero-locks-real', 32, 64, (u, v, o) => { const sx = Math.floor(u * 32), str = Math.sin(sx * 2.7) * 0.5 + 0.5, dk = (sx * 7 + Math.floor(v * 64 / 6)) % 5 === 0; const c = dk ? [58, 34, 24] : str > 0.7 ? [122, 78, 48] : [88, 54, 34]; o.col[0] = c[0]; o.col[1] = c[1]; o.col[2] = c[2]; }); m.flatShading = true; // chestnut strands, lit by the scene
   const c = new THREE.Vector3(0, (P.hairY + P.eyeY) / 2 + 0.012, P.hcz - 0.012);
   for (let i = 0; i < 46; i++) {
     const side = i % 2 ? 1 : -1; const az = side * (0.75 + rnd() * 2.3), el = -0.15 + rnd() * 1.25; if (Math.cos(az) > 0.25 && el < 1.0) continue;
     const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)); const p0 = c.clone().add(new THREE.Vector3(dir.x * P.hw * 1.02, dir.y * 0.095, dir.z * P.hd * 0.98));
     const out = new THREE.Vector3(dir.x * 1.2, 0, Math.min(0, dir.z) - 0.2).normalize(); const fall = Math.max(0.08, p0.y - P.shoulderY + 0.02 + rnd() * 0.06); const ph = rnd() * 6.28, amp = 0.008 + rnd() * 0.01, r0 = 0.012 + rnd() * 0.007;
     const pts = []; for (let j = 0; j <= 6; j++) { const t = j / 6; pts.push(p0.clone().addScaledVector(out, 0.008 + t * 0.03 + Math.sin(t * 8 + ph) * amp).add(new THREE.Vector3(0, -t * fall, 0))); }
-    K.mesh(new K.Loft(12, 8).set(K.curve(pts), (t) => { const r = r0 * (1 - t * 0.6) * (t < 0.1 ? 0.6 + t * 4 : 1); return [r * 1.25, r * 0.8]; }, { ref: () => out }).geo, m, g);
+    K.mesh(new K.Loft(6, 5).set(K.curve(pts), (t) => { const r = r0 * (1 - t * 0.6) * (t < 0.1 ? 0.6 + t * 4 : 1); return [r * 1.25, r * 0.8]; }, { ref: () => out }).geo, m, g);
   }
   return g;
 }
@@ -138,9 +138,10 @@ function pixelCloth(L) {
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
     if ((x < 113 * k && y < 97 * k) || (x >= 231 * k && x < 256 * k && y >= 63 * k && y < 79 * k)) continue; const i = (y * S + x) * 4; if (!d[i + 3]) continue;
     const r = d[i], g = d[i + 1], b = d[i + 2], lm = r * 0.3 + g * 0.59 + b * 0.11; let f = 1;
-    const coat = b > r * 1.15 && b > g * 1.05 && lm < 95, vest = r > g * 1.8 && r > b * 1.4 && r > 50 && lm < 140;
+    const coat = b > r * 1.15 && b > g * 1.05 && lm < 95, vest = r > g * 1.8 && r > b * 1.4 && r > 50 && lm < 140, skin = r > g && g > b && r > 140 && r - b > 40 && r - b < 120;
     if (coat) { f = ((x + y) >> 1) % 3 === 0 ? 0.86 : 1; f *= 0.96 + 0.08 * (h(x >> 2, y >> 2) > 0.5 ? 1 : 0); }
     else if (vest) { const dd = Math.abs((x % 8) - 4) + Math.abs((y % 8) - 4); f = dd === 3 ? 1.22 : dd === 0 ? 1.3 : (x + y) % 2 ? 0.97 : 1.0; }
+    else if (skin) f = 0.975 + 0.05 * h(x >> 1, y >> 1); // fine clustered skin texture (pores, warmth variation)
     else continue;
     d[i] = Math.min(255, r * f); d[i + 1] = Math.min(255, g * f); d[i + 2] = Math.min(255, b * f);
   }
@@ -149,7 +150,7 @@ function pixelCloth(L) {
 // the lace jabot under his chin: three ruffled tiers (pixel lace texture) on a spring pivot so it swings and lifts
 function laceJabot(L, sc) {
   const m = K.uvMat('hero-jabot', 32, 32, (u, v, o) => { const px = Math.floor(u * 32), py = Math.floor(v * 32); const hole = (px + (py % 4 < 2 ? 0 : 2)) % 4 === 0 && py % 4 === 1; const edge = v > 0.82 && (px % 3 === 0);
-    K.tone(hole ? [176, 172, 196] : edge ? [255, 255, 250] : [238, 234, 228], hole ? 0.4 : u < 0.5 ? 0.62 : 0.52, o.col); }, { side: THREE.DoubleSide });
+    K.tone(hole ? [176, 172, 196] : edge ? [255, 255, 250] : [238, 234, 228], hole ? 0.4 : u < 0.5 ? 0.62 : 0.52, o.col); }, { side: THREE.DoubleSide }); m.flatShading = true;
   const piv = new THREE.Group(); const k = 1 / sc;
   for (let tier = 0; tier < 3; tier++) { const W = (0.05 + tier * 0.012) * k, Hh = 0.03 * k, pos = [], uv = [], idx = []; const NU = 12, NV = 3;
     for (let j = 0; j <= NV; j++) for (let i = 0; i <= NU; i++) { const u = i / NU, v = j / NV; pos.push((u - 0.5) * W * (1 + v * 0.5), -v * Hh - tier * 0.017 * k, (Math.sin(u * Math.PI * 6) * 0.004 * v + Math.sin(u * Math.PI) * 0.008 + v * 0.006) * k); uv.push(u, v); }
@@ -186,7 +187,9 @@ const IDLES = ['float', 'chill', 'think', 'ponder', 'invent', 'write'];
 export function createProfessor() {
   const root = new THREE.Group(); root.name = 'professor';
   const body = new THREE.Group(); body.name = 'hero'; root.add(body);
-  const L = new LimboBody(APP, OUTFIT, { hook: heroHook, overrides: { hairVolume: 1.25, blush: 0.15 } }); const sc = HEIGHT / L.P.crown; L.root.scale.setScalar(sc); body.add(L.root);
+  const L = new LimboBody(APP, OUTFIT, { hook: heroHook, overrides: { hairVolume: 1.25, blush: 0.05, eyeW: 0.9, eyeH: 0.78 }, lowpoly: true }); // realistic low poly: octagon rings, believable eyes
+  L.gg.paintAll(L.spec, L.app, {}, 'base'); // repaint without the anime median clean-up: keep the realistic texel detail
+  L.mesh.material.flatShading = true; L.mesh.material.needsUpdate = true; const sc = HEIGHT / L.P.crown; L.root.scale.setScalar(sc); body.add(L.root);
   pixelCloth(L); const B = L.bones; const anim = new LimboAnim(L, { sway: 0.6 });
   L.attach(wavyLocks(L.P), B.hair ? 'hair' : 'head'); const jabot = laceJabot(L, sc);
   const head = new THREE.Group(); B.head.add(head); head.position.set(0, 0.12, 0.03); const jaw = new THREE.Group(); head.add(jaw); jaw.position.set(0, -0.06, 0.06);

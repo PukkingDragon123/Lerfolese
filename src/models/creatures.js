@@ -5,7 +5,7 @@
 // pixel page per creature. Horns, tails, snakes, props and the hydra are smooth lofted meshes with painted textures.
 import * as THREE from 'three';
 import { Spring } from '../core/tween.js';
-import * as K from './charkit.js';
+import { K, limboMat } from './beasts/look.js'; // realistic low-poly pixel look (flat-shaded lit materials, natural pixel ramps)
 import { LimboBody, LimboAnim, IMPACT } from './limbo/rig.js';
 import { isBeast, createBeast } from './beasts/index.js';
 
@@ -48,7 +48,7 @@ function rig(root, height, proc = false) {
 const ANIM = { hurt: 'hit', die: 'death', cheer: 'cheer' };
 function limboHumanoid(id, cfg, seed) {
   const root = new THREE.Group(); root.name = id;
-  const L = new LimboBody(cfg.app, cfg.outfit, { severed: cfg.severed || [], hook: cfg.hook, overrides: cfg.overrides || {} });
+  const L = new LimboBody(cfg.app, cfg.outfit, { severed: cfg.severed || [], hook: cfg.hook, overrides: cfg.overrides || {} }); L.mesh.material = limboMat(L.tex);
   const sc = cfg.height / (cfg.refH || L.P.crown); L.root.scale.setScalar(sc); root.add(L.root);
   const anim = new LimboAnim(L, { sway: cfg.sway ?? 1, speed: cfg.speed ?? 1, fall: cfg.fall ?? true }); anim.t += seed * 1.7;
   const head = new THREE.Group(); L.bones.head.add(head); head.position.set(0, 0.14, 0.03);

@@ -9,8 +9,8 @@ const BONES = humanRows(H, { sw: 1.2, hw: 1.1 });
 const BRONZE = { s: 'metal', c: hex('#8e6436'), me: 0.6, ro: 0.3, seam: 0.0042, glowC: [255, 170, 60], e: [210, 92, 20] };
 const PAL = {
   bronze: BRONZE, face: { ...BRONZE, c: hex('#a8783e'), seam: 0 }, crest: { ...BRONZE, c: hex('#6e4a26'), seam: 0 }, brow: { ...BRONZE, c: hex('#7a5630'), seam: 0 },
-  eyeglow: { s: 'dark', c: hex('#ffd060'), e: [255, 190, 70] }, slot: { s: 'dark', c: hex('#ff9030'), e: [255, 120, 30] }, core: { s: 'dark', c: hex('#ffb040'), e: [255, 150, 40] },
-  vein: { s: 'dark', c: hex('#ffcf5a'), e: [255, 170, 50] }, nail: { ...BRONZE, c: hex('#e8b060'), seam: 0 }, default: BRONZE,
+  eyeglow: { s: 'dark', c: hex('#e0a040'), e: [170, 100, 30] }, slot: { s: 'dark', c: hex('#a05020'), e: [120, 50, 14] }, core: { s: 'dark', c: hex('#d08030'), e: [180, 90, 24] },
+  vein: { s: 'dark', c: hex('#d89a3a'), e: [170, 100, 30] }, nail: { ...BRONZE, c: hex('#e8b060'), seam: 0 }, default: BRONZE,
 };
 function sculpt(S) {
   const J = Object.fromEntries(BONES.map(([n, , p]) => [n, p]));

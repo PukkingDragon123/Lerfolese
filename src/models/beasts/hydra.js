@@ -5,15 +5,15 @@
 // lives in world space and is solved every frame from the body's anchor to the head (arc-length matched curve, spring
 // lag on every joint). Heads bite, recoil, hiss and, on death, are severed: the stump stays with a bloody cap.
 import * as THREE from 'three';
-import * as K from '../charkit.js';
+import { K } from './look.js';
 import { Spring } from '../../core/tween.js';
 import { Sculpt, bake } from './flesh.js';
 import { makeBones, skinned, onBone, skinAttrs, sample, add, apply, battleRig, paintWounds, woundMat, woundTex, rigidSkinned } from './rig.js';
 
 const { hex } = K;
 const PAL = {
-  base: { top: hex('#2f7058'), side: hex('#4f9a5e'), belly: hex('#d8c27a'), dark: hex('#173c36'), spine: hex('#a8303e'), claw: hex('#2a2224') },
-  elder: { top: hex('#2a4a3a'), side: hex('#4a6e48'), belly: hex('#bfae78'), dark: hex('#141f1c'), spine: hex('#7a2430'), claw: hex('#1e1a1a') },
+  base: { top: hex('#3a5638'), side: hex('#5a7446'), belly: hex('#c8b07a'), dark: hex('#24321e'), spine: hex('#7a3a2a'), claw: hex('#2a2224') },
+  elder: { top: hex('#2e3c2c'), side: hex('#4a5638'), belly: hex('#b0a070'), dark: hex('#181e16'), spine: hex('#5a2a22'), claw: hex('#1e1a1a') },
 };
 
 // ================================================================== body
@@ -188,8 +188,9 @@ function headPainter(S, P) {
     if (tag === 'eye') {
       const p = q.prim, m = p.m; const dx = c.x - p.cx, dy = c.y - p.cy, dz = c.z - p.cz; const lx = m[0] * dx + m[1] * dy + m[2] * dz, ly = m[3] * dx + m[4] * dy + m[5] * dz, lz = m[6] * dx + m[7] * dy + m[8] * dz; const r = Math.hypot(lx / p.rx, ly / p.ry);
       if (lz < 0 || r > 0.8) { K.tone(P.dark, 0.25, o.col); return; }
-      if (Math.abs(lx) < p.rx * 0.12) { o.col = [16, 8, 14]; return; }
-      K.tone(hex('#e8ff50'), K.band(0.8 - r * 0.5, 4), o.col); o.em = [200, 255, 50]; if (Math.hypot(lx / p.rx + 0.3, ly / p.ry - 0.35) < 0.17) { o.col = [255, 255, 235]; o.em = [255, 255, 240]; } return;
+      if (Math.hypot(lx / p.rx + 0.3, ly / p.ry - 0.35) < 0.15) { o.col = [232, 228, 214]; o.ro = 0.05; return; }
+      if (Math.abs(lx) < p.rx * 0.12) { o.col = [12, 8, 10]; o.ro = 0.1; return; }
+      K.tone(hex('#c8a83a'), K.band(0.6 - r * 0.3 + (K.vnoise(lx * 400, ly * 400, 2) - 0.5) * 0.14), o.col); o.ro = 0.12; return; // reptile iris: gold flecked, slit pupil
     }
     if (tag === 'mouth') { K.tone(hex('#6a1a2a'), K.band(0.4 + c.ny * 0.1, 3), o.col); return; }
     if (tag === 'nostril') { o.col = [14, 10, 12]; return; }
@@ -213,7 +214,7 @@ function headAsset() {
   const wq = {}; const wound = K.paintSurface(surf, paintWounds(surf, { sites, seed: 7, select: (c) => { S.query(c.x, c.y, c.z, wq); return wq.tag !== 'eye'; } }));
   // neck: straight rest tube along +Z (dorsal +Y), skinned across the 8 neck bones
   const neck = new K.Loft(32, 16).set((t, p) => p.set(0, 0, t * HL), (t) => [neckR(t) * 1.12, neckR(t)], {});
-  skinAttrs(neck.geo, { names: [...Array(NB).keys()].map((i) => 'n' + i) }, (i) => { const v = Math.floor(i / 17) / 31; const x = Math.min(NB - 1e-3, v * NB); const b = Math.floor(x), f = x - b; if (f < 0.5) return b > 0 ? [['n' + b, 0.5 + f], ['n' + (b - 1), 0.5 - f]] : [['n0', 1]]; return b < NB - 1 ? [['n' + b, 1.5 - f], ['n' + (b + 1), f - 0.5]] : [['n' + b, 1]]; });
+  skinAttrs(neck.geo, { names: [...Array(NB).keys()].map((i) => 'n' + i) }, (i) => { const v = Math.floor(i / (neck.M + 1)) / (neck.R - 1); const x = Math.min(NB - 1e-3, v * NB); const b = Math.floor(x), f = x - b; if (f < 0.5) return b > 0 ? [['n' + b, 0.5 + f], ['n' + (b - 1), 0.5 - f]] : [['n0', 1]]; return b < NB - 1 ? [['n' + b, 1.5 - f], ['n' + (b + 1), f - 0.5]] : [['n' + b, 1]]; });
   const neckMat = K.paintedMat(K.paintUV(128, 512, (u, v, o) => {
     const vv = v * 7; const belly = Math.abs(u - 0.5) < 0.15; o.ro = 0.4;
     if (belly) { const pl = (vv * 3.2) % 1; K.tone(P.belly, K.band(0.55 + Math.cos((u - 0.5) * 9) * 0.08 - pl * 0.24 + (pl > 0.88 ? -0.2 : 0), 4), o.col); return; }
@@ -229,7 +230,7 @@ function headAsset() {
   S.release(); return (HCACHE = { geo, mat, wound: woundTex(wound.canvas), neckGeo: neck.geo, neckMat, neckWound: woundTex(nw.canvas) });
 }
 function capGeo() { // the bloody cut face of a severed neck: flesh rings round a white bone core
-  const g = new THREE.LatheGeometry([[0, 0.025], [0.04, 0.024], [0.09, 0.016], [0.13, 0.006], [0.15, -0.02]].map(([x, y]) => new THREE.Vector2(x, y)), 20); g.rotateX(Math.PI / 2); return g;
+  const g = new THREE.LatheGeometry([[0, 0.025], [0.04, 0.024], [0.09, 0.016], [0.13, 0.006], [0.15, -0.02]].map(([x, y]) => new THREE.Vector2(x, y)), 9); g.rotateX(Math.PI / 2); return g;
 }
 const capMat = () => K.uvMat('hyd-cap', 64, 64, (u, v, o) => { const r = v + Math.sin(u * 37) * 0.03; if (r < 0.14) K.tone(hex('#eadcc0'), K.band(0.62 - r, 3), o.col); else if (r < 0.86) { const pool = K.vnoise(u * 9, r * 6, 4) > 0.55; K.tone(pool ? hex('#4a0610') : hex('#9a1424'), K.band(0.5 + Math.sin(r * 34) * 0.08 - (r - 0.14) * 0.25, 4), o.col); } else K.tone(PAL.base.side, 0.4, o.col); o.ro = 0.2; });
 

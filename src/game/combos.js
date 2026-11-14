@@ -150,11 +150,11 @@ export function computeMove(comps, mods = {}) {
   let focus = 1, spread = false, prism = false, fall = false, hard = false, pierce = false, grow = false, bounceFalloff = 0;
   let hasMatter = false, lensCount = 0, forceCount = 0, gravityCount = 0, launched = false, shove = 0, carry = false, float = false, dizzyOnHit = 0, seek = null, lever = false, swing = 0, press = 0, waveMul = 1;
   const self = { heal: 0, block: 0, cleanse: false, charged: 0, momentum: 0, thorns: 0, retain: false, kindle: 0, draw: 0 };
-  const rockN = ec.filter((c) => ROCK.includes(baseOf(c.id))).length;
+  const rockN = ec.filter((c) => ROCK.includes(baseOf(c.id))).length; let ksKg = 0;
   for (const { c, k, dead } of eff) {
     const d = BASICS[c.id]; if (!d || dead) continue; K = k;
     if (d.kind === 'matter') { hasMatter = true; m += S(c, 'm'); baseV = Math.max(baseV, S(c, 'v')); if (d.hard) hard = true; }
-    if (d.keystone) m += d.keystone * Math.max(0, rockN - 1) * k; // +2 kg for every other stone in the object
+    if (d.keystone) { const kg = d.keystone * Math.max(0, rockN - 1) * k; m += kg; ksKg += kg; } // +2 kg for every other stone in the object
     if (d.spread) spread = true; if (d.launch) launched = true; shove += S(c, 'shove'); if (d.carry) carry = true; if (d.float) float = true; dizzyOnHit += S(c, 'dizzyOnHit'); if (d.seek) seek = d.seek;
     if (d.lever) lever = true; swing += S(c, 'swing'); press += S(c, 'pressure'); if (d.waveMul) waveMul *= d.waveMul;
     m += S(c, 'dm') * (mods.massMul && ['mass', 'dark_matter'].includes(baseOf(c.id)) ? mods.massMul : 1);
@@ -200,7 +200,7 @@ export function computeMove(comps, mods = {}) {
   if (echoes) combo.push({ text: `Echo: ${eff.filter((x) => x.echoed).map((x) => BASICS[x.c.id]?.name).join(', ')} again`, kind: 'note', id: 'echo' });
   if (amps.length) combo.push({ text: `Amplifier: ${amps.map((x) => `${BASICS[x.c.id]?.name} ×${x.k}`).join(', ')}`, kind: 'note', id: 'amplifier' });
   if (comps.length > 1 && eff.some((x) => x.dead)) combo.push({ text: 'Echo first: nothing to repeat yet', mul: 1, kind: 'anti', id: 'echo' });
-  if (has1('keystone') && rockN > 1) combo.push({ text: `Keystone: +${(rockN - 1) * 2} kg from ${rockN - 1} other stone${rockN > 2 ? 's' : ''}`, kind: 'note', id: 'keystone' });
+  if (ksKg) { const ks = ec.filter((c) => baseOf(c.id) === 'keystone').length; combo.push({ text: `Keystone${ks > 1 ? ' ×' + ks : ''}: +${ksKg} kg (${rockN} stones in the arch)`, kind: 'note', id: 'keystone' }); }
   if (has('insulated')) charge = 0;
   if (has('darklens')) { focus = 1; lensCount = 0; }
   for (const r of syn) burn += r.burn || 0;

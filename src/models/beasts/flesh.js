@@ -4,6 +4,7 @@
 // smooth unions, then diffuse over the mesh) and unwrapped into compact normal-cone charts so the painters in
 // charkit can paint clean banded textures from the bind-pose 3D point. Built once per creature id and cached.
 import * as THREE from 'three';
+import { LOW, lowAtlas } from './look.js';
 
 const smin = (a, b, k) => { if (k <= 0) return a < b ? a : b; const h = Math.max(k - Math.abs(a - b), 0) / k; return Math.min(a, b) - h * h * k * 0.25; };
 const V = (p) => (p.isVector3 ? [p.x, p.y, p.z] : p);
@@ -105,7 +106,9 @@ export class Sculpt {
   release() { this.tri = null; this.acc = null; }
 
   // ---------------------------------------------------------------- polygonise (Surface Nets) + relax + skin + unwrap
-  build({ cell = 0.025, bones, relax = 2, smoothW = 6, atlas = 1024, pad = 3, maxChart = 0.05, target = 0 } = {}) {
+  build({ cell = 0.025, bones, relax = 2, smoothW = 6, atlas = 1024, pad = 2, maxChart = 0.05, target = 0 } = {}) {
+    // realistic low-poly: coarser sculpt sampling, a small triangle budget, a small nearest-filtered pixel page
+    cell *= LOW.cell; atlas = lowAtlas(atlas); if (target) target = Math.max(400, Math.round(target * LOW.tri));
     const P = this.prims; const B = [1e9, 1e9, 1e9, -1e9, -1e9, -1e9];
     for (const p of P) if (!p.sub) for (let i = 0; i < 3; i++) { B[i] = Math.min(B[i], p.box[i]); B[i + 3] = Math.max(B[i + 3], p.box[i + 3]); }
     const o = [B[0] - cell * 2, B[1] - cell * 2, B[2] - cell * 2]; const nx = Math.ceil((B[3] - o[0]) / cell) + 3, ny = Math.ceil((B[4] - o[1]) / cell) + 3, nz = Math.ceil((B[5] - o[2]) / cell) + 3;
@@ -300,12 +303,13 @@ function unwrap(P3, N3, { SI, SW }, idx, { atlas, pad, maxChart }) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4)); geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4)); geo.setIndex(out);
-  geo.computeBoundingSphere(); geo.userData = { charts: charts.length, tris: out.length / 3, verts: pos.length / 3, dens };
+  geo.computeBoundingSphere(); geo.userData = { charts: charts.length, tris: out.length / 3, verts: pos.length / 3, dens, atlas };
   return geo;
 }
 
 /** uncached UV bake for charkit's paintSurface: per covered texel the rest-pose point, normal and dominant bone */
 export function bake(geo, size, names) {
+  size = geo.userData.atlas || size; // the page size the charts were packed for
   const pa = geo.attributes.position, na = geo.attributes.normal, ua = geo.attributes.uv, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight, idx = geo.index.array;
   const N = size * size; const P = new Float32Array(N * 3), NN = new Float32Array(N * 3), B = new Uint8Array(N), cov = new Uint8Array(N);
   const dom = (v) => { let bw = -1, b = 0; for (let j = 0; j < 4; j++) { const w = sw.getComponent(v, j); if (w > bw) { bw = w; b = si.getComponent(v, j); } } return b; };

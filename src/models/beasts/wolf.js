@@ -5,11 +5,11 @@ import { K, hex, quadRows, sculptQuad, asset, createGeneric, curved, rigidSkinne
 
 const O = { Lb: 0.95, Hw: 0.85, W: 0.16, Ln: 0.34, Lh: 0.4, Hd: 0, tail: 4, tailDir: [0, -0.55, -1], tailLen: 0.72 };
 const BONES = quadRows(O);
-const moon = (c, o) => { if (c.nz < 0.3 || c.y < 1.1) return; const d1 = Math.hypot(c.x, c.y - 1.135), d2 = Math.hypot(c.x - 0.011, c.y - 1.143); if (d1 < 0.028 && d2 > 0.023) { K.tone(hex('#dff4ff'), 0.75, o.col); o.em = [190, 235, 255]; } };
+const moon = (c, o) => { if (c.nz < 0.3 || c.y < 1.1) return; const d1 = Math.hypot(c.x, c.y - 1.135), d2 = Math.hypot(c.x - 0.011, c.y - 1.143); if (d1 < 0.028 && d2 > 0.023) { K.tone(hex('#e8e4dc'), 0.7, o.col); } };
 const PAL = {
-  fur: { s: 'fur', c: hex('#909cae'), back: hex('#646f84'), backY: 0.6, belly: hex('#c4ccd8'), fs: 30, fn: moon }, furL: { s: 'fur', c: hex('#c8d0dc'), fs: 34 },
-  ruff: { s: 'fur', c: hex('#a8b2c2'), fs: 24, strand: 0.3 }, paw: { s: 'skin', c: hex('#4e5260') }, nose: { s: 'skin', c: hex('#22222a'), L: 0.05, ro: 0.3 },
-  eye: { s: 'eye', c: hex('#9fe8ff'), glow: [150, 230, 255], pupil: 'slit' }, mouth: { s: 'dark', c: hex('#5a1622') }, ear: { s: 'fur', c: hex('#7c889c'), fs: 40 }, default: { s: 'fur', c: hex('#aeb9c8') },
+  fur: { s: 'fur', c: hex('#8c8a84'), back: hex('#5a5650'), backY: 0.6, belly: hex('#cfc8bc'), fs: 30, fn: moon }, furL: { s: 'fur', c: hex('#d2cabe'), fs: 34 },
+  ruff: { s: 'fur', c: hex('#9a968e'), fs: 24, strand: 0.3 }, paw: { s: 'skin', c: hex('#4e5260') }, nose: { s: 'skin', c: hex('#22222a'), L: 0.05, ro: 0.3 },
+  eye: { s: 'eye', c: hex('#b8862a'), pupil: 'round', pupilR: 0.3 }, mouth: { s: 'dark', c: hex('#5a1622') }, ear: { s: 'fur', c: hex('#6a665e'), fs: 40 }, default: { s: 'fur', c: hex('#aeb9c8') },
 };
 function sculpt(S) {
   const J = Object.fromEntries(BONES.map(([n, , p]) => [n, p]));

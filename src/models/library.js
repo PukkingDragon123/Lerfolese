@@ -11,7 +11,6 @@ import * as T from './toon.js';
 import * as F from './flora.js';
 import { Kit } from './village.js';
 import { telescope } from './orchard.js';
-import { turned, plainMat } from '../ui3d/craft.js';
 import { toonModel } from './realworld.js';
 import { mulberry32 } from '../core/util.js';
 
@@ -19,7 +18,7 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
 const R = 9.4, LOW = 3.3, TOP = 7.2;
 function pix(w, h, draw, repeat = null) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h, mulberry32(w * 13 + h * 7)); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...repeat); } return t; }
-const toonM = (o) => new THREE.MeshToonMaterial({ gradientMap: T.gradientMap([0.5, 0.78, 1.0]), ...o });
+const toonM = (o) => LP.stdM(o); // realistic lit, flat-shaded (no cel bands)
 const at = (a, r, y = 0) => V(Math.sin(a) * r, y, Math.cos(a) * r);
 
 // ---------------------------------------------------------------- books: one instanced mesh, 8 hand-pixelled spine designs
@@ -84,11 +83,11 @@ export function buildLibrary({ seed = 7 } = {}) {
   const wall = new THREE.Mesh(new THREE.CylinderGeometry(R, R, TOP, 72, 1, true), toonM({ map: wallT, side: THREE.BackSide })); wall.position.y = TOP / 2; wall.receiveShadow = true; G.add(wall);
   const planks = pix(32, 32, (g, w, h, rr) => { const P = ['#4a3020', '#6a4630', '#7e5638']; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { g.fillStyle = y % 6 === 0 ? P[0] : P[1 + (rr() < 0.12 ? 1 : 0)]; g.fillRect(x, y, 1, 1); } }, [16, 3]);
   const mez = new THREE.Mesh(new THREE.RingGeometry(7.0, R, 72, 1).rotateX(-Math.PI / 2), toonM({ map: planks, side: THREE.DoubleSide })); mez.position.y = LOW; mez.receiveShadow = true; mez.castShadow = true; G.add(mez);
-  const fascia = new THREE.Mesh(new THREE.CylinderGeometry(7.0, 7.0, 0.28, 72, 1, true), plainMat('walnut')); fascia.position.y = LOW - 0.1; G.add(fascia);
-  const baluster = turned([[0.001, 0], [0.04, 0], [0.045, 0.05], [0.025, 0.12], [0.04, 0.3], [0.025, 0.55], [0.035, 0.62], [0.03, 0.72], [0.001, 0.73]], 12);
-  const bal = new THREE.InstancedMesh(baluster, plainMat('walnut'), 220); { const m4 = new THREE.Matrix4(); for (let i = 0; i < 220; i++) { const a = (i / 220) * Math.PI * 2; m4.makeTranslation(Math.sin(a) * 7.05, LOW + 0.02, Math.cos(a) * 7.05); bal.setMatrixAt(i, m4); } bal.castShadow = true; G.add(bal); }
-  const rail = new THREE.Mesh(new THREE.TorusGeometry(7.05, 0.05, 8, 160), plainMat('walnut')); rail.rotation.x = Math.PI / 2; rail.position.y = LOW + 0.77; G.add(rail);
-  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2 + Math.PI / 12; const col = new THREE.Mesh(turned([[0.001, 0], [0.22, 0], [0.22, 0.12], [0.17, 0.2], [0.14, 0.4], [0.13, 2.9], [0.17, 3.0], [0.22, 3.1], [0.22, 3.2], [0.001, 3.2]], 24), plainMat('walnut')); col.position.copy(at(a, 7.05)); col.castShadow = true; G.add(col); }
+  const fascia = new THREE.Mesh(new THREE.CylinderGeometry(7.0, 7.0, 0.28, 72, 1, true), LP.pmat('walnut')); fascia.position.y = LOW - 0.1; G.add(fascia);
+  const baluster = LP.facet([[0.001, 0], [0.04, 0], [0.045, 0.05], [0.025, 0.12], [0.04, 0.3], [0.025, 0.55], [0.035, 0.62], [0.03, 0.72], [0.001, 0.73]], 6);
+  const bal = new THREE.InstancedMesh(baluster, LP.pmat('walnut'), 220); { const m4 = new THREE.Matrix4(); for (let i = 0; i < 220; i++) { const a = (i / 220) * Math.PI * 2; m4.makeTranslation(Math.sin(a) * 7.05, LOW + 0.02, Math.cos(a) * 7.05); bal.setMatrixAt(i, m4); } bal.castShadow = true; G.add(bal); }
+  const rail = new THREE.Mesh(new THREE.TorusGeometry(7.05, 0.05, 4, 96), LP.pmat('walnut')); rail.rotation.x = Math.PI / 2; rail.position.y = LOW + 0.77; G.add(rail);
+  for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2 + Math.PI / 12; const col = new THREE.Mesh(LP.facet([[0.001, 0], [0.22, 0], [0.22, 0.12], [0.17, 0.2], [0.14, 0.4], [0.13, 2.9], [0.17, 3.0], [0.22, 3.1], [0.22, 3.2], [0.001, 3.2]], 8), LP.pmat('walnut')); col.position.copy(at(a, 7.05)); col.castShadow = true; G.add(col); }
   // the star dome above a ring of upper windows
   const mapT = (() => { const c = document.createElement('canvas'); c.width = 512; c.height = 256; const g = c.getContext('2d'); const rr = mulberry32(11); g.fillStyle = '#1a2456'; g.fillRect(0, 0, 512, 256); for (let i = 0; i < 600; i++) { g.fillStyle = rr() < 0.2 ? '#f4dc90' : '#c0ccf4'; g.fillRect((rr() * 512) | 0, (rr() * 256) | 0, 1, 1); }
     g.strokeStyle = '#d8b050'; g.lineWidth = 2; for (const y of [60, 120, 190]) { g.beginPath(); g.moveTo(0, y); g.lineTo(512, y); g.stroke(); } g.lineWidth = 1; for (let k = 0; k < 12; k++) { g.beginPath(); g.moveTo(k * 512 / 12, 60); g.lineTo(k * 512 / 12, 256); g.stroke(); }
@@ -100,21 +99,21 @@ export function buildLibrary({ seed = 7 } = {}) {
   const windows = [];
   const win = (a, y0, wW, wH) => { const wnd = new THREE.Group(); wnd.position.copy(at(a, R - 0.06)); wnd.rotation.y = a + Math.PI; G.add(wnd); const sh = new THREE.Shape(); sh.moveTo(-wW / 2, 0); sh.lineTo(wW / 2, 0); sh.lineTo(wW / 2, wH); sh.absarc(0, wH, wW / 2, 0, Math.PI, false); sh.lineTo(-wW / 2, 0);
     const pane = new THREE.Mesh(new THREE.ShapeGeometry(sh, 16), new THREE.MeshBasicMaterial({ map: winT })); pane.position.set(0, y0, 0.02); const uv = pane.geometry.attributes.uv, pp = pane.geometry.attributes.position; for (let k = 0; k < uv.count; k++) uv.setXY(k, (pp.getX(k) + wW / 2) / wW, pp.getY(k) / (wH + wW / 2)); wnd.add(pane);
-    const fr = new THREE.Mesh(new THREE.TorusGeometry(wW / 2 + 0.04, 0.06, 8, 24, Math.PI), plainMat('walnut')); fr.position.set(0, y0 + wH, 0.05); wnd.add(fr); for (const s of [-1, 1]) { const j = new THREE.Mesh(new THREE.BoxGeometry(0.12, wH, 0.12), plainMat('walnut')); j.position.set(s * (wW / 2 + 0.04), y0 + wH / 2, 0.05); wnd.add(j); } windows.push({ a, y: y0 + wH * 0.6 }); };
+    const fr = new THREE.Mesh(new THREE.TorusGeometry(wW / 2 + 0.04, 0.06, 8, 24, Math.PI), LP.pmat('walnut')); fr.position.set(0, y0 + wH, 0.05); wnd.add(fr); for (const s of [-1, 1]) { const j = new THREE.Mesh(new THREE.BoxGeometry(0.12, wH, 0.12), LP.pmat('walnut')); j.position.set(s * (wW / 2 + 0.04), y0 + wH / 2, 0.05); wnd.add(j); } windows.push({ a, y: y0 + wH * 0.6 }); };
   win(Math.PI / 2, 0.6, 1.3, 1.9); win(-Math.PI / 2, 0.6, 1.3, 1.9); for (let i = 0; i < 6; i++) win((i / 6) * Math.PI * 2 + Math.PI / 6, LOW + 0.9, 1.1, 1.5);
   // bookcases all round, both storeys (gaps for the windows, the fireplace and the door)
   const skip = (a, lower) => { const d = (x) => Math.abs(((a - x + Math.PI * 3) % (Math.PI * 2)) - Math.PI); if (lower) return d(Math.PI) < 0.3 || d(0) < 0.28 || d(Math.PI / 2) < 0.17 || d(-Math.PI / 2) < 0.17; for (let i = 0; i < 6; i++) if (d((i / 6) * Math.PI * 2 + Math.PI / 6) < 0.14) return true; return false; };
   const shelfSpots = [];
   for (const [y0, h, sh, rr2, lower] of [[0, 3.0, 7, R - 0.2, true], [LOW + 0.02, 2.9, 7, R - 0.2, false]]) { const step = 1.62 / rr2; for (let a = 0; a < Math.PI * 2 - step * 0.5; a += step) { if (skip(a + step / 2, lower)) continue; const c = at(a + step / 2, rr2, y0); const frame = new THREE.Matrix4().compose(c, new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a + step / 2 + Math.PI), V(1, 1, 1)); bookcase(CASE, books, frame, 1.6, h, sh, r); if (lower) shelfSpots.push({ a: a + step / 2, frame }); } }
   // rolling ladders on a brass rail
-  const railB = new THREE.Mesh(new THREE.TorusGeometry(R - 0.42, 0.025, 6, 160), plainMat('brass')); railB.rotation.x = Math.PI / 2; railB.position.y = 2.95; G.add(railB);
+  const railB = new THREE.Mesh(new THREE.TorusGeometry(R - 0.42, 0.025, 4, 96), LP.pmat('brass')); railB.rotation.x = Math.PI / 2; railB.position.y = 2.95; G.add(railB);
   const ladders = [];
   for (const a of [2.094, -2.094]) { const base = at(a, R - 1.15), top = at(a, R - 0.45, 2.95); const L = top.distanceTo(base); const lad = LP.ladder(L); lad.position.copy(base); lad.lookAt(top); G.add(lad); ladders.push({ base, top }); }
   // spiral staircase up to the balcony
   const stairC = at(0.82, 6.2); const stair = new THREE.Group(); stair.position.copy(stairC); G.add(stair); const KS = new Kit();
-  stair.add(new THREE.Mesh(turned([[0.001, 0], [0.14, 0], [0.09, 0.08], [0.07, 0.2], [0.07, LOW + 1.0], [0.1, LOW + 1.05], [0.001, LOW + 1.1]], 20), plainMat('brass')));
+  stair.add(new THREE.Mesh(LP.facet([[0.001, 0], [0.14, 0], [0.09, 0.08], [0.07, 0.2], [0.07, LOW + 1.0], [0.1, LOW + 1.05], [0.001, LOW + 1.1]], 8), LP.pmat('brass')));
   const N = 18; const rail2 = []; for (let i = 0; i < N; i++) { const a = (i / N) * Math.PI * 1.6 + 0.4; const y = 0.18 + (i / (N - 1)) * (LOW - 0.18); KS.box('woodRaw', 0.95, 0.06, 0.32, V(Math.sin(a) * 0.55, y, Math.cos(a) * 0.55), new THREE.Euler(0, a + Math.PI / 2, 0), 0.02); const p = V(Math.sin(a) * 1.0, y + 0.9, Math.cos(a) * 1.0); rail2.push(p); if (i % 2 === 0) KS.box('woodDark', 0.04, 0.9, 0.04, V(Math.sin(a) * 1.0, y + 0.45, Math.cos(a) * 1.0), null, 0.01); }
-  KS.build(stair); const rm = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rail2), 64, 0.035, 6), plainMat('walnut')); stair.add(rm);
+  KS.build(stair); const rm = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rail2), 36, 0.035, 4), LP.pmat('walnut')); stair.add(rm);
   // the fireplace in the front wall: stone surround, mantel with candles and a clock, logs and a living fire
   const fpA = Math.PI; const fpC = at(fpA, R - 0.25); const fp = new THREE.Group(); fp.position.copy(fpC); fp.rotation.y = fpA + Math.PI; G.add(fp); fp.updateMatrixWorld(); const KF = new Kit();
   KF.box('stone', 2.8, 0.14, 1.0, V(0, 0.07, 0.35), null, 0.03); for (const s of [-1, 1]) KF.box('stone', 0.5, 1.55, 0.55, V(s * 1.0, 0.85, 0.1), null, 0.04); KF.box('stone', 3.0, 0.16, 0.65, V(0, 1.68, 0.14), null, 0.03); KF.box('woodDark', 2.5, 1.62, 0.3, V(0, 2.56, -0.06), null, 0.03); for (const x of [-0.85, 0.85]) KF.box('woodRaw', 0.42, 1.2, 0.05, V(x, 2.55, 0.1), null, 0.015); KF.box('woodRaw', 2.62, 0.12, 0.42, V(0, 3.33, 0.0), null, 0.03);
@@ -142,11 +141,11 @@ export function buildLibrary({ seed = 7 } = {}) {
   for (const [x, z, ry, sd] of [[-3.7, -2.6, 0.95, 1], [3.6, -1.4, -1.25, 2]]) { const d = new THREE.Group(); d.position.set(x, 0, z); d.rotation.y = ry; G.add(d); d.add(LP.desk(1.7, 0.85, 0.8)); const TY = 0.806;
     const lamp = LP.bankerLamp(); lamp.position.set(-0.55, TY, -0.2); d.add(lamp); d.updateMatrixWorld(); const ll = new THREE.PointLight(0xffd090, 6, 5, 1.6); ll.position.copy(d.localToWorld(V(-0.55, 1.1, 0.05))); G.add(ll); lights.push(ll);
     const ob = LP.openBook(0.46, sd); ob.position.set(0.05, TY, 0.1); ob.rotation.y = 0.1; d.add(ob); const c = LP.candle(0.12); c.position.set(0.68, TY, -0.25); d.add(c); flames.push(c.userData.flame);
-    const sc = LP.scroll(0.6); sc.position.set(0.4, TY + 0.042, 0.3); sc.rotation.y = 0.15; d.add(sc);
+    const sc = LP.scroll(0.6); sc.position.set(0.12, TY + 0.042, 0.34); d.add(sc);
     const ink = LP.inkwell(); ink.position.set(0.5, TY, -0.1); d.add(ink);
     const q = LP.quill(); q.position.set(0.5, TY + 0.06, -0.1); q.rotation.set(0.1, 0.6, -0.42); d.add(q);
     const st = LP.bookStack(4, sd); st.position.set(-0.2, TY, -0.25); d.add(st); d.updateMatrixWorld();
-    desks.push({ d, ry, top: d.localToWorld(V(0.32, TY, 0.12)), book: d.localToWorld(V(0.05, TY + 0.03, 0.1)), stack: d.localToWorld(V(-0.2, TY + st.userData.top, -0.25)) }); }
+    desks.push({ d, ry, top: d.localToWorld(V(0.6, TY, 0.06)), book: d.localToWorld(V(0.05, TY + 0.03, 0.1)), stack: d.localToWorld(V(-0.2, TY + st.userData.top, -0.25)) }); }
   const gl = LP.globe(); gl.position.set(-4.6, 0, 0.9); G.add(gl); const arm = LP.armillary(); arm.position.set(4.4, 0, 2.4); G.add(arm);
   const tel = telescope('Star Gallery', V(0.2, 1, 0.25).normalize()); tel.scale.setScalar(1.9); tel.position.set(0, 0, 4.6); G.add(tel);
   for (const [a, k] of [[1.32, 'oleander'], [-1.32, 'myrtle'], [2.9, 'bush'], [3.38, 'bush']]) { const p = at(a, R - 0.9); toonModel('planter_pot_clay').then((o) => { o.scale.multiplyScalar(2.2); o.position.copy(p); G.add(o); }).catch(() => {}); const pl = F.tree(k, { v: 1, s: 0.75 }); pl.position.copy(p).add(V(0, 0.42, 0)); G.add(pl); }
@@ -174,7 +173,7 @@ export function buildLibrary({ seed = 7 } = {}) {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('aS', new THREE.Float32BufferAttribute(S, 1));
     const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uTime: T.WIND.time, uPx: { value: 1 } }, vertexShader: 'attribute float aS; uniform float uTime, uPx; varying float vA; void main(){ vec3 p = position + vec3(sin(uTime * 0.3 + aS) * 0.25, sin(uTime * 0.2 + aS * 2.0) * 0.15, cos(uTime * 0.25 + aS) * 0.25); vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv; vA = 0.5 + 0.5 * sin(uTime * 1.3 + aS * 7.0); gl_PointSize = max(1.0, 0.03 * uPx / -mv.z); }', fragmentShader: 'varying float vA; void main(){ vec2 q = gl_PointCoord - 0.5; if (length(q) > 0.5) discard; gl_FragColor = vec4(vec3(1.0, 0.92, 0.75) * vA * 0.7, 1.0); }' });
     const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.onBeforeRender = (rd) => { T.tickWind(); m.uniforms.uPx.value = rd.domElement.height * 0.9; }; return pts; })(); G.add(motes);
-  K.build(G); G.add(books.build()); G.add(LP.fuse(CASE.wood, LP.TEXM.walnut, 2.2)); G.add(LP.fuse(CASE.back, new THREE.MeshToonMaterial({ color: C('#24160e'), gradientMap: T.gradientMap([0.5, 0.8, 1.0]) })));
+  K.build(G); G.add(books.build()); G.add(LP.fuse(CASE.wood, LP.TEXM.walnut, 2.2)); G.add(LP.fuse(CASE.back, LP.stdM({ color: C('#24160e'), roughness: 0.9 })));
   // light: warm and bright; fire and lamps as keys, a soft sky fill, moonlight through the windows
   G.add(new THREE.HemisphereLight(0xfff0e0, 0x5a4a40, 1.6)); G.add(new THREE.AmbientLight(0xfff0e0, 0.55));
   const moon = new THREE.DirectionalLight(0xc8d4ff, 1.3); moon.position.set(4, 14, 6); moon.castShadow = true; moon.shadow.mapSize.set(2048, 2048); Object.assign(moon.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 30 }); G.add(moon);

@@ -51,11 +51,11 @@ function planks(g, W, H, r, P, painted = false) {
 const MATS = new Map();
 export function mat(key, { bands = [0.5, 0.78, 1.0], color = '#ffffff', side = THREE.FrontSide } = {}) {
   const k = key + '|' + side; if (MATS.has(k)) return MATS.get(k);
-  const m = new THREE.MeshToonMaterial({ map: surfaceTex(key) || (PAINT[key] ? paint(key, 256, 256, PAINT[key]) : null), color: C(color), gradientMap: T.gradientMap(bands), side });
+  const m = new THREE.MeshStandardMaterial({ map: surfaceTex(key) || (PAINT[key] ? paint(key, 256, 256, PAINT[key]) : null), color: C(color), roughness: 0.86, metalness: 0, flatShading: true, side }); void bands; // realistic lit, flat-shaded low-poly
   MATS.set(k, m); return m;
 }
 const glow = (color) => { const k = 'glow:' + color; if (!MATS.has(k)) MATS.set(k, new THREE.MeshBasicMaterial({ color: C(color).multiplyScalar(1.6), toneMapped: false })); return MATS.get(k); };
-const plain = (color, bands = [0.5, 0.78, 1.0]) => { const k = 'plain:' + color; if (!MATS.has(k)) MATS.set(k, new THREE.MeshToonMaterial({ color: C(color), gradientMap: T.gradientMap(bands) })); return MATS.get(k); };
+const plain = (color) => { const k = 'plain:' + color; if (!MATS.has(k)) MATS.set(k, new THREE.MeshStandardMaterial({ color: C(color), roughness: 0.82, metalness: 0, flatShading: true })); return MATS.get(k); };
 
 // box-projected UVs at a constant world density (texture tile = 1 / s units)
 export function worldUV(geo, s = 0.5) {
@@ -68,7 +68,7 @@ export function worldUV(geo, s = 0.5) {
 export class Kit {
   constructor() { this.parts = new Map(); }
   add(matKey, geo, pos, rot = null, scale = null) { const g = geo.clone(); const m4 = new THREE.Matrix4().compose(pos, rot ? new THREE.Quaternion().setFromEuler(rot instanceof THREE.Euler ? rot : new THREE.Euler(...rot)) : new THREE.Quaternion(), scale || V(1, 1, 1)); g.applyMatrix4(m4); if (!this.parts.has(matKey)) this.parts.set(matKey, []); this.parts.get(matKey).push(g); return g; }
-  box(matKey, w, h, d, pos, rot = null, rad = 0.04) { return this.add(matKey, new RoundedBoxGeometry(w, h, d, 2, Math.min(rad, w / 2.2, h / 2.2, d / 2.2)), pos, rot); }
+  box(matKey, w, h, d, pos, rot = null, rad = 0.04) { void rad; return this.add(matKey, new THREE.BoxGeometry(w, h, d), pos, rot); } // sharp low-poly
   build(group, { uvScale = { plaster: 0.35, stone: 0.7, rubble: 0.6, marble: 0.4, thatch: 0.6, canvas: 0.5, tile: 1 }, cast = true } = {}) {
     for (const [key, list] of this.parts) {
       const geos = list.map((g) => { const ng = g.index ? g.toNonIndexed() : g; for (const a of Object.keys(ng.attributes)) if (!['position', 'normal', 'uv'].includes(a)) ng.deleteAttribute(a); if (!ng.attributes.uv) ng.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(ng.attributes.position.count * 2), 2)); return ng; });

@@ -58,7 +58,7 @@ export function toonMaterial(src, { sat = 1.3, tint = null, wind = 0, windH = 0.
   m.shadowSide = src.shadowSide ?? null; m.userData = { ...src.userData, toon: true };
   const tintC = tint ? C(tint) : C(0xffffff); const paintC = paint ? C(paint) : C(0xffffff);
   m.onBeforeCompile = (sh) => {
-    sh.uniforms.uSat = { value: sat }; sh.uniforms.uTint = { value: tintC }; sh.uniforms.uPaint = { value: paintC }; sh.uniforms.uPaintK = { value: paint ? paintK : 0 }; sh.uniforms.uTime = WIND.time; sh.uniforms.uWindDir = WIND.dir; sh.uniforms.uWindAmp = { value: wind }; sh.uniforms.uWindH = { value: windH };
+    sh.uniforms.uSat = { value: 1 + (sat - 1) * 0.45 }; /* natural colour: the old cartoon saturation boost is mostly gone */ sh.uniforms.uTint = { value: tintC }; sh.uniforms.uPaint = { value: paintC }; sh.uniforms.uPaintK = { value: paint ? paintK : 0 }; sh.uniforms.uTime = WIND.time; sh.uniforms.uWindDir = WIND.dir; sh.uniforms.uWindAmp = { value: wind }; sh.uniforms.uWindH = { value: windH };
     sh.fragmentShader = 'uniform float uSat; uniform vec3 uTint; uniform vec3 uPaint; uniform float uPaintK;\n' + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n' + SAT_FRAG);
     if (wind) sh.vertexShader = 'uniform float uTime; uniform vec2 uWindDir; uniform float uWindAmp; uniform float uWindH;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIND_VERT);
   };

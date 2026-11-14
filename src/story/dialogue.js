@@ -135,11 +135,13 @@ function step(dt) {
   for (const L of live) {
     const s = L.scrap; s.group.visible = show && !L.hidden;
     if (L.h) s.reveal(L.h.progress() * s.total);
-    if (L.fall) { L.fall.vy -= 16 * dt; s.group.position.x += L.fall.vx * dt; s.group.position.y += L.fall.vy * dt; s.group.rotation.z += L.fall.spin * dt; s.group.rotation.x += dt * 2.4; L.fall.t += dt; s.update(dt); if (L.fall.t > 1.4) kill(L); continue; }
+    if (L.fall) { L.fall.vy -= 20 * dt; s.group.position.x += L.fall.vx * dt; s.group.position.y += L.fall.vy * dt; s.group.rotation.z += L.fall.spin * dt; s.group.rotation.x += dt * 3; L.fall.t += dt; s.st.target = 0; s.update(dt); if (L.fall.t > 0.75 || s.st.value < 0.05) kill(L); continue; } // flutters down and folds away
     let x, y;
     if (s.kind === 'strip') { x = 0; y = bandY(); }
     else {
-      const a = anchorUI(L.anchor, _p) || (L.last ? _p.copy(L.last) : _p.set(L.side === 'right' ? W * 0.35 : -W * 0.35, -H * 0.35, 0)); L.last = (L.last || V()).copy(a);
+      let a = anchorUI(L.anchor, _p); const off = !a || Math.abs(a.x) > W * 0.92 || a.y > H * 0.98 || a.y < -H * 0.9; // the speaker is out of shot: their scrap waits at the frame edge on their side
+      if (off) { const sd = a ? Math.sign(a.x) || 1 : L.side === 'right' ? 1 : -1; a = _p.set(sd * (W - 0.6), -H * 0.42, 0); if (L.offSide == null) L.offSide = sd; } else L.offSide = null;
+      L.last = (L.last || V()).copy(a);
       const tip = (s.tailX + (s.tail === 'right' ? 8.4 : 2.5)) / PXP - s.w / 2; // the tail tip sits just above the speaker's head
       const top = H - (window.__storyBand || (window.__cine && !window.__cine.ended && window.__cine.bars) ? H * 0.165 : 0) - 0.25; // never under the letterbox beam
       x = a.x - tip; y = a.y + 0.42 + s.h / 2;

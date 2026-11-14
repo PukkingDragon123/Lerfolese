@@ -22,7 +22,7 @@ const KIND = new Map(Object.entries({ gold: 'gold', brass: 'brass', bronze: 'bro
 const MC = new Map();
 function tm(color, { metal = false, soft = false, opacity = 1, emissive = 0, ei = 1, side = THREE.FrontSide, kind = null } = {}) {
   const key = [color, metal, soft, opacity, emissive, ei, side, kind].join('|'); let m = MC.get(key); if (m) return m; const k = kind || KIND.get(color) || 'tint';
-  m = new THREE.MeshToonMaterial({ map: tex(k), color: new THREE.Color(KIND.has(color) || kind ? 0xffffff : color), flatShading: true, gradientMap: gradientMap(metal ? [0.3, 0.58, 0.84, 1.0] : soft ? [0.55, 0.8, 1.0] : [0.44, 0.72, 1.0]), transparent: opacity < 1, opacity, depthWrite: opacity >= 1, emissive: new THREE.Color(emissive), emissiveIntensity: ei, side });
+  m = new THREE.MeshToonMaterial({ map: tex(k), color: new THREE.Color(KIND.has(color) || kind ? 0xffffff : color), gradientMap: gradientMap(metal ? [0.3, 0.58, 0.84, 1.0] : soft ? [0.55, 0.8, 1.0] : [0.44, 0.72, 1.0]), transparent: opacity < 1, opacity, depthWrite: opacity >= 1, emissive: new THREE.Color(emissive), emissiveIntensity: ei, side });
   m.userData.toon = true; MC.set(key, m); return m;
 }
 const glow = (color, k = 2.2) => { const key = 'glow|' + color + '|' + k; let m = MC.get(key); if (!m) { m = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), toneMapped: false }); MC.set(key, m); } return m; };
@@ -34,9 +34,9 @@ const curvy = (pts) => pts; // profiles stay as authored: straight segments, har
 const tube = (pts, r, { seg = 32, rad = 10, closed = false, taper = null } = {}) => kitTube(pts, r, { seg: Math.max(3, Math.min(48, Math.round(seg / 4))), rad: rad >= 8 ? 5 : 4, closed, taper });
 const smoothShape = (pts, n = 0, holes = []) => shape(pts, holes);
 const extrude = (s, depth, bevel = 0.03) => kitExtrude(s, depth, bevel);
-const circle = (r, n = 32, cx = 0, cy = 0) => Array.from({ length: Math.min(n, 10) }, (_, i, A) => [cx + Math.cos((i / A.length) * TAU) * r, cy + Math.sin((i / A.length) * TAU) * r]);
+const circle = (r, n = 32, cx = 0, cy = 0) => { const m = Math.min(n, 10); return Array.from({ length: m }, (_, i) => [cx + Math.cos((i / m) * TAU) * r, cy + Math.sin((i / m) * TAU) * r]); };
 const rbox = (w, h, d, r = 0.04) => kitBox(w, h, d, r);
-const add = (p, geo, mat, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo.userData?.faceted ? geo : facet(geo, 1.4), mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; m.receiveShadow = true; p.add(m); return m; };
+const add = (p, geo, mat, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => { const m = new THREE.Mesh(geo.userData?.faceted ? geo : facet(geo, 1.0), mat); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = true; m.receiveShadow = true; p.add(m); return m; };
 const grp = (p, x = 0, y = 0, z = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); if (p) p.add(g); return g; };
 // a feather: tapered vane with a notch, a rachis down the middle (wings, horseshoe wings, Icarus, talaria)
 function feather(p, len, wid, mat, { x = 0, y = 0, z = 0, rz = 0, ry = 0, quill = C.ivory } = {}) {
@@ -50,7 +50,7 @@ function feather(p, len, wid, mat, { x = 0, y = 0, z = 0, rz = 0, ry = 0, quill 
 function gear(r, teeth, depth, mat, { spokes = 4, bore = 0.18 } = {}) {
   const pts = []; const n = teeth * 4; for (let i = 0; i < n; i++) { const a = (i / n) * TAU; const k = i % 4; const rr = k === 1 || k === 2 ? r : r * 0.86; pts.push([Math.cos(a) * rr, Math.sin(a) * rr]); }
   const holes = [circle(r * bore, 16).reverse()]; for (let s = 0; s < spokes; s++) { const a0 = (s / spokes) * TAU + 0.35, a1 = a0 + TAU / spokes - 0.7; const w = []; for (let i = 0; i <= 8; i++) { const a = a0 + (a1 - a0) * (i / 8); w.push([Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7]); } for (let i = 8; i >= 0; i--) { const a = a0 + (a1 - a0) * (i / 8); w.push([Math.cos(a) * r * 0.32, Math.sin(a) * r * 0.32]); } holes.push(w.reverse()); }
-  return new THREE.Mesh(extrude(shape(pts, holes), depth, depth * 0.25, { segs: 2 }), mat);
+  return new THREE.Mesh(facet(extrude(shape(pts, holes), depth, depth * 0.25), 1.0), mat);
 }
 // a little standing figure in robes (statues): lathed robe + head + bun, arms swept across the chest
 function figure(p, mat, { x = 0, z = 0, h = 0.9, ry = 0, pose = 0 } = {}) {
@@ -377,6 +377,14 @@ function sparkleTex() { // a 9x9 pixel-art 4-point glint
 }
 function pedestalGeo() { // an octagonal lapis plinth-column: stepped base, waisted shaft, flared capital, all hard facets
   return kitLathe([[0.0005, -0.5], [0.62, -0.5], [0.62, -0.42], [0.5, -0.36], [0.36, -0.28], [0.3, -0.2], [0.3, 0.12], [0.4, 0.18], [0.56, 0.24], [0.56, 0.32], [0.0005, 0.32]], 8, Math.PI / 8);
+}
+const meshesOf = (o) => { const out = []; o.traverse((m) => { if (m.isMesh && !m.material.transparent && !m.material.isMeshBasicMaterial) out.push(m); }); return out; };
+// backside ink hulls of ~`w` world units, thinner on slender parts (strings, quills) so they read as lines, not blobs
+const _ws = new THREE.Vector3();
+export function inkModel(root, meshes, w = 0.04) {
+  root.updateMatrixWorld(true); const rs = root.getWorldScale(new THREE.Vector3()).x || 1;
+  for (const m of meshes) { if (!m.geometry.boundingBox) m.geometry.computeBoundingBox(); const bb = m.geometry.boundingBox; const sz = bb.getSize(_ws); const minD = [sz.x, sz.y, sz.z].sort((p, q) => p - q)[1] || 0.01; const ws = m.getWorldScale(new THREE.Vector3()).x / rs || 1;
+    const t = Math.round(Math.min(w / ws, minD * 0.22) * 1000) / 1000; if (t >= 0.001) inkHull(m, t); }
 }
 /** A curio on its pedestal: `group` (origin = pedestal base centre), `hit` (invisible pick box), update(dt, t, hover), pop() */
 export class CurioDisplay {

@@ -10,7 +10,7 @@ const BONES = humanRows(H, { sw: 1.05 });
 const J = Object.fromEntries(BONES.map(([n, , p]) => [n, p]));
 const BRZ = { s: 'metal', c: hex('#94643a'), me: 0.6, ro: 0.3, rivet: 0.06 };
 const PAL = {
-  bronze: BRZ, bone: { s: 'bone', c: hex('#e2d6b8'), cavK: 0.9 }, leather: { s: 'leather', c: hex('#7a4426') }, socket: { s: 'dark', c: hex('#7dff9a'), e: [90, 255, 140] },
+  bronze: BRZ, bone: { s: 'bone', c: hex('#cfc2a2'), cavK: 0.9 }, leather: { s: 'leather', c: hex('#7a4426') }, socket: { s: 'dark', c: hex('#1a2a1c'), e: [26, 70, 36] },
   teeth: { s: 'bone', c: hex('#f0e6cc') }, default: { s: 'bone', c: hex('#e2d6b8') },
 };
 function sculpt(S) {
@@ -21,7 +21,7 @@ function sculpt(S) {
     const sh = J['uparm' + L], el = J['forearm' + L], wr = J['hand' + L], hp = J['thigh' + L], kn = J['shin' + L], an = J['foot' + L];
     S.blob(sh, [0.06, 0.055, 0.06], ['clav' + L, 'uparm' + L], { k: 0.015, tag: 'bronze' });
     S.limb(sh, el, 0.021, 0.018, 'uparm' + L, { k: 0.008, tag: 'bone' }); S.blob(el, [0.03, 0.028, 0.028], 'forearm' + L, { k: 0.008, tag: 'bone' });
-    for (const o of [-1, 1]) S.limb([el[0] + 0.012 * o, el[1], el[2] + 0.01 * o], [wr[0] + 0.01 * o, wr[1], wr[2] + 0.008 * o], 0.012, 0.01, 'forearm' + L, { k: 0.004, tag: 'bone' });
+    for (const o of [-1, 1]) S.limb([el[0] + 0.011 * o, el[1], el[2] + 0.009 * o], [wr[0] + 0.009 * o, wr[1], wr[2] + 0.007 * o], 0.015, 0.013, 'forearm' + L, { k: 0.006, tag: 'bone' });
     sculptFist(S, J, L, H, 0.82, 'bone');
     S.limb(hp, kn, 0.026, 0.022, 'thigh' + L, { k: 0.008, tag: 'bone' }); S.blob(hp, [0.04, 0.035, 0.035], 'thigh' + L, { k: 0.01, tag: 'bone' }); S.blob([kn[0], kn[1], kn[2] + 0.025], [0.028, 0.03, 0.02], 'shin' + L, { k: 0.008, tag: 'bone' });
     S.limb(kn, an, 0.02, 0.016, 'shin' + L, { k: 0.006, tag: 'bone' });
@@ -36,7 +36,7 @@ function sculpt(S) {
   S.blob([0, 1.585, 0.07], [0.055, 0.03, 0.055], 'jaw', { k: 0.012, tag: 'teeth', imp: 3 }); S.box([0, 1.604, 0.11], [0.04, 0.004, 0.03], 0.002, 'head', { k: 0.003, tag: 'socket', sub: true });
 }
 const A = () => asset('spartoi', { bones: BONES, sculpt, pal: PAL, cell: 0.0105, target: 10500, atlas: 512, maxChart: 0.012, woundScale: 0.7, woundSkip: ['socket'] });
-const HELM_PAL = { bronze: { ...BRZ, rivet: 0 }, crest: { s: 'fur', c: hex('#b02a2a'), fs: 60, flow: 0.15, strand: 0.3 }, default: BRZ };
+const HELM_PAL = { bronze: { ...BRZ, rivet: 0 }, crest: { s: 'fur', c: hex('#8a2a22'), fs: 60, flow: 0.15, strand: 0.3 }, default: BRZ };
 function helmet(S) { // Corinthian: hollow domed shell, T-shaped face opening, cheek guards, nasal, horsehair crest on a stand
   S.blob([0, 1.685, 0.025], [0.105, 0.12, 0.125], 'p', { k: 0.02, tag: 'bronze' });
   S.blob([0, 1.6, 0.04], [0.098, 0.1, 0.112], 'p', { k: 0.02, tag: 'bronze' });
@@ -55,14 +55,14 @@ function spear(S) { // dory: ash shaft, leaf blade, bronze sauroter (local +Y fr
   S.limb([0, -0.8, 0], [0, -1.0, 0], 0.02, 0.006, 'p', { k: 0.006, tag: 'bronze' });
 }
 function shieldGeo() { // hoplon: a deep bronze bowl with a flat rolled rim (axis +Z)
-  const g = new THREE.LatheGeometry([[0, 0.085], [0.18, 0.075], [0.32, 0.05], [0.42, 0.015], [0.455, 0.0], [0.48, 0.0], [0.485, -0.012], [0.47, -0.02], [0.42, -0.005], [0.3, 0.035], [0, 0.06]].map(([x, y]) => new THREE.Vector2(x, y)), 40); g.rotateX(Math.PI / 2); return g;
+  const g = new THREE.LatheGeometry([[0, 0.085], [0.18, 0.075], [0.32, 0.05], [0.42, 0.015], [0.455, 0.0], [0.48, 0.0], [0.485, -0.012], [0.47, -0.02], [0.42, -0.005], [0.3, 0.035], [0, 0.06]].map(([x, y]) => new THREE.Vector2(x, y)), 14); g.rotateX(Math.PI / 2); return g;
 }
 const shieldMat = () => K.uvMat('spartoi-shield', 256, 128, (u, v, o) => { // u round, v along the profile (centre -> rim -> back)
   const r = Math.min(1, v / 0.42); const a = u * Math.PI * 2; o.me = 0.5; o.ro = 0.35;
   if (v > 0.55) { K.tone(hex('#4a3020'), 0.4, o.col); o.me = 0; return; }
   if (r > 0.86) { K.tone(hex('#d09a48'), K.band(0.6 + Math.cos(a) * 0.2, 4), o.col); return; }
   const coil = Math.abs(((a + r * 9) % (Math.PI * 2)) - Math.PI) < 0.45 && r > 0.18 && r < 0.78; const ring = Math.abs(r - 0.82) < 0.025;
-  K.tone(coil ? hex('#1e1a1a') : ring ? hex('#8a1e1e') : hex('#b0302a'), K.band(0.55 + Math.cos(a) * 0.12 - r * 0.1, 4), o.col); if (coil || ring) o.me = 0.1; else o.me = 0.15;
+  K.tone(coil ? hex('#1e1a1a') : ring ? hex('#6a2418') : hex('#8a3a26'), K.band(0.55 + Math.cos(a) * 0.12 - r * 0.1, 4), o.col); if (coil || ring) o.me = 0.1; else o.me = 0.15;
 });
 const CLIPS = {
   attack: [[0, {}],

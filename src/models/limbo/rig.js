@@ -45,7 +45,7 @@ export function cleanPage(d, S, k) {
 
 export class LimboBody {
   /** app: Limbo Appearance; outfit: Limbo Outfit (LookParts); opts: { severed: ['shin_l', ...], overrides (SpecOverrides), hook(painters, P, spec), hd, paint, material } */
-  constructor(app, outfit = {}, { severed = [], overrides = {}, hook = null, hd = true, paint = true, material = null } = {}) {
+  constructor(app, outfit = {}, { severed = [], overrides = {}, hook = null, hd = true, paint = true, material = null, lowpoly = false } = {}) {
     this.app = { ...DEF, ...app }; const S = hd ? 512 : 256;
     const data = new Uint8Array(S * S * 4); const tex = new THREE.DataTexture(data, S, S, THREE.RGBAFormat, THREE.UnsignedByteType);
     tex.magFilter = tex.minFilter = THREE.LinearFilter; // smooth painted look (the page pads every face, so no bleeding) tex.generateMipmaps = false; tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace;
@@ -55,7 +55,7 @@ export class LimboBody {
     for (const b of BONES) { const p = BONE_PARENT[b]; (p ? this.bones[p] : this.root).add(this.bones[b]); }
     for (const b of SEC_BONES) { const g = new THREE.Group(); g.name = b; this.bones[SEC_PARENT[b]].add(g); this.bones[b] = g; }
     this.dims = rigDims(this.app); for (const b of BONES) this.bones[b].position.fromArray(this.dims.off[b]);
-    const spec = specOf(this.app, outfit, this.dims, hashApp(this.app), {}, overrides); if (hook) spec.hook = hook; this.spec = spec;
+    const spec = specOf(this.app, outfit, this.dims, hashApp(this.app), {}, overrides); if (hook) spec.hook = hook; if (lowpoly) spec.lowpoly = true; this.spec = spec;
     const boneIndex = (b) => { const si = SEC_BONES.indexOf(b); return si >= 0 ? BONES.length + si : BONES.indexOf(b); };
     const geo = this.gg.build(spec, this.dims, new Set(severed), 0, boneIndex); this.P = this.gg.P;
     smoothSkin(geo);

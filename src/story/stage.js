@@ -107,7 +107,7 @@ export function skyShards(center, { r = 70, skyMat = null, seed = 9, az = 18, el
   let crackK = 0;
   return {
     group: g, shards, mat,
-    crack(k) { crackK = k; for (const s of shards) if (!s.fall) s.m.scale.setScalar(1 - k * (0.035 + (s.delay % 0.3) * 0.05)); },
+    crack(k) { crackK = k; for (const s of shards) if (!s.fall) s.m.scale.setScalar(1 - k * (0.05 + (s.delay % 0.3) * 0.08)); },
     drop(frac = 1) { for (const s of shards) if (!s.fall && (s.delay % 1) < frac) { s.fall = true; s.vel.copy(s.cen).normalize().multiplyScalar(-2 - Math.random() * 3).add(V((Math.random() - 0.5) * 3, -2, (Math.random() - 0.5) * 3)); } },
     update(dt, frozen = false) { if (frozen) return; for (const s of shards) { if (!s.fall) continue; s.vel.y -= 14 * dt; s.m.position.addScaledVector(s.vel, dt); s.m.rotation.x += s.spin.x * dt; s.m.rotation.y += s.spin.y * dt; s.m.rotation.z += s.spin.z * dt; } void crackK; },
   };
@@ -181,8 +181,8 @@ export function buildDome() {
   // stars beyond the slit and a sky of them overhead (pixel points), and two lamps
   const N = 900; const sp = new Float32Array(N * 3); const rnd = R(11); for (let i = 0; i < N; i++) { const a = rnd() * TAU, e = 0.15 + rnd() * 1.35; sp.set([Math.cos(e) * Math.sin(a) * 60, Math.sin(e) * 60 + 3, -Math.cos(e) * Math.cos(a) * 60], i * 3); }
   const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3)); const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xfff4d8, size: 2.2, sizeAttenuation: false, toneMapped: false })); stars.userData.noInk = true; g.add(stars);
-  for (const s of [-1, 1]) { const l = new THREE.PointLight(0xffb060, 18, 9, 1.6); l.position.set(s * 3.4, 2.6, 1.6); g.add(l); }
-  const moon = new THREE.DirectionalLight(0x9ab0ff, 1.4); moon.position.set(-2, 10, -6); moon.castShadow = true; g.add(moon); g.add(new THREE.HemisphereLight(0x6a70c0, 0x2a1a20, 0.9));
+  for (const s of [-1, 1]) { const l = new THREE.PointLight(0xffb060, 26, 12, 1.4); l.position.set(s * 3.4, 2.8, 1.6); g.add(l); } const key = new THREE.DirectionalLight(0xffe0b8, 1.1); key.position.set(3, 8, 6); g.add(key);
+  const moon = new THREE.DirectionalLight(0x9ab0ff, 1.4); moon.position.set(-2, 10, -6); moon.castShadow = true; g.add(moon); g.add(new THREE.HemisphereLight(0x8a90d8, 0x4a3030, 1.4));
   g.userData.spots = { master: V(-1.2, 0, -1.4), hero: V(1.6, 0, 2.2), dog: V(2.6, 0, 1.3), scope: scope.position.clone(), look: V(0, 1.6, -1) };
   return { group: g, update() {}, background: new THREE.Color(0x0a0c22) };
 }

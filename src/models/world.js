@@ -6,6 +6,7 @@ import { realStage, toonModel, firePit as pit } from './realworld.js';
 import { tree } from './flora.js';
 import { cottage, windmill, well, shrine, tholos, chimneySmoke } from './village.js';
 import { mulberry32 } from '../core/util.js';
+import { prop } from './lowprops.js';
 
 const asyncProp = (name, s = 1, { y = 0, ry = 0 } = {}) => { const g = new THREE.Group(); g.name = name; toonModel(name, mulberry32(name.length * 7 + Math.round(s * 100))).then((o) => { o.scale.multiplyScalar(s); o.position.y = y; o.rotation.y = ry; g.add(o); }).catch(() => {}); return g; };
 
@@ -22,6 +23,12 @@ export const PROPS = {
   statue(seed = 1, s = 1) { return asyncProp(seed % 2 ? 'horse_statue_01' : 'marble_bust_01', s * (seed % 2 ? 3 : 3.4)); },
   mazeWall(len = 3, h = 2.2, seed = 1) { return asyncProp(`stone_wall_kit#${seed % 22}`, 0.35 * (h / 2.2)); },
   reeds(n = 40, w = 20, d = 6, seed = 2) { const g = new THREE.Group(); const rnd = mulberry32(seed); for (let i = 0; i < Math.ceil(n / 8); i++) { const r = asyncProp(rnd() < 0.5 ? 'nettle_plant' : 'fern_02', 1.6 + rnd()); r.position.set((rnd() - 0.5) * w, 0, -2.5 - rnd() * d); g.add(r); } return g; },
+  /** sharp low-poly textured props (models/lowprops.js): any kit name, e.g. PROPS.prop('cart'), plus shortcuts */
+  prop(name, opts = {}) { return prop(name, opts); },
+  crate(seed = 1, s = 1) { return prop('crate', { seed, s }); }, barrel(seed = 1, s = 1) { return prop('barrel', { seed, s }); }, chest(seed = 1, s = 1) { return prop('chest', { seed, s }); },
+  cart(seed = 1, s = 1) { return prop('cart', { seed, s }); }, tools(seed = 1, s = 1) { return prop('tools', { seed, s }); }, basket(seed = 1, s = 1) { return prop('basket', { seed, s }); },
+  sack(seed = 1, s = 1) { return prop('sack', { seed, s }); }, ladder(seed = 1, s = 1) { return prop('ladder', { seed, s }); }, signpost(seed = 1, s = 1) { return prop('signpost', { seed, s }); },
+  tent(seed = 1, s = 1) { return prop('tent', { seed, s }); }, lantern(seed = 1, s = 1) { return prop('lantern', { seed, s }); }, bench(seed = 1, s = 1) { return prop('bench', { seed, s }); },
   firePit(seed = 3, s = 1) { const g = pit({ seed }); g.scale.setScalar(s); return g; },
 };
 

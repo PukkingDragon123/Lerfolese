@@ -1,5 +1,5 @@
 // SHARP LOW-POLY PROP KIT: crisp faceted props (few sides, hard edges, flat-shaded facets) wearing detailed pixel-art
-// textures (wood grain, brushed / hammered metal with scratches and engraving, stone, marble, lapis, leather with
+// textures (facets are baked flat into the geometry: facet()) (wood grain, brushed / hammered metal with scratches and engraving, stone, marble, lapis, leather with
 // stitching, canvas weave, terracotta, ivory, wax, feathers, glass, gems, wicker), toon-banded, ink-outlined by the
 // engine's InkPass (or inkHull in UI scenes). One call:
 //
@@ -7,7 +7,7 @@
 //
 // names: crate, appleCrate, barrel, chest, book, bookStack, candle, candlestick, candelabra, lantern, oilLamp, chair,
 //   stool, bench, table, roundTable, shelf, bookshelf, vase, amphora, pot, bottle, goblet, scroll, globe, telescope,
-//   hammer, shovel, pickaxe, saw, tools, basket, bucket, cart, ladder, post, signpost, tent, sack, rug, cauldron
+//   hammer, shovel, pickaxe, saw, tools, basket, bucket, cart, ladder, post, signpost, tent, pavilion, sack, rug, cauldron
 // common opts: seed, s (uniform scale); per-prop sizes (w, h, d, r) and kinds (wood: 'oak' | 'walnut', metal: 'brass'
 // | 'iron' | ...; color for books / bottles / rugs). Extra parts are named (chest lid 'treasure_chest_lid', lantern
 // 'glass', flame 'flame') so scenes can animate them.
@@ -94,7 +94,7 @@ const MATS = new Map();
 /** lmat(kind, { color tint, opacity, emissive, ei, side }) -> MeshToonMaterial (flat facets, 3 hard bands; metals and gems 4) */
 export function lmat(kind, { color = 0xffffff, opacity = 1, emissive = 0, ei = 1, side = THREE.FrontSide } = {}) {
   const key = [kind, color, opacity, emissive, ei, side].join('|'); let m = MATS.get(key); if (m) return m;
-  m = new THREE.MeshToonMaterial({ map: tex(kind), color: new THREE.Color(color), flatShading: true, gradientMap: gradientMap(METAL.has(kind) ? [0.32, 0.6, 0.86, 1.0] : [0.46, 0.74, 1.0]), transparent: opacity < 1, opacity, depthWrite: opacity >= 1, emissive: new THREE.Color(emissive), emissiveIntensity: ei, side });
+  m = new THREE.MeshToonMaterial({ map: tex(kind), color: new THREE.Color(color), gradientMap: gradientMap(METAL.has(kind) ? [0.32, 0.6, 0.86, 1.0] : [0.46, 0.74, 1.0]), transparent: opacity < 1, opacity, depthWrite: opacity >= 1, emissive: new THREE.Color(emissive), emissiveIntensity: ei, side });
   m.userData.toon = true; m.userData.lowpoly = true; MATS.set(key, m); return m;
 }
 export const glowMat = (color, k = 2.2) => { const key = 'glow|' + color + '|' + k; let m = MATS.get(key); if (!m) { m = new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), toneMapped: false }); m.userData.flame = true; MATS.set(key, m); } return m; };
@@ -170,7 +170,7 @@ const P = {
     const c = P.candle({ h: 0.14, r: 0.018 }); c.position.y = h * 0.73; g.add(c); return g; },
   lantern({ h = 0.29 } = {}) { const g = grp(); const k = h / 0.29; const br = 'brass';
     mesh(g, prism(0.06 * k, 0.03 * k, 6).translate(0, 0.015 * k, 0), br);
-    const gl = mesh(g, prism(0.048 * k, 0.15 * k, 6).translate(0, 0.105 * k, 0), new THREE.MeshToonMaterial({ color: '#ffd890', emissive: '#ffa040', emissiveIntensity: 1.4, flatShading: true })); gl.name = 'glass';
+    const gl = mesh(g, prism(0.048 * k, 0.15 * k, 6).translate(0, 0.105 * k, 0), new THREE.MeshToonMaterial({ color: '#ffd890', emissive: '#ffa040', emissiveIntensity: 1.4 })); gl.name = 'glass';
     for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU + Math.PI / 6; mesh(g, cbox(0.008 * k, 0.15 * k, 0.008 * k, 0.002), br, Math.cos(a) * 0.052 * k, 0.105 * k, Math.sin(a) * 0.052 * k); }
     mesh(g, lathe([[0.0005, 0.18 * k], [0.065 * k, 0.18 * k], [0.03 * k, 0.24 * k], [0.0005, 0.25 * k]], 6), br); mesh(g, tube([[-0.02 * k, 0.245 * k, 0], [0, 0.29 * k, 0], [0.02 * k, 0.245 * k, 0]], 0.006 * k, { seg: 4, rad: 3 }), 'iron'); return g; },
   oilLamp({ h = 0.8 } = {}) { const g = grp(); mesh(g, lathe([[0.0005, 0], [0.11, 0], [0.1, 0.03], [0.03, 0.06], [0.025, h * 0.5], [0.09, h * 0.55], [0.1, h * 0.62], [0.06, h * 0.66], [0.0005, h * 0.67]], 8), 'brass');
@@ -215,6 +215,9 @@ const P = {
   tent({ L = 1.0, W = 0.92, H = 0.58 } = {}) { const g = grp(); const cv = lmat('canvas', { side: THREE.DoubleSide }); const sl = Math.hypot(W / 2, H);
     for (const s of [-1, 1]) mesh(g, cbox(L, 0.012, sl, 0.002), cv, 0, H / 2, s * W / 4, Math.atan2(H, s * W / 2), 0, 0);
     mesh(g, extrude(shape([[-W / 2, 0], [W / 2, 0], [0, H]]), 0.01, 0).rotateY(Math.PI / 2), cv, -L / 2, 0, 0); for (const s of [-1, 1]) mesh(g, cbox(0.035, H + 0.12, 0.035, 0.008), 'walnut', s * (L / 2 + 0.02), (H + 0.12) / 2, 0); mesh(g, prism(0.016, L + 0.1, 5).rotateZ(Math.PI / 2), 'walnut', 0, H + 0.01, 0); return g; },
+  pavilion({ R = 0.5, H = 1.05, color = 'purple' } = {}) { const g = grp(); const cv = lmat(color, { side: THREE.DoubleSide });
+    mesh(g, lathe([[0.0005, H], [R * 0.35, H * 0.7], [R, H * 0.3], [R, 0.02]], 8), cv, 0, 0, 0, 0, 0, 0, 3); mesh(g, lathe([[R * 1.02, H * 0.3], [R * 1.06, H * 0.26], [R * 1.02, H * 0.22]], 8), 'goldEng');
+    mesh(g, lathe([[0.0005, H - 0.02], [0.03, H], [0.02, H + 0.08], [0.045, H + 0.12], [0.0005, H + 0.2]], 5), 'gold'); return g; },
   sack({ h = 0.5, r = 0.18 } = {}) { const g = grp(); mesh(g, jitter(lathe([[0.0005, 0], [r * 0.9, 0], [r * 1.1, h * 0.35], [r, h * 0.7], [r * 0.4, h * 0.85], [r * 0.5, h], [0.0005, h * 0.95]], 7), r * 0.12, 5), 'canvas'); mesh(g, lathe([[r * 0.42, h * 0.82], [r * 0.48, h * 0.86], [r * 0.42, h * 0.9]], 7), 'rope'); return g; },
   rug({ w = 2, d = 1.3, color = 'clothRed' } = {}) { const g = grp(); mesh(g, cbox(w, 0.012, d, 0.004), color, 0, 0.006, 0, 0, 0, 0, 1); return g; },
   cauldron({ r = 0.35 } = {}) { const g = grp(); mesh(g, lathe([[0.0005, 0.08], [r * 0.6, 0.08], [r, r * 0.6], [r * 0.95, r * 1.1], [r * 0.85, r * 1.2], [r * 0.9, r * 1.28], [r * 0.8, r * 1.28], [0.0005, r * 1.0]], 8), 'iron'); for (let i = 0; i < 3; i++) { const a = (i / 3) * TAU; mesh(g, prism(0.03, 0.1, 4).translate(0, 0.05, 0), 'iron', Math.cos(a) * r * 0.55, 0, Math.sin(a) * r * 0.55); } return g; },

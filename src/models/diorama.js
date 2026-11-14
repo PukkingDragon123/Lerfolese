@@ -12,6 +12,7 @@ import { toonModel, firePit } from './realworld.js';
 import { loadModel, loadPBR } from '../gfx/assets.js';
 import { plantField } from '../gfx/plants.js';
 import { miniTree } from './minitrees.js';
+import { prop } from './lowprops.js';
 
 const V3 = THREE.Vector3; const TAU = Math.PI * 2;
 export const DIO = { X0: -20, X1: 20, ZN: 9, ZF: -72, ST: 0.15, CS: 4.0, RS: 4.4, GAP: 2.0, J: 1.2, BASE: -0.75, PPU: 16 };
@@ -536,7 +537,8 @@ function signpost(words, rnd) {
     const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; const p = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.14), new THREE.MeshToonMaterial({ map: t, transparent: true, gradientMap: T.gradientMap([0.6, 1]) })); p.position.set(0.15, 0, 0.042); p.userData.noInk = true; b.add(p); });
   return g;
 }
-function pupTent() {
+function pupTent() { // the low-poly prop kit's canvas A-frame, with a bedroll
+  { const g = new THREE.Group(); g.add(prop('tent', { L: 1.0, W: 0.92, H: 0.58 })); const bed = M(bevelBox(0.5, 0.05, 0.26, 0.02), toonM({ color: '#8a3a2a' }), g, -0.05, 0.03, 0.02); bed.castShadow = false; return g; }
   const g = new THREE.Group(); const Mt = mats(); const L = 1.0, W = 0.46, Hh = 0.58;
   const canvas = toonM({ map: pixTex(16, 16, (x, y) => { const seam = x % 8 === 0; const patch = x > 9 && x < 14 && y > 3 && y < 8; const v = 0.85 + hash(x, y) * 0.1; const c = patch ? [168, 120, 80] : seam ? [190, 170, 130] : [226, 210, 172]; return [c[0] * v, c[1] * v, c[2] * v]; }), side: THREE.DoubleSide });
   const side = (s) => clothSheetT(10, 6, (u, v, p) => { const sag = Math.sin(u * Math.PI) * Math.sin(v * Math.PI) * 0.04; p.set((u - 0.5) * L, Hh * (1 - v) - sag, s * (W * v + sag * 0.4)); });

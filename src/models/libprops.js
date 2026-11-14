@@ -1,22 +1,22 @@
 // Library furniture and small props in the SHARP, VERY-LOW-POLY style: faceted forms (flat-shaded boxes, 4–8-sided
 // lathes, low icosahedra) carried by detailed hand-pixelled textures (walnut grain, tufted oxblood leather, green
-// banker's glass, veined marble, parchment, brass), cel bands and ink outlines from the engine.
+// banker's glass, veined marble, parchment, brass), realistic lit PBR materials and thin ink outlines from the engine.
 // facet(profile, sides) · sbox(w, h, d, x, y, z, rx, ry, rz) · fuse(geos, mat, uvScale) · TEXM (materials) ·
 // desk() · armchair() · bankerLamp() · candle(h) · openBook(w, seed) · scroll(L) · inkwell() · quill() · globe() ·
 // armillary() · lantern() · ladder(L) · grandClock() · pedestal() · bellJar() · vitrine(w, h, d) · sideTable(h) ·
 // bookStack(n, seed) · podium(r)
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import * as T from './toon.js';
 import { worldUV } from './village.js';
-import { plainMat } from '../ui3d/craft.js';
 import { mulberry32 } from '../core/util.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
 function pix(w, h, draw, seed = 1) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h, mulberry32(seed * 977 + w * 13 + h)); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; }
 const put = (g, x, y, c, w = 1, h = 1) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
-const toonM = (o) => new THREE.MeshToonMaterial({ gradientMap: T.gradientMap([0.42, 0.74, 1.0]), ...o });
+// realistic lit materials (no cel bands): flat-shaded standard PBR carrying the pixel textures
+export const stdM = (o = {}) => new THREE.MeshStandardMaterial({ roughness: 0.78, metalness: 0, flatShading: true, ...o });
+const toonM = stdM;
 
 // ---------------------------------------------------------------- geometry helpers
 export function facet(profile, sides = 8, phase = 0) {
@@ -40,10 +40,12 @@ const tex = {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const u = ((x + y) % 16) / 16, v = ((x - y + 64) % 16) / 16; const puff = Math.sin(u * Math.PI) * Math.sin(v * Math.PI); const lit = (u < 0.5 ? 0.3 : 0) + (v < 0.5 ? 0.3 : 0); put(g, x, y, P[Math.max(1, Math.min(5, Math.round(1.4 + puff * 2.4 + lit - (r() < 0.05 ? 1 : 0))))]); }
     for (let i = 0; i < W; i++) { put(g, i, (i) % H, P[1]); put(g, i, (H - 1 - i + 16) % H, P[1]); } for (const [x, y] of [[0, 0], [16, 0], [8, 8], [24, 8], [0, 16], [16, 16], [8, 24], [24, 24]]) { put(g, x - 1, y - 1, P[0], 3, 3); put(g, x - 1, y - 1, P[4]); } }),
   green: () => pix(16, 16, (g, W, H) => { const P = ['#0a2a16', '#145a2c', '#1e7a3c', '#36a058', '#8ae0a0', '#e0ffe8']; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) put(g, x, y, P[x < 2 || x > 13 ? 1 : x === 4 ? 4 : x === 5 ? 3 : y > 13 ? 1 : 2]); put(g, 4, 3, P[5], 1, 3); }),
-  marble: () => pix(32, 32, (g, W, H, r) => { const P = ['#7e766e', '#a49c94', '#bcb4aa', '#d2cac0', '#e6e0d6']; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) put(g, x, y, P[3 - (r() < 0.12 ? 1 : 0) + (r() < 0.08 ? 1 : 0)]); for (let k = 0; k < 3; k++) { let x = r() * W, y = 0; while (y < H) { put(g, x | 0, y | 0, P[k ? 1 : 0]); x += (r() - 0.45) * 2; y += 1; if (r() < 0.2) put(g, (x + 1) | 0, y | 0, P[2]); } } }),
+  marble: () => pix(32, 32, (g, W, H, r) => { const P = ['#5e564e', '#7a7268', '#8e857a', '#a0968a', '#b4aa9c']; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) put(g, x, y, P[3 - (r() < 0.12 ? 1 : 0) + (r() < 0.08 ? 1 : 0)]); for (let k = 0; k < 3; k++) { let x = r() * W, y = 0; while (y < H) { put(g, x | 0, y | 0, P[k ? 1 : 0]); x += (r() - 0.45) * 2; y += 1; if (r() < 0.2) put(g, (x + 1) | 0, y | 0, P[2]); } } }),
   paper: () => pix(32, 32, (g, W, H, r) => { const P = ['#8a7a5a', '#cdbb94', '#e2d2ac', '#efe2c0', '#f8f0d8']; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) put(g, x, y, P[3 + (r() < 0.1 ? 1 : 0) - (r() < 0.12 ? 1 : 0)]); for (let y = 4; y < H - 3; y += 3) { let x = 3; while (x < W - 4) { const w = 2 + ((r() * 5) | 0); put(g, x, y, '#4a3a2a', Math.min(w, W - 4 - x), 1); x += w + 1; } } put(g, 3, 4, '#a8281e', 3, 4); }),
   pages: () => pix(32, 16, (g, W, H, r) => { for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) put(g, x, y, (x + y * 3) % 7 === 0 ? '#d8c8a4' : y % 2 ? '#efe4c6' : '#e4d6b4'); }),
   cloth: () => pix(16, 16, (g, W, H, r) => { for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) put(g, x, y, (x + y) % 4 === 0 ? '#1e4a2a' : (x * y) % 5 === 0 ? '#2e6a3a' : '#28583a'); for (let x = 0; x < W; x++) put(g, x, 0, '#c8a040'); }),
+  brass: () => pix(16, 16, (g, W, H, r) => { const P = ['#4a3410', '#7a5a1e', '#a8822e', '#c8a040', '#e8c860', '#fff0a0']; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) put(g, x, y, P[2 + ((x + y * 2) % 7 === 0 ? 1 : 0) - (r() < 0.12 ? 1 : 0) + (y === 3 && x % 3 ? 2 : 0)]); for (let k = 0; k < 5; k++) put(g, (r() * W) | 0, (r() * H) | 0, P[0]); }),
+  iron: () => pix(16, 16, (g, W, H, r) => { const P = ['#141418', '#24242a', '#34343c', '#4a4a54', '#6a6a76']; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) put(g, x, y, P[2 + (r() < 0.15 ? 1 : 0) - (r() < 0.15 ? 1 : 0)]); for (let k = 0; k < 6; k++) put(g, (r() * W) | 0, (r() * H) | 0, '#5a3a24'); }),
   clockFace: () => pix(32, 32, (g, W, H) => { put(g, 0, 0, '#3a2414', W, H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const d = Math.hypot(x - 15.5, y - 15.5); if (d < 14) put(g, x, y, d > 12.6 ? '#b88a2e' : d > 11.5 ? '#e8d8b0' : '#f4ead0'); }
     for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2; put(g, Math.round(15.5 + Math.sin(a) * 10 - 0.5), Math.round(15.5 - Math.cos(a) * 10 - 0.5), '#2a1a10', k % 3 ? 1 : 2, k % 3 ? 1 : 2); }
     for (let i = 0; i < 7; i++) put(g, 15, 15 - i, '#1a1010'); for (let i = 0; i < 5; i++) put(g, 15 + i, 15 + (i >> 1), '#1a1010'); put(g, 14, 14, '#c89a30', 3, 3); }),
@@ -53,18 +55,20 @@ const MATS = {};
 export const TEXM = {
   get walnut() { return (MATS.walnut ||= toonM({ map: tx('walnut') })); },
   get oak() { return (MATS.oak ||= toonM({ map: tx('oak') })); },
-  get leather() { return (MATS.leather ||= toonM({ map: tx('leather') })); },
-  get glassGreen() { return (MATS.glassGreen ||= toonM({ map: tx('green'), emissive: C('#0e3a1a') })); },
-  get marble() { return (MATS.marble ||= toonM({ map: tx('marble') })); },
+  get leather() { return (MATS.leather ||= toonM({ map: tx('leather'), roughness: 0.62 })); },
+  get glassGreen() { return (MATS.glassGreen ||= toonM({ map: tx('green'), emissive: C('#1a6a30'), emissiveIntensity: 0.6, roughness: 0.25 })); },
+  get marble() { return (MATS.marble ||= toonM({ map: tx('marble'), roughness: 0.42 })); },
   get paper() { return (MATS.paper ||= toonM({ map: tx('paper'), side: THREE.DoubleSide })); },
   get pages() { return (MATS.pages ||= toonM({ map: tx('pages') })); },
   get baize() { return (MATS.baize ||= toonM({ map: tx('cloth') })); },
   get clockFace() { return (MATS.clockFace ||= toonM({ map: tx('clockFace') })); },
-  get brass() { return plainMat('brass'); },
-  get iron() { return plainMat('iron'); },
+  get brass() { return (MATS.brass ||= stdM({ map: tx('brass'), metalness: 0.45, roughness: 0.42 })); },
+  get iron() { return (MATS.iron ||= stdM({ map: tx('iron'), metalness: 0.6, roughness: 0.55 })); },
+  get gold() { return (MATS.gold ||= stdM({ map: tx('brass'), color: C('#ffe08a'), metalness: 0.85, roughness: 0.28 })); },
   get flame() { return (MATS.flame ||= new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 1.6, 0.55), toneMapped: false })); },
   get glow() { return (MATS.glow ||= new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.6, 0.8), toneMapped: false })); },
-  get glass() { return (MATS.glass ||= toonM({ color: C('#cfe6ff'), transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide })); },
+  get glass() { return (MATS.glass ||= toonM({ color: C('#d8ecff'), transparent: true, opacity: 0.16, roughness: 0.08, metalness: 0.1, depthWrite: false, side: THREE.DoubleSide })); },
+  get stone() { return (MATS.stone ||= toonM({ map: tx('marble'), color: C('#c8b8a0'), roughness: 0.9 })); },
 };
 const flameMesh = (s = 1) => { const m = new THREE.Mesh(facet([[0.001, 0], [0.012 * s, 0.014 * s], [0.008 * s, 0.034 * s], [0.001, 0.052 * s]], 4), TEXM.flame); m.userData.noAO = true; m.userData.flame = true; return m; };
 
@@ -163,3 +167,6 @@ export function bookStack(n = 4, seed = 1) { const r = mulberry32(seed); const g
   for (let i = 0; i < n; i++) { const th = 0.045 + r() * 0.03, w = 0.3 - i * 0.015 + r() * 0.03, d = 0.22 + r() * 0.03; const b = new THREE.Group(); b.position.y = y; b.rotation.y = (r() - 0.5) * 0.5; g.add(b);
     b.add(fuse([sbox(w, th, d, 0, th / 2, 0)], toonM({ color: C(cols[(i + seed) % cols.length]) }))); b.add(fuse([sbox(w - 0.02, th - 0.012, 0.004, 0, th / 2, d / 2 + 0.001), sbox(0.004, th - 0.012, d - 0.02, w / 2 + 0.001, th / 2, 0)], TEXM.pages)); y += th; }
   g.userData.top = y; return g; }
+
+/** realistic pixel material by kind (walnut, oak, brass, gold, iron, leather, marble, stone) */
+export const pmat = (kind) => TEXM[kind] || TEXM.walnut;

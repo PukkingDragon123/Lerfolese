@@ -6,7 +6,7 @@
 // hoof, tail1-4. Procedural animation: breathing idle, snort head-toss, charge (head down, gallop), labrys swing,
 // hurt, death fall.
 import * as THREE from 'three';
-import * as K from '../charkit.js';
+import { K } from './look.js';
 import { Sculpt, bake } from './flesh.js';
 import { Spring } from '../../core/tween.js';
 import { makeBones, skinned, onBone, skinAttrs, sample, add, apply, battleRig, paintWounds, woundMat, woundTex } from './rig.js';
@@ -132,7 +132,7 @@ function painter(S, king) {
     if (tag === 'eye') { // amber-red glowing iris, slit pupil, white glint
       const p = q.prim; const dx = c.x - p.cx, dy = c.y - p.cy, dz = c.z - p.cz; const m = p.m; const lx = m[0] * dx + m[1] * dy + m[2] * dz, ly = m[3] * dx + m[4] * dy + m[5] * dz, lz = m[6] * dx + m[7] * dy + m[8] * dz;
       const r = Math.hypot(lx / p.rx, ly / p.ry); if (lz < 0) { K.tone(P.head, 0.25, o.col); return; }
-      if (r < 0.72) { if (Math.abs(lx) < p.rx * 0.13 && r < 0.62) { o.col = [24, 6, 8]; return; } K.tone(king ? hex('#ffb83a') : hex('#ff5a2a'), K.band(0.75 - r * 0.4, 4), o.col); o.em = king ? [255, 170, 40] : [255, 70, 30]; if (Math.hypot(lx / p.rx - 0.25, ly / p.ry - 0.3) < 0.16) { o.col = [255, 250, 230]; o.em = [255, 255, 240]; } return; }
+      if (r < 0.8) { if (Math.hypot(lx / p.rx - 0.28, ly / p.ry - 0.3) < 0.14) { o.col = [228, 222, 210]; o.ro = 0.05; return; } if (Math.abs(ly) < p.ry * 0.22 && r < 0.6) { o.col = [10, 7, 6]; o.ro = 0.1; return; } K.tone(king ? hex('#6a3a1a') : hex('#3a2016'), K.band(0.55 - r * 0.25), o.col); o.ro = 0.1; return; } // dark, wet bovine eye with a bar pupil
       K.tone(hex('#2a1210'), 0.3, o.col); return;
     }
     if (tag === 'nose' || tag === 'nostril') { if (tag === 'nostril' || q.d2 < 0.006 && q.tag2 === 'nostril') { o.col = [20, 12, 14]; return; } K.tone(P.nose, K.band(L + 0.05 + (c.ny > 0.55 && c.nz > 0.3 ? 0.3 : 0), 4), o.col); o.ro = 0.3; return; }
@@ -175,10 +175,10 @@ function ear(s, B) {
 }
 function tail(B, mats) {
   const rows = [[0, 1.46, -0.27], [0, 1.27, -0.4], [0, 1.03, -0.47], [0, 0.8, -0.49], [0, 0.6, -0.47]]; const f = K.curve(rows);
-  const l = new K.Loft(30, 12).set(f, (t) => 0.06 * (1 - t * 0.6) + 0.006);
+  const l = new K.Loft(30, 12).set(f, (t) => 0.06 * (1 - t * 0.6) + 0.006); const lm = l.M + 1, lr = l.R - 1;
   const tb = ['tail1', 'tail2', 'tail3', 'tail4'];
   const w = (v) => { const x = Math.min(3.999, v * 4); const i = Math.floor(x), fr = x - i; if (fr < 0.5) return i > 0 ? [[tb[i], 0.5 + fr], [tb[i - 1], 0.5 - fr]] : [[tb[0], 1]]; return i < 3 ? [[tb[i], 1.5 - fr], [tb[i + 1], fr - 0.5]] : [[tb[3], 1]]; };
-  skinAttrs(l.geo, B, (i) => w(Math.floor(i / 13) / 29));
+  skinAttrs(l.geo, B, (i) => w(Math.floor(i / lm) / lr));
   const tm = mats.own(mat('mino-tail', 64, 128, (u, v, o) => K.fur2(u, v, o, hex('#4a2a1c'), 8, 14, 0.5)));
   const tuft = new K.Loft(22, 16).set(K.curve([[0, 0.7, -0.485], [0, 0.56, -0.475], [0, 0.44, -0.45], [0, 0.33, -0.43]]), (t) => 0.075 * Math.sin(Math.min(1, t * 1.6 + 0.08) * Math.PI) * (1 - t * 0.5) + 0.004, { shape: (a, t) => 1 + Math.abs(Math.sin(a * 4 + t * 3)) * 0.35 * t });
   skinAttrs(tuft.geo, B, 'tail4');
@@ -192,7 +192,7 @@ function labrys(king) { // turned haft, leather grip, double crescent blades wit
   const s = new THREE.Shape(); s.moveTo(0, -0.08); s.lineTo(0.12, -0.1); s.quadraticCurveTo(0.22, -0.2, 0.34, -0.32); s.quadraticCurveTo(0.44, 0, 0.34, 0.32); s.quadraticCurveTo(0.22, 0.2, 0.12, 0.1); s.lineTo(0, 0.08); s.closePath();
   const bm = mat(king ? 'labrys-blade-k' : 'labrys-blade', 128, 128, (u, v, o) => { const edge = u > 0.55 || u < 0.08; const etch = Math.abs(((u * 10 + v * 3) % 1) - 0.5) < 0.05 && !edge; K.tone(king ? hex('#f0c24a') : hex('#d8963a'), K.band(0.5 + (edge ? 0.3 : 0) + (etch ? -0.25 : 0) + (v - 0.5) * 0.2, 4), o.col); o.me = 0.65; o.ro = 0.3; });
   for (const sg of [-1, 1]) {
-    const bg = new THREE.ExtrudeGeometry(s, { depth: 0.03, bevelEnabled: true, bevelSize: 0.022, bevelThickness: 0.016, bevelSegments: 2, curveSegments: 12 }); bg.translate(0, 0, -0.015);
+    const bg = new THREE.ExtrudeGeometry(s, { depth: 0.03, bevelEnabled: true, bevelSize: 0.022, bevelThickness: 0.016, bevelSegments: 1, curveSegments: 6 }); bg.translate(0, 0, -0.015);
     const uv = bg.attributes.uv, p = bg.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, p.getX(i) / 0.46, p.getY(i) / 0.7 + 0.5);
     bg.scale(0.95 * hk, 0.95 * hk, 1); if (sg < 0) bg.rotateY(Math.PI);
     bg.translate(0, 0.86, 0); bg.computeVertexNormals(); K.mesh(bg, bm, g);
@@ -230,16 +230,16 @@ function kingRegalia(B, mats) {
   const V2 = (pts) => pts.map(([x, y]) => new THREE.Vector2(x, y));
   for (const s of [-1, 1]) {
     const pa = new THREE.Group(); pa.position.set(0.6 * s, 2.29, -0.01); pa.rotation.z = -0.7 * s;
-    K.mesh(new THREE.LatheGeometry(V2([[0.001, 0.14], [0.08, 0.134], [0.15, 0.108], [0.21, 0.06], [0.245, 0.005], [0.258, -0.018], [0.25, -0.034]]), 28), gm, pa);
-    K.mesh(new THREE.LatheGeometry(V2([[0.246, -0.04], [0.272, -0.072], [0.29, -0.108], [0.288, -0.126], [0.276, -0.13]]), 28), gm, pa);
+    K.mesh(new THREE.LatheGeometry(V2([[0.001, 0.14], [0.08, 0.134], [0.15, 0.108], [0.21, 0.06], [0.245, 0.005], [0.258, -0.018], [0.25, -0.034]]), 10), gm, pa);
+    K.mesh(new THREE.LatheGeometry(V2([[0.246, -0.04], [0.272, -0.072], [0.29, -0.108], [0.288, -0.126], [0.276, -0.13]]), 10), gm, pa);
     onBone(B, 'uparm_' + (s > 0 ? 'L' : 'R'), pa);
   }
   // harness strap with a sun medallion
   const strap = new K.Loft(24, 8).set(K.curve([[0.5, 2.3, 0.08], [0.25, 2.12, 0.29], [0, 1.95, 0.33], [-0.22, 1.75, 0.3], [-0.36, 1.58, 0.15]]), () => [0.045, 0.012], { ref: (t, n) => n.set(0, 0, 1) });
-  skinAttrs(strap.geo, B, (i) => { const v = Math.floor(i / 9) / 23; return [['spine3', 1 - v], ['spine2', v]]; });
+  skinAttrs(strap.geo, B, (i) => { const v = Math.floor(i / (strap.M + 1)) / (strap.R - 1); return [['spine3', 1 - v], ['spine2', v]]; });
   const sm = mats.own(mat('mino-strap', 64, 64, (u, v, o) => { const stud = ((v * 14) % 1) < 0.25 && Math.abs(u - 0.5) > 0.2; K.tone(stud ? hex('#f2c040') : hex('#3a2014'), K.band(0.5 + (stud ? 0.2 : 0), 4), o.col); if (stud) o.me = 0.6; }));
   const strapM = skinned(strap.geo, sm, B);
-  const med = new THREE.LatheGeometry([[0, 0.034], [0.03, 0.032], [0.05, 0.026], [0.07, 0.024], [0.082, 0.03], [0.092, 0.018], [0.094, 0]].map(([x, y]) => new THREE.Vector2(x, y)), 28); med.rotateX(Math.PI / 2); const mm = K.mesh(med, gm); mm.position.set(0, 1.95, 0.33); mm.rotation.x = -0.15; onBone(B, 'spine2', mm);
+  const med = new THREE.LatheGeometry([[0, 0.034], [0.03, 0.032], [0.05, 0.026], [0.07, 0.024], [0.082, 0.03], [0.092, 0.018], [0.094, 0]].map(([x, y]) => new THREE.Vector2(x, y)), 10); med.rotateX(Math.PI / 2); const mm = K.mesh(med, gm); mm.position.set(0, 1.95, 0.33); mm.rotation.x = -0.15; onBone(B, 'spine2', mm);
   return [strapM];
 }
 function bracer(s, B, king, mats) {

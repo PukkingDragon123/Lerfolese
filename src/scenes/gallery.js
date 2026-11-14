@@ -16,7 +16,7 @@ import { createBookworm } from '../models/bookworm.js';
 import * as LP from '../models/libprops.js';
 import { createFrog } from '../models/frog.js';
 import { toonModel } from '../models/realworld.js';
-import { plainMat } from '../ui3d/craft.js';
+const plainMat = (k) => LP.pmat(k); // realistic pixel materials
 const turned = (profile, sides = 8) => LP.facet(profile, Math.min(8, sides)); // exhibits and stands are faceted, sharp low-poly
 import * as T from '../models/toon.js';
 import { audio } from '../core/audio.js';
@@ -25,8 +25,8 @@ import { mulberry32 } from '../core/util.js';
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
 const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
-const toonC = (c, o = {}) => new THREE.MeshToonMaterial({ color: C(c), gradientMap: T.gradientMap([0.45, 0.75, 1.0]), ...o });
-const glass = () => new THREE.MeshToonMaterial({ color: C('#bfe0ff'), transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide, gradientMap: T.gradientMap([0.6, 1.0]) });
+const toonC = (c, o = {}) => LP.stdM({ color: C(c), ...o }); // realistic lit, flat-shaded
+const glass = () => LP.TEXM.glass;
 function pix(w, h, draw, repeat = null) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h, mulberry32(w * 7 + h)); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...repeat); } return t; }
 
 // ---------------------------------------------------------------- exhibits
@@ -58,14 +58,14 @@ const EXHIBIT = {
 let VELVET = null;
 function drape() { // a square of velvet thrown over a hidden form: a rounded crown, folds falling to the plinth, corners hanging over its edge, gold braid at the hem
   VELVET ||= pix(32, 32, (g, w, h, r) => { const ramp = ['#3a0c1c', '#4e1226', '#621a30', '#7a2238']; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const dam = ((x + 4) % 16 < 9 && (y + 2) % 16 < 9 && Math.abs(((x + 4) % 16) - 4) + Math.abs(((y + 2) % 16) - 4) === 3) ? 1 : 0; g.fillStyle = ramp[1 + dam + (r() < 0.06 ? 1 : 0) - ((x + y * 2) % 13 === 0 ? 1 : 0)]; g.fillRect(x, y, 1, 1); } }, [3, 3]);
-  const S = 1.36, N = 40; const geo = new THREE.PlaneGeometry(S, S, N, N); geo.rotateX(-Math.PI / 2); const p = geo.attributes.position; const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const S = 1.36, N = 16; const geo = new THREE.PlaneGeometry(S, S, N, N); geo.rotateX(-Math.PI / 2); const p = geo.attributes.position; const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const place = (x, z, out) => { const d = Math.hypot(x, z), a = Math.atan2(z, x); const peak = 0.6 + 0.05 * Math.sin(a * 2 + 0.6); const fold = Math.sin(a * 9 + d * 5) * 0.035 * sm(0.14, 0.5, d);
     let rr, y; if (d < 0.42) { rr = d; y = d < 0.16 ? peak - (d / 0.16) ** 2 * 0.1 : peak - 0.1 - (peak - 0.13) * sm(0.16, 0.42, d) ** 0.8; } else { const hang = d - 0.42; rr = 0.43 + hang * 0.12; y = 0.03 - hang * 0.92; }
     rr += fold; out.set(Math.cos(a) * rr, Math.max(-0.5, y) + fold * 0.4, Math.sin(a) * rr); return out; };
   const tmp = V(); for (let i = 0; i < p.count; i++) { place(p.getX(i), p.getZ(i), tmp); p.setXYZ(i, tmp.x, tmp.y, tmp.z); }
-  geo.computeVertexNormals(); const g = new THREE.Group(); const m = new THREE.Mesh(geo, new THREE.MeshToonMaterial({ map: VELVET, side: THREE.DoubleSide, gradientMap: T.gradientMap([0.4, 0.72, 1.0]) })); m.castShadow = true; m.receiveShadow = true; g.add(m);
+  geo.computeVertexNormals(); const g = new THREE.Group(); const m = new THREE.Mesh(geo, LP.stdM({ map: VELVET, side: THREE.DoubleSide, roughness: 0.95, flatShading: true })); m.castShadow = true; m.receiveShadow = true; g.add(m);
   const hem = []; const h = S / 2; for (let i = 0; i < 64; i++) { const u = (i / 64) * 4; const s = Math.floor(u), f = u - s; const [x, z] = [[-h + f * S, -h], [h, -h + f * S], [h - f * S, h], [-h, h - f * S]][s]; hem.push(place(x * 0.995, z * 0.995, V())); }
-  g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hem, true), 160, 0.012, 6, true), plainMat('gold'))); return g;
+  g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(hem, true), 96, 0.012, 4, true), plainMat('gold'))); return g;
 }
 export class GalleryScene extends UIScreen {
   async enter() {
@@ -73,6 +73,7 @@ export class GalleryScene extends UIScreen {
     const sc = (this.scene = new THREE.Scene()); sc.background = C('#1c140e'); sc.fog = new THREE.Fog(0x3a2818, 16, 40);
     // the room: a two-storey library-museum under the star dome (models/library.js), lit warm by fire, lamps and lanterns
     const lib = (this.lib = buildLibrary({ seed: 7 })); sc.add(lib.group); this.dome = lib.dome;
+    sc.environment = T.gradientEnv(this.engine.renderer, 'library', { top: '#2a2230', hor: '#b07a4a', gnd: '#5a3a22' }); sc.environmentIntensity = 0.85; // warm bounce for the brass and glass
     // the museum: exhibits on marble plinths in the alcoves under the balcony, glass bells over the precious ones
     this.exhibits = []; const spots = lib.exhibitSpots;
     ACHIEVEMENTS.forEach((a, i) => {
@@ -99,17 +100,17 @@ export class GalleryScene extends UIScreen {
     { const back = new THREE.Mesh(LP.facet([[0.001, 0], [0.022, 0], [0.016, 1.15], [0.001, 1.16]], 4, Math.PI / 4), plainMat('brass')); back.position.set(0, 0, -0.32); back.rotation.x = -0.28; easel.add(back); const bar = new THREE.Mesh(LP.facet([[0.001, -0.6], [0.02, -0.6], [0.02, 0.6], [0.001, 0.6]], 4, Math.PI / 4), plainMat('brass')); bar.rotation.z = Math.PI / 2; bar.position.set(0, 0.62, 0.02); easel.add(bar); }
     this.door = plaque('Return to the Garden', { font: 'title', style: 'carve', kind: 'oak', depth: 0.3 }); { const [dw] = this.door.userData.size; this.door.scale.multiplyScalar(1.35 / dw); } this.door.position.set(0, 0.95, 0.05); this.door.rotation.x = -0.12; easel.add(this.door);
     // the bookworms: little earthworm scholars in robes, at their desks, on the shelves, the ladder, the balcony rail
-    this.worms = []; const S = lib.spots; const W = (o) => { const w = createBookworm(o); w.root.scale.setScalar(1.25); sc.add(w.root); this.worms.push(w); return w; };
+    this.worms = []; const S = lib.spots; const W = (o) => { const w = createBookworm(o); w.root.scale.setScalar(1.1); sc.add(w.root); this.worms.push(w); return w; };
     const kNear = (a) => S.shelfFrames.reduce((b, f, i) => (Math.abs(f.a - a) < Math.abs(S.shelfFrames[b].a - a) ? i : b), 0);
-    let w = W({ seed: 1, robe: '#2a3a7a', spectacles: true, book: '#6a2a24' }); w.root.position.copy(S.desks[0].top); w.root.rotation.y = S.desks[0].ry + 2.4;
-    w = W({ seed: 2, robe: '#1e1e2a', cap: 'mortar', book: '#2a4a2a' }); w.root.position.copy(S.desks[1].top); w.root.rotation.y = S.desks[1].ry + 2.8;
-    w = W({ seed: 6, robe: '#4a2a5a', cap: 'night' }); w.setMode('sleep'); w.root.position.copy(S.desks[1].stack); w.root.rotation.y = S.desks[1].ry;
-    w = W({ seed: 3, robe: '#5a2a3a', cap: 'mortar' }); w.setRoute({ a: S.shelfAt(kNear(3.75), 3, 0.06), b: S.shelfAt(kNear(3.75), 3, 0.94), up: V(0, 1, 0) });
-    w = W({ seed: 4, robe: '#2e5a34', scarf: '#d8a838', book: '#7a4a1a' }); w.setRoute({ a: V(-1.2, 0.012, -1.4), b: V(1.0, 0.012, -2.9), up: V(0, 1, 0) }); w.setMode('carry');
+    let w = W({ seed: 1, robe: '#3a4a6a', monocle: true, book: '#6a2a24' }); w.root.position.copy(S.desks[0].top); w.root.rotation.y = S.desks[0].ry - Math.PI / 2;
+    w = W({ seed: 2, robe: '#5a4430', book: '#2a4a2a' }); w.root.position.copy(S.desks[1].top); w.root.rotation.y = S.desks[1].ry - Math.PI / 2;
+    w = W({ seed: 6, scarf: '#7a3a3a' }); w.setMode('sleep'); w.root.position.copy(S.desks[1].stack); w.root.rotation.y = S.desks[1].ry;
+    w = W({ seed: 3 }); w.setRoute({ a: S.shelfAt(kNear(3.75), 3, 0.06), b: S.shelfAt(kNear(3.75), 3, 0.94), up: V(0, 1, 0) });
+    w = W({ seed: 4, scarf: '#b08a3a', book: '#7a4a1a' }); w.setRoute({ a: V(-1.2, 0.012, -1.4), b: V(1.0, 0.012, -2.9), up: V(0, 1, 0) }); w.setMode('carry');
     { const L = lib.spots.ladders[1]; const f = L.top.clone().sub(L.base); const len = f.length(); f.normalize(); const inw = L.base.clone().setY(0).normalize().negate(); const up = inw.sub(f.clone().multiplyScalar(inw.dot(f))).normalize();
-      w = W({ seed: 5, robe: '#7a3a1a', spectacles: true }); w.setRoute({ a: L.base.clone().addScaledVector(f, 0.35).addScaledVector(up, 0.03), b: L.base.clone().addScaledVector(f, len - 0.4).addScaledVector(up, 0.03), up }); w.st.speed = 0.06; }
-    w = W({ seed: 7, robe: '#8a2a2a', scarf: '#ece2c8' }); w.setRoute({ a: S.rail(2.62), b: S.rail(2.76), up: V(0, 1, 0) });
-    w = W({ seed: 8, robe: '#2a4a5a', spectacles: true, scarf: '#a83a2a', book: '#3a2a6a' }); w.root.position.copy(S.chairArm); w.root.rotation.y = 0.55 + Math.PI;
+      w = W({ seed: 5, robe: '#5a2a2a' }); w.setRoute({ a: L.base.clone().addScaledVector(f, 0.35).addScaledVector(up, 0.03), b: L.base.clone().addScaledVector(f, len - 0.4).addScaledVector(up, 0.03), up }); w.st.speed = 0.05; }
+    w = W({ seed: 7, scarf: '#d8d0b8' }); w.setRoute({ a: S.rail(2.62), b: S.rail(2.76), up: V(0, 1, 0) });
+    w = W({ seed: 8, robe: '#2a4a3a', monocle: true, book: '#3a2a6a' }); w.root.position.copy(V(-0.12, 0.5, 0.0).applyAxisAngle(V(0, 1, 0), 0.55).add(V(-2.3, 0, -6.4))); w.root.rotation.y = 0.55;
     // camera: you stand in the room and turn (drag), or walk up to an exhibit (click)
     this.camera = new THREE.PerspectiveCamera(50, this.engine.aspect, 0.1, 200); this.yaw = 0; this.yawT = 0; this.focus = null; this.pos = V(0, 1.75, 1.4); this.look = V(0, 1.3, -4);
     this.engine.setWorld(sc, this.camera);

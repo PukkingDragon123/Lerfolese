@@ -10,11 +10,11 @@ const BONES = quadRows(O); const TE = BONES.tailEnd;
 BONES.push(['gneck1', 'spine2', [0, 1.25, 0.15]], ['gneck2', 'gneck1', [0, 1.52, 0.2]], ['ghead', 'gneck2', [0, 1.76, 0.29]], ['gjaw', 'ghead', [0, 1.73, 0.34]],
   ['shead', 'tail6', TE], ['sjaw', 'shead', [0, TE[1] - 0.02, TE[2] - 0.03]]);
 const PAL = {
-  lion: { s: 'fur', c: hex('#d0a058'), belly: hex('#e6c890'), fs: 26, strand: 0.16 }, lionL: { s: 'fur', c: hex('#ead2a0'), fs: 34, strand: 0.12 },
-  mane: { s: 'fur', c: hex('#8a3a1e'), fs: 18, strand: 0.32, flow: 0.4 }, nose: { s: 'skin', c: hex('#5a3a34'), ro: 0.35 }, paw: { s: 'skin', c: hex('#6a4a34') },
-  eye: { s: 'eye', c: hex('#ffb030'), glow: [255, 170, 40], pupil: 'slit' }, mouth: { s: 'dark', c: hex('#ff8a2a'), e: [255, 110, 20] },
-  goat: { s: 'fur', c: hex('#3a3436'), belly: hex('#58504e'), fs: 30 }, beard: { s: 'hair', c: hex('#5a524e') }, goateye: { s: 'eye', c: hex('#f0c040'), glow: [230, 180, 40], pupil: 'bar', rim: hex('#1e1a1a') },
-  snake: { s: 'scale', c: hex('#3c7a4a'), back: hex('#2a5a3a'), belly: hex('#d8c27a'), sz: 0.022 }, seye: { s: 'eye', c: hex('#d8ff40'), glow: [200, 255, 60], pupil: 'slit' },
+  lion: { s: 'fur', c: hex('#b08a54'), belly: hex('#d0b488'), fs: 26, strand: 0.16 }, lionL: { s: 'fur', c: hex('#cdb48a'), fs: 34, strand: 0.12 },
+  mane: { s: 'fur', c: hex('#5e3c22'), fs: 18, strand: 0.32, flow: 0.4 }, nose: { s: 'skin', c: hex('#5a3a34'), ro: 0.35 }, paw: { s: 'skin', c: hex('#6a4a34') },
+  eye: { s: 'eye', c: hex('#b07a2a'), pupil: 'round', pupilR: 0.3 }, mouth: { s: 'dark', c: hex('#c0501a'), e: [150, 50, 10] },
+  goat: { s: 'fur', c: hex('#4a3c30'), belly: hex('#6a5a4a'), fs: 30 }, beard: { s: 'hair', c: hex('#5a524e') }, goateye: { s: 'eye', c: hex('#c09a3a'), pupil: 'bar', rim: hex('#1e1a1a') },
+  snake: { s: 'scale', c: hex('#5a6a3a'), back: hex('#3e4a2a'), belly: hex('#c8b888'), sz: 0.022 }, seye: { s: 'eye', c: hex('#b8a03a'), pupil: 'slit' },
   default: { s: 'fur', c: hex('#d0a058') },
 };
 function sculpt(S) {

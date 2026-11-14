@@ -5,6 +5,7 @@
 // Newton animation contact sheet: each act stepped through time on a fresh rig, one cell per sampled moment.
 // Query: ?acts=throw,cast  &cols=8  &w=200&h=260
 import * as THREE from 'three';
+import '../src/gfx/lowpoly.js'; // the game's realistic Lambert light on toon materials
 import { createProfessor } from '../src/models/professor.js';
 const Q = new URLSearchParams(location.search); const W = +(Q.get('w') || 200), H = +(Q.get('h') || 260), COLS = +(Q.get('cols') || 8);
 const PLAN = [ // [label, setup(prof), times (s after the act starts)]
@@ -20,6 +21,8 @@ document.body.appendChild(r.domElement); r.setClearColor(0x2a2236, 1); r.clear()
 const scene = new THREE.Scene(); const sun = new THREE.DirectionalLight(0xffe2b8, 3); sun.position.set(-4, 6, 5); scene.add(sun, new THREE.HemisphereLight(0x9ab8ff, 0x4a3020, 1.2)); const rim = new THREE.DirectionalLight(0x8fe3ff, 1.4); rim.position.set(3, 3, -4); scene.add(rim);
 const ground = new THREE.Mesh(new THREE.RingGeometry(0, 1.2, 6).rotateX(-Math.PI / 2), new THREE.MeshLambertMaterial({ color: 0x3e5a2c })); scene.add(ground);
 const cam = new THREE.PerspectiveCamera(30, W / H, 0.1, 50); cam.position.set(1.2, 1.5, 5.6); cam.lookAt(0, 1.25, 0);
+if (Q.get('close')) { cam.position.set(0.55, 2.12, 1.45); cam.lookAt(0, 1.98, 0); } // face / torso close-up (he floats ~0.32 m)
+if (Q.get('half')) { cam.position.set(0.9, 1.8, 3.0); cam.lookAt(0, 1.6, 0); }
 const label = (txt, x, y) => { const d = document.createElement('div'); d.textContent = txt; Object.assign(d.style, { position: 'absolute', left: x + 4 + 'px', top: y + 2 + 'px' }); document.body.appendChild(d); };
 let cell = 0;
 for (const [name, setup, times] of PLAN) {

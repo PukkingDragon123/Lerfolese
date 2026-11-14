@@ -14,6 +14,7 @@ import { firePit } from './realworld.js';
 import { ENCOUNTERS } from '../game/data/enemies.js';
 import { TX, toonM, bevelBox, addMesh as M, pixTex, hash, propMats } from './diorama.js';
 import { makeNoise } from '../gfx/pixel.js';
+import { prop } from './lowprops.js';
 
 const V3 = THREE.Vector3; const TAU = Math.PI * 2;
 const strHash = (s) => { let h = 7; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 100003; return h; };
@@ -279,7 +280,8 @@ function clothSheet(w, d, fn, cols = 14, rows = 8) {
   for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) { const a = j * (cols + 1) + i, b = a + 1, c = a + cols + 1, dd = c + 1; idx.push(a, c, b, b, c, dd); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g;
 }
-function pavilion() {
+function pavilion() { // the low-poly prop kit's octagonal pavilion (purple canvas, gold band and finial), with its painted star
+  { const g = prop('pavilion', { R: 0.5, H: 1.05 }); const st = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), new THREE.MeshBasicMaterial({ map: starTex(), transparent: true, depthWrite: false })); st.position.set(0, 0.62, 0.5 * 0.62 + 0.03); st.rotation.x = -0.32; st.userData.noInk = true; g.add(st); return g; }
   const g = new THREE.Group(); const segs = 40, rows = 14, pos = [], uv = [], idx = []; const H = 1.05, Rb = 0.5;
   for (let j = 0; j <= rows; j++) for (let i = 0; i <= segs; i++) { const u = i / segs, v = j / rows; const a = u * TAU; const sc = 1 + Math.cos(a * 8) * 0.04 * v; const r = Rb * Math.pow(v, 0.85) * sc * (1 - Math.sin(v * Math.PI) * 0.08); const y = H * (1 - v) - (j === rows ? (i % 5 < 2 ? 0.04 : 0) : 0); pos.push(Math.cos(a) * r, y + 0.0, Math.sin(a) * r); uv.push(u * 8, v * 2); }
   for (let j = 0; j < rows; j++) for (let i = 0; i < segs; i++) { const a = j * (segs + 1) + i, b = a + 1, c = a + segs + 1, d = c + 1; idx.push(a, b, c, b, d, c); }

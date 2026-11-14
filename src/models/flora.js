@@ -1,5 +1,5 @@
-// Cel-shaded nature, built procedurally: trees with real branching wood (tapered, gnarled tubes with painted bark)
-// and crowns of hand-painted leaf-spray cards (olive, oak, stone pine, fir, cypress, laurel, apple), bushes with
+// Realistic low-poly nature, built procedurally: trees with real branching wood (faceted tapered limbs with pixel bark)
+// and crowns of faceted leaf masses carrying pixel leaf textures (formerly leaf-spray cards) (olive, oak, stone pine, fir, cypress, laurel, apple), bushes with
 // blossoms, 3D cel flowers (poppy, daisy, lavender, cornflower, narcissus), dense instanced grass tufts with banded
 // root-to-tip tones, rolling wind waves and sheen, reeds and cattails, lily pads and water lilies, and cel water.
 // Crown cards carry "inflated" normals (from the clump and crown centres), so the toon ramp paints broad, clean
@@ -32,7 +32,7 @@ function spread(d, ang, r, az = r() * Math.PI * 2) { const perp = V().crossVecto
 
 // a tapered tube along a polyline with parallel-transport frames; `gnarl` twists the section, `flare` buttresses the base
 function tube(A, pts, rads, sides, { col = C('#ffffff'), base = 0, gnarl = 0, flare = 0, uRep = 2, vRep = 0.8, seed = 0 } = {}) {
-  const n = pts.length; const Tn = [], Nn = [], Bn = [];
+  sides = Math.max(4, Math.min(6, sides)); /* faceted low-poly limbs */ const n = pts.length; const Tn = [], Nn = [], Bn = [];
   for (let i = 0; i < n; i++) Tn.push(pts[Math.min(i + 1, n - 1)].clone().sub(pts[Math.max(i - 1, 0)]).normalize());
   let N0 = V().crossVectors(Tn[0], Math.abs(Tn[0].y) < 0.9 ? V(0, 1, 0) : V(1, 0, 0)).normalize();
   for (let i = 0; i < n; i++) { if (i) { N0 = N0.clone().addScaledVector(Tn[i], -N0.dot(Tn[i])).normalize(); } Nn.push(N0.clone()); Bn.push(V().crossVectors(Tn[i], N0).normalize()); }
@@ -59,23 +59,34 @@ function grow(A, r, p0, d0, len, r0, r1, segs, { bend = 0.2, up = 0, sides = 7, 
 function at(b, t) { const f = clamp(t, 0, 1) * (b.pts.length - 1); const i = Math.min(b.pts.length - 2, Math.floor(f)); const k = f - i; return { p: b.pts[i].clone().lerp(b.pts[i + 1], k), r: b.rads[i] + (b.rads[i + 1] - b.rads[i]) * k, d: b.pts[i + 1].clone().sub(b.pts[i]).normalize() }; }
 
 // a clump of leaf-spray cards in an ellipsoid; normals blend the clump's and the crown's outward directions
+const ICO = [new THREE.IcosahedronGeometry(1, 0), new THREE.IcosahedronGeometry(1, 1)];
 function clump(F, c, R, n, size, cc, r, { lit = 0.6, flat = false, droop = 0 } = {}) {
-  const col = new THREE.Color(); const q = new THREE.Quaternion(), e = new THREE.Euler();
-  for (let i = 0; i < n; i++) {
-    const dir = rvec(r); if (flat && dir.y < -0.2) dir.y *= 0.4; const rr = 0.3 + 0.7 * Math.pow(r(), 0.55);
-    const p = c.clone().add(V(dir.x * R.x * rr, dir.y * R.y * rr - droop * rr * rr, dir.z * R.z * rr));
-    const nOut = V(dir.x / R.x, dir.y / R.y, dir.z / R.z).normalize();
-    const nl = nOut.multiplyScalar(lit).addScaledVector(p.clone().sub(cc).normalize(), 1 - lit).add(V(0, 0.18, 0)).normalize();
-    q.setFromEuler(e.set(r() * 6.28, r() * 6.28, r() * 6.28)); const ax = V(1, 0, 0).applyQuaternion(q), ay = V(0, 1, 0).applyQuaternion(q);
-    const s = size * (0.75 + r() * 0.5) * 0.5; const ao = clamp(0.5 + 0.32 * rr + 0.22 * (nl.y * 0.5 + 0.5), 0.45, 1.02); col.setRGB(ao, ao, ao * 0.98);
-    const w = 0.6 + rr * 0.4; const b0 = F.count;
-    for (const [u, v] of [[0, 0], [1, 0], [1, 1], [0, 1]]) F.vert(p.clone().addScaledVector(ax, (u * 2 - 1) * s).addScaledVector(ay, (v * 2 - 1) * s), nl, u, v, col, w);
-    F.quad(b0, b0 + 1, b0 + 2, b0 + 3);
+  // a leaf mass: a few overlapping faceted lumps (jittered low-poly icosahedra) filling the clump's ellipsoid, flat
+  // normals, a planar-projected pixel leaf texture, darker towards the crown's heart (ambient occlusion in the vertex colour)
+  const k = Math.max(1, Math.min(4, Math.round(n / 9))); const det = n >= 18 ? 1 : 0; const col = new THREE.Color(); void size; void lit;
+  for (let b = 0; b < k; b++) {
+    const dir = rvec(r); if (flat) dir.y *= 0.35; const off = k > 1 ? 0.42 + r() * 0.2 : 0; const sc = (k > 1 ? 0.62 : 0.85) + r() * 0.18;
+    const ctr = c.clone().add(V(dir.x * R.x * off, dir.y * R.y * off - droop * 0.5, dir.z * R.z * off)); const seed = r() * 100;
+    const pos = ICO[det].attributes.position; const tri = [];
+    for (let i = 0; i < pos.count; i++) { const u = V(pos.getX(i), pos.getY(i), pos.getZ(i)); const h = Math.sin(u.x * 12.9898 + u.y * 78.233 + u.z * 37.719 + seed) * 43758.5453; const j = 0.82 + (h - Math.floor(h)) * 0.34;
+      tri.push(ctr.clone().add(V(u.x * R.x * sc * j, u.y * R.y * sc * j * (flat ? 0.8 : 1) - (u.y < 0 ? droop * 0.3 : 0), u.z * R.z * sc * j))); }
+    for (let i = 0; i < tri.length; i += 3) { const [p0, p1, p2] = [tri[i], tri[i + 1], tri[i + 2]]; const nf = V().crossVectors(p1.clone().sub(p0), p2.clone().sub(p0)).normalize(); const fc = p0.clone().add(p1).add(p2).multiplyScalar(1 / 3);
+      const depth = clamp(fc.clone().sub(cc).length() / Math.max(0.3, R.x * 1.6), 0, 1); const ao = clamp(0.52 + 0.26 * (nf.y * 0.5 + 0.5) + 0.24 * depth, 0.45, 1.04); col.setRGB(ao, ao, ao * 0.97);
+      const ax = Math.abs(nf.x), ay = Math.abs(nf.y), az = Math.abs(nf.z); const s2 = 1.1; const b0 = F.count;
+      for (const q of [p0, p1, p2]) { const [u, v] = ay >= ax && ay >= az ? [q.x, q.z] : ax >= az ? [q.z, q.y] : [q.x, q.y]; F.vert(q, q.clone().sub(ctr).normalize(), u * s2, v * s2, col, 0.5 + depth * 0.5); } // smooth normals for the ink pass; the material's flat shading lights the facets
+      F.i.push(b0, b0 + 1, b0 + 2); }
   }
 }
 
 // ---------------------------------------------------------------- pixel-art leaf-spray cards and bark (src/gfx/art/leaves.js, tiles.js)
 export const leafAtlas = (kind) => leafTex(kind);
+const LMASS = new Map();
+export function leafMassTex(kind) {
+  if (LMASS.has(kind)) return LMASS.get(kind); const img = leafAtlas(kind).image; const w = img.width, h = img.height; const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  const d = g.getImageData(0, 0, w, h); { const src = document.createElement('canvas'); src.width = w; src.height = h; const sg = src.getContext('2d'); sg.drawImage(img, 0, 0); const sd = sg.getImageData(0, 0, w, h).data; let R = 0, G = 0, B = 0, N = 0; for (let i = 0; i < sd.length; i += 4) if (sd[i + 3] > 128) { R += sd[i]; G += sd[i + 1]; B += sd[i + 2]; N++; } N = Math.max(1, N); void d;
+    g.fillStyle = `rgb(${(R / N) * 0.42 | 0},${(G / N) * 0.48 | 0},${(B / N) * 0.42 | 0})`; g.fillRect(0, 0, w, h); g.globalAlpha = 0.75; for (const [x, y] of [[w / 2, h / 2], [-w / 2, h / 2], [w / 2, -h / 2], [-w / 2, -h / 2]]) g.drawImage(src, x, y); g.globalAlpha = 1; g.filter = 'none'; for (const [x, y] of [[0, 0], [w / 3, h / 4], [-w / 3, -h / 4]]) g.drawImage(src, x, y); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapLinearFilter; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; LMASS.set(kind, t); return t;
+}
 const barkTex = (kind) => pixelBark(kind);
 
 // ---------------------------------------------------------------- materials (sway shared by wood and leaves so they stay together)
@@ -98,7 +109,7 @@ const SWAY = `
 const MATS = new Map();
 function swayMat(key, params, { flutter = false, sway = 1, foliage = false } = {}) {
   const k = key + '|' + sway; if (MATS.has(k)) return MATS.get(k);
-  const m = new THREE.MeshToonMaterial(params);
+  const { gradientMap, ...rest } = params; void gradientMap; const m = new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0, flatShading: true, ...rest });
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, { uTime: T.WIND.time, uWindDir: T.WIND.dir, uWindAmp: T.WIND.amp, uSway: { value: sway } });
     sh.vertexShader = (flutter ? '#define SW_FLUTTER\n' : '') + 'uniform float uTime; uniform vec2 uWindDir; uniform float uWindAmp; uniform float uSway; attribute float aWind;\n' + sh.vertexShader.replace('#include <project_vertex>', SWAY);
@@ -121,7 +132,7 @@ export function inkOccluderMat(kind, sway = 1) {
   });
   OCC.set(k, m); return m;
 }
-export const foliageMat = (kind, sway = 1) => swayMat('leaf:' + kind, { map: leafAtlas(kind), alphaTest: 0.5, side: THREE.DoubleSide, vertexColors: true, gradientMap: T.gradientMap([0.46, 0.74, 1.0]) }, { flutter: true, sway, foliage: true });
+export const foliageMat = (kind, sway = 1) => swayMat('leaf:' + kind, { map: leafMassTex(kind), vertexColors: true, roughness: 0.85 }, { flutter: true, sway });
 export const woodMat = (kind, sway = 1) => swayMat('wood:' + kind, { map: barkTex(kind), vertexColors: true, gradientMap: T.gradientMap([0.42, 0.7, 1.0]) }, { sway });
 
 // ---------------------------------------------------------------- species
@@ -232,7 +243,7 @@ export class Grove {
         const im = new THREE.InstancedMesh(geom, mat, items.length);
         items.forEach((it, i) => { q.setFromAxisAngle(V(0, 1, 0), it.ry); m4.compose(p.set(it.x, it.y, it.z), q, s.setScalar(it.s)); im.setMatrixAt(i, m4); const j = Math.sin(it.x * 7.1 + it.z * 3.3) * 0.5 + 0.5; col.setRGB(1, 1, 1).offsetHSL((j - 0.5) * 0.04, (j - 0.5) * 0.1, (j - 0.5) * 0.08); if (it.tint) col.multiply(C(it.tint)); im.setColorAt(i, col); });
         im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); im.castShadow = this.shadows && +lod === 0; im.receiveShadow = wood; im.onBeforeRender = T.tickWind; im.name = (wood ? 'wood:' : 'leaves:') + kind;
-        if (!wood || +lod) im.userData.noInk = true; if (!wood) { im.userData.noAO = true; im.userData.inkOccluder = inkOccluderMat(geo.leaf); } g.add(im); return im;
+        if (+lod) im.userData.noInk = true; g.add(im); return im;
       };
       if (geo.wood) mk(geo.wood, woodMat(geo.bark), true); mk(geo.leaves, foliageMat(geo.leaf), false);
     }
@@ -249,7 +260,7 @@ export class Grove {
 export function tree(kind = 'olive', { v = 0, s = 1, lod = 0 } = {}) {
   const geo = treeGeo(kind, v, lod); const g = new THREE.Group(); g.name = 'tree:' + kind;
   if (geo.wood) { const w = new THREE.Mesh(geo.wood, woodMat(geo.bark)); w.castShadow = true; w.receiveShadow = true; w.onBeforeRender = T.tickWind; g.add(w); }
-  const l = new THREE.Mesh(geo.leaves, foliageMat(geo.leaf)); l.castShadow = true; l.userData.noInk = true; l.userData.noAO = true; l.userData.inkOccluder = inkOccluderMat(geo.leaf); l.onBeforeRender = T.tickWind; g.add(l); g.scale.setScalar(s); return g;
+  const l = new THREE.Mesh(geo.leaves, foliageMat(geo.leaf)); l.castShadow = true; l.receiveShadow = true; l.onBeforeRender = T.tickWind; g.add(l); g.scale.setScalar(s); return g;
 }
 
 // ---------------------------------------------------------------- cel grass: instanced tufts, banded root -> tip, rolling wind waves with sheen
@@ -318,7 +329,7 @@ export function updatePushers(scene) {
 /** spots: [x, y, z, height, tint(0..1 dry mix), width]. Returns a Group (near tufts of fine blades, far tufts of fewer). */
 export function celGrass(spots, { pal = GRASS_PAL.meadow, blades = 11, flex = 1, sheenK = 0.3, patch = 1, dry = GRASS_PAL.dry, width = 0.032, lean = 0.32, name = 'celGrass', seed = 3, sun = new THREE.Vector3(0.3, 0.12, -1), transK = 0.45, lodAt = null, lodNear = 16 } = {}) {
   const U = { uTime: T.WIND.time, uWindDir: T.WIND.dir, uWindAmp: T.WIND.amp, uPtr: T.WIND.ptr, uPtrR: T.WIND.ptrR, uPtrK: T.WIND.ptrK, uPush: { value: PUSH }, uFlex: { value: flex }, uRoot: { value: C(pal[0]) }, uMid: { value: C(pal[1]) }, uTip: { value: C(pal[2]) }, uSheen: { value: C(pal[3]) }, uSheenK: { value: sheenK }, uPatch: { value: patch }, uTrans: { value: C(pal[2]).lerp(C('#f4f070'), 0.35).multiplyScalar(1.1) }, uTransK: { value: transK }, uSunDir: { value: sun.clone().normalize() } };
-  const mat = new THREE.MeshToonMaterial({ side: THREE.DoubleSide, gradientMap: T.gradientMap([0.55, 0.8, 1.0]) });
+  const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.92, metalness: 0 });
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, U);
     sh.vertexShader = GRASS_HEAD + 'attribute vec4 aBlade;\nvarying float vGH; varying float vGSeed; varying float vGWave; varying vec3 vGW; varying float vGStreak;\n' + sh.vertexShader.replace('#include <project_vertex>', GRASS_VERT);
@@ -385,7 +396,7 @@ const FLOWER_VERT = WIND_FIELD + `
 /** spots: [x, y, z, size] -- one InstancedMesh per kind */
 export function celFlowers(kind, spots, { flex = 0.8 } = {}) {
   if (!FGEO.has(kind)) FGEO.set(kind, (FLOWER[kind] || FLOWER.daisy)(kind.length * 7 + 3));
-  const mat = new THREE.MeshToonMaterial({ vertexColors: true, side: THREE.DoubleSide, gradientMap: T.gradientMap([0.6, 0.84, 1.0]) });
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.85, metalness: 0 });
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, { uTime: T.WIND.time, uWindDir: T.WIND.dir, uWindAmp: T.WIND.amp, uPtr: T.WIND.ptr, uPtrR: T.WIND.ptrR, uPtrK: T.WIND.ptrK, uPush: { value: PUSH }, uFlex: { value: flex } });
     sh.vertexShader = GRASS_HEAD + sh.vertexShader.replace('#include <project_vertex>', FLOWER_VERT);
@@ -410,7 +421,7 @@ let PADG = null, LILYG = null;
 /** spots: [x, y, z, size] -> pads; some carry water lilies */
 export function lilyPads(spots, { bloom = 0.25 } = {}) {
   PADG ||= padGeometry(); LILYG ||= lilyGeometry(); const g = new THREE.Group(); const flowers = spots.filter((_, i) => (i * 0.618) % 1 < bloom);
-  const mk = (geo, list, name, ry0 = 0) => { const mat = new THREE.MeshToonMaterial({ vertexColors: true, side: THREE.DoubleSide, gradientMap: T.gradientMap([0.6, 0.85, 1.0]) }); const im = new THREE.InstancedMesh(geo, mat, Math.max(1, list.length)); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = V(), p = V(); list.forEach(([x, y, z, sz], i) => { q.setFromAxisAngle(V(0, 1, 0), ry0 + x * 3.7 + z * 1.3); m4.compose(p.set(x, y, z), q, s.setScalar(sz)); im.setMatrixAt(i, m4); }); if (!list.length) im.count = 0; im.receiveShadow = true; im.userData.noAO = true; im.name = name; im.computeBoundingSphere(); im.onBeforeRender = () => { const t = performance.now() / 1000; im.position.y = Math.sin(t * 0.9) * 0.006; }; g.add(im); return im; };
+  const mk = (geo, list, name, ry0 = 0) => { const mat = new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, roughness: 0.6, metalness: 0, flatShading: true }); const im = new THREE.InstancedMesh(geo, mat, Math.max(1, list.length)); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = V(), p = V(); list.forEach(([x, y, z, sz], i) => { q.setFromAxisAngle(V(0, 1, 0), ry0 + x * 3.7 + z * 1.3); m4.compose(p.set(x, y, z), q, s.setScalar(sz)); im.setMatrixAt(i, m4); }); if (!list.length) im.count = 0; im.receiveShadow = true; im.userData.noAO = true; im.name = name; im.computeBoundingSphere(); im.onBeforeRender = () => { const t = performance.now() / 1000; im.position.y = Math.sin(t * 0.9) * 0.006; }; g.add(im); return im; };
   mk(PADG, spots, 'lilyPads'); const fl = mk(LILYG, flowers.map(([x, y, z, sz]) => [x + 0.08 * sz, y + 0.01, z, sz * 0.8]), 'waterLilies'); fl.userData.noInk = true; return g;
 }
 /** reeds and cattails standing in shallows */

@@ -4,7 +4,7 @@
 // idle, additive key clips with anticipation/strike/follow-through, impactTime + onImpact, spring followers,
 // knockback, a weighted death fall, wounds and highlight.
 import * as THREE from 'three';
-import * as K from '../charkit.js';
+import { K } from './look.js';
 import { Spring } from '../../core/tween.js';
 import { Sculpt, bake } from './flesh.js';
 import { makeBones, skinned, onBone, sample, add, apply, battleRig, paintWounds, woundMat, woundTex, rigidSkinned, skinAttrs } from './rig.js';
@@ -143,7 +143,7 @@ export function painter(S, PAL) {
   const Q = {};
   return (c, o) => {
     const q = S.query(c.x, c.y, c.z, Q); const p = PAL[q.tag] || PAL.default; const cav = S.cavity(c, p.cav ?? 0.035);
-    let L = 0.52 + c.ny * 0.16 + c.nz * 0.05 - (1 - cav) * (p.cavK ?? 0.7) + (p.L ?? 0); let col = p.c; o.ro = p.ro ?? 0.85; o.me = p.me ?? 0;
+    let L = 0.5 + c.ny * 0.09 + c.nz * 0.03 - (1 - cav) * (p.cavK ?? 0.7) * 0.75 + (p.L ?? 0); let col = p.c; o.ro = p.ro ?? 0.85; o.me = p.me ?? 0;
     if (p.belly && c.ny < (p.bellyY ?? -0.3)) col = p.belly; if (p.back && c.ny > (p.backY ?? 0.7)) col = p.back;
     switch (p.s) {
       case 'eye': {
@@ -151,8 +151,8 @@ export function painter(S, PAL) {
         if (lz < 0 || r > (p.iris ?? 0.78)) { K.tone(p.rim || [30, 16, 16], 0.3, o.col); return; }
         if (p.white && r > (p.irisR ?? 0.5)) { K.tone(p.white, K.band(0.7 - r * 0.2, 3), o.col); return; }
         const pr = p.pupil === 'slit' ? Math.abs(lx) < e.rx * 0.12 && r < 0.65 : p.pupil === 'bar' ? Math.abs(ly) < e.ry * 0.14 && r < 0.66 : p.pupil === 'none' ? false : r < (p.pupilR ?? 0.28);
-        if (pr) { o.col = [16, 8, 12]; return; } K.tone(p.c, K.band(0.8 - r * 0.45, 4), o.col); if (p.glow) o.em = p.glow;
-        if (Math.hypot(lx / e.rx - 0.25, ly / e.ry - 0.3) < 0.16) { o.col = [255, 252, 236]; o.em = [255, 255, 240]; } return;
+        if (Math.hypot(lx / e.rx - 0.28, ly / e.ry - 0.32) < 0.13) { o.col = [236, 232, 222]; o.ro = 0.05; return; } // wet specular glint
+        if (pr) { o.col = [12, 8, 8]; o.ro = 0.1; return; } K.tone(p.c, K.band(0.62 - r * 0.3 + (K.vnoise(lx * 300, ly * 300, 3) - 0.5) * 0.12), o.col); o.ro = 0.15; return; // natural iris: darker limbal ring, fibres
       }
       case 'dark': K.tone(col, K.band(0.35 + c.ny * 0.1, 3), o.col); if (p.e) o.em = p.e; return;
       case 'fur': { const fs = p.fs ?? 22; const str = K.vnoise(c.x * fs, c.y * fs * (p.flow ?? 0.22), c.z * fs) + K.vnoise(c.x * fs * 2.1, c.y * fs * 0.5, c.z * fs * 2.1) * 0.5; L += (str - 0.75) * (p.strand ?? 0.22) - (1 - cav) * 0.1 + (qh(c.x, c.y * 0.4, c.z, 0.011) - 0.5) * 0.14 + (qh(c.x, c.y * 0.3, c.z, 0.006) > 0.9 ? 0.1 : 0); if (q.tag2 && q.d2 - q.d < 0.01) L += 0.06; break; }
@@ -160,8 +160,9 @@ export function painter(S, PAL) {
       case 'feather': { const sz = p.sz ?? 0.035; const C = K.cells3(c.x / sz, c.y / (sz * 1.6), c.z / sz); const dy = c.y / (sz * 1.6) - C[3]; L += C[1] - C[0] < 0.06 && dy < 0 ? -0.2 : dy < -0.25 ? 0.1 : 0; if (p.tip && dy < -0.3) col = p.tip; break; }
       case 'bone': { const C = K.cells3(c.x / 0.05, c.y / 0.07, c.z / 0.05); L += (C[1] - C[0] < 0.03 ? -0.22 : 0) - (1 - cav) * 0.25; break; }
       case 'metal': {
-        L = 0.48 + c.ny * 0.24 + c.nz * 0.08 - (1 - cav) * 0.55 + (c.ny > 0.55 && c.nz > -0.1 ? 0.18 : 0);
-        if (p.seam && q.dn - q.d < p.seam && q.d > -0.03 && q.dn < 0.03) { K.tone(p.glowC || [255, 150, 40], 0.7, o.col); o.em = p.e || [255, 120, 30]; return; }
+        L = 0.5 + c.ny * 0.1 + c.nz * 0.03 - (1 - cav) * 0.45 + (cav > 0.97 && c.ny > 0.4 ? 0.1 : 0) + (K.vnoise(c.x * 60, c.y * 60, c.z * 60) - 0.5) * 0.1;
+        if (p.seam && q.dn - q.d < p.seam && q.d > -0.03 && q.dn < 0.03) { K.tone(p.glowC || [255, 150, 40], 0.6, o.col); o.em = p.e || [200, 90, 24]; return; }
+        if (p.patina !== false && cav < 0.8 && K.vnoise(c.x * 18, c.y * 18, c.z * 18) > 0.45) { col = K.mixc([...col], [70, 120, 104], 0.55 * (1 - cav / 0.8) + 0.2); o.me = 0.2; o.ro = 0.8; } // verdigris in the creases
         if (p.rivet) { const C = K.cells3(c.x / p.rivet, c.y / p.rivet, c.z / p.rivet); if (C[0] < 0.07) L += 0.25; } break;
       }
       case 'wood': { const g = Math.sin(c.y * (p.grain ?? 60) + K.vnoise(c.x * 18, c.y * 3, c.z * 18) * 6); L += g > 0.82 ? -0.18 : 0; break; }

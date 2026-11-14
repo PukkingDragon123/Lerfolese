@@ -1,6 +1,6 @@
 // Ported from Limbo Phobia (PukkingDragon123/fictional-octo-train, src/entities) by stripping TypeScript types; see assets/characters/CREDITS.md.
 import { ggProps, planBody } from './body.js';
-import { buildMesh } from './mesh.js';
+import { buildMesh, setLowPoly } from './mesh.js';
 import { makePainters } from './paint.js';
 import { FacePainter, exprParams, EXPRESSIONS } from './face.js';
 const ALIAS = { wow: 'surprised', love: 'happy', annoyed: 'angry', mad: 'angry', joy: 'happy', shock: 'surprised', tired: 'sleepy', scared: 'fear', hurt: 'pain' };
@@ -73,7 +73,7 @@ export class GGSkin {
         const plan = planBody(spec, P, { severed, lod });
         if (lod > 0)
             plan.segs = plan.segs.filter((s) => s.part !== 'thumb' && s.part !== 'ear' && s.part !== 'clip' && s.part !== 'hose' && s.part !== 'packPocket');
-        const m = buildMesh(plan.segs, P, this.k, boneIndex);
+        setLowPoly(spec.lowpoly); const m = buildMesh(plan.segs, P, this.k, boneIndex); setLowPoly(false);
         this.faces = m.faces;
         this.block = m.block;
         this.P = P;

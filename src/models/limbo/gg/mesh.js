@@ -12,13 +12,16 @@ const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+// realistic low poly (opt-in per body: spec.lowpoly): chamfered octagon rings and at most one bulge ring per segment
+let LOWPOLY = false;
+export function setLowPoly(on) { LOWPOLY = !!on; }
 function ring(y, r, ch) {
     // Apple of Discord: smooth, organic cross-sections. Chamfered corners become round arcs (16-point rings);
     // flat pieces (ch ~ 0) keep their square corners.
     const [cx, cz, hx, hz] = r;
     if (ch < 0.05)
         return [[cx + hx, y, cz + hz], [cx - hx, y, cz + hz], [cx - hx, y, cz - hz], [cx + hx, y, cz - hz]];
-    const rc = Math.min(hx, hz) * Math.min(0.97, 0.6 + ch * 1.4), nA = 4, out = [];
+    const rc = LOWPOLY ? Math.min(hx, hz) * Math.min(0.9, 0.35 + ch * 0.9) : Math.min(hx, hz) * Math.min(0.97, 0.6 + ch * 1.4), nA = LOWPOLY ? 1 : 4, out = [];
     for (const [sx, sz, th0] of [[1, 1, 0], [-1, 1, Math.PI / 2], [-1, -1, Math.PI], [1, -1, Math.PI * 1.5]]) {
         const ox = cx + sx * (hx - rc), oz = cz + sz * (hz - rc);
         for (let k = 0; k <= nA; k++) { const th = th0 + (Math.PI / 2) * (k / nA); out.push([ox + Math.cos(th) * rc, y, oz + Math.sin(th) * rc]); }
@@ -31,7 +34,7 @@ function segFaces(s) {
     const chs = /^(head|hair|ear|nose)$/.test(s.mat) || s.bone === 'hair' || s.bone === 'head' ? Math.max(s.ch, 0.45) : s.ch; // rounder heads and hair (Apple of Discord)
     // organic silhouettes: intermediate rings bulge each segment's profile (Apple of Discord)
     const amp = /^(cranium|jaw)$/.test(s.part) ? 0.1 : /^(uarm|farm|thigh|shin|calf|neck|hairLong|hairSide|bun)$/.test(s.part) ? 0.05 : s.open === undefined && chs >= 0.05 ? 0.025 : 0;
-    const nMid = amp > 0 ? (amp >= 0.1 ? 3 : 2) : 0;
+    const nMid = amp > 0 ? (LOWPOLY ? 1 : amp >= 0.1 ? 3 : 2) : 0;
     const rings = [ring(s.y0, s.b, chs)];
     for (let m = 1; m <= nMid; m++) { const t = m / (nMid + 1), k = 1 + amp * Math.sin(Math.PI * t); const r = s.b.map((v, i) => v + (s.t[i] - v) * t); rings.push(ring(s.y0 + (s.y1 - s.y0) * t, [r[0], r[1], r[2] * k, r[3] * k], chs)); }
     rings.push(ring(s.y1, s.t, chs));
