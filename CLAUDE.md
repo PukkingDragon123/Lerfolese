@@ -5,7 +5,8 @@
 - STYLE (USER, FINAL): REALISTIC LOW-POLY PIXEL ART for the WHOLE game. Sharp, clean low-poly geometry (faceted, flat-shaded, strong silhouettes, real anatomy/structure) with REALISTIC hand-made pixel-art textures and REALISTIC lighting. Keep THIN black ink outlines. NOT cartoony: no cartoon cel bands, no cartoon faces/eyes on creatures that shouldn't have them. Never voxel/Minecraft, never crude.
 - (superseded by the realistic low-poly pixel-art rule above) colours harmonised like a painting, rich and saturated but natural.
 - Artifacts, items, furniture and props: sharp very-low-poly with detailed pixel-art textures (same as everything now).
-- LIGHTING: realistic (sun + sky fill, soft real shadows, bounce light, ambient occlusion, golden hour) with rich saturated colour; no cartoon cel bands.
+- LIGHTING (latest): realistic and MOODY, NOT bright: natural exposure, deep shadows, darker ambient, subtle bounce, desaturated-realistic grade; no cartoon cel bands.
+- UI must be COOL and INTERACTIVE (alive objects reacting to hover/press/drag with motion, sound and light), never 'a detailed block with text'.
 - Rendering: high resolution and crisp (supersampled, no tilt-shift blur, no chromatic aberration, minimal grain).
 - UI: detailed PHYSICAL 3D objects (hourglass health, gold jar, etc.), realistic and polished; text is crisp 3D floating text (no paper notes); never glowing DOM text or flat rectangles.
 - HERO: a real young Isaac Newton (20s, cool), built on the Limbo Phobia human engine (src/models/limbo). He WALKS (no levitation) and fights with the magic apple. Fluid, human-like procedural animation.
