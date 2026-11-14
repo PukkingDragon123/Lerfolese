@@ -9,6 +9,7 @@
 - Rendering: high resolution and crisp (supersampled, no tilt-shift blur, no chromatic aberration, minimal grain).
 - UI: every element is a detailed PHYSICAL object (3D thickness, bevels, pixel-art textures: wood, brass, parchment, wax, leather; lit, shadowed, springy). Never glowing DOM/HUD text, never flat rectangles. Text = ink, engraving, carving. Font: Alagard (assets/fonts/alagard.ttf) at 16/32/48 px.
 - HERO: a real young Isaac Newton (20s, cool), built on the Limbo Phobia human engine (src/models/limbo, user's repo PukkingDragon123/fictional-octo-train). He levitates and fights with an orbiting apple. Animations must be fluid, human-like and procedural. No puppet/strings.
+- CREATURES (all animals/monsters): borrow ODDWORLD's creature-MODELLING approach (believable anatomy and weight, one or two traits pushed for character, weathered lived-in surfaces, expressive realistic faces) but themed to our Greek-myth science storybook; original designs, never their look.
 - Monsters: Greek mythology, custom rigs (src/models/beasts), weighted physical animations. Gore welcome (blood droplets, splatter, severed hydra heads).
 - Combat feel: physical, minimal VFX (real attack animations, knockback, 3D debris and dust), magic as tasteful 3D shader effects plus a few fine polished pixel particles. No big low-res sprite FX.
 - World: big detailed places (forest, pond, lake, village), wind, little animals, beautiful painted anime sky. Events are full cinematic cutscenes with visible characters.
