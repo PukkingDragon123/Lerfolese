@@ -85,7 +85,7 @@ class Game {
   async newRun(opts = {}) { // opts.start: the constellation chosen in the tower menu's astral select (game/run.js STARTS)
     if (!this.journal.seenPrologue) { await this.playPrologue(); return; } // story agent: the prologue plays once, on the first New Run, and ends in the tower-top menu (New Adventure then starts the run)
     save.clearRun(); this.run = newRun(undefined, { start: opts.start || null }); this.journal.loops++; this.saveJournal();
-    try { const { applyStudyPerks } = await import('./game/studies.js'); await applyStudyPerks(this.run, opts.start); } catch (e) { console.warn('study perks', e); } // MENU AGENT: studied starts and gold
+    try { const { applyStudyPerks } = await import('./game/studies.js'); await applyStudyPerks(this.run, opts.start); const { applyMastery } = await import('./game/mastery.js'); applyMastery(this.run, opts.start, opts.omens || []); } catch (e) { console.warn('study perks / mastery', e); } // MENU AGENT: studied starts, constellation mastery, omens
     await this.toMap(true, 'galaxy', opts.wipe);
   }
   /** the prologue (src/scenes/prologue.js); { replay: true } from the gallery */
@@ -131,14 +131,14 @@ class Game {
   async gameOver(res) {
     const j = this.journal; const r = this.run;
     j.history.unshift({ loop: r.loop, floor: r.floor + 1, area: r.area, kills: r.stats.kills, bestHit: r.stats.bestHit, combos: r.stats.combos, healed: r.stats.healed ?? null, fastest: r.stats.fastest ?? null, won: false, date: Date.now(), cause: res.enemies?.join(', ') || 'hubris' });
-    j.history = j.history.slice(0, 30); this.saveJournal(); save.clearRun();
+    j.history = j.history.slice(0, 30); this.saveJournal(); save.clearRun(); try { (await import('./game/mastery.js')).recordMasteryRun(r, false); } catch (e) { /* */ } // MENU AGENT: constellation mastery
     const { EndScene } = await import('./scenes/end.js');
     await this.swap(async () => { this.scene = new EndScene(this); await this.scene.enter(false); }, { style: 'galaxy' }); // death: the cosmos takes him apart
   }
   async areaComplete() {
     const j = this.journal; const r = this.run; j.wins++;
     j.history.unshift({ loop: r.loop, floor: r.floor + 1, area: r.area, kills: r.stats.kills, bestHit: r.stats.bestHit, combos: r.stats.combos, healed: r.stats.healed ?? null, fastest: r.stats.fastest ?? null, won: true, date: Date.now() });
-    this.saveJournal(); save.clearRun();
+    this.saveJournal(); save.clearRun(); try { (await import('./game/mastery.js')).recordMasteryRun(r, true); } catch (e) { /* */ } // MENU AGENT: constellation mastery
     const { EndScene } = await import('./scenes/end.js');
     await this.swap(async () => { this.scene = new EndScene(this); await this.scene.enter(true); }, { style: 'galaxy' });
   }

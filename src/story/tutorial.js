@@ -62,7 +62,7 @@ export const tutorialFraming = { twoShot, overShoulder, headOf }; // (also used 
 
 /** the run and the encounter for the tutorial battle; lines: the teacher's script (voiced) */
 export function tutorialBattle(game) {
-  const run = newRun(4242); run.deck = ['apple', 'force', 'spin'].map(card); run.items = []; run.player = { hp: 30, maxHp: 30 }; run.tutorial = true;
+  const run = newRun(4242); run.deck = ['apple', 'force', 'spin', 'stone'].map(card); // (the Stone: to hide behind, the Block lesson) run.items = []; run.player = { hp: 30, maxHp: 30 }; run.tutorial = true;
   let teacher = null, upd = null; const said = new Set();
   const frame = (S, f) => S.shotCam?.shot?.(f.pos, f.look, { speed: 2.0, fov: f.fov }); // eases in, glides between framings (the battle releases it on its own turn changes)
   const foe = (S) => { const v = S.enemyViews?.values().next().value; return v ? headOf(v.api, Math.max(0.5, (v.h || 1) * 0.6)) : V(3.5, 0.6, 0); };
@@ -70,23 +70,23 @@ export function tutorialBattle(game) {
   const rel = (S) => S.shotCam?.release?.(1.6);
   const say = async (S, text, o = {}) => { teacher?.act(o.act || 'explain'); await fsay('teacher', text, { anchor: teacher, ...o }); };
   const once = (k) => (said.has(k) ? false : (said.add(k), true));
-  // THE LESSON: five short steps, each shown big at the top of the screen and waiting for the action it teaches
-  // (battlecine.js Tutorial): PLACE, MERGE (twice: the second one warms the apple: HEAT), END TURN (the golden apple),
-  // then BLOCK with the stone the teacher hands over before the raccoon's belly-flop, and a last throw.
+  // THE LESSON (kid Isaac has no magic yet: real throwing, real physics): one short prompt per step, shown big at the
+  // top, each waiting for the action it teaches (battlecine.js Tutorial). GRAB the apple, put FORCE into the throw,
+  // add SPIN (it curves and strikes twice), THROW (the wooden bell stand); then hide behind the STONE (Block), throw again.
   const steps = [
-    { who: 'master', say: 'PLACE: drag the APPLE up into the air.', wait: 'place' },
-    { who: 'master', say: 'MERGE: drop FORCE onto the apple.  1 kg × 3 m/s = 3', wait: 'merge' },
-    { who: 'master', say: 'MERGE SPIN too: one more hit. Rubbing it warms it: that is HEAT.', wait: 'merge' },
-    { who: 'master', say: 'The golden apple foretells the turn. Click it: time flows.', wait: 'end' },
-    { who: 'master', say: 'He will belly-flop for 3. Drop the STONE on yourself: BLOCK.', wait: 'self' },
-    { who: 'master', say: 'Now the apple again. It is WARM (3+ Heat): it burns him. Ring!', wait: 'end' },
-    { who: 'master', say: 'Hot apples hit harder. Too hot (over 10) and it bites YOU.', hold: 5 },
+    { who: 'master', say: 'GRAB the apple: drag it up off the card.', wait: 'place' },
+    { who: 'master', say: 'Put FORCE into the throw: drop Force on the apple.', wait: 'merge' },
+    { who: 'master', say: 'Add SPIN: it curves and hits twice.', wait: 'merge' },
+    { who: 'master', say: 'Now THROW! Press the bell (or Space).', wait: 'end' },
+    { who: 'master', say: 'He will belly-flop! Drop the STONE on yourself to hide behind it.', wait: 'self' },
+    { who: 'master', say: 'Good. Grab, force, spin, THROW again!', wait: 'end' },
+    { who: 'master', say: 'Mass times speed, my boy. That is all a throw is.', hold: 5 },
   ];
   const tutorial = {
-    steps, heat: true,
+    steps, heat: false,
     hero: () => kidHero(),
-    // turn 2: the teacher tosses Isaac a smooth stone to hide behind (a temporary card, this fight only)
-    async onTurn(B, S) { if (B.turn === 2 && !B.flags.tutStone) { B.flags.tutStone = true; const c = { uid: 'tut-stone', id: 'stone', type: 'basic', up: 0, temp: true }; B.hand.push(B.slotOf([c])); S.syncHand(); teacher?.act('point'); } },
+    // the stone to hide behind is in the deck from the start (all four cards are in hand every turn); turn 2 the teacher points at it
+    async onTurn(B) { if (B.turn === 2) teacher?.act('point'); },
     async on(ev, S, ...a) {
       const B = S.battle;
       if (ev === 'intro') { // the teacher hobbles to the edge of the clearing; a crane down onto the two of them and the raccoon
@@ -104,7 +104,7 @@ export function tutorialBattle(game) {
       if (ev === 'playerTurn') {
         const t = B.turn; const mv = (ids) => { try { return computeMove(flatten(ids.map(card))).attack; } catch (e) { return null; } };
         if (t === 1 && once('t1')) { frame(S, pair(S)); await say(S, 'Time waits while you think, Isaac.', { act: 'present' }); rel(S); }
-        else if (t === 2 && once('t2')) { const a = mv(['apple', 'force', 'spin']); frame(S, pair(S)); await say(S, `Catch, boy! Hide behind it.${a ? ` Your apple: ${a.hits} × ${a.perHit}.` : ''}`, { act: 'point' }); rel(S); }
+        else if (t === 2 && once('t2')) { frame(S, pair(S)); await say(S, 'The stone, Isaac! Hide behind it.', { act: 'point' }); rel(S); }
         else if (t === 3 && once('t3')) await say(S, 'Every push is pushed back, child. Remember that.', { show: false });
         return;
       }

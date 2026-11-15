@@ -122,7 +122,7 @@ export function buildVista(opts = {}) { const { groundY = -64, seed = 5, hole = 
   const H = []; for (let j = 0; j <= NZ; j++) { const row = new Float32Array(NX + 1); for (let i = 0; i <= NX; i++) row[i] = hAt(xs[i], zs[j]); H.push(row); }
   const pos = new Float32Array(NX * NZ * 6 * 3), col = new Float32Array(NX * NZ * 6 * 3), use = new Float32Array(NX * NZ * 6); let o = 0;
   const cMeadow = C('#867634'), cMeadow2 = C('#9c8a3e'), cForest = C('#3e4220'), cField = C('#b08a3a'), cField2 = C('#8a7a30'), // warm grass: golden, olive, ochre
-    cRock = C('#6a5c50'), cRock2 = C('#8a7666'), cSnow = C('#e2dce8'), cBank = C('#5a5034'), cOrch = C('#7a6a34'), cc = new THREE.Color();
+    cRock = C('#6a5c50'), cRock2 = C('#8a7666'), cSnow = C('#e2dce8'), cBank = C('#5a5034'), cOrch = C('#7a6a34'), cc = new THREE.Color(), cv = new THREE.Color();
   // fields round each village in a patchwork: wheat (furrows across), barley (furrows along), olive orchards in rows
   // ... and a ring of farmland round the tower's hill, just past the town, so the near view is worked land, not blank
   const FIELDS = [[0, 0, 96, 220, 1], ...villages.map(([vx, vz]) => [vx, vz, 22, 95, 0])];
@@ -131,8 +131,12 @@ export function buildVista(opts = {}) { const { groundY = -64, seed = 5, hole = 
     const mx = (ax + bx + cx) / 3, my = (ay + by + cy) / 3, mz = (az + bz + cz) / 3; const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az; const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const slope = 1 - Math.abs(ny) / Math.hypot(nx, ny, nz);
     const rel = my; const dx = Math.abs(mx - riverX(mz)); let f = 0; const fm = n.fbm(mx * 0.012 + 40, mz * 0.012, 3); const jit = (n(mx * 0.3, mz * 0.3) - 0.5) * 0.12;
     if (rel > 120 + (n(mx * 0.02, mz * 0.02) - 0.5) * 50 && slope < 0.75) { cc.copy(cSnow); f = 9; } else if (slope > 0.55 || rel > 95) { cc.copy(cRock).lerp(cRock2, n(mx * 0.05, mz * 0.05)); f = 8; } else if (dx < 20) { cc.copy(cBank).lerp(cMeadow, sm(12, 20, dx)); f = dx < 12 ? 6 : 0; }
-    else { f = fieldAt(mx, mz); if (f) cc.copy(f === 1 ? cField : f === 2 ? cField2 : cOrch); else if (fm > 0.52) { cc.copy(cForest); f = 7; } else cc.copy(cMeadow).lerp(cMeadow2, n.fbm(mx * 0.03, mz * 0.03, 2)); }
-    cc.offsetHSL(0, 0, jit * 0.12); for (const [x, y, z] of [[ax, ay, az], [cx, cy, cz], [bx, by, bz]]) { use[o / 3] = f; pos[o] = x; pos[o + 1] = y + groundY; pos[o + 2] = z; col[o] = cc.r; col[o + 1] = cc.g; col[o + 2] = cc.b; o += 3; } };
+    else { f = fieldAt(mx, mz); if (f) cc.copy(f === 1 ? cField : f === 2 ? cField2 : cOrch); else f = -1; }
+    cc.offsetHSL(0, 0, jit * 0.12);
+    for (const [x, y, z] of [[ax, ay, az], [cx, cy, cz], [bx, by, bz]]) { // meadow and forest floor blend per VERTEX (soft painted edges, never a staircase of facets)
+      if (f < 0) { cv.copy(cMeadow).lerp(cMeadow2, n.fbm(x * 0.03, z * 0.03, 2)).lerp(cForest, sm(0.46, 0.6, n.fbm(x * 0.012 + 40, z * 0.012, 3)) * 0.85); use[o / 3] = 0; col[o] = cv.r; col[o + 1] = cv.g; col[o + 2] = cv.b; }
+      else { use[o / 3] = f; col[o] = cc.r; col[o + 1] = cc.g; col[o + 2] = cc.b; }
+      pos[o] = x; pos[o + 1] = y + groundY; pos[o + 2] = z; o += 3; } };
   for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) { const x0 = xs[i], x1 = xs[i + 1], z0 = zs[j], z1 = zs[j + 1]; const a = H[j][i], b = H[j][i + 1], c = H[j + 1][i], d = H[j + 1][i + 1];
     if (hole && Math.max(Math.hypot(x0, z0), Math.hypot(x1, z1), Math.hypot(x0, z1), Math.hypot(x1, z0)) < hole) continue; // the town's own ground covers this
     if ((i + j) & 1) { tri(x0, a, z0, x0, c, z1, x1, b, z0); tri(x1, b, z0, x0, c, z1, x1, d, z1); } else { tri(x0, a, z0, x0, c, z1, x1, d, z1); tri(x0, a, z0, x1, d, z1, x1, b, z0); } }

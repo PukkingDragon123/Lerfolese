@@ -354,7 +354,7 @@ export class Battle {
   aim(objId, enemyUid) { const o = this.held.find((x) => x.uid === objId); const e = this.enemies.find((x) => x.uid === enemyUid && x.alive); if (!o || !e) return false; o.target = e.uid; o.aimed = true; this.fx.aimed?.(o, e); return true; }
   // a merge never made before in this run: the game offers three new cards right away (one pick per turn)
   async checkDiscovery(mv) {
-    if (!mv || mv.n < 2) return null; const run = this.run; const known = (run.discovered ||= []);
+    if (!mv || mv.n < 2 || this.tutorial) return null; const run = this.run; const known = (run.discovered ||= []); // (no discovery picks in the prologue)
     if (known.includes(mv.key)) return null; known.push(mv.key); run.stats.combos = (run.stats.combos || 0) + 1;
     const newLaw = mv.special?.law && !(run.laws ||= []).includes(mv.special.key); if (newLaw) { run.laws.push(mv.special.key); this.fx.artifact?.('law:' + mv.special.key); }
     if (this.flags.pickedThisTurn && !newLaw) { await this.fx.discovered?.(mv); return null; } this.flags.pickedThisTurn = true; // a newly found Law always offers its pick
@@ -385,7 +385,7 @@ export class Battle {
 
   discover(mv) {
     const r = this.run; r.stats.moves++;
-    if (mv.n >= 2) { const known = !!this.run.journal?.combos?.[mv.key]; this.run.onDiscover?.(mv); if (!known) this.fx.eureka?.(mv); }
+    if (mv.n >= 2 && !this.tutorial) { const known = !!this.run.journal?.combos?.[mv.key]; this.run.onDiscover?.(mv); if (!known) this.fx.eureka?.(mv); }
   }
 
   // ------------------------------------------------------------------ attacks

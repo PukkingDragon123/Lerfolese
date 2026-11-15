@@ -55,7 +55,7 @@ const _t = V();
 class HeldView {
   constructor(L, o) {
     this.L = L; this.o = o; this.uid = o.uid; this.seed = Math.random() * 9; this.g = new THREE.Group(); this.lift = 0; this.liftT = 0; this.pop = 0;
-    this.home = o.pos ? V(o.pos.x, o.pos.y, o.pos.z) : L.freeSpot(); this.g.position.copy(this.home); L.S.scene.add(this.g);
+    this.home = o.pos ? V(o.pos.x, o.pos.y, o.pos.z) : L.freeSpot(); this.g.position.copy(this.home); L.S.scene.add(this.g); this.plain = !!L.S.plain; // plain: the apple simply sits in kid Isaac's hand
     // the glowing gravity string it hangs from (a spectral thread rising out of sight)
     this.strN = 12; this.strGeo = new THREE.BufferGeometry(); this.strGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.strN * 3), 3));
     this.str = new THREE.Line(this.strGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(0xb48cff).multiplyScalar(2.2), transparent: true, opacity: 0.85, depthWrite: false })); this.str.frustumCulled = false; L.S.scene.add(this.str);
@@ -78,13 +78,17 @@ class HeldView {
   refresh() {
     const pv = (this.pv = this.L.S.battle.heldPreview(this.o)); const e = pv.est; const a = pv.mv.attack;
     this.tag.set(a.fizzle || e?.fizzle ? 'FIZZLE' : !e ? (a.launched ? '?' : '+ FORCE') : String(e.total));
-    if (this.spell.set(pv, this.o, this.L.S.battle) && this.o.comps.length > 1) { audio.play('page_turn', { vol: 0.3 }); audio.play('magic_sparkle', { vol: 0.3 }); }
+    if (!this.plain && this.spell.set(pv, this.o, this.L.S.battle) && this.o.comps.length > 1) { audio.play('page_turn', { vol: 0.3 }); audio.play('magic_sparkle', { vol: 0.3 }); }
   }
   pos(out = V()) { return out.copy(this.g.position); }
   target() { return this.pv?.target ? this.L.S.enemyPos(this.pv.target) : null; }
   update(dt, t) {
     const a = this.art, m = this.model; if (!m) return;
     if (this.flying) { this.dots.visible = false; return; } // in flight the release tween owns it
+    if (this.plain) { // PLAIN (the prologue): no gravity string, no motes, no spell card: the apple in his throwing hand, spinning if Spin went in
+      const prof = this.L.S.prof; const i = [...this.L.views.values()].indexOf(this); const hp = prof.handWorld ? prof.handWorld(1, V()) : V(-3, 1.2, 1); this.g.position.lerp(hp.add(V(0.12 + i * 0.35, 0.12, 0.12)), Math.min(1, dt * 12));
+      m.rotation.y += dt * (a.spin ? 9 : 0.6); this.str.visible = false; this.dots.visible = false; this.spell.group.visible = false;
+      const ui = this.L.S.engine.worldToUI(_t.copy(this.g.position).add(V(0, 0.55, 0))); uiPos(this.tag.group, ui.x, ui.y, 3); this.tag.group.scale.setScalar((40 - 3) / 40 * 0.8); this.tag.update(dt, null); return; }
     this.lift += (this.liftT - this.lift) * Math.min(1, dt * 4); this.pop = Math.max(0, this.pop - dt * 2.2);
     const bob = Math.sin(t * (a.bouncy ? 3.4 : 1.9) + this.seed) * (a.bouncy ? 0.2 : 0.08); const sag = Math.min(3, a.heavy || 0) * 0.08;
     this.g.position.set(this.home.x + (a.fast ? Math.sin(t * 47) * 0.015 : 0), this.home.y + this.lift + bob - sag, this.home.z);
@@ -165,7 +169,7 @@ export class HeldLayer {
   // after it along its path, and the battle resolves the hit as it lands (then the camera eases back)
   async fly(o, mv, foe) {
     const v = this.views.get(o.uid); if (!v) return; const S = this.S; v.flying = true; v.art = mv.art; const prof = S.prof; const cam = S.shotCam;
-    const style = attackStyle(mv); const to = foe ? S.enemyPos(foe) : v.target() || V(3, 1, 0); const pp = S.profHome || prof.root.position;
+    const style = S.plain ? 'throw' : attackStyle(mv); const to = foe ? S.enemyPos(foe) : v.target() || V(3, 1, 0); const pp = S.profHome || prof.root.position;
     S.scene.remove(v.str); v.tag.group.visible = false; v.spell.target = 0; audio.play('string_pluck', { vol: 0.6 });
     // 1. the push-in (a quick cut on the first throw of a turn, an ease for the rest)
     const first = !this._cutDone; this._cutDone = true; setTimeout(() => { this._cutDone = false; }, 2500);
@@ -180,10 +184,10 @@ export class HeldLayer {
     // 3. the strike: the camera whips after the object down its path
     const from = v.g.position.clone(); const path = flightPath(from, to, mv.art);
     audio.play(mv.art.falling ? 'whoosh_heavy' : style === 'hurl' ? 'whoosh_heavy' : 'whoosh_soft'); if (style === 'timestop') { S.engine.flash(0.15, 0xdfe8ff, 0.25); audio.play('glass_shatter', { vol: 0.25 }); }
-    S.burst(from, 'magic', 8); S.engine.shake(style === 'hurl' || style === 'gravity' ? 0.25 : 0.1);
+    if (!S.plain) S.burst(from, 'magic', 8); S.engine.shake(style === 'hurl' || style === 'gravity' ? 0.25 : 0.1);
     cam.shot(V((from.x + to.x) / 2 - 0.6, Math.max(from.y, to.y) + 0.9, Math.max(from.z, to.z) + 4.6), V((from.x * 0.3 + to.x * 0.7), to.y, to.z), { speed: 5.5, fov: 31 });
     const dur = mv.art.falling ? 0.62 : style === 'hurl' ? 0.5 : mv.art.fast ? 0.28 : 0.42; const fl = { k: 0 }; tweens.to(v.model.scale, { x: s0, y: s0, z: s0 }, 0.18, { ease: 'outQuad' });
-    await tweens.to(fl, { k: 1 }, dur, { ease: mv.art.falling ? 'linear' : 'inQuad', onUpdate: () => { v.g.position.copy(path(fl.k)); v.model.rotation.x += mv.art.spin || style === 'spin' ? 0.7 : 0.25; v.model.rotation.z += 0.2; if (Math.random() < 0.7) S.glowParts.spawn({ pos: [v.g.position.x, v.g.position.y, v.g.position.z], vel: [0, 0, 0], life: 0.3, size: 26, size1: 4, color: mv.art.hot ? '#ffb04a' : mv.art.electric ? '#fff3b0' : '#e8e0d0', sprite: 'star4' }); } });
+    await tweens.to(fl, { k: 1 }, dur, { ease: mv.art.falling ? 'linear' : 'inQuad', onUpdate: () => { v.g.position.copy(path(fl.k)); v.model.rotation.x += mv.art.spin || style === 'spin' ? 0.7 : 0.25; v.model.rotation.z += 0.2; if (!S.plain && Math.random() < 0.7) S.glowParts.spawn({ pos: [v.g.position.x, v.g.position.y, v.g.position.z], vel: [0, 0, 0], life: 0.3, size: 26, size1: 4, color: mv.art.hot ? '#ffb04a' : mv.art.electric ? '#fff3b0' : '#e8e0d0', sprite: 'star4' }); } });
     // 4. impact framing: hold on the foe a moment, then ease back (the battle applies the damage right after this)
     cam.shot(V(to.x - 1.8, to.y + 0.7, to.z + 3.6), to, { speed: 8, fov: 29 }); setTimeout(() => { if (!this._cutDone) cam.release(2.2); }, 650); prof.face(S.profRy ?? 0.55); setTimeout(() => prof.face(null), 1200);
     this.remove(o);
@@ -210,9 +214,10 @@ export function heldFx(S) {
   const fling = (slot, o) => { const ui = L().uiOf(o); S.hand.removeViews(slot.cards.map((c) => c.uid), { x: ui.x, y: ui.y, s: 0.2, flip: 0 }); };
   const LAWSND = { force: 'whoosh_soft', gravity: 'gravity_hum', rotation: 'spin_whoosh', heat: 'fire_ignite', spark: 'electric_zap', mass: 'stone_grind', spring: 'string_pluck', inertia: 'clockwork', lens: 'magic_sparkle', water: 'liquid_slosh' };
   return {
-    async manifested(o, slot) { const v = L().add(o); fling(slot, o); audio.play('magic_shimmer'); S.prof.act('cast'); S.burst(v.g.position, 'magic', 18); if (Math.random() < 0.4) S.bark?.('player', ['Hold that thought. Literally.', 'Stay. Hover. Good apple.', 'Suspended, pending further physics.'][Math.floor(Math.random() * 3)], 1.6); await tweens.wait(0.18); },
+    async manifested(o, slot) { const v = L().add(o); fling(slot, o); if (S.plain) { audio.play('card_pick'); await tweens.wait(0.15); return; } audio.play('magic_shimmer'); S.prof.act('cast'); S.burst(v.g.position, 'magic', 18); if (Math.random() < 0.4) S.bark?.('player', ['Hold that thought. Literally.', 'Stay. Hover. Good apple.', 'Suspended, pending further physics.'][Math.floor(Math.random() * 3)], 1.6); await tweens.wait(0.18); },
     async manipulated(o, slot) {
       const v = L().views.get(o.uid); if (!v) return; fling(slot, o); const ids = flatten(slot.cards).map((c) => baseOf(c.id));
+      if (S.plain) { v.rebuild(); v.pop = 1; audio.play(ids.includes('spin') || ids.includes('rotation') ? 'spin_whoosh' : 'whoosh_soft', { vol: 0.6 }); S.prof.act('think'); await tweens.wait(0.15); return; } // plain: he winds up, no sparks, no equation
       for (const id of new Set(ids)) audio.play(LAWSND[id] || 'magic_sparkle', { vol: 0.7 });
       v.rebuild(); S.burst(v.g.position, ids.includes('heat') ? 'fire' : ids.includes('spark') ? 'zap' : 'magic', 14); S.prof.act('cast');
       // the snap: a crack of sparks round the object, a tiny camera kick, the object pops

@@ -28,7 +28,7 @@ function write(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch
 export const defaultJournal = () => ({
   loops: 0, wins: 0, combos: {}, enemies: {}, items: {}, events: {}, notes: [], history: [], bestHit: 0, seenIntro: false,
 });
-export const defaultMeta = () => ({ shards: 0, unlocks: {}, achievements: {}, claimed: {}, cosmetics: {}, seen: { loops: 0, wins: 0 }, studies: {} });
+export const defaultMeta = () => ({ shards: 0, unlocks: {}, achievements: {}, claimed: {}, cosmetics: {}, seen: { loops: 0, wins: 0 }, studies: {}, mastery: {} });
 
 const killed = (j, id) => (j.enemies?.[id]?.killed || 0) > 0;
 const count = (o) => Object.keys(o || {}).length;

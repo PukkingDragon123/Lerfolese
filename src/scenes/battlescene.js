@@ -49,7 +49,7 @@ export class BattleScene {
   constructor(game) { this.game = game; this.engine = game.engine; this.input = game.input; }
 
   async run(run, encounter) {
-    this.runData = run; this.encounter = encounter; this.done = false;
+    this.runData = run; this.encounter = encounter; this.done = false; this.plain = !!encounter.tutorial; // PLAIN: the prologue's fight (kid Isaac has no magic yet): no time stop, no apple, no arcane UI
     let readyRes; this.ready = new Promise((r) => (readyRes = r));
     await this.buildWorld(encounter); this.buildUI(); readyRes();
     const rng = new RNG((run.seed ^ (run.stats.floors * 7919)) >>> 0);
@@ -59,12 +59,12 @@ export class BattleScene {
     this.held = new HeldLayer(this); // PLACE -> MERGE -> End Turn RELEASES (prepared objects wait in the air)
     // the artifacts that bend the arithmetic hang as leather tags on the HUD (they twitch when they trigger)
     this.artTags = {}; for (const id of run.items) { const d = ITEMS[id]; if (!d || !(d.math || ['talaria', 'aegis', 'greaves', 'ram'].includes(id))) continue; this.hudB.addLaw(d.name, d.text); this.artTags[id] = this.hudB.laws?.[this.hudB.laws.length - 1]; }
-    this.intents = new IntentLayer(this); this.thinkK = 0; // foes' thought bubbles; the camera's 'thinking' zoom
+    this.intents = this.plain ? null : new IntentLayer(this); this.thinkK = 0; // foes' thought bubbles; the camera's 'thinking' zoom
     { const names = [...new Set(this.battle.enemies.filter((e) => !e.def.isHead && !e.def.minion).map((e) => e.def.name))]; this.hudB.setObjective(`Defeat ${names.length > 1 ? names.slice(0, -1).join(', ') + ' & ' + names.at(-1) : names[0] || 'the foe'}`); }
     this.engine.setWorld(this.scene, this.camera);
     this.engine.setFx({ rays: this.stage?.sunPos ? { pos: this.stage.sunPos, strength: 0.22, thresh: 0.86, decay: 0.955, density: 0.85, tint: 0xffc890 } : null, exposure: EXPOSURE.battle, bloom: [0.22, 0.5, 0.9], tilt: false, ao: 1.15, grade: GRADE_BATTLE });
     this.handler = this.input.push(this.makeInput());
-    this.heatUI = new HeatLayer(this); // APPLE HEAT (rules agent): the thermometer (click = vent) and the apples' glow
+    this.heatUI = this.plain ? null : new HeatLayer(this); // APPLE HEAT (rules agent): the thermometer (click = vent) and the apples' glow
     this.engine.add(this);
     const kind = encounter.kind; audio.playMusic(kind === 'guardian' || encounter.boss ? 'boss' : kind === 'elite' ? 'elite' : vpick(['battle', 'battle2']));
     audio.setAmbSet(this.theme === 'marsh' ? ['wilderness', 'stream'] : ['wilderness']);
@@ -144,7 +144,7 @@ export class BattleScene {
     return v;
   }
   refreshEnemy(e) {
-    const v = this.enemyViews.get(e.uid); if (!v) return; v.hud.setHP(e.hp, e.maxHp, e.block, e.st); v.hud.setIntent(null); this.intents?.refresh(e);
+    const v = this.enemyViews.get(e.uid); if (!v) return; v.hud.setHP(e.hp, e.maxHp, e.block, e.st); const it = e.intent; v.hud.setIntent(this.plain && e.alive && it ? it : null, it && (it.kind === 'attack' || it.dmg) ? this.battle.attackValue(e, it.dmg) : null, it?.hits || 1); this.intents?.refresh(e); // plain: the wooden plate's parchment flag says what he will do
     const ud = v.api.root.userData; ud.flipped = !!e.st.stun; ud.polarity = e.turn % 2; ud.pressure = e.st.pressure || 0; // readable states on the models (a flipped crab, the golem's polarity, the siren's song)
     const f = this.fc?.foes?.[e.uid]; v.hud.setForecast?.(this.battle.phase === 'player' && f && e.alive ? f.hp : null);
   }
@@ -152,7 +152,7 @@ export class BattleScene {
   // the echoes, the plates and the golden apple's readout all show that one prediction
   stateKey() { const B = this.battle, P = B.player; return `${B.turn}|${B.phase}|${B.heat}|${P.hp}|${P.block}|${JSON.stringify(P.st)}|${B.held.map((o) => o.uid + ':' + o.comps.length + ':' + o.target).join(',')}|${B.enemies.map((e) => e.hp + '/' + e.block + '/' + JSON.stringify(e.st) + (e.alive ? '' : 'x')).join(',')}|${B.field.map((f) => f.type + f.turns).join(',')}|${B.hand.length}|${Object.keys(B.powers).join()}`; }
   async updateForecast(force = false) {
-    const B = this.battle; if (!B) return; const key = this.stateKey(); if (!force && key === this._fcKey) return; this._fcKey = key; const tok = (this._fcTok = (this._fcTok || 0) + 1);
+    const B = this.battle; if (!B || this.plain) return; const key = this.stateKey(); if (!force && key === this._fcKey) return; this._fcKey = key; const tok = (this._fcTok = (this._fcTok || 0) + 1);
     const fc = B.phase === 'player' && !B.over ? await B.forecast() : null; if (tok !== this._fcTok) return;
     this.fc = fc; for (const e of B.enemies) this.refreshEnemy(e); this.hudB.setForecast?.(fc, B);
   }
@@ -167,7 +167,7 @@ export class BattleScene {
     this.hand = new HandView(ui);
     this.drawPile = new Pile('DRAW', cardBackTex()); this.discardPile = new Pile('USED', cardBackTex()); ui.root.add(this.drawPile.group, this.discardPile.group);
     hud.attach(this.engine, this.input); hud.clear();
-    const enc = this.encounter; this.hudB = new BattleHUD({ floor: (this.runData.stats.floors || 0) + 1, kind: enc.kind, onEnd: () => this.endTurn() });
+    const enc = this.encounter; this.hudB = new BattleHUD({ floor: (this.runData.stats.floors || 0) + 1, kind: enc.kind, onEnd: () => this.endTurn(), plain: !!enc.tutorial });
     this.tooltip = new PlateTip({ maxW: 13 }); this.preview = new PlateTip({ maxW: 12 });
     this.barks = []; this.numbers = new FloatNumbers(ui.scene);
     this.layoutUI(); this.onResize = () => this.layoutUI();
@@ -184,7 +184,7 @@ export class BattleScene {
     const B = this.battle; const rdt = dt;
     // PREPARE in slow motion: while you plan, the world (foes, field, fires, particles, critters, grass) crawls
     const prep = B.phase === 'player' && !this.busy && !this.done && !this.cine && !this.dilemmaOn && !this.choosing;
-    const ws = this.prepT.update(rdt, prep); dt = rdt * ws; this.wt += dt; t = this.wt;
+    const ws = this.prepT.update(rdt, prep && !this.plain); // (plain: the world never freezes or greys) dt = rdt * ws; this.wt += dt; t = this.wt;
     this.prof.update(rdt); this.wear?.update(rdt);
     for (const [, v] of this.enemyViews) {
       v.api.update(dt); v.flex?.update(dt);
@@ -199,7 +199,7 @@ export class BattleScene {
       if (Math.random() < dt * 22) this.glowParts.spawn({ pos: [f.x + vrange(-0.35, 0.35), 0.55, f.z + vrange(-0.3, 0.3)], vel: [vrange(-0.2, 0.2), vrange(1.4, 2.6), 0], life: vrange(0.5, 0.9), size: vrange(34, 52), size1: 6, color: vpick(['#ff9a3a', '#ffc45a', '#ff6a2a']), sprite: 'ember', grav: -1 });
       if (Math.random() < dt * 3) this.glowParts.spawn({ pos: [f.x, 1.2, f.z], vel: [vrange(-0.4, 0.4), vrange(1.5, 3), 0], life: vrange(1.2, 2.2), size: vrange(10, 16), color: '#ffd08a', sprite: 'dot', wobble: 0.8 });
     }
-    this.spirit.intensity = 5 + Math.sin(t * 2.1) * 1.2;
+    this.spirit.intensity = this.plain ? 0 : 5 + Math.sin(t * 2.1) * 1.2;
     this.parts.update(dt, t); this.glowParts.update(dt, t); this.critters.update(dt, t); this.fx3d?.update(rdt);
     // ambient pixel particles: pollen + fireflies + leaves
     this.ambientT -= dt;
@@ -216,7 +216,7 @@ export class BattleScene {
     this.hand.update(dt, t);
     const P = B.player; this.hudB.setVitals(P.hp, P.maxHp, P.block, this.runData.gold);
     this._fcT = (this._fcT || 0) - rdt; if (this._fcT <= 0) { this._fcT = 0.15; if (B.phase === 'player' && !this.busy) this.updateForecast(); else if (this.fc && B.phase !== 'player') { this.fc = null; this._fcKey = ''; this.hudB.setForecast?.(null, B); for (const e of B.enemies) this.enemyViews.get(e.uid)?.hud.setForecast?.(null); } }
-    this.hudB.setEnd(B.phase === 'player' && !this.busy && !this.done, B.phase === 'player' || this.done ? 'End Turn' : 'Foes act');
+    this.hudB.setEnd(B.phase === 'player' && !this.busy && !this.done, this.plain ? (B.phase === 'player' ? 'Throw!' : 'Wait...') : B.phase === 'player' || this.done ? 'End Turn' : 'Foes act');
     this.drawPile.set(B.draw.length); this.discardPile.set(B.discard.length); this.drawPile.update(dt); this.discardPile.update(dt);
     this.tooltip.update(dt); this.preview.update(dt); this.numbers.update(dt);
     for (const b of this.barks) { const p = this.engine.worldToUI(b.anchor()); b.note.at(p.x + b.ox, p.y + b.oy); b.note.update(dt); }
@@ -235,7 +235,7 @@ export class BattleScene {
       const tp = new THREE.Vector3(lookX - 0.4, 2.55, near), tl = new THREE.Vector3(lookX, 1.65, 0.2);
       this.camera.position.lerp(tp.add(new THREE.Vector3(Math.sin(t * 0.21) * 0.12, Math.sin(t * 0.17) * 0.06, 0)), k * 0.9); this.camera.lookAt(this.camLook.clone().lerp(tl, k * 0.9));
     }
-    const g = this.engine.grade?.uniforms; if (g?.uVignette) { this.vig0 ??= g.uVignette.value; g.uVignette.value = this.vig0 + k * 0.28; }
+    const g = this.engine.grade?.uniforms; if (g?.uVignette && !this.plain) { this.vig0 ??= g.uVignette.value; g.uVignette.value = this.vig0 + k * 0.28; }
     if (prep) { this.thinkT = (this.thinkT ?? 0.6) - dt; if (this.thinkT <= 0 && !this.hand.drag) { this.thinkT = 3.2; this.prof.act('think'); } } else this.thinkT = 0.4;
   }
   // where a dropped card really goes: Matter is PLACED (on the field, or aimed at the foe it was dropped on); Laws
@@ -379,10 +379,11 @@ export class BattleScene {
   async endTurn() {
     if (this.battle.phase !== 'player' || this.busy) return;
     this.busy = true; try { this.hudB.ringEnd(); } catch (e) { console.warn('end turn button', e); } this.tooltip.hide(); this.preview.hide();
-    this.hypo = this.fc ? { fc: this.fc, hp: this.battle.player.hp, foes: Object.fromEntries(this.battle.enemies.map((e) => [e.uid, e.hp])) } : null; // the hypothesis this turn is tested against
+    this.hypo = this.fc && !this.plain ? { fc: this.fc, hp: this.battle.player.hp, foes: Object.fromEntries(this.battle.enemies.map((e) => [e.uid, e.hp])) } : null; // the hypothesis this turn is tested against
     // time flows again: a ripple races out from the golden apple, colour returns, the hanging dust drifts on; then it all plays out
-    const ap = new THREE.Vector3(); this.hudB.bell.group.getWorldPosition(ap); ap.project(this.engine.ui.camera); this.engine.ripple([ap.x * 0.5 + 0.5, ap.y * 0.5 + 0.5], 1.2, 1);
-    audio.play('clockwork', { vol: 0.6 }); audio.play('whoosh_heavy', { vol: 0.4, delay: 0.1 }); await tweens.wait(0.4);
+    if (this.plain) { audio.play('whoosh_soft', { vol: 0.5 }); await tweens.wait(0.2); } // plain: just throw
+    else { const ap = new THREE.Vector3(); this.hudB.bell.group.getWorldPosition(ap); ap.project(this.engine.ui.camera); this.engine.ripple([ap.x * 0.5 + 0.5, ap.y * 0.5 + 0.5], 1.2, 1);
+    audio.play('clockwork', { vol: 0.6 }); audio.play('whoosh_heavy', { vol: 0.4, delay: 0.1 }); await tweens.wait(0.4); }
     try { await this.battle.endTurn(); } finally { this.busy = false; } this.afterAction();
   }
   // THE RESULT: what time actually did, next to what the apple predicted (they match: the rules are deterministic)
@@ -490,7 +491,7 @@ export class BattleScene {
       async cloned(copy, src) { audio.play('string_pluck', { vol: 0.6 }); S.bark('player', `An echo of ${BASICS[src.cards[0].id]?.name || 'that'}. Again!`, 1.6); await tweens.wait(0.15); },
       artifact(id) { S.wear?.trigger(id); const t = S.artTags?.[id]; if (t) { t.kick?.(1.6); t.pop?.kick?.(3); } if (!String(id).startsWith('law:')) audio.play('chime_soft', { vol: 0.35, minGap: 0.2 }); },
       async battleStart(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); await S.chapterCard(B); await tweens.wait(0.25); const lead = B.enemies.find((e) => !e.def.isHead); if (lead) S.bark(lead, vpick(lead.def.barks.start), 2.6); await tweens.wait(0.8); S.bark('player', vpick(PLAYER_BARKS.start), 2.4); await S.tutorialHook('battleStart', B); },
-      async playerTurn(B) { S.shotCam.release(2.2); S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); S.hudB.setTurn(B.turn); if (B.turn === 1) S.showBanner('Time Stops', 'PLAN · PREDICT · RING THE APPLE'); audio.play('clockwork', { vol: 0.35 }); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); await S.tutorialHook('playerTurn', B); },
+      async playerTurn(B) { S.shotCam.release(2.2); S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); S.hudB.setTurn(B.turn); if (B.turn === 1 && !S.plain) S.showBanner('Time Stops', 'PLAN · PREDICT · RING THE APPLE'); audio.play('clockwork', { vol: 0.35 }); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); await S.tutorialHook('playerTurn', B); },
       async drew(slots) { S.syncHand(); audio.play('card_slide', { vol: 0.8 }); for (let i = 0; i < Math.min(slots.length, 6); i++) audio.play('card_slide', { delay: i * 0.07, vol: 0.6 }); await tweens.wait(0.12); },
       async reshuffle() { audio.play('card_shuffle'); },
       async petrified(cards) { audio.play('stone_grind'); S.syncHand(); S.bark('player', 'My cards! They are... gravel now.'); await tweens.wait(0.4); },

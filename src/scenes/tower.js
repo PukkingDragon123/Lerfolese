@@ -35,6 +35,8 @@ import { menuWord } from '../ui3d/menuword.js';
 import { MenuSprites } from '../ui2d/menusprites.js';
 import { Astral, startCons, ASTRAL } from './astral.js';
 import { STARTS } from '../game/run.js';
+import { TIERS, OMENS, masteryOf, omenMul } from '../game/mastery.js';
+import { STARTER_DECK } from '../game/data/cards.js';
 import { studyStarts, studiesReady } from '../game/studies.js';
 import { ITEMS } from '../game/data/items.js';
 import { BASICS } from '../game/data/cards.js';
@@ -43,7 +45,7 @@ import { save, ACHIEVEMENTS } from '../core/save.js';
 import { audio } from '../core/audio.js';
 import { vpick, mulberry32 } from '../core/util.js';
 import { fsay, fstop } from '../story/floattext.js';
-import { Scholar, icon } from '../ui2d/scholar.js';
+import { Scholar, icon, bar } from '../ui2d/scholar.js';
 import { Codex, SettingsPanel } from '../ui2d/menupanels.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -71,6 +73,7 @@ export class MenuScene extends UIScreen {
     this.lights(sc);
     // Sir Isaac on the prow in his heroic stance, turned out over the land toward the low sun
     const prof = (this.prof = createProfessor()); sc.add(prof.root); prof.root.position.copy(T.prow); prof.root.rotation.y = FACE_A; prof.setIdleMode?.('heroic');
+    this.crownHit = new THREE.Mesh(new THREE.SphereGeometry(1.7, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); this.crownHit.position.copy(T.crown); sc.add(this.crownHit); this.crownK = 0; // the magic orrery crown
     this.profHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.0, 0.9), new THREE.MeshBasicMaterial({ visible: false })); this.profHit.position.copy(T.prow).add(V(0, 1, 0)); sc.add(this.profHit);
     this.motes = new Motes(1100, { px: 2 }); sc.add(this.motes.points); this.rnd = mulberry32(31); this.acc = 0;
     this.hasRun = !!save.loadRun();
@@ -137,10 +140,54 @@ export class MenuScene extends UIScreen {
     this.hideMenu(); this.prof.lookAt(-0.2, 0.9); }
   fromAstral() { if (this.mode !== 'astral' || this.skyT < 0.85 || this.chosen) return; this.skyDir = -1; this.astral.hover = -1; this.showChart(-1); audio.play('whoosh_soft', { vol: 0.5 }); audio.playMusic('menu', { fade: 2.0 }); audio.setAmbSet?.(['wind']); }
   choose(i) {
-    if (this.mode !== 'astral' || this.chosen) return; const c = this.astral.cons[i]; this.chosen = { t: 0, i, id: c.id, dir: this.astral.centerDir(i), warp: 0 }; this.astral.pickIdx = i; this.astral.pickT = 0; this.astral.hover = -1; this.engine.renderer.domElement.style.cursor = ''; this.showChart(i, true);
+    if (this.mode !== 'astral' || this.chosen) return; const c = this.astral.cons[i]; this.chosen = { t: 0, i, id: c.id, dir: this.astral.centerDir(i), warp: 0, from: this.camDir() }; this.astral.pickIdx = i; this.astral.pickT = 0; this.astral.hover = -1; this.engine.renderer.domElement.style.cursor = ''; this.showChart(i, true);
     const n = c.fig.stars.length; audio.play('magic_sparkle', { vol: 0.7 }); audio.duckMusic?.(0.25, 3);
     for (let k = 0; k < n; k++) audio.play('chime_soft', { vol: 0.35 + k * 0.03, delay: 0.05 + (k / n) * 0.9, rate: 0.9 + k * 0.07, variance: 0, minGap: 0 }); // the stars ignite one by one, rising
     audio.play('whoosh_heavy', { vol: 0.55, delay: 1.0 }); audio.play('magic_shimmer', { vol: 0.6, delay: 1.1 }); audio.play('transition_whoosh', { vol: 0.6, delay: 1.75, minGap: 0 }); }
+  // ---------------------------------------------------------------- the constellation chooser, in steps: 1 pick, 2 its chart (deck, curio, masteries), 3 omens, then begin
+  stepBack() { if (this.chosen) return; if ((this.step || 1) === 3) return this.detail(this.focus.i, true); if (this.step === 2) { this.step = 1; this.astral.pickIdx = -1; this.closeDetail(); audio.play('whoosh_soft', { vol: 0.45 }); audio.play('chime_soft', { vol: 0.25, rate: 0.8, variance: 0 }); return; } this.fromAstral(); }
+  closeDetail() { if (this.detailP) { const P = this.detailP; this.UI.show(P, false); setTimeout(() => this.UI.remove(P), 400); this.detailP = null; } }
+  detail(i, fromOmens = false) {
+    const c = this.astral.cons[i]; const S = c.start || {}; this.step = 2; this.omens ||= new Set(); if (!fromOmens) { this.omens.clear(); this.focus = { i, k: this.focus?.k || 0 }; this.astral.pickIdx = i; this.astral.pickT = 0; this.astral.hover = -1; this.astral.trail = 0.55; this.showChart(-1);
+      const n = c.fig.stars.length; audio.play('whoosh_soft', { vol: 0.6 }); for (let k = 0; k < n; k++) audio.play('chime_soft', { vol: 0.22 + k * 0.02, delay: 0.1 + (k / n) * 0.7, rate: 0.95 + k * 0.06, variance: 0, minGap: 0 }); }
+    else audio.play('page_turn', { vol: 0.4 });
+    const UI = this.UI; this.closeDetail(); const P = (this.detailP = UI.panel({ w: 296, h: 336, theme: 'night', anchor: 'right', mx: 10, seed: 70 + i, pad: 10 })); UI.show(P, false); setTimeout(() => UI.show(P, true), fromOmens ? 0 : 450);
+    const M = masteryOf(c.id); const el = (cls, t, par = P.inner) => UI.el('div', cls, t, par); const row = (par = P.inner) => { const r = UI.el('div', '', null, par); Object.assign(r.style, { display: 'flex', alignItems: 'center', gap: UI.px(4) }); return r; };
+    { const r = row(); r.style.justifyContent = 'space-between'; el('lf-title lf-big', c.name, r).style.fontSize = 'calc(var(--k) * 16px * 1.5)'; const d = row(r); for (let k = 1; k <= 3; k++) { const st = icon('star', { ramp: k <= c.diff ? undefined : ['#000', '#141a30', '#222a48', '#323c60', '#424e78', '#5a6890', '#7a88b0'] }); st.dataset.w = 9; st.dataset.h = 10; d.appendChild(UI.fit(st)); } el('lf-body lf-soft', DIFF[c.diff] || '', d); }
+    { const b = (S.blurb || c.blurb || '').replace(/^[^:]*:\s*/, ''); el('lf-body', b.charAt(0).toUpperCase() + b.slice(1)).style.margin = `${UI.px(2)} 0`; }
+    el('lf-rule');
+    // step 2: the chart
+    const body = UI.el('div', '', null, P.inner); body.style.minHeight = UI.px(214);
+    if (this.step === 2 && !fromOmens || this.step === 2) {
+      el('lf-title lf-gold', 'Opening deck', body).style.fontSize = 'calc(var(--k) * 16px)';
+      const cards = row(body); cards.style.margin = `${UI.px(3)} 0`; const deck = STARTER_DECK.map((id) => S.swap?.[id] || id).concat(S.add || []); const move = S.cards || null;
+      Promise.all([import('../gfx/cardart.js'), import('../game/combos.js')]).then(([{ renderCardFace }, { computeMove }]) => { if (!cards.isConnected) return; const faces = deck.map((id) => { try { return renderCardFace({ id, type: 'basic', up: M.tier >= 4 && id === deck[0] ? 1 : 0 }); } catch (e) { return null; } });
+        if (move) { try { const comps = move.map((id) => ({ id, up: 0 })); faces.push(renderCardFace({ type: 'move', up: 0, name: c.name, comps }, computeMove(comps))); } catch (e) { /* */ } }
+        faces.filter(Boolean).forEach((f, k) => { const cv = document.createElement('canvas'); cv.width = f.width; cv.height = f.height; cv.getContext('2d').drawImage(f, 0, 0); cv.className = 'lf-cv lf-smooth'; cv.dataset.w = 44; cv.dataset.h = 62; UI.add(cv, cards); cv.style.transition = 'transform .25s'; cv.style.transform = `translateY(${UI.k * 6}px)`; cv.style.opacity = 0; setTimeout(() => { cv.style.transform = ''; cv.style.opacity = 1; audio.play('card_slide', { vol: 0.15, rate: 1 + k * 0.05 }); }, 500 + k * 90); }); });
+      const items = S.items || []; if (items.length) { const r = row(body); r.style.margin = `${UI.px(2)} 0`; const pic = UI.el('div', '', null, r); Object.assign(pic.style, { width: UI.px(36), height: UI.px(36), flex: '0 0 auto' });
+        import('../models/items3d.js').then(({ itemIcon }) => { try { const ic = itemIcon(items[0], 48); const cv = document.createElement('canvas'); cv.width = ic.width; cv.height = ic.height; cv.getContext('2d').drawImage(ic, 0, 0); cv.className = 'lf-cv lf-smooth'; cv.dataset.w = 36; cv.dataset.h = 36; if (pic.isConnected) UI.add(cv, pic); } catch (e) { /* */ } });
+        const t = UI.el('div', '', null, r); el('lf-body lf-goldt', ITEMS[items[0]]?.name || '', t); const tx = el('lf-body lf-soft', ITEMS[items[0]]?.text || '', t); Object.assign(tx.style, { maxHeight: UI.px(26), overflow: 'hidden' }); }
+      // masteries I..V: each tier a lit star and a lasting bonus
+      { const r = row(body); r.style.justifyContent = 'space-between'; r.style.marginTop = UI.px(3); el('lf-title lf-gold', 'Mastery' + (M.tier ? '  ' + TIERS[M.tier - 1].name : ''), r).style.fontSize = 'calc(var(--k) * 16px)'; const xr = row(r); xr.appendChild(UI.fit(bar(70, M.frac, { night: true, done: !M.next }))); el('lf-num lf-soft', M.next ? `${M.xp}/${M.next.xp}` : 'max', xr); }
+      for (const [k, T] of TIERS.entries()) { const on = k < M.tier; const r = row(body); r.style.opacity = on ? 1 : 0.5; const st = icon('star', { ramp: on ? undefined : ['#000', '#141a30', '#222a48', '#323c60', '#424e78', '#5a6890', '#7a88b0'] }); st.dataset.w = 9; st.dataset.h = 10; r.appendChild(UI.fit(st)); const n = el('lf-title', T.name, r); Object.assign(n.style, { width: UI.px(16), fontSize: 'calc(var(--k) * 16px)', color: on ? '#f2c868' : '#98a4c8' }); el('lf-body' + (on ? '' : ' lf-soft'), T.text, r); }
+      if (M.runs) el('lf-body lf-soft', `${M.runs} run${M.runs > 1 ? 's' : ''}, ${M.wins} won, best floor ${M.best}`, body).style.marginTop = UI.px(2);
+    }
+    const foot = row(); Object.assign(foot.style, { position: 'absolute', left: 0, right: 0, bottom: 0, justifyContent: 'space-between' });
+    UI.button('Back', () => this.stepBack(), { parent: foot, w: 54, night: true, sound: 'ui_back' }); const om = UI.button(this.omens.size ? `Omens ${this.omens.size}` : 'Omens', () => this.omenStep(), { parent: foot, w: 76, red: true, sound: 'magic_shimmer' }); void om;
+    const go = UI.button('Begin', () => this.begin(), { parent: foot, w: 70, sound: 'magic_sparkle' }); go.classList.add('lf-ready');
+  }
+  omenStep() {
+    if (this.chosen) return; this.step = 3; const i = this.focus.i; const UI = this.UI; audio.play('whoosh_soft', { vol: 0.4 }); audio.play('debuff', { vol: 0.25, delay: 0.1 }); this.astral.trail = 0.35;
+    const P = this.detailP; P.inner.innerHTML = ''; const el = (cls, t, par = P.inner) => UI.el('div', cls, t, par);
+    el('lf-title lf-big', 'Omens').style.color = '#ff9a8a'; el('lf-body lf-soft', 'Take a darker road under ' + this.astral.cons[i].name + '. Each omen makes the run harder and its mastery grow faster.').style.margin = `${UI.px(3)} 0`; el('lf-rule');
+    const total = el('lf-title lf-gold', ''); const upd = () => { total.textContent = `Mastery x${omenMul([...this.omens]).toFixed(1)}`; };
+    for (const O of OMENS) { const r = UI.el('div', 'lf-row' + (this.omens.has(O.id) ? ' lf-sel' : ''), null, P.inner); Object.assign(r.style, { flexDirection: 'column', alignItems: 'flex-start' }); const n = el('lf-title', O.name, r); n.style.color = '#ff9a8a'; el('lf-body', O.text, r); el('lf-body lf-goldt', `+${Math.round(O.mul * 100)}% mastery`, r);
+      UI.hoverSound(r, 'ui_hover', 0.2); r.addEventListener('pointerdown', () => { if (this.omens.has(O.id)) { this.omens.delete(O.id); audio.play('chime_soft', { vol: 0.3, rate: 1.2, variance: 0 }); } else { this.omens.add(O.id); audio.play('debuff', { vol: 0.35 }); audio.play('thunder', { vol: 0.08 }); this.engine.flash(0.08, 0x8a2a3a, 0.4); } r.classList.toggle('lf-sel', this.omens.has(O.id)); upd(); }); }
+    P.inner.appendChild(total); total.style.marginTop = UI.px(6); upd();
+    const foot = UI.el('div', '', null, P.inner); Object.assign(foot.style, { position: 'absolute', left: 0, right: 0, bottom: 0, display: 'flex', justifyContent: 'space-between' });
+    UI.button('Back', () => this.stepBack(), { parent: foot, w: 54, night: true, sound: 'ui_back' }); const go = UI.button('Begin', () => this.begin(), { parent: foot, w: 70, sound: 'magic_sparkle' }); go.classList.add('lf-ready');
+  }
+  begin() { if (this.chosen || !this.focus) return; const i = this.focus.i; this.closeDetail(); this.step = 1; this.focus.k = 1; const keepFocus = this.focus; this.choose(i); this.focusAtChoose = keepFocus; }
   camDir() { return this.look.clone().sub(this.camera.position).normalize(); }
   // the STUDIES: dive at the alembic, its liquor flares, steam rolls over the view
   toStudies(b) { if (this.mode !== 'hero') return; this.mode = 'leave'; this.leave = { t: 0, kind: 'studies', from: this.camera.position.clone(), look: this.look.clone(), at: this.iconWorld(b) }; this.sprites.press(b); this.hideMenu();
@@ -180,22 +227,23 @@ export class MenuScene extends UIScreen {
   rc() { const r = new THREE.Raycaster(); r.setFromCamera(this.input.ndc, this.camera); return r; }
   busy() { return !!(this.mode !== 'hero' || this.back); }
   pick() {
-    if (this.mode === 'astral') { if (this.chosen || this.skyT < 0.95) return null; const i = this.astral.pick(this.input.ndc, this.camera); return i >= 0 ? { star: i } : null; }
-    if (this.busy()) return null; const r = this.rc(); const objs = [...this.words.map((w) => w.hit), this.profHit];
-    const h = r.intersectObjects(objs, true)[0]; if (!h) return null; const o = h.object; if (o.userData.word) return { word: o.userData.word }; if (o.userData.cloud) return { icon: o.userData.cloud }; if (o === this.profHit) return { isaac: true }; return null;
+    if (this.mode === 'astral') { if (this.chosen || this.skyT < 0.95 || (this.step || 1) > 1) return null; const i = this.astral.pick(this.input.ndc, this.camera); return i >= 0 ? { star: i } : null; }
+    if (this.busy()) return null; const r = this.rc(); const objs = [...this.words.map((w) => w.hit), this.profHit, this.crownHit];
+    const h = r.intersectObjects(objs, true)[0]; if (!h) return null; const o = h.object; if (o.userData.word) return { word: o.userData.word }; if (o.userData.cloud) return { icon: o.userData.cloud }; if (o === this.profHit) return { isaac: true }; if (o === this.crownHit) return { crown: true }; return null;
   }
-  onMove() { const p = this.pick(); const key = p ? (p.word ? 'w:' + p.word.label : p.icon ? 'c:' + p.icon.label : p.star != null ? 's:' + p.star : 'isaac') : null;
-    if (key !== this.hoverKey) { this.hoverKey = key; this.hover = p; if (this.mode === 'astral') { this.astral.hover = p ? p.star : -1; if (p) this.showChart(p.star); }
+  onMove() { const p = this.pick(); const key = p ? (p.word ? 'w:' + p.word.label : p.crown ? 'crown' : p.icon ? 'c:' + p.icon.label : p.star != null ? 's:' + p.star : 'isaac') : null;
+    if (key !== this.hoverKey) { this.hoverKey = key; this.hover = p; if (this.mode === 'astral' && (this.step || 1) === 1) { this.astral.hover = p ? p.star : -1; if (p) this.showChart(p.star); }
       if (p) audio.play(p.word ? 'chime_soft' : p.star != null ? 'magic_sparkle' : p.icon ? ({ studies: 'bottle_clink', stars: 'glass_clink', journal: 'paper_rustle', settings: 'lever' })[p.icon.act] || 'ui_hover' : 'ui_hover', { vol: p.word ? 0.4 : p.star != null ? 0.3 : 0.4 });
-      if (p?.word) this.glints(p.word, 7); if (p?.icon) this.burst(p.icon.group.getWorldPosition(V()).add(V(0, 0.1, 0)), 6, ['#fff2c8', '#ffd890'], 0.3);
+      if (p?.crown) { audio.play('gravity_hum', { vol: 0.35 }); audio.play('magic_shimmer', { vol: 0.25 }); } if (p?.word) this.glints(p.word, 7); if (p?.icon) this.burst(p.icon.group.getWorldPosition(V()).add(V(0, 0.1, 0)), 6, ['#fff2c8', '#ffd890'], 0.3);
       this.engine.renderer.domElement.style.cursor = p ? 'pointer' : ''; } }
   onClick(e) {
     if (this.mode === 'intro') { this.intro.t = Math.max(this.intro.t, this.intro.dur - 0.9); return true; }
     if (this.mode === 'panel') { (this.panelKind === 'journal' ? this.codex : this.settingsP).close(); return true; }
-    if (this.mode === 'astral') { if (e?.button === 2) { this.fromAstral(); return true; } const p = this.pick(); if (p) this.choose(p.star); return true; }
+    if (this.mode === 'astral') { if (e?.button === 2) { this.stepBack(); return true; } if ((this.step || 1) > 1) return true; const p = this.pick(); if (p) this.detail(p.star); return true; }
     if (this.busy()) return true; const p = this.pick(); if (!p) return;
     if (p.word) { if (p.word.act === 'continue') this.resume(p.word); else this.toAstral(p.word); return true; }
     if (p.icon) { const b = p.icon; if (b.act === 'studies') this.toStudies(b); else if (b.act === 'stars') this.toStars(b); else this.openPanel(b.act, b); return true; }
+    if (p.crown) { audio.play('chime_soft', { vol: 0.5 }); audio.play('magic_sparkle', { vol: 0.5 }); this.crownK = 2.2; this.burst(this.tower.crown, 40, ['#ffe2a0', '#c8b0ff', '#8ad8ff'], 1.4); return true; }
     if (p.isaac) { audio.play('pop', { vol: 0.4 }); this.prof.act?.('cheer'); this.say(vpick(QUIPS)); this.credits(); return true; }
   }
   onDragStart(e) { this.dragX = e.x; this.dragY = e.y; }
@@ -204,7 +252,7 @@ export class MenuScene extends UIScreen {
   onWheel(e) { if (this.mode === 'astral' && (e?.dy || 0) > 60) this.fromAstral(); }
   onKey(e) { const k = e?.key || e?.code || e; if (this.mode === 'intro') { this.intro.t = this.intro.dur - 0.9; return true; }
     if (this.mode === 'panel') { (this.panelKind === 'journal' ? this.codex : this.settingsP).key(e?.code || k); return true; }
-    if (this.mode === 'astral') { if (k === 'Escape' || k === 'Backspace' || k === 'ArrowDown') { this.fromAstral(); return true; } const n = parseInt(k, 10); if (n >= 1 && n <= this.astral.cons.length && this.skyT > 0.95) { this.choose(n - 1); return true; } return; }
+    if (this.mode === 'astral') { if (k === 'Escape' || k === 'Backspace' || k === 'ArrowDown') { this.stepBack(); return true; } if (k === 'Enter' && this.step >= 2) { this.begin(); return true; } const n = parseInt(k, 10); if (n >= 1 && n <= this.astral.cons.length && this.skyT > 0.95 && (this.step || 1) === 1) { this.detail(n - 1); return true; } return; }
     if (this.busy()) return;
     if (k === 'Enter' || k === ' ' || k === 'Space') { const w = this.words.find((x) => x.act === 'continue') || this.words.find((x) => x.act === 'new'); if (w.act === 'continue') this.resume(w); else this.toAstral(w); return true; }
     if (k === 'ArrowUp' || k === 'n' || k === 'KeyN') { this.toAstral(this.words.find((x) => x.act === 'new')); return true; }
@@ -230,10 +278,11 @@ export class MenuScene extends UIScreen {
       if (L.t > 0.3 && Math.random() < dt * 30) this.burst(L.at, 2, ['#e8fff8', '#c8fff0'], 1.2);
       if (L.t > 0.95 && !this.left) { this.left = true; this.game.toStudies(); } }
     else if (this.mode === 'astral' || this.mode === 'skyback' || (this.mode === 'leave' && this.leave.kind === 'stars') || (this.skyT > 0 && this.mode !== 'hero')) { const d0 = HERO.look.clone().sub(HERO.pos).normalize(); const d = d0.clone().lerp(ASTRAL.dir, sk).normalize();
-      if (this.chosen) { const C = this.chosen; C.t += dt; const u1 = ease5(Math.max(0, (C.t - 0.25) / 1.6)); d.copy(ASTRAL.dir).lerp(C.dir, u1).normalize(); C.warp = Math.max(0, Math.min(1, (C.t - 0.9) / 0.8)); this.astral.warp(C.i, ease(C.warp)); cam.fov = ASTRAL.fov + (14 - ASTRAL.fov) * ease5(Math.max(0, (C.t - 0.8) / 1.1)); cam.updateProjectionMatrix();
+      if (this.chosen) { const C = this.chosen; C.t += dt; const u1 = ease5(Math.max(0, (C.t - 0.25) / 1.6)); d.copy(C.from).lerp(C.dir, u1).normalize(); C.warp = Math.max(0, Math.min(1, (C.t - 0.9) / 0.8)); this.astral.warp(C.i, ease(C.warp)); cam.fov = (C.fov0 ??= cam.fov) + (14 - C.fov0) * ease5(Math.max(0, (C.t - 0.8) / 1.1)); cam.updateProjectionMatrix();
         if (C.t > 1.15 && !this.flashed) { this.flashed = true; this.engine.flash(0.25, 0xd8d0ff, 0.9); }
-        if (C.t > 1.85 && !this.left) { this.left = true; const s = this.astral.screenOf(C.i, cam); this.showChart(-1); this.game.newRun({ start: C.id, wipe: { center: [s.x * 0.5 + 0.5, 0.5 - s.y * 0.5] } }); } }
-      else { const f = HERO.fov + (ASTRAL.fov - HERO.fov) * sk; if (Math.abs(cam.fov - f) > 0.01) { cam.fov = f; cam.updateProjectionMatrix(); } d.addScaledVector(this.astral.e1 || V(), nd.x * 0.012 * sk).addScaledVector(this.astral.e2 || V(), nd.y * 0.008 * sk).normalize(); }
+        if (C.t > 1.85 && !this.left) { this.left = true; const s = this.astral.screenOf(C.i, cam); this.showChart(-1); this.game.newRun({ start: C.id, omens: [...(this.omens || [])], wipe: { center: [s.x * 0.5 + 0.5, 0.5 - s.y * 0.5] } }); } }
+      else { const F = this.focus; if (F) { F.k += ((this.step >= 2 ? 1 : 0) - F.k) * Math.min(1, dt * 2.2); if (F.k < 0.01 && this.step < 2) this.focus = null; else { const fk = F.k * F.k * (3 - 2 * F.k); d.lerp(this.astral.centerDir(F.i), fk * 0.62).addScaledVector(this.astral.e1, fk * 0.2).normalize(); } }
+        const f = HERO.fov + (ASTRAL.fov - HERO.fov) * sk - (this.focus ? 16 * this.focus.k * this.focus.k * (3 - 2 * this.focus.k) : 0); if (Math.abs(cam.fov - f) > 0.01) { cam.fov = f; cam.updateProjectionMatrix(); } d.addScaledVector(this.astral.e1 || V(), nd.x * 0.012 * sk).addScaledVector(this.astral.e2 || V(), nd.y * 0.008 * sk).normalize(); }
       if (this.mode === 'leave' && this.leave.kind === 'stars') { this.leave.t += dt; if (this.skyT > 0.86 && !this.left) { this.left = true; this.game.toStars(); } }
       cam.position.lerp(HERO.pos.clone().add(V(0, 0.25 * sk, 0)), Math.min(1, dt * 3)); this.look.copy(cam.position).addScaledVector(d, 10); }
     else { let fov = HERO.fov, look = HERO.look.clone(), pos = HERO.pos.clone();
@@ -244,6 +293,8 @@ export class MenuScene extends UIScreen {
     this.astral.update(dt, t, cam, this.engine.renderer);
     // the words and the four instruments
     const hov = this.hover; for (const w of this.words) { w.update(dt, t, hov?.word === w, cam, this.vista.sunDir, nd); w.group.position.set(w.base.x + Math.sin(t * 0.21 + w.base.y) * 0.08, w.base.y + Math.sin(t * 0.37 + w.base.x) * 0.06, w.base.z); }
+    { const want = this.hover?.crown ? 1 : 0; this.crownK = Math.max(want, this.crownK - dt * 1.5); this.tower.group.userData.crownBoost = Math.min(1.5, this.crownK); // the crown's arcane motes and runes of light
+      if (Math.random() < dt * (3 + this.crownK * 14)) { const r = this.rnd; const a = r() * 6.28, R = 0.6 + r() * 1.6; const c = this.tower.crown; this.motes.spawn({ pos: [c.x + Math.cos(a) * R, c.y + (r() - 0.5) * 1.2, c.z + Math.sin(a) * R], vel: [-Math.sin(a) * 0.25, 0.12 + r() * 0.15, Math.cos(a) * 0.25], drag: 0.4, life: 1.6 + r() * 1.2, seq: r() < 0.5 ? 'twinkle' : 'glint', fps: 6, color: r() < 0.5 ? '#ffe2a0' : r() < 0.5 ? '#c8b0ff' : '#9ae0ff', bright: 1.5, fadeIn: 0.2 }); } }
     this.sprites.update(dt, t, { ready: this.ready > 0, fresh: this.fresh > 0, open: this.panelKind === 'journal' });
     // Isaac: gazes over the land, glances at what you point at, looks up with you into the stars
     if (this.mode === 'astral' || this.skyT > 0.3) prof.lookAt(-0.3, 0.95); else { const tgt = hov?.word ? hov.word.group.position : null; if (tgt) { const p = tgt.clone().project(cam); prof.lookAt(p.x, p.y); } else if (hov?.icon) prof.lookAt(-0.8, -0.6); else prof.lookAt(-0.55 + nd.x * 0.3, 0.05 + nd.y * 0.2); }

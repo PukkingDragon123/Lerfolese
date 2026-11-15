@@ -71,14 +71,14 @@ export class HudTip {
 
 // ---------------------------------------------------------------- the instrument cluster
 export class BattleHUD {
-  constructor({ area = 'The Mythical Wilderness', floor = 1, kind = 'battle', foes = [], onEnd, onWell, mode = 'battle', sub = null }) {
+  constructor({ area = 'The Mythical Wilderness', floor = 1, kind = 'battle', foes = [], onEnd, onWell, mode = 'battle', sub = null, plain = false }) {
     const E = window.__game?.engine; hud.attach(E); this.engine = hud.engine; this.mode = mode; this.onEnd = onEnd; this.onWell = onWell;
     this.root = new THREE.Group(); this.root.name = 'battle-hud'; this.engine.ui.scene.add(this.root);
     this.area = area; this.floor = floor; this.kind = kind; this.sub = sub ? plain(sub) : null; this.turn = 1; this.objective = foes.length ? `Defeat ${foes.join(' & ')}` : '';
     this.gauge = new Hourglass(); this.pouch = new CoinJar(); this.root.add(this.gauge.group, this.pouch.group); // Integrity sand-glass (Block shield on its pillar), gold jar
     this.note = new FloatText(null, { font: 'body', align: 'right', anchor: 'right', anchorY: 'top' }); this.root.add(this.note.group); this.note.show(); // the chapter heading, in floating letters
     if (mode !== 'map') {
-      this.bell = new TimeApple(); this.root.add(this.bell.group); // End Turn: the golden apple that lets time go
+      this.bell = plain ? new Bell() : new TimeApple(); this.root.add(this.bell.group); // End Turn: the golden apple that lets time go (plain, the prologue: a wooden bell stand, 'Throw!')
       this.laws = []; this.lawTip = new PlateTip({ maxW: 12 });
     }
     this.handler = window.__game.input.push({ move: () => this.move(), click: () => this.click() });
@@ -107,7 +107,7 @@ export class BattleHUD {
   setObjective(text) { this._set('obj', text, () => { this.objective = plain(text); this.writeNote(); }); }
   setTurn(n) { this._set('turn', n, () => { this.turn = n; this.writeNote(); }); }
   setRedraws() {} // (Second Thoughts were removed)
-  setEnd(on, label) { if (!this.bell) return; this._set('end', on + (label || ''), () => { this.bell.setEnabled(on); this.bell.setLabel(on ? 'End Turn' : 'Time flows', on ? 'SPACE' : ''); }); }
+  setEnd(on, label) { if (!this.bell) return; this._set('end', on + (label || ''), () => { this.bell.setEnabled(on); this.bell.setLabel(label && /Throw|Wait/.test(label) ? label : on ? 'End Turn' : 'Time flows', on ? 'SPACE' : ''); }); }
   ringEnd() { this.bell?.ring(); }
   /** THE HYPOTHESIS readout over the golden apple: what ringing it will do (exact), in three short crisp lines */
   setForecast(fc, B) {

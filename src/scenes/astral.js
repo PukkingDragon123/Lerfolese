@@ -21,6 +21,7 @@
 import * as THREE from 'three';
 import { cineText } from '../ui3d/cinetext.js';
 import { Spring } from '../core/tween.js';
+import { masteryOf } from '../game/mastery.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const R_DOME = 1500, R_STAR = 1000;
@@ -47,7 +48,7 @@ export const DIFFICULTY = { apple: 1, pendulum: 2, prism: 2, comet: 3, owl: 1 };
 /** a small zigzag figure for a studied start: one star per card of its recipe */
 function studyFigure(n, seed) { const stars = []; const edges = []; for (let i = 0; i < n; i++) { const a = (i / Math.max(1, n - 1)) * 2.4 - 1.2; stars.push([a * 0.9, Math.sin(i * 2.1 + seed) * 0.45, i === 0 ? 3 : i % 2 ? 1 : 2]); if (i) edges.push([i - 1, i]); } return { col: '#ffe0a0', stars, edges }; }
 export function startCons(starts, extra = []) {
-  const cons = Object.keys(FIGURES).filter((k) => starts[k]).map((id) => ({ id, name: starts[id].name, blurb: starts[id].blurb, fig: FIGURES[id], at: LAYOUT[id], state: 2, start: starts[id], diff: DIFFICULTY[id] || 2 }));
+  const cons = Object.keys(FIGURES).filter((k) => starts[k]).map((id) => { const tier = masteryOf(id).tier; return { id, name: starts[id].name, blurb: starts[id].blurb, fig: tier >= 5 ? { ...FIGURES[id], col: '#ffd870' } : FIGURES[id], at: LAYOUT[id], state: 2, tier, start: starts[id], diff: DIFFICULTY[id] || 2 }; });
   extra.slice(0, 5).forEach((s, i) => { const n = extra.length > 5 ? 5 : extra.length; const u = (i - (n - 1) / 2) * 0.3; cons.push({ id: s.id, name: s.name, blurb: s.blurb, fig: studyFigure(Math.max(2, s.comps.length), i * 1.7), at: [u, 0.36, 0.055], state: 2, start: s, diff: 2, study: true }); });
   return cons;
 }
@@ -165,7 +166,8 @@ export class Astral {
     const dirAt = (u, v) => A.clone().addScaledVector(e1, u).addScaledVector(e2, v).normalize();
     this.defs.forEach((D, gi) => { const F = D.fig; const [cx, cy, sc0] = D.at; const sc = sc0 * K; const ux = cx * (D.wide ? 1 : sx) * K, vy = cy * K; const rev = 0.35 + gi * 0.32; const st = D.state ?? 2;
       const col = new THREE.Color(F.col); const pos2 = F.stars.map(([x, y]) => [ux + x * sc, vy + y * sc]); const ns = F.stars.length;
-      F.stars.forEach(([, , m, c2], si) => { const d = dirAt(...pos2[si]).multiplyScalar(R_STAR); P.push(d.x, d.y, d.z); S.push(m === 3 ? 9 : m === 2 ? 7 : 5); const cc = c2 ? new THREE.Color(c2) : new THREE.Color('#fff8ec').lerp(col, 0.35); Col.push(cc.r, cc.g, cc.b); Gp.push(gi); Kd.push(0); Ord.push(si / ns); Sd.push(gi * 31 + si); Rv.push(rev); St.push(st); });
+      const litN = D.tier == null ? ns : Math.ceil(ns * Math.min(1, 0.45 + D.tier * 0.11)); // mastery lights more of the figure
+      F.stars.forEach(([, , m, c2], si) => { const d = dirAt(...pos2[si]).multiplyScalar(R_STAR); P.push(d.x, d.y, d.z); S.push(m === 3 ? 9 : m === 2 ? 7 : 5); const cc = c2 ? new THREE.Color(c2) : new THREE.Color('#fff8ec').lerp(col, 0.35); Col.push(cc.r, cc.g, cc.b); Gp.push(gi); Kd.push(0); Ord.push(si / ns); Sd.push(gi * 31 + si); Rv.push(rev); St.push(si < litN ? st : Math.min(st, 0)); });
       let total = 0; const segs = F.edges.map(([a, b]) => { const L = Math.hypot(pos2[b][0] - pos2[a][0], pos2[b][1] - pos2[a][1]); total += L; return L; }); let acc = 0;
       F.edges.forEach(([a, b], ei) => { const [x0, y0] = pos2[a], [x1, y1] = pos2[b]; const L = segs[ei]; const n = Math.max(2, Math.floor(L / art)); for (let k = 2; k < n - 1; k++) { const u = k / n; const d = dirAt(x0 + (x1 - x0) * u, y0 + (y1 - y0) * u).multiplyScalar(R_STAR * 1.002); P.push(d.x, d.y, d.z); S.push(1); Col.push(col.r * 0.9, col.g * 0.9, col.b * 0.9); Gp.push(gi); Kd.push(1); Ord.push((acc + u * L) / total); Sd.push(k); Rv.push(rev); St.push(st); } acc += L; });
       let rad = 0; for (const [x, y] of pos2) rad = Math.max(rad, Math.hypot(x - ux, y - vy)); rad += sc * 0.35;
