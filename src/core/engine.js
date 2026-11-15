@@ -354,7 +354,7 @@ export class Engine {
   // fx: { bloom:[strength,radius,threshold], tilt:{focus,width,feather,amount,top,bottom} | false, grade:{sat,contrast,vignette,grain,warmth}, exposure }
   setFx(fx = {}) {
     this.fx = fx; this.setPixel(fx.pixel ?? 0); // pixel look: off unless the scene asks (fx.pixel 0..1)
-    const b = fx.bloom || [0.55, 0.55, 0.82];
+    const b = fx.bloom || [0.4, 0.55, 0.86]; // gentle: only the hottest lights bloom
     this.bloom.strength = b[0]; this.bloom.radius = b[1]; this.bloom.threshold = b[2]; this.bloom.enabled = !this.testMode || this.fullFx;
     const t = fx.tilt;
     this.tiltH.enabled = this.tiltV.enabled = false; // user: crisp, never blurry (tilt-shift off)
@@ -367,9 +367,9 @@ export class Engine {
     const ik = fx.ink ?? {}; this.ink.enabled = fx.ink !== false && (!this.testMode || this.inkForced || this.fullFx); this.ink.u.uStrength.value = (ik.strength ?? 0.92) * 0.8; this.ink.u.uInk.value.set(ik.color ?? 0x0e0710); this.ink.u.uDepthK.value = ik.depth ?? 0.045; this.ink.u.uNormalK.value = ik.normal ?? 0.42; this.ink.u.uFade.value.set(...(ik.fade || [55, 140]));
     const ry = fx.rays; this.rays.enabled = !!(ry && ry.pos); if (ry) { const u = this.rays.uniforms; this.raysPos = ry.pos; u.uStrength.value = (ry.strength ?? 0.35) * 0.6; u.uTint.value.set(ry.tint ?? 0xffd6a0); u.uThresh.value = ry.thresh ?? 0.85; u.uDecay.value = ry.decay ?? 0.955; u.uDensity.value = ry.density ?? 0.85; }
     gu.uHarmony.value = g.harmony ?? 0; gu.uHueLight.value = g.hueLight ?? 0.1; gu.uHueShadow.value = g.hueShadow ?? 0.7; gu.uSatTarget.value = g.satMax ?? 0.42; gu.uSatPull.value = g.satPull ?? 0;
-    gu.uVib.value = g.vib ?? 0.3; gu.uSel.value.set(...(g.sel || [0.15, 0.1, 0.12]));
-    gu.uSat.value = g.sat ?? 1.08; gu.uContrast.value = g.contrast ?? 1.06; gu.uVignette.value = g.vignette ?? 0.42; gu.uGrain.value = Math.min(0.012, (g.grain ?? 0.04) * 0.3); gu.uWarmth.value = g.warmth ?? 0;
-    if (g.lift) gu.uLift.value.set(...g.lift); else gu.uLift.value.set(0.015, 0.0, 0.035);
+    gu.uVib.value = g.vib ?? 0.2; gu.uSel.value.set(...(g.sel || [0.04, 0.06, 0.12]));
+    gu.uSat.value = g.sat ?? 1.04; gu.uContrast.value = g.contrast ?? 1.06; gu.uVignette.value = g.vignette ?? 0.42; gu.uGrain.value = Math.min(0.012, (g.grain ?? 0.04) * 0.3); gu.uWarmth.value = g.warmth ?? 0;
+    if (g.lift) gu.uLift.value.set(...g.lift); else gu.uLift.value.set(0.01, 0.01, 0.035);
     if (g.gain) gu.uGain.value.set(...g.gain); else gu.uGain.value.set(1.04, 1.0, 0.95);
     this.renderer.toneMappingExposure = fx.exposure ?? 1.0;
   }

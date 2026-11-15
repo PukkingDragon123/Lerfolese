@@ -40,7 +40,7 @@ function paint({ title, hint, style, hintStyle, chevron }) {
 export class FloatLabel {
   /** content: { title, hint, chevron }; opts: { at (V3 anchor), dist (designed viewing distance, sets texel size), style: 'brass'|'silver'|'bone', hintStyle } */
   constructor(content, { at = new THREE.Vector3(), dist = 9, style = 'brass', hintStyle = 'bone', phase = Math.random() * 10, texel = null } = {}) {
-    const canvas = paint({ ...content, style, hintStyle }); const tex = new THREE.CanvasTexture(canvas); tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+    const canvas = paint({ ...content, style, hintStyle }); const tex = crispTex(canvas, crispK(3)); // high-resolution (see crispTex)
     const k = texel ?? dist / 640; this.size = [canvas.width * k, canvas.height * k];
     const U = { uFade: { value: 0 } }; this.U = U;
     const mat = new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.5, side: THREE.DoubleSide });
@@ -92,7 +92,14 @@ function ftPaint(lines, { font = 'body', color = '#f2ead8', align = 'left', font
 }
 // (fades by plain opacity: no screen-space dithering or reduced-resolution grids in the battle)
 const ftMat = (tex, U, z = 0) => new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.02, transparent: true, depthWrite: false, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: z ? 0.15 : 0.62, side: THREE.DoubleSide, toneMapped: false });
-const ftTex = (c) => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return t; };
+// HIGH-RESOLUTION text: the native-size pixel raster is pre-scaled by a whole number K to at least one texel per DEVICE
+// pixel at its on-screen size, then sampled linear (+ trilinear mipmaps): every font pixel is a sharp block with a
+// one-pixel anti-aliased edge at any scale, tilt or unfold angle, never blurred, never uneven nearest-neighbour steps
+const devPx = () => window.__game?.engine?.pixelRatio || Math.min(2, window.devicePixelRatio || 1);
+export const crispK = (pxPerFontPx = pxPerTexel()) => Math.max(2, Math.min(8, Math.ceil(pxPerFontPx * devPx())));
+export function crispCanvas(c, K) { if (K <= 1) return c; const o = document.createElement('canvas'); o.width = c.width * K; o.height = c.height * K; const g = o.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, o.width, o.height); return o; }
+export function crispTex(c, K = crispK()) { const t = new THREE.CanvasTexture(crispCanvas(c, K)); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = 8; return t; }
+const ftTex = (c) => crispTex(c);
 export class FloatText {
   constructor(lines = '', opts = {}) {
     this.opts = { font: 'body', align: 'left', anchor: 'center', depth: 0.06, ...opts }; this.U = { uFade: { value: 0 } };

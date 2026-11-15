@@ -31,13 +31,14 @@ import { vpick, vrange, clamp, roman } from '../core/util.js';
 import { RNG } from '../core/util.js';
 import { POWERS, BASICS } from '../game/data/cards.js';
 import { HeldLayer, heldFx, loreLines, mathLines } from './manifest.js';
+import { cardRules } from '../gfx/cardart.js';
 import { ITEMS } from '../game/data/items.js';
 import { foeNature } from '../game/data/synergy.js';
 import { IntentLayer } from './intents.js';
 import { battleIntro } from './cinematic.js';
 import { HeatLayer, heatFx, heatPreviewLine } from '../ui3d/heat.js'; // APPLE HEAT gauge + glowing apples (rules agent)
 
-const THEME = { satyr: 'meadow', medusa: 'garden', kobalos: 'gully', minotaur: 'labyrinth', minotaur_king: 'labyrinth', hydra: 'marsh', hydra_elder: 'marsh' };
+const THEME = { satyr: 'meadow', medusa: 'garden', kobalos: 'gully', minotaur: 'labyrinth', minotaur_king: 'labyrinth', hydra: 'marsh', hydra_elder: 'marsh', karkinos: 'marsh', siren: 'marsh', ladon: 'garden', empusa: 'gully', boar: 'gully', bronze_bull: 'labyrinth', automaton: 'labyrinth', magnet_golem: 'gully' };
 const PLAYER_BARKS = {
   start: ['Ah. Violence. The least elegant of the sciences.', 'Hypothesis: you lose. Let us test it.', 'I have died before. Dreadfully overrated.', 'Stand still. I need you for an experiment.'],
   hit: ['Ow. Metaphorically.', 'Mind the coat!', 'Rude. And unscientific.', 'That was load-bearing!'], kill: ['Q.E.D.', 'Gravity: one. You: zero.', 'Equal and opposite, darling.', 'Noted. Filed. Defeated.'],
@@ -53,7 +54,7 @@ export class BattleScene {
     await this.buildWorld(encounter); this.buildUI(); readyRes();
     const rng = new RNG((run.seed ^ (run.stats.floors * 7919)) >>> 0);
     this.battle = new Battle({ run, enemies: encounter.enemies, rng, fx: this.fx(), kind: encounter.kind, deck: encounter.deck || null, ordered: !!encounter.ordered });
-    if (encounter.tutorial) { this.tut = new Tutorial(this, encounter.tutorial); this.battle.tutorial = { did: (k) => this.tut.did(k), onTurn: async (B) => encounter.tutorial.onTurn?.(B, this) }; } // story agent hook
+    if (encounter.tutorial) { this.tut = new Tutorial(this, encounter.tutorial); this.battle.tutorial = { did: (k) => { this.tut.did(k); encounter.tutorial.did?.(k, this); }, onTurn: async (B) => encounter.tutorial.onTurn?.(B, this), heat: !!encounter.tutorial.heat, safe: true }; } // story agent hook (a tutorial fight cannot be lost)
     for (const e of this.battle.enemies) this.addEnemyView(e);
     this.held = new HeldLayer(this); // PLACE -> MERGE -> End Turn RELEASES (prepared objects wait in the air)
     // the artifacts that bend the arithmetic hang as leather tags on the HUD (they twitch when they trigger)
@@ -142,7 +143,19 @@ export class BattleScene {
     if (this.battle.phase !== 'start') { api.root.scale.setScalar(0.01); tweens.to(api.root.scale, { x: s, y: s, z: s }, 0.6, { ease: 'outBack' }); }
     return v;
   }
-  refreshEnemy(e) { const v = this.enemyViews.get(e.uid); if (!v) return; v.hud.setHP(e.hp, e.maxHp, e.block, e.st); const it = e.intent; let val = null; if (it?.kind === 'attack' || it?.dmg) val = this.battle.attackValue(e, it.dmg); v.hud.setIntent(null, val, it?.hits || 1); this.intents?.refresh(e); }
+  refreshEnemy(e) {
+    const v = this.enemyViews.get(e.uid); if (!v) return; v.hud.setHP(e.hp, e.maxHp, e.block, e.st); v.hud.setIntent(null); this.intents?.refresh(e);
+    const ud = v.api.root.userData; ud.flipped = !!e.st.stun; ud.polarity = e.turn % 2; ud.pressure = e.st.pressure || 0; // readable states on the models (a flipped crab, the golem's polarity, the siren's song)
+    const f = this.fc?.foes?.[e.uid]; v.hud.setForecast?.(this.battle.phase === 'player' && f && e.alive ? f.hp : null);
+  }
+  // THE HYPOTHESIS: whenever the set-up changes, the battle runs the coming turn in a sandbox (exact, deterministic);
+  // the echoes, the plates and the golden apple's readout all show that one prediction
+  stateKey() { const B = this.battle, P = B.player; return `${B.turn}|${B.phase}|${B.heat}|${P.hp}|${P.block}|${JSON.stringify(P.st)}|${B.held.map((o) => o.uid + ':' + o.comps.length + ':' + o.target).join(',')}|${B.enemies.map((e) => e.hp + '/' + e.block + '/' + JSON.stringify(e.st) + (e.alive ? '' : 'x')).join(',')}|${B.field.map((f) => f.type + f.turns).join(',')}|${B.hand.length}|${Object.keys(B.powers).join()}`; }
+  async updateForecast(force = false) {
+    const B = this.battle; if (!B) return; const key = this.stateKey(); if (!force && key === this._fcKey) return; this._fcKey = key; const tok = (this._fcTok = (this._fcTok || 0) + 1);
+    const fc = B.phase === 'player' && !B.over ? await B.forecast() : null; if (tok !== this._fcTok) return;
+    this.fc = fc; for (const e of B.enemies) this.refreshEnemy(e); this.hudB.setForecast?.(fc, B);
+  }
 
   // ---------------------------------------------------------------- UI
   buildUI() {
@@ -190,8 +203,9 @@ export class BattleScene {
     this.parts.update(dt, t); this.glowParts.update(dt, t); this.critters.update(dt, t); this.fx3d?.update(rdt);
     // ambient pixel particles: pollen + fireflies + leaves
     this.ambientT -= dt;
-    if (this.ambientT <= 0) { this.ambientT = 0.08; const x = vrange(-12, 12), z = vrange(-6, 4);
-      if (Math.random() < 0.6) this.glowParts.spawn({ pos: [x, vrange(0.3, 4), z], vel: [vrange(-0.2, 0.2), vrange(0.05, 0.3), 0], life: vrange(3, 6), size: vrange(14, 24), color: this.theme === 'marsh' ? '#c8ff90' : '#ffe08a', sprite: 'firefly', wobble: 0.6 });
+    // (visuals: less floating junk, a calm frame round the fighters) a few fireflies and falling leaves, kept off the centre
+    if (this.ambientT <= 0) { this.ambientT = 0.32; let x = vrange(-13, 13); if (Math.abs(x) < 5) x += Math.sign(x || 1) * 5; const z = vrange(-7, 3);
+      if (Math.random() < 0.45) this.glowParts.spawn({ pos: [x, vrange(0.3, 4), z], vel: [vrange(-0.2, 0.2), vrange(0.05, 0.3), 0], life: vrange(3, 6), size: vrange(10, 16), color: this.theme === 'marsh' ? '#c8ff90' : '#ffe08a', sprite: 'firefly', wobble: 0.6 });
       else this.parts.spawn({ pos: [x, 7, z], vel: [vrange(0.3, 0.9), -0.6, 0], life: 8, size: vrange(20, 30), color: vpick(['#9cb84a', '#cfe07a', '#e0a83a']), sprite: 'leaf', wobble: 1.2, spin: vrange(-2, 2), floor: 0.05 }); }
     // camera drift + punch
     this.camPunch = Math.max(0, this.camPunch - rdt * 2.5); dt = rdt;
@@ -201,6 +215,7 @@ export class BattleScene {
     // UI
     this.hand.update(dt, t);
     const P = B.player; this.hudB.setVitals(P.hp, P.maxHp, P.block, this.runData.gold);
+    this._fcT = (this._fcT || 0) - rdt; if (this._fcT <= 0) { this._fcT = 0.15; if (B.phase === 'player' && !this.busy) this.updateForecast(); else if (this.fc && B.phase !== 'player') { this.fc = null; this._fcKey = ''; this.hudB.setForecast?.(null, B); for (const e of B.enemies) this.enemyViews.get(e.uid)?.hud.setForecast?.(null); } }
     this.hudB.setEnd(B.phase === 'player' && !this.busy && !this.done, B.phase === 'player' || this.done ? 'End Turn' : 'Foes act');
     this.drawPile.set(B.draw.length); this.discardPile.set(B.discard.length); this.drawPile.update(dt); this.discardPile.update(dt);
     this.tooltip.update(dt); this.preview.update(dt); this.numbers.update(dt);
@@ -328,8 +343,14 @@ export class BattleScene {
     else if (s.slot.cards.length > 1) lines = [[[mv.name, '#3a2410']], [['Drag to a target. Shake to split.', '#2a160c']], [[`ATK ${mv.attack.perHit}${mv.attack.hits > 1 ? '×' + mv.attack.hits : ''} · SELF ${describeSelf(mv.self).slice(0, 2).join(', ')}`, '#5a3622']]];
     else lines = [[[mv.name, '#3a2410']], [['Stack cards to combine. m × v = damage.', '#2a160c']], [[(c.petrified ? 'PETRIFIED: acts as Stone this battle.' : '') || flavorOf(c), '#8a6a44']]];
     // the card itself shows the big rules; the tip explains its keywords (Slay-the-Spire style): the skill, launcher, flavour
-    const d = BASICS[c.id]; if (s.slot.cards.length === 1 && d?.desc && !c.petrified) lines = [[[d.name + (c.up ? '+' : ''), '#ffe6a8']], [['SKILL ', '#ff9a7a'], [d.desc.skill, '#f2ead8']], ...(d.launch ? [[['LAUNCHER ', '#ff9a7a'], ['launches the object it is merged into', '#f2ead8']]] : []), [[d.flavor || '', '#c8b494']]];
-    void lines; this.tooltip.hide(); // the zoomed card is the reading (big rules, icons); no extra paragraph
+    void lines;
+    // Slay-the-Spire keyword tips: beside the raised card, one short plate line per keyword it uses
+    const d = BASICS[c.id]; const P = POWERS[c.id]; const text = (d ? [...cardRules(d, c.up > 0), ...(d.launch ? ['LAUNCH'] : [])] : P ? [...(P.text || [])] : []).join(' ');
+    const kws = Object.keys(KEYWORDS).filter((k) => new RegExp(`(^|[^A-Za-z])${k.replace(/[{}]/g, '\\$&')}`, 'i').test(text)).slice(0, 5);
+    if (!kws.length || s.slot.cards.length > 1) { this.tooltip.hide(); return; }
+    const L = []; for (const k of kws) L.push([[KEYWORDS[k][0] + '  ', '#8c1a30'], [KEYWORDS[k][1], '#2a160c']]);
+    const b = s.base || { x: 0, y: 0 }; const right = b.x < this.ui.W * 0.35; const x = clamp(b.x + (right ? 8.2 : -8.2), -this.ui.W + 6.5, this.ui.W - 6.5);
+    this.tooltip.show(L, x, Math.min(this.ui.H - 3, b.y + 2.6), 9.5, { maxW: 11 });
   }
   // hovering something held in the air: its Move, its target, how to aim and release it
   // hovering a foe: its nature (what it resists, what breaks it), so the merge can be planned against it
@@ -358,13 +379,21 @@ export class BattleScene {
   async endTurn() {
     if (this.battle.phase !== 'player' || this.busy) return;
     this.busy = true; try { this.hudB.ringEnd(); } catch (e) { console.warn('end turn button', e); } this.tooltip.hide(); this.preview.hide();
+    this.hypo = this.fc ? { fc: this.fc, hp: this.battle.player.hp, foes: Object.fromEntries(this.battle.enemies.map((e) => [e.uid, e.hp])) } : null; // the hypothesis this turn is tested against
     // time flows again: a ripple races out from the golden apple, colour returns, the hanging dust drifts on; then it all plays out
     const ap = new THREE.Vector3(); this.hudB.bell.group.getWorldPosition(ap); ap.project(this.engine.ui.camera); this.engine.ripple([ap.x * 0.5 + 0.5, ap.y * 0.5 + 0.5], 1.2, 1);
     audio.play('clockwork', { vol: 0.6 }); audio.play('whoosh_heavy', { vol: 0.4, delay: 0.1 }); await tweens.wait(0.4);
     try { await this.battle.endTurn(); } finally { this.busy = false; } this.afterAction();
   }
+  // THE RESULT: what time actually did, next to what the apple predicted (they match: the rules are deterministic)
+  showResult(B) {
+    const H = this.hypo; this.hypo = null; if (!H || B.over) return; const taken = Math.max(0, H.hp - B.player.hp); let dealt = 0; for (const e of B.enemies) if (e.uid in H.foes) dealt += Math.max(0, H.foes[e.uid] - Math.max(0, e.hp));
+    const ok = B.player.hp === H.fc.you.duskHp;
+    this.hudB.showResult?.([[['RESULT', '#cdb68a']], [[`${dealt}`, '#ffd36a'], [' dealt · ', '#efe4cf'], [`${taken}`, taken ? '#ff8a6a' : '#bfe8a6'], [' taken', '#efe4cf'], [ok ? '  as predicted' : '', '#bfe8a6']]]);
+    if (ok) audio.play('chime_soft', { vol: 0.35 });
+  }
   afterAction() {
-    for (const e of this.battle.enemies) this.refreshEnemy(e);
+    for (const e of this.battle.enemies) this.refreshEnemy(e); this.updateForecast();
     if (this.battle.phase === 'won' || this.battle.phase === 'lost') this.finish();
   }
   async finish() {
@@ -461,7 +490,7 @@ export class BattleScene {
       async cloned(copy, src) { audio.play('string_pluck', { vol: 0.6 }); S.bark('player', `An echo of ${BASICS[src.cards[0].id]?.name || 'that'}. Again!`, 1.6); await tweens.wait(0.15); },
       artifact(id) { S.wear?.trigger(id); const t = S.artTags?.[id]; if (t) { t.kick?.(1.6); t.pop?.kick?.(3); } if (!String(id).startsWith('law:')) audio.play('chime_soft', { vol: 0.35, minGap: 0.2 }); },
       async battleStart(B) { S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); await S.chapterCard(B); await tweens.wait(0.25); const lead = B.enemies.find((e) => !e.def.isHead); if (lead) S.bark(lead, vpick(lead.def.barks.start), 2.6); await tweens.wait(0.8); S.bark('player', vpick(PLAYER_BARKS.start), 2.4); await S.tutorialHook('battleStart', B); },
-      async playerTurn(B) { S.shotCam.release(2.2); S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); S.hudB.setTurn(B.turn); S.showBanner('Time Stops', `TURN ${roman(B.turn)}`); audio.play('clockwork', { vol: 0.35 }); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); await S.tutorialHook('playerTurn', B); },
+      async playerTurn(B) { S.shotCam.release(2.2); S.syncHand(); for (const e of B.enemies) S.refreshEnemy(e); S.hudB.setTurn(B.turn); if (B.turn === 1) S.showBanner('Time Stops', 'PLAN · PREDICT · RING THE APPLE'); audio.play('clockwork', { vol: 0.35 }); if (B.player.hp < B.player.maxHp * 0.3) S.bark('player', vpick(PLAYER_BARKS.low)); await S.tutorialHook('playerTurn', B); },
       async drew(slots) { S.syncHand(); audio.play('card_slide', { vol: 0.8 }); for (let i = 0; i < Math.min(slots.length, 6); i++) audio.play('card_slide', { delay: i * 0.07, vol: 0.6 }); await tweens.wait(0.12); },
       async reshuffle() { audio.play('card_shuffle'); },
       async petrified(cards) { audio.play('stone_grind'); S.syncHand(); S.bark('player', 'My cards! They are... gravel now.'); await tweens.wait(0.4); },
@@ -489,7 +518,7 @@ export class BattleScene {
         audio.play(o.kind === 'zap' ? 'electric_zap' : o.kind === 'burn' ? 'sizzle' : big ? 'hit_heavy' : dmg > 10 ? 'hit_medium' : 'hit_light');
         if (kindFx === 'apple') audio.play('apple_squish', { vol: 0.7 }); if (kindFx === 'stone') audio.play('rock_impact', { vol: 0.8 });
         S.engine.shake(Math.min(0.6, 0.08 + dmg / 80)); if (dmg >= 12) S.critters.scare(p, 6 + dmg / 4); if (big) { S.engine.hitStop(70); S.camPunch = Math.min(1, dmg / 60); } if (dmg >= 45) S.engine.flash(0.25, 0xfff6cf, 0.3);
-        if (v && Math.random() < 0.25 && dmg > 0) S.bark(e, vpick(e.def.barks.hurt), 1.3);
+        if (v && Math.random() < 0.1 && dmg > 0) S.bark(e, vpick(e.def.barks.hurt), 1.3);
         S.refreshEnemy(e); await tweens.wait(dmg > 0 ? 0.16 : 0.05);
       },
       async miss(t, src, why) { if (why === 'wings') S.wear?.trigger('wings'); const p = t === 'player' ? S.prof.headWorld(new THREE.Vector3()) : S.enemyPos(t); S.popNumber(p, why === 'wings' ? 'FLAP!' : 'MISS', { color: '#cdb6f0', stroke: '#22183f', size: 1.2 }); audio.play('whoosh_soft'); await tweens.wait(0.25); },
@@ -516,19 +545,21 @@ export class BattleScene {
         S.foeLabel?.(e, it); v.api.act(it.kind === 'attack' ? 'attack' : 'cast'); if (it.kind === 'attack' && !it.charge) await S.fx3d.lunge(v.api.root, S.enemySlotPos(e), S.prof.root.position.x);
         if (it.label) S.bark(e, it.kind === 'attack' ? null : vpick(e.def.barks.special), 1.4);
         audio.play(it.kind === 'attack' ? 'whoosh_heavy' : it.kind === 'buff' ? 'buff' : 'debuff', { vol: 0.8 });
-        const sfx = { satyr: it.kind === 'attack' ? 'drunk_laugh' : 'hiccup', medusa: 'snake_hiss', kobalos: 'goblin_laugh', minotaur: it.charge ? 'bull_roar' : 'bull_snort', minotaur_king: 'bull_roar', hydra: 'monster_growl', hydra_head: 'monster_growl', hydra_elder: 'monster_roar', frog_wizard: it.kind === 'attack' ? 'gurgle' : 'magic_shimmer', bookworm_queen: 'monster_growl', bookworm: 'goblin_squeak', sphinx: 'monster_roar', eagle: 'whoosh_heavy' }[e.id];
+        const sfx = { satyr: it.kind === 'attack' ? 'drunk_laugh' : 'hiccup', medusa: 'snake_hiss', kobalos: 'goblin_laugh', minotaur: it.charge ? 'bull_roar' : 'bull_snort', minotaur_king: 'bull_roar', hydra: 'monster_growl', hydra_head: 'monster_growl', hydra_elder: 'monster_roar', frog_wizard: it.kind === 'attack' ? 'gurgle' : 'magic_shimmer', bookworm_queen: 'monster_growl', bookworm: 'goblin_squeak', sphinx: 'monster_roar', eagle: 'whoosh_heavy', karkinos: 'stone_grind', boar: it.charge ? 'bull_roar' : 'bull_snort', teumessian_fox: 'goblin_laugh', salamander: 'sizzle', stymphalian: 'glass_clink', ice_nymph: 'magic_shimmer', siren: 'pan_flute', empusa: 'snake_hiss', automaton: 'clockwork', magnet_golem: 'stone_grind', bronze_bull: it.charge ? 'bull_roar' : 'fire_whoosh', ladon: 'snake_hiss' }[e.id];
         if (sfx) audio.play(sfx, { vol: 0.8 });
         if (it.charge) { await tweens.to(v.api.root.position, { x: v.api.root.position.x - 4.5 }, 0.35, { ease: 'inQuad' }); audio.play('hoof_stomp'); S.engine.shake(0.5); setTimeout(() => tweens.to(v.api.root.position, { x: S.enemySlotPos(e).x }, 0.6, { ease: 'outCubic' }), 300); }
         await tweens.wait(0.35); setTimeout(() => { if (S.battle?.phase === 'enemy') S.shotCam.release(3); }, 700);
       },
       async playerHit(dmg, o) {
         S.prof.act('hurt', { k: Math.min(1.6, 0.5 + dmg / 12) }); if (dmg >= 10) { S.camPunch = Math.min(1, dmg / 30); S.engine.hitStop(60); } const p = S.prof.headWorld(new THREE.Vector3()); if (dmg > 0) S.fx3d.hitPlayer(S.prof.root, p, dmg);
-        if (dmg > 0) { hud.feed(`Sir Isaac takes ${dmg}`, 'hurt'); S.popNumber(p, dmg, { color: '#f6b3a0', stroke: '#3a0f18', size: 1.5 }); S.burst(p.clone().add(new THREE.Vector3(0, -0.6, 0)), 'wood', 16); audio.play('hit_wood'); S.engine.shake(Math.min(0.55, 0.12 + dmg / 50)); S.engine.flash(0.12, 0xc8443a, 0.25); if (Math.random() < 0.35) S.bark('player', vpick(PLAYER_BARKS.hit), 1.3); }
+        if (dmg > 0) { hud.feed(`Sir Isaac takes ${dmg}`, 'hurt'); S.popNumber(p, dmg, { color: '#f6b3a0', stroke: '#3a0f18', size: 1.5 }); S.burst(p.clone().add(new THREE.Vector3(0, -0.6, 0)), 'wood', 16); audio.play('hit_wood'); S.engine.shake(Math.min(0.55, 0.12 + dmg / 50)); S.engine.flash(0.12, 0xc8443a, 0.25); if (Math.random() < 0.12) S.bark('player', vpick(PLAYER_BARKS.hit), 1.3); }
         if (o.blocked) { S.popNumber(p.clone().add(new THREE.Vector3(0.8, 0.4, 0)), `-${o.blocked}`, { color: '#a8dcef', stroke: '#16304f', size: 1.0 }); audio.play('shield_block'); }
         await tweens.wait(0.22);
       },
-      async friendlyFire(e, t) { S.bark(e, vpick(['Oops.', 'Wrong face!', '*hic* ...sorry, Dave.']), 1.4); await tweens.wait(0.2); },
-      async stunned(e, k) { S.popNumber(S.enemyPos(e, 1), k === 'prone' ? 'PRONE' : 'STUNNED', { color: '#ffe08a', stroke: '#3a1f08', size: 1.0 }); await tweens.wait(0.35); },
+      async friendlyFire(e, t) { S.bark(e, t === e ? vpick(['*staggers into itself*', 'Ow. Me. Why.']) : vpick(['Oops.', 'Wrong face!', '*hic* ...sorry, Dave.']), 1.4); await tweens.wait(0.2); },
+      async stunned(e, k) { S.popNumber(S.enemyPos(e, 1), k === 'stall' ? 'STALLED' : 'STUNNED', { color: '#ffe08a', stroke: '#3a1f08', size: 1.0 }); await tweens.wait(0.35); },
+      async munch(e) { const v = S.enemyViews.get(e.uid); v?.api.act('cast'); audio.play('apple_crunch', { vol: 0.8 }); S.bark(e, vpick(['*munch munch munch*', '*stuffs a whole sandwich in*', '*burp*']), 1.4); await tweens.wait(0.5); },
+      async enemyBuff(e, n) { S.popNumber(S.enemyPos(e, 1), `+${n} STR`, { color: '#ffd36a', stroke: '#3a1f08', size: 1.0 }); audio.play('buff'); S.refreshEnemy(e); await tweens.wait(0.3); },
       async reflect(e) { S.bark('player', 'Mirror, mirror!'); S.burst(S.enemyPos(e, 0.9), 'magic', 30); audio.play('glass_shatter', { vol: 0.6 }); audio.play('stone_grind'); await tweens.wait(0.4); },
       async gaze(e) { S.engine.flash(0.3, 0x7dff8a, 0.5); audio.play('stone_grind'); await tweens.wait(0.3); },
       async steal(e, c) { S.tutorialHook('steal', e, c); audio.play('goblin_laugh'); S.bark(e, vpick(e.def.barks.special), 1.5); await tweens.wait(0.3); },
@@ -554,7 +585,7 @@ export class BattleScene {
       async pendulum(t) { audio.play('clockwork'); },
       async revive() { S.wear?.trigger('golden_apple'); audio.play('apple_crunch'); S.bark('player', 'A golden apple a day keeps the reaper away!', 2.5); S.burst(S.prof.headWorld(new THREE.Vector3()), 'heal', 50); },
       async endTurn(B) { S.prepT.k = 0; S.syncHand(); S.hand.removeViews([...S.hand.views.keys()].filter((uid) => !B.hand.some((s) => s.cards.some((c) => c.uid === uid))), { x: W() - 7.4, y: -H() + 2.4, s: 0.4 }); audio.play('card_fan', { vol: 0.6 }); await tweens.wait(0.35); },
-      async intents(B) { for (const e of B.enemies) S.refreshEnemy(e); },
+      async intents(B) { for (const e of B.enemies) S.refreshEnemy(e); S.showResult(B); },
       won() {}, lost() { S.prof.act('die'); S.engine.shake(0.45); S.engine.hitStop(140); audio.play('body_fall', { vol: 0.9 }); S.burst(S.prof.root.position.clone().add(new THREE.Vector3(0, 0.3, 0)), 'smoke', 20); },
       async bark(who, text) { S.bark(who, text); },
     };
@@ -609,8 +640,18 @@ export class BattleScene {
   }
 }
 
+// the game's keywords, short and plain (Slay-the-Spire tooltips on the raised card)
+const KEYWORDS = {
+  LAUNCH: ['LAUNCH', 'At End Turn the object flies at its target.'], MERGE: ['MERGE', 'Drop it on a placed object: mix it into the spell.'], PLACE: ['PLACE', 'Drag Matter into the air. It waits there.'],
+  SELF: ['SELF', 'Drop it on Isaac to use it on yourself.'], EAT: ['EAT', 'Drop it on Isaac: he eats it and heals.'], BLOCK: ['BLOCK', 'Soaks blows until your next turn.'], '{blk}': ['BLOCK', 'Soaks blows until your next turn.'],
+  HEAT: ['HEAT', 'Friction warms the apple: 3+ Burns, 6+ ×1.3, 9+ ×1.6. Over 10 it overheats.'], '{heat}': ['HEAT', 'Friction warms the apple: 3+ Burns, 6+ ×1.3, 9+ ×1.6.'],
+  BURN: ['BURN', 'Loses that much each turn, 1 less every time.'], ZAP: ['ZAP', 'Electric: ignores Block. ×2 on Wet foes.'], WET: ['WET', 'Zaps hit it twice as hard; Heat steams it.'],
+  WEAK: ['WEAK', 'Its blows deal 25% less.'], VENOM: ['VENOM', 'Loses that much each turn, 1 less every time.'], THORNS: ['THORNS', 'Whoever hits you takes that much.'],
+  FALLS: ['FALLS', 'A strike from above: never dodged.'], ALL: ['ALL', 'Hits every foe.'], DRAW: ['DRAW', 'Take cards from your draw pile.'], DISCARD: ['DISCARD', 'Put cards from your hand into the used pile.'],
+  SHOVE: ['SHOVE', 'The foe\'s next blow deals less.'], CARRY: ['CARRY', 'Overkill flies on into the next foe.'], '{hit}': ['HIT', 'One more strike of the full damage.'], '{kg}': ['KG × M/S', 'Damage is mass × velocity.'],
+};
 function fieldDesc(f) {
-  const d = { sapling: 'Grows into an apple tree: free Apples each turn', boulder: `Cover: absorbs ${f.params.guard} damage. Minotaurs hate it.`, rolling: 'Rolls into a foe each turn', puddle: 'Attackers get Wet. Zap it!', coil: 'Zaps a random foe each turn', campfire: 'Burn 2 to all foes each turn', well: 'Your hits +2 v. Nothing escapes.', whirl: 'Foes hit 3 weaker; wind damage', glass: 'Burns the biggest foe each turn', catapult: 'Load a Move: fires x2 next turn', rain: 'All foes Wet each turn', steam: 'All foes Blind', moon: 'Block 4 each turn; Gravity calls it down' };
+  const d = { sapling: 'Grows into an apple tree: free Apples each turn', boulder: `Cover: absorbs ${f.params.guard} damage. Minotaurs hate it.`, rolling: 'Rolls into a foe each turn', puddle: 'Attackers get Wet. Zap it!', coil: 'Zaps the front foe each turn', campfire: 'Burn 2 to all foes each turn', well: 'Your hits +2 v. Nothing escapes.', whirl: 'Foes hit 3 weaker; wind damage', glass: 'Burns the biggest foe each turn', catapult: 'Load a Move: fires x2 next turn', rain: 'All foes Wet each turn', steam: 'All foes Blind', moon: 'Block 4 each turn; Gravity calls it down' };
   return d[f.type] || FIELD_INFO[f.type]?.name || '';
 }
 function flavorOf(c) { return c.type === 'move' ? 'A permanent combination.' : POWERS[c.id]?.flavor || BASICS[c.id]?.flavor || ''; }

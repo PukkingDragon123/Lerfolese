@@ -11,6 +11,8 @@ import { createCentaur, warmCentaur } from './centaur.js';
 import { createHarpy, warmHarpy } from './harpy.js';
 import { createSpartoi, warmSpartoi } from './spartoi.js';
 import { createRaccoon, warmRaccoon } from './raccoon.js';
+import { BESTIARY_IDS, createBestiary, warmBestiary } from './bestiary.js'; // the experimental bestiary (beasts)
+import { NYMPH_IDS, createNymph, warmNymphs } from './nymphs.js'; // the experimental bestiary (humanoids on the Limbo base)
 
 const BUILD = {
   minotaur: (s) => createMinotaur(s, false),
@@ -27,6 +29,8 @@ const BUILD = {
   spartoi: (s) => createSpartoi(s),
   raccoon: (s) => createRaccoon(s), // the prologue's tutorial foe
 };
+for (const id of BESTIARY_IDS) BUILD[id] = (s) => createBestiary(id, s);
+for (const id of NYMPH_IDS) BUILD[id] = (s) => createNymph(id, s);
 export const isBeast = (id) => id in BUILD;
 export function createBeast(id, seed = 1) {
   const api = BUILD[id](seed);
@@ -34,4 +38,6 @@ export function createBeast(id, seed = 1) {
 }
 /** optional: pre-build a beast's sculpt, skin and textures (about 1-2 s of main-thread work) before its battle starts */
 const WARM = { cyclops: warmCyclops, talos: warmTalos, wolf: warmWolf, chimera: warmChimera, centaur: warmCentaur, harpy: warmHarpy, spartoi: warmSpartoi, raccoon: warmRaccoon };
+for (const id of BESTIARY_IDS) WARM[id] = () => warmBestiary(id);
+for (const id of NYMPH_IDS) WARM[id] = () => warmNymphs(id);
 export function warmBeast(id) { if (id.startsWith('minotaur')) warmMinotaur(id === 'minotaur_king'); else if (id.startsWith('hydra')) warmHydra(id === 'hydra_elder'); else WARM[id]?.(); }

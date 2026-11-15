@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles/main.css">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>#boot{display:none}</style></head><body><canvas id="game"></canvas>
+<!-- the experimental bestiary side by side (the 12 new foes): ?only=<id> one up close (&yaw=, &cy=, &dist=), ?set=beasts|people,
+     &act=attack|hurt|cast|die (at &t= seconds), &state=stun|polarity|pressure to see the readable states -->
+<script type="module">
+import * as THREE from 'three';
+import { Engine } from '../src/core/engine.js';
+import { createCreature } from '../src/models/creatures.js';
+import { ENEMIES } from '../src/game/data/enemies.js';
+const q = new URLSearchParams(location.search);
+const eng = new Engine(document.getElementById('game')); window.__noAutoQuality = true; window.__game = { engine: eng };
+const scene = new THREE.Scene(); scene.background = new THREE.Color(q.get('bg') || 0x6a7480); scene.fog = new THREE.Fog(0x6a7480, 30, 80);
+const BEASTS = ['karkinos', 'boar', 'teumessian_fox', 'salamander', 'stymphalian', 'bronze_bull', 'ladon'], PEOPLE = ['ice_nymph', 'siren', 'empusa', 'automaton', 'magnet_golem'];
+const only = q.get('only'); const ids = only ? [only] : q.get('set') === 'people' ? PEOPLE : q.get('set') === 'beasts' ? BEASTS : [...BEASTS, ...PEOPLE];
+const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 200);
+const sun = new THREE.DirectionalLight(0xffd6a8, 2.6); sun.position.set(-5, 7, 8); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 10, bottom: -4 }); scene.add(sun, new THREE.HemisphereLight(0xb8c8e8, 0x4a3a2a, 1.0));
+const rim = new THREE.DirectionalLight(0x9ab8ff, 0.8); rim.position.set(6, 4, -8); scene.add(rim);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 40), new THREE.MeshStandardMaterial({ color: 0x5a5a3a, roughness: 1 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const cast = []; let x = 0; const gap = (id) => Math.max(1.4, (ENEMIES[id]?.scale || 1) * 1.5 + (id === 'ladon' ? 1.6 : id === 'bronze_bull' || id === 'boar' ? 0.6 : 0));
+for (const id of ids) { try { const a = createCreature(id, 3); const s = ENEMIES[id]?.scale || 1; a.root.scale.setScalar(s); x += gap(id) / 2; a.root.position.set(x, 0, 0); x += gap(id) / 2; a.root.rotation.y = +(q.get('yaw') ?? -0.55); scene.add(a.root); a.id = id; cast.push(a); } catch (e) { console.error(id, e); } }
+const mid = x / 2; for (const a of cast) a.root.position.x -= mid;
+if (only) { const a = cast[0]; const h = (a?.height || 1.5) * (ENEMIES[only]?.scale || 1); const d = +(q.get('dist') || h * 2.4 + 1.5); cam.position.set(0, h * 0.62, d); cam.lookAt(0, +(q.get('cy') || h * 0.5), 0); }
+else { cam.position.set(0, 3.2, x * 0.95 + 4); cam.lookAt(0, 1.1, 0); }
+eng.setWorld(scene, cam); eng.setFx({ bloom: [0.3, 0.5, 0.9], exposure: 1.0 });
+for (const a of cast) { const st = q.get('state'); if (st === 'stun') a.root.userData.flipped = true; if (st === 'polarity') a.root.userData.polarity = 1; if (st === 'pressure') a.root.userData.pressure = 3; }
+let T = 0; const step = (dt) => { T += dt; for (const a of cast) a.update(dt); };
+const pre = +(q.get('t') || 0); if (q.get('act')) for (const a of cast) a.act?.(q.get('act')); for (let i = 0; i < pre * 60; i++) step(1 / 60);
+eng.start((dt) => step(dt));
+window.__cast = cast; window.__ready = true;
+</script></body></html>

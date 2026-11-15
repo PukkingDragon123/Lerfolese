@@ -141,7 +141,7 @@ function droppedGear(g, rnd) { const G = gear(); const Mt = propMats(); const s 
 // ---------------------------------------------------------------- which enemies stand on a battle node: exactly the node's pre-rolled encounter
 // (game/run.js nodeEncounter: same species, same count, the elite / boss itself); minions beyond three stay off the plinth
 function groupFor(nd, run) { const enc = nodeEncounter(run, nd); return (enc?.enemies || ['satyr']).slice(0, 3); }
-const FIG_SCALE = { frog_wizard: 0.55, bookworm_queen: 0.5, bookworm: 0.55, sphinx: 0.55, eagle: 0.6, satyr: 0.66, kobalos: 0.74, medusa: 0.6, minotaur: 0.7, hydra: 0.5, minotaur_king: 0.8, hydra_elder: 0.58 };
+const FIG_SCALE = { karkinos: 0.9, salamander: 1.1, teumessian_fox: 0.8, stymphalian: 0.6, boar: 0.62, bronze_bull: 0.5, ladon: 0.36, ice_nymph: 0.62, siren: 0.6, empusa: 0.62, automaton: 0.48, magnet_golem: 0.44, frog_wizard: 0.55, bookworm_queen: 0.5, bookworm: 0.55, sphinx: 0.55, eagle: 0.6, satyr: 0.66, kobalos: 0.74, medusa: 0.6, minotaur: 0.7, hydra: 0.5, minotaur_king: 0.8, hydra_elder: 0.58 };
 
 // ---------------------------------------------------------------- node pieces
 export class NodeMini {

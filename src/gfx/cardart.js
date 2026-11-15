@@ -52,8 +52,10 @@ export function cardFaceKey(card, move) { return card.type === 'move' ? `move:${
 
 const STAT = { MASS: K.paint_red, VEL: K.paint_blue, HITS: ENAMEL.tool, ZAP: K.elec, BURN: K.flame, MULT: K.gold, TURNS: ENAMEL.move, BOUNCE: K.cyan, ALL: K.violet };
 
-export function renderCardFace(card, move) {
-  const key = cardFaceKey(card, move);
+// live: StS-style live numbers, { blk|heal|kg|v: [base, now] }: a rule number equal to base is drawn as now, green when
+// buffed, red when weakened (Frail Block, Lead Boots kg, the Minotaur's Horn on Force, Gravitation on Gravity...)
+export function renderCardFace(card, move, live = null) {
+  const key = cardFaceKey(card, move) + (live ? '|' + JSON.stringify(live) : '');
   if (faceCache.has(key)) return faceCache.get(key);
   const isPower = card.type === 'power', isMove = card.type === 'move';
   const id = card.petrified ? 'stone' : card.id;
@@ -98,7 +100,7 @@ export function renderCardFace(card, move) {
     const [x, y] = MED[i]; const v = (String(m[1]).startsWith('-') ? '' : m[2] || '') + String(m[1]);
     T(v, (x + 0.5) * CS, (y + 0.25) * CS, 'num', '#fff6cf', { k: v.length > 2 ? 2 : 3, outline: '#1a0c14', shadow: '#0a0408' });
   });
-  const typeLabel = card.petrified ? 'PETRIFIED' : isPower ? 'POWER · LAW' : isMove ? `MOVE · ${move.n} CARDS` : `BASIC · ${KIND_LABEL[def.kind].toUpperCase()}`;
+  const typeLabel = card.petrified ? 'PETRIFIED' : isPower ? 'POWER · LAW' : isMove ? `SPELL · ${move.n} CARDS` : def.kind === 'matter' ? 'MATTER · PLACE IT' : def.launch ? `${KIND_LABEL[def.kind].toUpperCase()} · LAUNCHER` : `${KIND_LABEL[def.kind].toUpperCase()} · MERGE IT`; // the type line: what you DO with it
   if (isPower) T('POWER · LAW', (CW / 2) * CS, 90.75 * CS, 'rune', '#3a1660', { k: 2 }); // Laws are magic: RuneMono
   else T(typeLabel, (CW / 2) * CS, 90.75 * CS, 'body', '#3a1c0c', { k: measure(typeLabel, 'body') * 2 <= 52 * CS ? 2 : 1 });
   // RULES: big and short, Slay-the-Spire style: up to 3 lines of PixelSans x4 (x3 when a line is long), inline pixel
@@ -116,7 +118,7 @@ export function renderCardFace(card, move) {
   const BOX = 104 * CS; const wOf = (l, kk) => lineW(l, kk); let k = isPower ? 3 : 4; while (k > 2 && lines.some((l) => wOf(l, k) > BOX)) k--;
   if (lines.some((l) => wOf(l, k) > BOX)) lines = lines.flatMap((l) => (wOf(l, k) <= BOX ? [l] : wrapText(l, 'body', Math.floor(BOX / k)))).slice(0, 5);
   const n = lines.length; const lh = (k >= 4 ? 13 : k === 3 ? (n > 3 ? 10.5 : 12) : 9) * CS; const y0 = 124.5 * CS - ((n - 1) * lh) / 2;
-  lines.forEach((l, i) => drawRuleLine(g, l, (CW / 2) * CS, y0 + i * lh, k, T));
+  lines.forEach((l, i) => drawRuleLine(g, l, (CW / 2) * CS, y0 + i * lh, k, T, live));
   const num = isMove ? (move.special ? '★' : '◆') : def.mutantOf ? roman(BASICS[def.mutantOf].num) + '*' : roman(def.num || 0);
   if (/^[★◆]$/.test(num)) T(num, (CW / 2) * CS, 158.75 * CS, 'body', '#3a1c0c', { k: 2 }); else T(num, (CW / 2) * CS, 158.75 * CS, 'num', '#3a1c0c', { k: 2 });
   faceCache.set(key, out);
@@ -162,12 +164,19 @@ function drawIcon(g, name, x, y, k) { const I = ICONS[name]; if (!I) return 0; f
 const tokens = (l) => String(l).split(/(\{[a-z]+\})/).filter(Boolean);
 function lineW(l, k) { return tokens(l).reduce((w, t) => w + (/^\{[a-z]+\}$/.test(t) && ICONS[t.slice(1, -1)] ? 10 * k : measure(t, 'body') * k), 0); }
 const KEY = /^(LAUNCH(ES)?|SELF:|EAT:|MERGE:|ZAP|BURN|HIT|BLOCK|DRAW|DISCARD|DISCARDED:|THORNS|WEAK|VENOM|WET|KEPT|ALL|CARRY:|SHOVE:|FALLS:|PLACE:|DOUBLE|HEAT|VENT|QUENCH|GRAB:|x\d.*)$/;
-function drawRuleLine(g, l, cx, y, k, T) {
-  const parts = tokens(l); const W = lineW(l, k); let x = Math.round(cx - W / 2);
+const STATK = { blk: 'blk', heal: 'heal', kg: 'kg', v: 'v', BLOCK: 'blk', EAT: 'heal' };
+function drawRuleLine(g, l, cx, y, k, T, live = null) {
+  // live numbers: a number takes the stat of the icon right after it, else of the last icon / keyword before it
+  let parts = tokens(l);
+  if (live) parts = parts.map((t, i) => { if (!/^[+\-x×]?\d+$/.test(t.trim())) { if (/^\{[a-z]+\}$/.test(t)) return t; return t.replace(/(BLOCK|EAT:?)(\s+)([+\-]?\d+)/g, (m, kw, sp, n) => { const L = live.blk && kw === 'BLOCK' ? live.blk : live.heal && kw.startsWith('EAT') ? live.heal : null; return L && Math.abs(+n) === L[0] && L[1] !== L[0] ? `${kw}${sp}\u0001${L[1]}\u0002${L[1] > L[0] ? 'g' : 'r'}` : m; }); }
+    const nx = /^\{([a-z]+)\}$/.exec(parts[i + 1] || ''); let st = nx && STATK[nx[1]]; if (!st) for (let j = i - 1; j >= 0 && !st; j--) { const ic = /^\{([a-z]+)\}$/.exec(parts[j]); if (ic) st = STATK[ic[1]]; } const L = st && live[st]; const n = +t.trim().replace(/^[x×]/, '');
+    return L && Math.abs(n) === Math.abs(L[0]) && L[1] !== L[0] ? `${t.match(/^\s*/)[0]}\u0001${(t.trim().startsWith('+') ? '+' : '') + L[1]}\u0002${Math.abs(L[1]) > Math.abs(L[0]) ? 'g' : 'r'}` : t; });
+  const W = parts.reduce((w, t) => w + (/^\{[a-z]+\}$/.test(t) && ICONS[t.slice(1, -1)] ? 10 * k : measure(t.replace(/[\u0001]|\u0002[gr]/g, ''), 'body') * k), 0); let x = Math.round(cx - W / 2);
   for (const t of parts) {
     const ic = /^\{([a-z]+)\}$/.exec(t); if (ic && ICONS[ic[1]]) { x += drawIcon(g, ic[1], x, Math.round(y - 5 * k), k); continue; }
-    // keywords in carmine, numbers in deep blue, the rest in ink (word by word, so a keyword inside a phrase still pops)
-    for (const w of t.split(/(\s+)/)) { if (!w) continue; const ww = measure(w, 'body') * k; if (w.trim()) T(w, x + ww / 2, y, 'body', KEY.test(w) ? '#8c1a30' : /^[+\-x×]?\d/.test(w) ? '#1e3a7a' : '#2a140c', { k }); x += ww; }
+    // keywords in carmine, numbers in deep blue (a live number: green when buffed, red when weakened), the rest in ink
+    for (const w0 of t.split(/(\s+)/)) { if (!w0) continue; const lv = /\u0001(.*)\u0002([gr])/.exec(w0); const w = lv ? w0.replace(/\u0001(.*)\u0002[gr]/, '$1') : w0; const ww = measure(w, 'body') * k;
+      if (w.trim()) T(w, x + ww / 2, y, 'body', lv ? (lv[2] === 'g' ? '#1f7a1a' : '#b0141e') : KEY.test(w) ? '#8c1a30' : /^[+\-x×]?\d/.test(w) ? '#1e3a7a' : '#2a140c', { k, ...(lv ? { outline: lv[2] === 'g' ? '#d8ffc0' : '#ffd8d0' } : {}) }); x += ww; }
   }
 }
 export function cardRules(def, up) {

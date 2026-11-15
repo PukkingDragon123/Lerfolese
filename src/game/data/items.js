@@ -7,7 +7,7 @@ export const ITEMS = {
   spirit_cross: { name: 'The Spirit Cross', starter: true, icon: 'cross', text: 'Your control bar. Six gravity strings: draw 6 cards a turn.', flavor: 'Death is a career change.' },
   golden_apple: { name: 'Golden Apple of the Hesperides', icon: 'gapple', text: 'Apples heal +3. Once, when you would die, eat it and revive at 40%.', flavor: 'Guarded by a dragon. Was.', resonates: ['schrodinger'] },
   lever: { name: "Archimedes' Lever", icon: 'lever', text: 'The first Force in each Move counts double.', flavor: 'Give me a place to stand. Also a snack.', resonates: ['horn'] },
-  pendulum: { name: 'Pendulum of Foucault', icon: 'pendulum', text: 'Every 3rd turn, your biggest Move this turn repeats at half power.', flavor: 'Proof the world turns. Also the pendulum.', resonates: ['antikythera'] },
+  pendulum: { name: 'Pendulum of Foucault', icon: 'pendulum', text: 'Every 3rd turn, your biggest Move this turn repeats at half power on the front foe.', flavor: 'Proof the world turns. Also the pendulum.', resonates: ['antikythera'] },
   leyden: { name: 'Leyden Jar', icon: 'jar', text: 'Each Spark stores 1 charge. At 4: zap ALL foes for 12 (x2 Wet).', flavor: 'Bottled lightning. Do not shake. (Shake it.)', resonates: ['mirror'] },
   wings: { name: 'Wax Wings', icon: 'wings', text: 'The first attack each battle misses you. Playing Heat 2+ times melts them for the battle (take 6).', flavor: 'Lightly used. Previous owner: unavailable.' },
   antikythera: { name: 'Antikythera Mechanism', icon: 'gear', text: 'Draw 1 extra card on your first turn. Foes reveal their next TWO intents.', flavor: 'A Greek computer. Still faster than mine.', resonates: ['pendulum'] },
@@ -20,16 +20,16 @@ export const ITEMS = {
   prism: { name: "Newton's Prism", icon: 'prism', math: true, text: 'Light (Lens, Spark) splits: 3 hits at 40% each (×1.2 in all, triple the on-hit effects).', flavor: 'I split light. Light had it coming.' },
   sack: { name: "Kobalos's Sack", icon: 'sack', text: '+25% gold. Stolen cards come back with interest (+10 gold).', flavor: 'Smells of pockets.' },
   thread: { name: "Ariadne's Thread", icon: 'thread', text: 'A seventh string: draw 1 extra card each turn.', flavor: 'For when the maze is metaphorical.' },
-  wineskin: { name: 'Bottomless Wineskin', icon: 'wineskin', text: 'Heal 2 at the start of each turn. Your first Move each battle goes to a random foe.', flavor: 'Bottomless. Like your excuses.' },
+  wineskin: { name: 'Bottomless Wineskin', icon: 'wineskin', text: 'Heal 2 at the start of each turn. Your first Move each battle veers into the healthiest foe.', flavor: 'Bottomless. Like your excuses.' },
   wine_flask: { name: "Satyr's Wine Flask", icon: 'wineskin', text: 'Heal 3 at the start of each battle.', flavor: 'Still sloshing. Still singing.' },
   horn_shard: { name: 'Minotaur Horn Shard', icon: 'horn', text: 'Every Force gives +1 extra v.', flavor: 'A splinter of very old anger.' },
   gorgon_scale: { name: 'Gorgon Scale', icon: 'mirror', text: 'Start each battle with 4 Block.', flavor: 'Hard as stone. Obviously.' },
   // ---- artifacts that bend the arithmetic (data/synergy.js ARTIFACT_MATH holds their rules). Some must first be
   // unlocked by the wizard frog (save.js STAR_UNLOCKS 'artifact:<id>'); run.js unlocked(id) filters every pool.
   statues: { name: 'The Statues', icon: 'statues', math: true, text: 'ALL damage ×3. But your hand holds only 3 cards.', flavor: "Medusa's admirers, petrified mid-applause. They still clap, slowly, for you." },
-  tyche: { name: 'Dice of Tyche', icon: 'tyche', math: true, text: 'Every throw: 1 in 2 ×2, else ×0.5.', flavor: 'Fortune is a goddess. She is also a gambler.' },
-  horseshoe: { name: "Hermes' Horseshoe", icon: 'horseshoe', math: true, text: 'Every throw: 1 in 4 lands a Lucky ×2.', flavor: 'Shod on the swiftest foot in Olympus. Still lucky.' },
-  pandora: { name: "Pandora's Jar", icon: 'pandora', math: true, text: 'Every throw: 1 in 3 ×3 · 1 in 3 ×1 · 1 in 3 it fizzles.', flavor: 'Hope was at the bottom. So were the odds.' },
+  tyche: { name: 'Dice of Tyche', icon: 'tyche', math: true, text: 'Throws alternate: 1st ×2, 2nd ×0.5, 3rd ×2...', flavor: 'Fortune is a goddess. Newton weighted her dice.' },
+  horseshoe: { name: "Hermes' Horseshoe", icon: 'horseshoe', math: true, text: 'Every 3rd throw of a battle ×2.', flavor: 'Shod on the swiftest foot in Olympus. Lucky on a schedule.' },
+  pandora: { name: "Pandora's Jar", icon: 'pandora', math: true, text: 'Throws cycle: ×3, then ×1, then it fizzles.', flavor: 'Hope was at the bottom. So was a timetable.' },
   golden_ratio: { name: 'The Golden Ratio', icon: 'golden_ratio', math: true, text: 'Every 5th merge of the run is golden: ×1.618.', flavor: 'φ = 1.618... Even snails know it.' },
   lead_boots: { name: 'Lead Boots', icon: 'lead_boots', math: true, text: 'Mass cards give double the kg. Rooted: draw 1 fewer card each turn.', flavor: 'Excellent posture. Terrible footwork.' },
   lyre: { name: "Pythagoras' Lyre", icon: 'lyre', math: true, text: 'Objects of exactly 3 cards ×1.5. Objects of 5 or more ×0.75.', flavor: 'All is number. Three is a chord.' },
@@ -58,7 +58,10 @@ export const LOOT = {
 };
 
 // extra drops for foes whose loot lives on their own definition (enemies.js), keyed by enemy id
-export const EXTRA_LOOT = { satyr: ['ember'], harpy: ['icarus_feather', 'talaria', 'phoenix'], centaur: ['lyre'], wolf: ['achilles'], spartoi: ['anvil'], cyclops: ['lead_boots', 'anvil'], chimera: ['pandora', 'amphora', 'salamander', 'phoenix'], talos: ['talaria', 'nemesis'], hydra_elder: ['amphora'], minotaur_king: ['golden_ratio'] };
+export const EXTRA_LOOT = { satyr: ['ember'], harpy: ['icarus_feather', 'talaria', 'phoenix'], centaur: ['lyre'], wolf: ['achilles'], spartoi: ['anvil'], cyclops: ['lead_boots', 'anvil'], chimera: ['pandora', 'amphora', 'salamander', 'phoenix'], talos: ['talaria', 'nemesis'], hydra_elder: ['amphora'], minotaur_king: ['golden_ratio'],
+  // the experimental bestiary: each drops a curio that plays with its own physics
+  karkinos: ['gorgon_scale'], boar: ['horn_shard', 'lead_boots'], teumessian_fox: ['horseshoe', 'talaria'], salamander: ['salamander', 'ember'], stymphalian: ['prism', 'icarus_feather'], ice_nymph: ['amphora'], siren: ['lyre'], empusa: ['talaria', 'wineskin'],
+  automaton: ['pendulum', 'antikythera'], magnet_golem: ['leyden', 'lever'], bronze_bull: ['salamander', 'phoenix', 'anvil'], ladon: ['golden_apple', 'aegis'] };
 
 export const ITEM_POOLS = {
   elite: ['ember', 'phoenix', 'aegis', 'ram', 'lever', 'pendulum', 'leyden', 'antikythera', 'horn', 'fang', 'prism', 'plumb_bob', 'thread', 'tyche', 'horseshoe', 'lyre', 'nemesis', 'anvil', 'amphora', 'pandora', 'golden_ratio', 'lead_boots', 'achilles'],

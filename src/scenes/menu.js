@@ -27,15 +27,22 @@ export class LoadingScene extends UIScreen {
   async enter({ preload = null } = {}) {
     const sc = (this.scene = new THREE.Scene()); sc.background = new THREE.Color(0x020106);
     this.bg = spaceBackdrop(); sc.add(this.bg.mesh);
-    const A = (this.A = appleTimelapse()); A.group.scale.setScalar(0.62); A.group.position.y = 0.62; sc.add(A.group); A.set(0); A.rim(1);
-    // the nearby star (upper right, behind) rims the apple; a soft key from the viewer; teal nebula fill; violet bounce
-    const star = new THREE.DirectionalLight(0xffe2b0, 5.2); star.position.set(2.8, 2.3, -2.6); star.target.position.set(0, 0.85, 0);
-    const key = new THREE.DirectionalLight(0xfff2e2, 1.25); key.position.set(-1.0, 1.9, 2.8); key.target.position.set(0, 0.85, 0);
-    const fill = new THREE.DirectionalLight(0x4cc8c0, 1.0); fill.position.set(-3, 0.3, 0.4); fill.target.position.set(0, 0.85, 0);
-    sc.add(star, star.target, key, key.target, fill, fill.target, new THREE.HemisphereLight(0x6a4aa8, 0x081420, 0.55));
+    const A = (this.A = appleTimelapse()); A.group.scale.setScalar(0.62); A.group.position.y = 0.62; sc.add(A.group); A.set(0); A.rim(0.35);
+    // LIGHT (a painting of a fruit in space): the warm nearby star (upper right, a little in front) is the key, with a
+    // crisp gloss on the skin; the teal-violet nebula behind on the left throws a cool rim round the far flank; a low
+    // violet sky fill keeps the shadow side coloured (never black); a faint warm kick from below-front shapes the base
+    const KEY = V(2.4, 2.1, 1.5), COOL = V(-2.6, 0.9, -2.2);
+    const star = new THREE.DirectionalLight(0xffd29a, 3.4); star.position.copy(KEY); star.target.position.set(0, 0.85, 0);
+    const rim = new THREE.DirectionalLight(0x56c8e8, 3.0); rim.position.copy(COOL); rim.target.position.set(0, 0.85, 0);
+    const rim2 = new THREE.DirectionalLight(0xa070ff, 1.4); rim2.position.set(0.4, 2.6, -2.8); rim2.target.position.set(0, 0.85, 0); // violet top-back edge from the nebula's bright veil
+    const kick = new THREE.DirectionalLight(0xff9a6a, 0.35); kick.position.set(0.3, -1.4, 2.6); kick.target.position.set(0, 0.85, 0);
+    sc.add(star, star.target, rim, rim.target, rim2, rim2.target, kick, kick.target, new THREE.HemisphereLight(0x5a4a9a, 0x0a1022, 0.75));
+    A.gloss(1, KEY, COOL); this.spin = { a: 0 };
     this.motes = new Motes(1100, { px: 3 }); sc.add(this.motes.points); this.rnd = mulberry32(1642);
     this.camera = new THREE.PerspectiveCamera(30, this.engine.aspect, 0.05, 60); this.camera.position.set(0, 1.05, 2.55); this.camera.lookAt(0, 0.86, 0);
-    this.engine.setWorld(sc, this.camera); this.engine.setFx({ bloom: [0.95, 0.5, 0.62], tilt: false, exposure: 1.1, grade: { sat: 1.12, contrast: 1.06, vignette: 0.5, lift: [0.01, 0.006, 0.022] }, ink: { fade: [6, 20] } });
+    // the galaxy and space read as fine pixel art (the engine's slight pixel look: about 540 art rows); gentle bloom only
+    // on the hottest lights (the star, the gloss), so the apple's colour stays true
+    this.engine.setWorld(sc, this.camera); this.engine.setFx({ pixel: 0.6, bloom: [0.7, 0.45, 0.78], tilt: false, exposure: 1.02, ao: false, grade: { sat: 1.1, vib: 0.22, contrast: 1.08, vignette: 0.46, warmth: 0.04, lift: [0.008, 0.004, 0.026], gain: [1.03, 1.0, 0.96], rolloff: 0.5, toe: 0.03 }, ink: { fade: [6, 20], strength: 0.7 } });
     for (let i = 0; i < 170; i++) this.dust(true);
     this.pre = preload; this.t0 = performance.now(); this.age = 0; this.acc = { dust: 0, spark: 0, spore: 0, glow: 0 }; this.engine.add(this); this.pushInput();
   }
@@ -91,8 +98,13 @@ export class LoadingScene extends UIScreen {
       ac.glow2 = (ac.glow2 || 0) + dt * 9; while (ac.glow2 > 1) { ac.glow2--; const p = A.sproutTip(); this.motes.spawn({ pos: [p.x + (r() - 0.5) * 0.08, p.y, p.z + (r() - 0.5) * 0.08], vel: [(r() - 0.5) * 0.08, 0.12 + r() * 0.12, 0], drag: 0.8, life: 0.9 + r() * 0.8, seq: 'glint', color: r() < 0.5 ? '#d8ff9a' : '#fff0b8', bright: 1.5, fadeIn: 0.05 }); }
       if (this.sproutT > 2.3 && !this.leaving) this.leave();
     }
-    // camera: a slow orbit-drift; dive at the seedling when leaving
-    A.group.rotation.y = t * 0.25; const zin = ease(this.age > 0.86 ? (this.age - 0.86) / 0.14 : 0); const lv = this.leaving ? ease5((performance.now() - this.leaving) / 1500) : 0;
+    // the apple turns slowly in space on a gently tilted, precessing axis (the stem circles, light slides over the gloss),
+    // easing off as it rots and slumps; the seed and the sprout turn too
+    { const sp = this.spin; sp.a += dt * (0.62 - 0.3 * Math.min(1, A.collapse * 1.5)); const tilt = 0.24 * (1 - A.collapse * 0.6);
+      const q = (this._q ??= new THREE.Quaternion()), qt = (this._qt ??= new THREE.Quaternion()); q.setFromAxisAngle(V(0, 1, 0), sp.a); qt.setFromAxisAngle(V(Math.cos(t * 0.21), 0, Math.sin(t * 0.21)), tilt + Math.sin(t * 0.47) * 0.05); q.premultiply(qt);
+      const ap = A.apple; const c = V(0, 0.42, 0); ap.quaternion.copy(q); ap.position.copy(c).sub(c.clone().applyQuaternion(q)).multiplyScalar(ap.scale.x); // pivot round the apple's heart, not its base
+      A.seed.rotation.y = sp.a * 0.8; A.group.position.y = 0.62 + Math.sin(t * 0.8) * 0.012; }
+    // camera: a slow orbit-drift; dive at the seedling when leaving const zin = ease(this.age > 0.86 ? (this.age - 0.86) / 0.14 : 0); const lv = this.leaving ? ease5((performance.now() - this.leaving) / 1500) : 0;
     const tip = A.sproutTip(); const cp = V(Math.sin(t * 0.2) * 0.12, 1.05 - zin * 0.18, 2.75 - zin * 1.1); const look = V(0, 0.86 - zin * 0.12, 0);
     if (lv > 0) { cp.lerp(tip.clone().add(V(0.02, 0.05, 0.42)), lv * 0.85); look.lerp(tip, lv); this.bg.U.uFlare.value = Math.max(this.bg.U.uFlare.value, lv * 0.8); }
     this.camera.position.copy(cp); this.camera.lookAt(look);

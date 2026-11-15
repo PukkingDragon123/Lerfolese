@@ -48,6 +48,8 @@ const S = {
   raccoon: { sky: ['#0a0c1a', '#141a30', '#22284a', '#3a3a5a'], land: '#12141a', sub: 'raccoon', pal: { k: '#060608', b: '#6a6a74', c: '#a8a8b0', w: '#ffffff', e: '#ffd040' }, fx: 'leaves', sy: 0.52, tint: '#b0b8d0' },
 };
 export const VIGNETTE_KEYS = Object.keys(S);
+/** the hand-pixelled subject of a memory (rows of chars, '.' empty, 'k' its outline) and its tint: the Stars hall draws its constellation from it */
+export function vignetteSubject(key) { const D = S[key] || S.road; return { rows: SUB[D.sub], tint: D.tint, pal: D.pal }; }
 
 const canvas = () => { const c = document.createElement('canvas'); c.width = VW; c.height = VH; return c; };
 const tex = (c) => { const t = new THREE.CanvasTexture(c); t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t; };

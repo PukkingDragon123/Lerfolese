@@ -1,89 +1,127 @@
-// Each foe's intent hangs above its head on a small SLATE TABLET in a brass bezel (no clouds in battle), with a mini
-// preview of the move playing inside it (a sword that swings once per hit, a shield that braces, an arrow that climbs,
-// a curse that shudders), the number in big floating NanoPlus digits (red: at you; blue: its Block; gold: its buffs), and
-// a short counter line beneath in floating letters ("BLOCK 18 or take it"). Re-read whenever the battle refreshes a foe.
+// INTENTS AS AN APPLE TIME-PREDICTION. While you plan, the golden apple foretells the coming turn: beside every foe
+// stands its translucent time-forward ECHO (a ghost of the very same rig, tinted with the apple's gold) that performs
+// exactly what the foe will do next, on a loop: it lunges at Newton for a blow, braces for a guard, swells for a buff.
+// Above the echo hangs one crisp floating number (the exact blow, after Strength, Weak, Blind and Shove) with a thin
+// clock hand ticking beside it; under it, only when it matters, a short readout of the forecast (what actually gets
+// past your Block, a stun, a dodge). Hover a foe or the golden apple and the echoes brighten and their labels show.
+// The numbers come from the battle's exact forecast (Battle.forecast), so the echo never lies.
 import * as THREE from 'three';
-import { intentScene } from '../ui3d/thought.js';
 import { FloatText } from '../ui3d/floatlabel.js';
-import { Surf, pxTex, slab, frontMat, sideMat, plainMat, RAMP, PX, brass, inkHull } from '../ui3d/craft.js';
-import { hash2 } from '../gfx/art/core.js';
-import { sprite } from '../gfx/sprites.js';
+import { createCreature } from '../models/creatures.js';
 import { Spring } from '../core/tween.js';
 
-const _v = new THREE.Vector3();
-// the tablet: a slate face (chalky blue-black, faint streaks) in a brass bezel, with a brass tab pointing at the foe
-let TAB = null;
-function tablet() {
-  if (TAB) return TAB; const tx = (w, h, fn) => { const S = new Surf(w, h); fn(S); return pxTex(S.toCanvas()); };
-  const slate = tx(Math.round(2.6 * PX), Math.round(1.25 * PX), (S) => { S.rect(0, 0, S.w, S.h, RAMP.slate, (x, y) => 2 + (hash2(x >> 1, y, 3) > 0.9 ? 1 : 0) - (hash2(x, y >> 1, 7) > 0.95 ? 1 : 0)); for (let i = 0; i < S.w; i += 7) S.line(i, 0, i + 4, S.h - 1, (x, y) => { if (hash2(x, y, 4) > 0.72) S.shift(x, y, 1); }); S.bevel(null, { lit: 1, dark: -1 }); });
-  const rim = tx(Math.round(2.9 * PX), Math.round(1.55 * PX), (S) => { brass(S, 0, 0, S.w, S.h, { seed: 5, patina: 0.3 }); S.bevel(null, { lit: 2, dark: -2 }); });
-  const tab = new THREE.Shape(); tab.moveTo(-0.22, 0); tab.lineTo(0.22, 0); tab.lineTo(-0.08, -0.42); tab.closePath();
-  TAB = { slate: [frontMat(slate), sideMat('walnut')], rim: [frontMat(rim, { metal: 0.5 }), sideMat('brass')], slateG: slab(2.6, 1.25, 0.08, { shape: 'rect', cut: 0.05, bevel: 0.03 }), rimG: slab(2.9, 1.55, 0.12, { shape: 'rect', cut: 0.1, bevel: 0.04 }), tabG: new THREE.ExtrudeGeometry(tab, { depth: 0.08, bevelEnabled: false }), pin: plainMat('brass') };
-  return TAB;
+const _v = new THREE.Vector3(), _w = new THREE.Vector3();
+// the echo's material: the apple's gold, a cool fresnel rim, a slow band of "time" rolling down it, crisp (no blur)
+function ghostMat() {
+  const U = { uT: { value: 0 }, uA: { value: 0 }, uTint: { value: new THREE.Color(1.0, 0.82, 0.42) } };
+  const m = new THREE.MeshStandardMaterial({ color: 0xffd27a, emissive: 0xffc860, emissiveIntensity: 0.55, roughness: 0.6, metalness: 0, transparent: true, depthWrite: false, opacity: 0.3 });
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uT; uniform float uA; uniform vec3 uTint; varying vec3 vWP;')
+      .replace('#include <dithering_fragment>', `#include <dithering_fragment>
+      { float fr = 1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition))); fr = fr * fr;
+        float band = step(0.82, fract(vWP.y * 1.6 - uT * 0.55)) * 0.35; // a slow scan of time rolling down the echo
+        float px = step(0.5, fract(floor(gl_FragCoord.x * 0.5) * 0.5 + floor(gl_FragCoord.y * 0.5) * 0.5)); // a fine pixel dither: crisp, never soft
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, uTint * 1.4, fr * 0.7) + uTint * band * 0.25;
+        gl_FragColor.a = uA * (0.18 + fr * 0.6 + band * 0.25) * (0.82 + 0.18 * px); }`);
+  };
+  m.customProgramCacheKey = () => 'apple-echo'; m.userData.U = U; return m;
 }
-const iconTex = new Map();
-function iconOf(name) { if (iconTex.has(name)) return iconTex.get(name); const S = new Surf(16, 16); try { S.blit(sprite(name), 0, 0); } catch { try { S.blit(sprite('question'), 0, 0); } catch { /* */ } } const t = pxTex(S.toCanvas()); iconTex.set(name, t); return t; }
-const HINTS = { gaze: 'Petrifies 2 cards', steal: 'Steals a card!', acid: 'Corrodes your Block', hex: 'Hexes 2 cards to rot', devour: 'Eats your draw pile', nibble: 'Nibbles a card away', riddle: 'Weak + Vulnerable', bolt: 'Frail + Vulnerable', brood: 'Lays a brood', flee: 'Stop it before it runs!', spill: 'Wine! Heat ignites it', sprout: 'Grows heads', ward: 'A crystal ward' };
 
-class IntentView {
-  constructor() {
-    this.group = new THREE.Group(); this.pivot = new THREE.Group(); this.group.add(this.pivot); this.st = new Spring(0, 12, 0.5); this.seed = Math.random() * 9; this.t = 0; this.key = ''; this.small = false;
-    // the tablet: brass bezel, slate face, a brass tab pointing down-left at the foe's head; it hangs and sways a little
-    const TB = tablet(); this.cloud = new THREE.Group(); this.cloud.position.set(0, 0.78, -0.18); this.pivot.add(this.cloud);
-    const rimM = new THREE.Mesh(TB.rimG, TB.rim); rimM.position.z = -0.06; inkHull(rimM, 0.03); const sl = new THREE.Mesh(TB.slateG, TB.slate); sl.position.z = 0.03; const tabM = new THREE.Mesh(TB.tabG, TB.rim); tabM.position.set(-0.95, -0.72, -0.1);
-    this.cloud.add(rimM, sl, tabM); for (const x of [-1.27, 1.27]) { const pn = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.06), TB.pin); pn.position.set(x, 0.6, 0.02); this.cloud.add(pn); }
-    this.icon = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.95), new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.5, toneMapped: false })); this.icon.position.set(-0.45, 0.78, 0.05); this.pivot.add(this.icon);
-    this.num = new FloatText(null, { font: 'big', align: 'center', lighten: false, depth: 0.1 }); this.num.group.position.set(0.48, 0.78, 0.1); this.pivot.add(this.num.group);
-    this.hint = new FloatText(null, { font: 'body', align: 'center', lighten: false }); this.hint.group.position.set(0, -0.15, 0.1); this.pivot.add(this.hint.group);
-    this.label = new FloatText(null, { font: 'tiny', align: 'center', lighten: false }); this.label.group.position.set(0.05, 1.86, 0.1); this.pivot.add(this.label.group);
-    this.group.visible = false;
+// a thin golden clock hand (a needle and a counterweight) that ticks once a second beside each number
+function clockHand() {
+  const g = new THREE.Group(); const mat = new THREE.MeshBasicMaterial({ color: 0xffd98a, transparent: true, toneMapped: false, depthWrite: false });
+  const needle = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.62), mat); needle.position.y = 0.26; const tail = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.12), mat); tail.rotation.z = Math.PI / 4; tail.position.y = -0.08;
+  const pin = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0x8a5a1a, toneMapped: false, transparent: true, depthWrite: false })); pin.position.z = 0.01; pin.rotation.z = Math.PI / 4;
+  const hand = new THREE.Group(); hand.add(needle, tail); g.add(hand, pin); g.userData.hand = hand; g.userData.mats = [mat, pin.material]; g.renderOrder = 21; return g;
+}
+
+const COL = { you: '#ff8a6a', youSoft: '#ffc8b6', guard: '#9fd6ff', buff: '#ffd36a', curse: '#d6a8ff', none: '#e6dccb', ok: '#bfe8a6' };
+const SHORT = { gaze: 'Petrifies 2 cards', steal: 'Steals your top used card', acid: 'Frail: Block −25%', hex: 'Rots 2 cards', devour: 'Eats 2 draw cards', nibble: 'Discards 1 card', riddle: 'Weak + Vulnerable', bolt: 'Frail + Vulnerable', brood: 'Lays a brood', flee: 'Runs off with the loot!', spill: 'Spills wine (flammable)', sprout: 'Grows 2 heads', frost: 'Cools your apple −4', bask: 'Strength = Heat ÷ 3', crescendo: 'Pressure +1', shatter: 'The note shatters', breath: 'Burn 3', hiss: 'Weak 2 + Vulnerable', munch: 'Heals 2', snort: 'Strength', flute: 'Strength to all', nimble: 'Dodges 1 hit', coil: 'Keeps its Block', wind: 'Winds up', attract: 'Polarity S next' };
+
+class Echo {
+  constructor(L, e) {
+    this.L = L; this.e = e; this.uid = e.uid; this.small = !!(e.def.isHead || e.def.minion); this.t = Math.random() * 2; this.k = new Spring(0, 9, 0.9); this.hl = new Spring(0, 10, 0.8); this.key = '';
+    this.num = new FloatText(null, { font: 'big', align: 'center', lighten: false, depth: 0.12 }); this.sub = new FloatText(null, { font: 'tiny', align: 'center', lighten: false }); this.lab = new FloatText(null, { font: 'tiny', align: 'center', lighten: false });
+    for (const T of [this.num, this.sub, this.lab]) L.S.ui.root.add(T.group);
+    this.hand = clockHand(); L.S.ui.root.add(this.hand);
+    this.ghost = null; this.mat = null; this.wantGhost = !this.small;
+  }
+  build() { // the echo: the very same creature, built again, every surface swapped for the apple's gold glass
+    if (this.ghost || !this.wantGhost) return; this.wantGhost = false;
+    try {
+      const S = this.L.S; const v = S.enemyViews.get(this.uid); if (!v) return; const g = createCreature(this.e.id, this.uid.length); const s = v.api.root.scale.x;
+      g.root.scale.setScalar(s); this.mat = ghostMat(); g.root.traverse((o) => { if (o.isMesh) { o.material = this.mat; o.castShadow = false; o.receiveShadow = false; o.renderOrder = 5; o.userData.noInk = true; } });
+      g.root.rotation.y = v.api.root.rotation.y; S.scene.add(g.root); this.ghost = g; this.h = v.h;
+    } catch (err) { console.warn('echo', this.e.id, err); }
   }
   set(sc) {
     const key = sc ? JSON.stringify(sc) : ''; if (key === this.key) return; this.key = key; this.sc = sc;
-    if (!sc) { this.st.target = 0; this.num.hide(); this.hint.hide(); this.label.hide(); return; }
-    this.icon.material.map = iconOf(sc.icon); this.icon.material.needsUpdate = true; this.kind = sc.kind;
-    const col = sc.who === 'you' ? '#ff7a62' : sc.kind === 'block' ? '#8ac8ff' : '#ffd060'; this.num.set([[sc.num || (sc.kind === 'block' ? '' : '!'), col]]); this.num.show();
-    this.hint.set([[sc.hint || '', sc.who === 'you' ? '#ffc8b8' : '#c8e0ff']]); this.hint.hide(); // (essentials only: the number and a short label)
-    this.label.set([[(sc.label || '').toUpperCase(), '#e8dcc8']]); if (sc.label && !this.small) this.label.show(); else this.label.hide();
-    this.group.visible = true; this.st.target = 1; if (this.st.value < 0.2) this.st.value = 0.2; this.st.kick(4);
+    if (!sc) { this.num.hide(); this.sub.hide(); this.lab.hide(); this.k.target = 0; return; }
+    const big = this.small ? 'head' : 'big';
+    this.num.set([[[sc.num, sc.col]]], { fonts: [big] }); this.num.show(); this.num.pop.kick(3);
+    if (sc.sub) { this.sub.set([[[sc.sub, sc.subCol || COL.none]]], { fonts: ['tiny'] }); this.sub.show(); } else this.sub.hide();
+    this.lab.set([[[(sc.label || '').toUpperCase(), '#efe4cf']]], { fonts: ['tiny'] }); this.k.target = 1; this.t = 0;
   }
-  update(dt, t) {
-    this.t += dt; this.st.update(dt); const s = Math.max(0.001, this.st.value); this.pivot.scale.setScalar(s); if (this.st.target === 0 && s < 0.03) this.group.visible = false;
-    this.pivot.position.y = Math.sin(t * 1.7 + this.seed) * 0.06; this.cloud.rotation.z = Math.sin(t * 0.9 + this.seed) * 0.025; this.cloud.rotation.x = Math.sin(t * 0.7 + this.seed * 2) * 0.04;
-    // the mini preview of the move
-    const sc = this.sc; const I = this.icon; I.rotation.set(0, 0, 0); I.position.set(-0.45, 0.78, 0.05); I.scale.setScalar(1);
-    if (sc) {
-      const hits = Math.max(1, sc.hits || 1); const cyc = (this.t % 1.8) / 1.8;
-      if (sc.kind === 'attack') { const ph = (cyc * hits) % 1, strike = cyc < 0.85 ? Math.sin(Math.min(1, ph * 3) * Math.PI) : 0; I.rotation.z = 0.5 - strike * 1.4; I.position.x = -0.45 + strike * 0.18; if (strike > 0.95 && !this.hitPop) { this.hitPop = true; this.num.pop.kick(4); } if (strike < 0.5) this.hitPop = false; }
-      else if (sc.kind === 'block') { I.scale.setScalar(1 + Math.max(0, Math.sin(this.t * 3.2)) * 0.14); I.rotation.z = Math.sin(this.t * 1.6) * 0.06; }
-      else if (sc.kind === 'buff') { const u = (this.t % 1.2) / 1.2; I.position.y = 0.6 + u * 0.4; I.material.opacity = 1; I.scale.setScalar(0.9 + Math.sin(u * Math.PI) * 0.15); }
-      else if (sc.kind === 'debuff') { I.rotation.z = Math.sin(this.t * 22) * 0.12 * (Math.sin(this.t * 2.2) > 0.3 ? 1 : 0.2); I.position.y = 0.78 + Math.sin(this.t * 3) * 0.05; }
-      else { I.rotation.z = this.t * 1.8; }
+  // the loop: appear, perform, hold, fade (2.8 s), so the echo reads as a glimpse of the future, never a second foe
+  update(dt, show, focus) {
+    const S = this.L.S; const v = S.enemyViews.get(this.uid); const sc = this.sc; this.t += dt; this.k.update(dt); this.hl.target = focus ? 1 : 0; this.hl.update(dt);
+    const vis = !!(show && v && sc && this.e.alive); const T = this.t % 2.8, ph = T / 2.8; if (vis && this.wantGhost && this.t > 0.25) this.build();
+    if (this.ghost) {
+      const G = this.ghost; G.root.visible = vis && this.k.value > 0.02;
+      if (G.root.visible) {
+        const home = v.api.root.position; const toward = S.prof.root.position; const atk = sc.kind === 'attack';
+        const fade = Math.min(1, ph / 0.12) * (1 - Math.max(0, (ph - 0.78) / 0.22)); const lunge = atk ? Math.sin(Math.min(1, Math.max(0, (ph - 0.1) / 0.45)) * Math.PI * 0.5) : 0;
+        _v.copy(toward).sub(home).setY(0); const d = _v.length(); _v.normalize(); const reach = atk ? Math.min(2.2, d * 0.45) : 0.35;
+        G.root.position.copy(home).addScaledVector(_v, 0.25 + reach * lunge); G.root.position.y = home.y; G.root.rotation.y = v.api.root.rotation.y;
+        if (T < dt * 1.5 || (this.lastPh > ph)) { G.act?.(atk ? 'attack' : sc.kind === 'guard' || sc.kind === 'buff' ? 'cast' : 'cast'); } this.lastPh = ph;
+        G.update(dt); const U = this.mat.userData.U; U.uT.value += dt; U.uA.value = fade * this.k.value * (0.62 + this.hl.value * 0.38);
+      }
     }
-    this.num.update(dt); this.hint.update(dt); this.label.update(dt);
+    // the number, its clock hand and the readout, crisp in the UI layer over the echo's head
+    if (!v) return; const head = (this.ghost?.root.visible ? this.ghost.root.position : v.api.root.position); _w.copy(head); _w.y += (this.small ? 0.9 : (v.h || 1.6) + 0.35); const p = S.engine.worldToUI(_w);
+    const z = 4.2, kz = (40 - z) / 40; const s = (this.small ? 0.7 : 0.95) * (1 + this.hl.value * 0.12) * kz;
+    for (const [T, dy] of [[this.num, 0], [this.sub, -0.95], [this.lab, 0.95]]) { T.group.position.set(p.x * kz, (p.y + dy * (this.small ? 0.75 : 1)) * kz, z); T.group.scale.setScalar(s); T.update(dt); }
+    if (vis) { this.num.show(); if (sc.sub) this.sub.show(); if (focus && sc.label && !this.small) this.lab.show(); else this.lab.hide(); } else { this.num.hide(); this.sub.hide(); this.lab.hide(); }
+    const H = this.hand; H.visible = vis && !this.small; if (H.visible) { const tick = Math.floor(this.L.t) + Math.min(1, (this.L.t % 1) * 8); H.userData.hand.rotation.z = -tick * (Math.PI / 6); H.position.set((p.x - (this.num.w * 0.5 + 0.45) * (s / kz)) * kz, (p.y + 0.05) * kz, z); H.scale.setScalar(s * 0.9); for (const m of H.userData.mats) m.opacity = Math.min(1, this.num.fade.value) * 0.95; }
   }
-  dispose() { this.num.dispose(); this.hint.dispose(); this.label.dispose(); this.icon.material.dispose(); }
+  dispose() { for (const T of [this.num, this.sub, this.lab]) T.dispose(); this.hand.parent?.remove(this.hand); if (this.ghost) { this.ghost.root.parent?.remove(this.ghost.root); this.ghost = null; } this.mat?.dispose(); }
 }
 
 export class IntentLayer {
-  constructor(S) { this.S = S; this.bubbles = new Map(); S.engine.add(this); }
-  refresh(e) {
-    const S = this.S; if (!S.ui?.root) return; let b = this.bubbles.get(e.uid);
-    if (!b) { b = new IntentView(); S.ui.root.add(b.group); this.bubbles.set(e.uid, b); }
-    b.small = !!e.def.isHead || !!e.def.minion; const it = e.intent; let sc = e.alive && !S.battle?.over && it ? intentScene(e, it, S.battle) : null;
-    if (sc) { const atk = it.kind === 'attack' || (it.dmg && it.kind !== 'block'); const val = atk ? Math.max(0, S.battle.attackValue(e, it.dmg || 0) - (e.st.shoved || 0)) : 0; const hits = it.dmg ? it.hits || 1 : 1;
-      sc = { ...sc, kind: atk ? 'attack' : it.kind, hits, hint: atk ? `BLOCK ${val * hits} or take it${HINTS[it.id] ? ' · ' + HINTS[it.id] : ''}` : HINTS[it.id] || sc.hint }; }
-    b.set(sc);
-  }
-  update(dt, t) {
-    const S = this.S; if (!S.battle) return this.dispose(); const hide = S.dilemmaOn || S.choosing;
-    for (const [uid, b] of this.bubbles) {
-      const v = S.enemyViews.get(uid); if (!v || !v.e.alive || hide) { if (!hide) b.set(null); b.group.visible = !hide && b.group.visible; b.update(dt, t); continue; }
-      _v.copy(v.api.root.position); _v.y += v.e.def.isHead ? 0.9 : v.h + 0.25; const p = S.engine.worldToUI(_v);
-      const z = 4 + (b.small ? 0 : 0.3), k = (40 - z) / 40, s = b.small ? 0.85 : 1.25;
-      b.group.position.set((p.x + (b.small ? 0.2 : 0.75)) * k, (p.y + 0.35) * k, z); b.group.scale.setScalar(k * s);
-      if (b.sc && !hide) b.group.visible = true; b.update(dt, t);
+  constructor(S) { this.S = S; this.echoes = new Map(); this.t = 0; S.engine.add(this); }
+  /** what a foe will do, readable: { num, col, sub, kind, label } from its intent and the battle's exact forecast */
+  scene(e) {
+    const B = this.S.battle; const it = e.intent; if (!e.alive || !it || B?.over) return null;
+    const fc = this.S.fc?.foes?.[e.uid]; const act = fc?.acts?.[0]; const atk = it.kind === 'attack' || (it.dmg && it.kind !== 'block');
+    const hits = it.dmg ? it.hits || 1 : 1; const per = atk ? Math.max(0, B.attackValue(e, it.dmg || 0) - (e.st.shoved || 0)) : 0; const label = it.label || '';
+    if (e.st.stun) return { num: 'ZZZ', col: COL.ok, sub: 'Stunned: skips this turn', kind: 'none', label };
+    if (e.def.stall && e.st.weak && it.kind === 'attack') return { num: '0', col: COL.ok, sub: 'Weak: its swing stalls', kind: 'none', label };
+    if (atk) {
+      const num = `${per}${hits > 1 ? '×' + hits : ''}`; let sub = SHORT[it.id] || ''; let subCol = COL.youSoft;
+      if (act && this.S.fc && !this.S.fc.won) { const raw = per * hits; if (act.dmg === 0 && raw > 0) { sub = act.blocked ? `all ${act.blocked} blocked` : e.st.dizzy ? 'Dizzy: hits its friend' : sub || 'misses you'; subCol = COL.ok; } else if (act.dmg < raw) { sub = `you take ${act.dmg}`; subCol = COL.youSoft; } }
+      if (it.status) { const s = Object.entries(it.status).map(([k, n]) => `${k.toUpperCase()} ${n}`).join(' · '); sub = sub ? `${sub} · ${s}` : s; }
+      if (it.venom) sub = sub ? `${sub} · VENOM ${it.venom}` : `VENOM ${it.venom}`;
+      return { num, col: COL.you, sub, subCol, kind: 'attack', label };
     }
+    if (it.kind === 'block') return { num: `+${it.block}`, col: COL.guard, sub: it.str ? `Block · Strength +${it.str}` : e.def.keepBlock ? 'Block (kept!)' : 'Block', kind: 'guard', label };
+    if (it.kind === 'buff') { const n = it.id === 'bask' ? Math.max(1, Math.floor((B.heatOn() ? B.heat : 0) / 3)) : it.str || it.evade || it.heal || ''; return { num: n ? `+${n}` : '+', col: COL.buff, sub: SHORT[it.id] || (it.evade ? 'Dodges 1 hit' : 'Strength'), kind: 'buff', label }; }
+    if (it.kind === 'special') return { num: '!', col: COL.curse, sub: SHORT[it.id] || label, kind: 'special', label };
+    if (it.kind === 'debuff') return { num: '!', col: COL.curse, sub: SHORT[it.id] || 'A curse on you', kind: 'curse', label };
+    return { num: '…', col: COL.none, sub: SHORT[it.id] || '', kind: 'none', label };
   }
-  dispose() { this.S.engine.remove(this); for (const b of this.bubbles.values()) { b.group.parent?.remove(b.group); b.dispose(); } this.bubbles.clear(); }
+  refresh(e) {
+    const S = this.S; if (!S.ui?.root) return; let x = this.echoes.get(e.uid);
+    if (!x) { if (!e.alive) return; x = new Echo(this, e); this.echoes.set(e.uid, x); }
+    x.set(this.scene(e));
+  }
+  refreshAll() { for (const e of this.S.battle?.enemies || []) this.refresh(e); }
+  update(dt) {
+    const S = this.S; if (!S.battle) return this.dispose(); this.t += dt;
+    const plan = S.battle.phase === 'player' && !S.dilemmaOn && !S.choosing && !S.cine && !S.done && !S.busy;
+    const appleHover = !!S.hudB?.bell?.hover; const foeHover = S._foeTip;
+    for (const [uid, x] of this.echoes) { if (!x.e.alive && !x.ghost?.root.visible && x.k.value < 0.02) { x.dispose(); this.echoes.delete(uid); continue; } x.update(dt, plan, appleHover || foeHover === uid); }
+  }
+  dispose() { this.S.engine.remove(this); for (const x of this.echoes.values()) x.dispose(); this.echoes.clear(); }
 }

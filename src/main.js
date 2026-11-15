@@ -42,7 +42,7 @@ class Game {
     bootMsg('Tuning gravity strings…', 40); await audio.init();
     bootMsg('Convincing the gods…', 80);
     bootGone();
-    if (q.get('scene')) { const k = q.get('scene'); if (k === 'hall') return this.toHall(); if (k === 'sky') return this.toSky(); if (k === 'gallery') return this.toGallery(); return this.toMenu({ from: k === 'loading-end' || k === 'intro' ? 'loading' : null }); } // debug: ?scene=tower|intro|hall (old: sky|gallery)
+    if (q.get('scene')) { const k = q.get('scene'); if (k === 'studies') return this.toStudies(); if (k === 'stars' || k === 'hall') return this.toStars(); if (k === 'sky') return this.toSky(); if (k === 'gallery') return this.toGallery(); return this.toMenu({ from: k === 'loading-end' || k === 'intro' ? 'loading' : null }); } // debug: ?scene=tower|intro|studies|stars (&grant=all: mark achievements earned) (old: sky|gallery)
     if (q.get('battle')) return this.debugBattle(q.get('battle').split(','), q.get('kind') || 'normal');
     if (q.get('prologue')) { this.journal.seenPrologue = false; return this.newRun(); } // story: ?prologue=1 (&beat=...)
     if (q.get('node')) { this.run = newRun(Number(q.get('seed')) || 1234); attachRun?.(this.run, this.journal); const n = Object.values(this.run.map.nodes).find((x) => x.type === q.get('node')); if (n) return this.enterNode(n.id); }
@@ -62,7 +62,7 @@ class Game {
     let done = 0, total = 1; const self = this;
     const promise = (async () => {
       const { preloadTasks } = await import('./models/realworld.js');
-      const tasks = [() => audio.init(), () => import('./scenes/tower.js'), () => import('./scenes/mapscene.js'), () => import('./scenes/event.js'), () => import('./scenes/journal.js'), () => import('./scenes/hall.js'), ...preloadTasks(self.engine.renderer)];
+      const tasks = [() => audio.init(), () => import('./scenes/tower.js'), () => import('./scenes/mapscene.js'), () => import('./scenes/event.js'), () => import('./scenes/journal.js'), () => import('./scenes/studies.js'), () => import('./scenes/stars.js'), ...preloadTasks(self.engine.renderer)];
       total = tasks.length; let i = 0;
       const worker = async () => { while (i < tasks.length) { const t = tasks[i++]; try { await t(); } catch (e) { console.warn('preload', e); } done++; } };
       await Promise.all([worker(), worker(), worker()]);
@@ -73,6 +73,9 @@ class Game {
   async toGallery(opts = {}) { const { GalleryScene } = await import('./scenes/gallery.js'); await this.swap(async () => { this.scene = new GalleryScene(this); await this.scene.enter(opts); }, { color: 0x0a0a18, ...(opts.wipe || {}) }); }
   /** the Hall of Memories inside the tower (achievements and challenges as memory shards; swipe right to go back up) */
   async toHall(opts = {}) { const { HallScene } = await import('./scenes/hall.js'); if (!this.scene) { this.scene = new HallScene(this); return this.scene.enter(opts); } await this.swap(async () => { this.scene = new HallScene(this); await this.scene.enter(opts); }, { style: 'galaxy', ...(opts.wipe || {}) }); }
+  /** MENU AGENT: the Experiment Hall of studies (scenes/studies.js; steam rolls over the view) and the Stars, the achievements as constellations (scenes/stars.js; the galaxy) */
+  async toStudies(opts = {}) { const { StudiesScene } = await import('./scenes/studies.js'); if (!this.scene) { this.scene = new StudiesScene(this); return this.scene.enter(opts); } await this.swap(async () => { this.scene = new StudiesScene(this); await this.scene.enter(opts); }, { style: 'cloud', color: 0xe8e0d0, ...(opts.wipe || {}) }); }
+  async toStars(opts = {}) { const { StarsScene } = await import('./scenes/stars.js'); if (!this.scene) { this.scene = new StarsScene(this); return this.scene.enter(opts); } await this.swap(async () => { this.scene = new StarsScene(this); await this.scene.enter(opts); }, { style: 'galaxy', center: [0.5, 0.3], ...(opts.wipe || {}) }); }
   /** the tower-top menu (scenes/tower.js); the story agent ends the prologue here: game.toMenu({ from: 'prologue' }) */
   async toMenu(opts = {}) {
     const { MenuScene } = await import('./scenes/menu.js');
@@ -82,14 +85,15 @@ class Game {
   async newRun(opts = {}) { // opts.start: the constellation chosen in the tower menu's astral select (game/run.js STARTS)
     if (!this.journal.seenPrologue) { await this.playPrologue(); return; } // story agent: the prologue plays once, on the first New Run, and ends in the tower-top menu (New Adventure then starts the run)
     save.clearRun(); this.run = newRun(undefined, { start: opts.start || null }); this.journal.loops++; this.saveJournal();
-    await this.toMap(true, 'galaxy');
+    try { const { applyStudyPerks } = await import('./game/studies.js'); await applyStudyPerks(this.run, opts.start); } catch (e) { console.warn('study perks', e); } // MENU AGENT: studied starts and gold
+    await this.toMap(true, 'galaxy', opts.wipe);
   }
   /** the prologue (src/scenes/prologue.js); { replay: true } from the gallery */
   async playPrologue(opts = {}) { try { const { playPrologue } = await import('./scenes/prologue.js'); await playPrologue(this, opts); } catch (e) { console.warn('prologue skipped', e); await this.toMenu().catch(() => {}); } this.journal.seenPrologue = true; this.saveJournal(); }
   async continueRun() { const d = save.loadRun(); if (!d) return this.newRun(); this.run = restoreRun(d); await this.toMap(false, 'galaxy'); }
-  async toMap(first = false, style = 'cloud') { // galaxy from the menu into a run; clouds between the nodes of a run
+  async toMap(first = false, style = 'cloud', wipe = null) { // galaxy from the menu into a run; clouds between the nodes of a run
     const { MapScene } = await import('./scenes/mapscene.js');
-    await this.swap(async () => { this.scene = new MapScene(this); await this.scene.enter(first); }, { style });
+    await this.swap(async () => { this.scene = new MapScene(this); await this.scene.enter(first); }, { style, ...(wipe || {}) });
   }
   async enterNode(nodeId) {
     const run = this.run; const node = run.map.nodes[nodeId]; run.pos = nodeId; run.floor = node.row; run.stats.floors++; this.saveRun();

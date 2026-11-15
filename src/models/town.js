@@ -17,6 +17,7 @@ import { prop, lowSwap } from './lowprops.js';
 import { toonModel } from './realworld.js';
 import { grainTex } from './vista.js';
 import { mulberry32 } from '../core/util.js';
+import { mergeStatic } from '../gfx/merge.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
@@ -92,5 +93,8 @@ export function buildTown({ hAt, gate = V(0, 0, 8), riverX = () => -40, seed = 2
   for (let k = 0; k < 14; k++) { const a = r() * Math.PI * 2, d = 20 + r() * 60; const x = Math.cos(a) * d, z = Math.sin(a) * d; if (!free(x, z, 1.6)) continue; taken.push([x, z, 1.6]); lib(r() < 0.5 ? 'rock_moss_set_01' : 'rock_moss_set_02', x, z, { s: 1 + r() * 0.8, y: -0.25 }); }
   lib('greek_column', bx + 9, bz + 6, { s: 0.7, y: -0.1 });
   lib('stone_wall_kit#2', -58, -30, { s: 0.42, ry: 1.1, y: -0.4 });
-  return { group: G, ready: Promise.all(jobs), sq, high, update(dt, t) { for (const f of anim) f(dt, t); } };
+  // static batching: the hundreds of cottage, lantern, crate and wall parts collapse into a few dozen draw calls (the town
+  // lies far below the tower top's shadow frustum, so the batches cast no shadow); the library pieces join when loaded
+  mergeStatic(G, { castShadow: false });
+  return { group: G, ready: Promise.all(jobs).then(() => mergeStatic(G, { castShadow: false })), sq, high, update(dt, t) { for (const f of anim) f(dt, t); } };
 }

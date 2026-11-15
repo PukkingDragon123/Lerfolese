@@ -77,10 +77,15 @@ export class Surf {
 }
 
 // ---------------------------------------------------------------- textures
-// crisp pixel art: nearest sampling both ways, no mipmaps (nothing linear-upscaled or blurred), max anisotropy
+// crisp pixel art at any size: a surface canvas pre-scaled by an integer K (Surf.toCanvas) is sampled LINEAR when
+// magnified (every art pixel stays a sharp block, with one device pixel of anti-aliasing on its edges, so inscriptions
+// never break into uneven, jaggy strokes at non-integer zoom or when the object tilts) and trilinear-mipmapped when
+// small (no shimmer, no crawling text); a canvas at 1 texel per art pixel keeps nearest sampling. Max anisotropy.
 export const TEXQ = { aniso: 8 };
 export function pxTex(canvas, { repeat = false } = {}) {
-  const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.anisotropy = TEXQ.aniso;
+  const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = TEXQ.aniso;
+  if ((canvas.userData?.K || 1) >= 2) { t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; }
+  else { t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; }
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
 }
 // a surface bound to a texture: redraw(fn) repaints and uploads only when called

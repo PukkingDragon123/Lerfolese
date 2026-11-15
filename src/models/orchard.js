@@ -326,9 +326,19 @@ function spriteLeafGeo(L, aspect, { fold = 0.3, droop = 0.1 } = {}) {
   for (let i = 0; i < p.count; i++) { const x = p.getX(i) / L, y = p.getY(i); p.setZ(i, Math.abs(y) * fold - x * x * droop * L); }
   g.computeVertexNormals(); return g;
 }
+// the glossy skin: crisp cel-edged specular from the warm key (a hard core and a soft sheen), a cool nebula fresnel rim
+// with its own glint on the far flank; it dulls as the skin bruises and is gone once it rots
+const GLOSS_FRAG = `if (uGloss > 0.0) { vec3 gN = normalize(vNormal), gV = normalize(vViewPosition);
+  vec3 gK = normalize((viewMatrix * vec4(uKeyW, 0.0)).xyz), gC = normalize((viewMatrix * vec4(uCoolW, 0.0)).xyz); float gk = uGloss * aoFresh;
+  float hk = max(dot(gN, normalize(gK + gV)), 0.0); float hc = max(dot(gN, normalize(gC + gV)), 0.0); float fr = pow(1.0 - max(dot(gN, gV), 0.0), 2.4);
+  outgoingLight += uKeyC * (smoothstep(0.86, 0.9, pow(hk, 60.0)) * 0.95 + pow(hk, 14.0) * 0.12) * gk;
+  outgoingLight += uCoolC * (fr * smoothstep(-0.25, 0.45, dot(gN, gC)) * 0.55 + smoothstep(0.7, 0.78, pow(hc, 30.0)) * 0.4) * uGloss * (0.35 + 0.65 * aoFresh); }
+`;
 export function appleTimelapse() {
   const G = new THREE.Group(); G.name = 'appleTimelapse'; const U = { uRipe: { value: 0 }, uBruise: { value: 0 }, uRot: { value: 0 }, uCollapse: { value: 0 }, uMold: { value: 0 }, uHoleK: { value: 0 }, uTime: T.WIND.time,
-    uGreen: { value: C('#86b83e') }, uRed: { value: C('#c8241a') }, uHole: { value: [V(), V(), V()] }, uRim: { value: 0 }, uRimC: { value: C('#ffd8a0') } };
+    uGreen: { value: C('#86b83e') }, uRed: { value: C('#c8241a') }, uHole: { value: [V(), V(), V()] }, uRim: { value: 0 }, uRimC: { value: C('#ffd8a0') },
+    // glossy skin (loading screen): a crisp key highlight and a broad sheen from the warm star, a cool nebula rim and its glint
+    uGloss: { value: 0 }, uKeyW: { value: V(0.6, 0.55, 0.58).normalize() }, uKeyC: { value: C('#fff0d8') }, uCoolW: { value: V(-0.75, 0.2, -0.62).normalize() }, uCoolC: { value: C('#62d8e6') } };
   const prof = [[0.001, 0.05], [0.14, 0.0], [0.3, 0.03], [0.43, 0.14], [0.5, 0.32], [0.515, 0.5], [0.47, 0.67], [0.36, 0.8], [0.2, 0.845], [0.08, 0.79], [0.001, 0.75]];
   const body = turned(prof, 72, { sub: 8 }).clone(); { const p = body.attributes.position; const col = new Float32Array(p.count * 3); for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i); const a = Math.atan2(z, x); const k = (0.9 + 0.1 * Math.sin(a * 11 + y * 4)) * (0.84 + 0.16 * smooth(0, 0.5, y)); col.set([k, k, k], i * 3); } body.setAttribute('color', new THREE.BufferAttribute(col, 3)); }
   const m = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: T.gradientMap([0.42, 0.72, 1.0]) });
@@ -339,7 +349,7 @@ export function appleTimelapse() {
         { float e = 0.012; float h0 = aoW(position); vec3 g = vec3(aoW(position + vec3(e, 0, 0)) - h0, aoW(position + vec3(0, e, 0)) - h0, aoW(position + vec3(0, 0, e)) - h0) / e; g -= objectNormal * dot(g, objectNormal); objectNormal = normalize(objectNormal - g * aDisp); }`)
       .replace('#include <begin_vertex>', `vec3 transformed = vec3(position) + normal * aDisp * aoW(position);
         transformed.y = mix(transformed.y, transformed.y * 0.58 + 0.03, uCollapse); transformed.xz *= 1.0 + 0.17 * uCollapse * smoothstep(0.85, 0.05, position.y); vAP = position;`);
-    sh.fragmentShader = 'uniform float uRipe, uBruise, uRot, uMold, uHoleK, uRim; uniform vec3 uGreen, uRed, uRimC; uniform vec3 uHole[3]; varying vec3 vAP; float aoWet = 0.0;\n' + NOISE_GLSL + sh.fragmentShader.replace('#include <opaque_fragment>', 'outgoingLight += uRimC * pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition))), 2.6) * smoothstep(-0.2, 0.7, normalize(vNormal).x * 0.8 + normalize(vNormal).y * 0.6) * uRim; // the nearby star rims the right flank\noutgoingLight = mix(outgoingLight, vec3(1.0, 0.86, 0.66), step(0.992, dot(normalize(vNormal), normalize(vec3(-0.35, 0.6, 0.7)))) * step(0.45, aoWet) * 0.35); // a wet, juicy gleam on the rot\n#include <opaque_fragment>').replace('#include <color_fragment>', `
+    sh.fragmentShader = 'uniform float uRipe, uBruise, uRot, uMold, uHoleK, uRim, uGloss; uniform vec3 uGreen, uRed, uRimC, uKeyW, uKeyC, uCoolW, uCoolC; uniform vec3 uHole[3]; varying vec3 vAP; float aoWet = 0.0; float aoFresh = 1.0;\n' + NOISE_GLSL + sh.fragmentShader.replace('#include <opaque_fragment>', GLOSS_FRAG + 'outgoingLight += uRimC * pow(1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition))), 2.6) * smoothstep(-0.2, 0.7, normalize(vNormal).x * 0.8 + normalize(vNormal).y * 0.6) * uRim; // the nearby star rims the right flank\noutgoingLight = mix(outgoingLight, vec3(1.0, 0.86, 0.66), step(0.992, dot(normalize(vNormal), normalize(vec3(-0.35, 0.6, 0.7)))) * step(0.45, aoWet) * 0.35); // a wet, juicy gleam on the rot\n#include <opaque_fragment>').replace('#include <color_fragment>', `
         vec3 c = mix(uGreen, uRed, uRipe); c = mix(c, c * vec3(1.15, 1.05, 0.7), smoothstep(0.3, 0.0, vAP.x) * 0.35 * uRipe);
         float sp = aoN3(vAP * 4.5 + 3.0) * 0.65 + aoN3(vAP * 11.0) * 0.35;
         // soft brown patches spread from a few bruises (a darker water-soaked rim at their edge), merging into wet rot
@@ -355,7 +365,7 @@ export function appleTimelapse() {
         // pixel skin on a 128 x 72 texel grid wrapped round the apple: broken russet streaks running pole to pole, pale
         // lenticel freckles (denser on the shoulders), dark speckles, a hard-edged sun blush; all fade into the rot
         float ang = atan(vAP.z, vAP.x); vec2 tc = floor(vec2((ang / 6.28318 + 0.5) * 128.0, vAP.y * 85.0)); float hs = fract(sin(dot(tc, vec2(12.9898, 78.233))) * 43758.5453);
-        float fresh = (1.0 - smoothstep(0.0, 0.6, uBruise)) * (1.0 - rot); float stv = aoN3(vec3(tc.x * 0.42, tc.y * 0.05, 2.0)) * 0.8 + hs * 0.2;
+        float fresh = (1.0 - smoothstep(0.0, 0.6, uBruise)) * (1.0 - rot); aoFresh = fresh; float stv = aoN3(vec3(tc.x * 0.42, tc.y * 0.05, 2.0)) * 0.8 + hs * 0.2;
         c *= mix(1.0, stv > 0.62 ? 0.78 : stv < 0.3 ? 1.12 : 1.0, (0.25 + 0.75 * uRipe) * (1.0 - rot * 0.8));
         float bl = step(0.55, aoN3(vec3(tc * vec2(0.08, 0.1), 5.0)) + (hs - 0.5) * 0.18) * uRipe; c = mix(c, c * vec3(0.78, 0.6, 0.62), bl * 0.6);
         float lt = step(0.991 - 0.006 * smoothstep(0.35, 0.8, vAP.y), hs); c = mix(c, mix(vec3(0.95, 0.78, 0.42), vec3(0.85, 0.95, 0.55), 1.0 - uRipe), lt * 0.75 * fresh);
@@ -408,6 +418,8 @@ export function appleTimelapse() {
     seedWorld(v = new THREE.Vector3()) { return seed.localToWorld(v.set(0, 0.3, 0)); },
     get collapse() { return U.uCollapse.value; },
     rim(k) { U.uRim.value = k; },
+    /** glossy skin (0..1) lit by a warm key and a cool rim from these world directions (toward the lights) */
+    gloss(k, key = null, cool = null) { U.uGloss.value = k; if (key) U.uKeyW.value.copy(key).normalize(); if (cool) U.uCoolW.value.copy(cool).normalize(); },
   };
 }
 // a wooden farm sign on two posts with carved Alagard lettering (pixel-art wood); top edge is where birds perch

@@ -91,7 +91,7 @@ export class BattleHUD {
     uiPos(this.pouch.group, -W + 6.2 * k, H - 2.5 * k, 1.2); this.pouch.group.scale.setScalar(0.9 * k);
     this.note.place(W - 0.5 * k, H - 0.45 * k, 1.5);
     if (this.mode === 'map') return;
-    uiPos(this.bell.group, W - 3.0 * k, -H + 3.2 * k, 1.2); this.bell.group.scale.setScalar(0.85 * k);
+    uiPos(this.bell.group, W - 3.0 * k, -H + 3.2 * k, 1.2); this.bell.group.scale.setScalar(0.85 * k); this.layoutForecast?.();
     this.layoutLaws();
   }
   layoutLaws() { const W = this.engine.uiW, H = this.engine.uiH, k = this.k; let x = -W + 0.6 * k; for (const l of this.laws) { l.group.scale.setScalar(k); uiPos(l.group, x + (l.w / 2) * k, H - 7.1 * k, 1.4); x += (l.w + 0.25) * k; } }
@@ -109,6 +109,26 @@ export class BattleHUD {
   setRedraws() {} // (Second Thoughts were removed)
   setEnd(on, label) { if (!this.bell) return; this._set('end', on + (label || ''), () => { this.bell.setEnabled(on); this.bell.setLabel(on ? 'End Turn' : 'Time flows', on ? 'SPACE' : ''); }); }
   ringEnd() { this.bell?.ring(); }
+  /** THE HYPOTHESIS readout over the golden apple: what ringing it will do (exact), in three short crisp lines */
+  setForecast(fc, B) {
+    if (!this.bell) return; if (!this.fcT) { this.fcT = new FloatText(null, { font: 'head', align: 'center', lighten: false, depth: 0.08 }); this.root.add(this.fcT.group); }
+    if (!fc) { this.fcT.hide(); this._fcK = ''; return; }
+    const you = fc.you, lose = Math.max(0, you.hp0 - you.hp), dealt = fc.dealt || 0, heat = fc.heat0 !== fc.heat ? `Heat ${fc.heat0}→${fc.heat}` : '';
+    let rows, fonts;
+    if (fc.won) { rows = [[['IF TIME FLOWS', '#cdb68a']], [['VICTORY', '#ffd36a']], [[`${dealt} dealt${lose ? ` · you lose ${lose}` : ''}`, '#efe4cf']]]; fonts = ['tiny', 'head', 'tiny']; }
+    else if (fc.lost) { rows = [[['IF TIME FLOWS', '#cdb68a']], [['YOU FALL', '#ff6a5a']], [['Brace! Block or kill first', '#ffc8b6']]]; fonts = ['tiny', 'head', 'tiny']; }
+    else {
+      const det = [you.blocked ? `Block soaks ${you.blocked}` : '', heat].filter(Boolean).join(' · ');
+      rows = [[['IF TIME FLOWS', '#cdb68a']], [[lose ? `−${lose}` : '0', lose ? '#ff8a6a' : '#bfe8a6'], [' HP  ', '#efe4cf'], [`${dealt}`, '#ffd36a'], [' dealt', '#efe4cf']], ...(det ? [[[det, '#d6c8b0']]] : [])]; fonts = ['tiny', 'head', 'tiny'];
+    }
+    const k = JSON.stringify(rows); if (k === this._fcK) return; this._fcK = k; this.fcT.set(rows, { fonts }); this.fcT.show(); this.fcT.pop.kick(3); this.layoutForecast();
+  }
+  /** THE RESULT, after time flowed: a short stamp where the hypothesis was (the experiment, checked) */
+  showResult(rows) {
+    if (!this.bell) return; if (!this.resT) { this.resT = new FloatText(null, { font: 'head', align: 'center', lighten: false, depth: 0.08 }); this.root.add(this.resT.group); }
+    this.resT.set(rows, { fonts: ['tiny', 'head'] }); this.resT.show(); this.resT.pop.kick(5); this.resLife = 2.8; const W = this.engine.uiW, H = this.engine.uiH, k = this.k; this.resT.place(W - 3.0 * k, -H + 6.25 * k, 1.3); this.resT.group.scale.multiplyScalar(0.9 * k);
+  }
+  layoutForecast() { if (!this.fcT || !this.bell) return; const W = this.engine.uiW, H = this.engine.uiH, k = this.k; this.fcT.place(W - 3.0 * k, -H + 6.25 * k, 1.3); this.fcT.group.scale.multiplyScalar(0.9 * k); }
   // hit tests: screen px (bin drop) or the current pointer ray (bell / bin / law hover)
   ray(objs) { const r = new THREE.Raycaster(); r.setFromCamera(hud.input.ndc, this.engine.ui.camera); return r.intersectObjects(objs, true)[0]; }
   wellHit() { return false; } wellUI() { return [0, 0]; } setWellHot() {}
@@ -135,7 +155,7 @@ export class BattleHUD {
   update(dt) {
     const p = hud.pointer(2);
     this.gauge.update(dt, p); this.pouch.update(dt, p); this.note.update(dt);
-    if (this.mode !== 'map') { this.bell.update(dt, p); for (const l of this.laws) l.update(dt, p); }
+    if (this.mode !== 'map') { this.bell.update(dt, p); for (const l of this.laws) l.update(dt, p); this.fcT?.update(dt); if (this.resT) { this.resLife -= dt; if (this.resLife <= 0) this.resT.hide(); this.resT.update(dt); } }
   }
   dispose() {
     this.engine.remove(this); this.engine.ui.scene.remove(this.root); if (this.handler) window.__game.input.remove(this.handler); this.lawTip?.dispose?.(); disposeTree(this.root);

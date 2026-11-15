@@ -22,6 +22,9 @@ export function tagsOf(comps) {
   if (any('lens', 'prism', 'spark')) t.add('light');
   if (any('gravity', 'antigravity', 'buoyancy')) t.add('falling');
   if (any('mass', 'dark_matter', 'pressure')) t.add('heavy');
+  if (any('rotation', 'spin', 'torque')) t.add('spinning');
+  if (any('prism')) t.add('prismatic');
+  if (any('sound')) t.add('wave');
   return t;
 }
 
@@ -92,6 +95,7 @@ export function foeLines(e, mv, B) {
   if (e.st?.wet && hasTag(mv, 'electric')) L.push({ text: 'Wet foe conducts ×1.5', mul: 1.5, kind: 'syn' });
   if (e.st?.burn && hasTag(mv, 'wet') && !hasTag(mv, 'hot')) L.push({ text: `Water douses its Burn ${e.st.burn} (lost)`, mul: 1, kind: 'anti' });
   for (const r of foeRules(e)) if (hasTag(mv, r.tag)) L.push({ text: r.text, mul: r.mul, kind: r.mul < 1 ? 'anti' : 'foe' });
+  if (e.def?.lines) L.push(...e.def.lines(e, mv, B)); // newer foes read the merge itself (its kg, its polarity...)
   return L;
 }
 export const immuneTo = (e, tag) => foeRules(e).some((r) => r.tag === tag && r.mul === 0);
@@ -103,9 +107,11 @@ export function foeNature(e) { return foeRules(e).map((r) => ({ text: r.text, mu
 export const ARTIFACT_MATH = {
   statues: { lines: () => [{ text: 'Statues (petrified admirers)', mul: 3, kind: 'art' }] },
   prism: { split: ({ mv }) => hasTag(mv, 'light') && !mv.attack.spread, lines: ({ mv }) => (hasTag(mv, 'light') && !mv.attack.spread ? [{ text: "Newton's Prism: split into 3 hits at 40%", mul: 0.4, kind: 'art' }] : []) },
-  tyche: { odds: () => [{ text: 'Dice of Tyche', outcomes: [{ p: 0.5, mul: 2, label: '1 in 2: ×2' }, { p: 0.5, mul: 0.5, label: 'else ×0.5' }] }] },
-  horseshoe: { odds: () => [{ text: "Hermes' Horseshoe", outcomes: [{ p: 0.25, mul: 2, label: '1 in 4: ×2' }, { p: 0.75, mul: 1, label: 'else ×1' }] }] },
-  pandora: { odds: () => [{ text: "Pandora's Jar", outcomes: [{ p: 1 / 3, mul: 3, label: '1 in 3: ×3' }, { p: 1 / 3, mul: 1, label: '1 in 3: ×1' }, { p: 1 / 3, mul: 0, label: '1 in 3: fizzle' }] }] },
+  // the old dice are now CLOCKWORK: each face comes up in a fixed, shown order (the n-th throw of the battle), so a
+  // prediction is always exact. B.throwN(obj) = which throw this one will be.
+  tyche: { lines: ({ B, obj }) => { const n = B.throwN(obj); return [n % 2 === 0 ? { text: 'Dice of Tyche: an even throw ×2', mul: 2, kind: 'art' } : { text: 'Dice of Tyche: an odd throw ×0.5', mul: 0.5, kind: 'anti' }]; } },
+  horseshoe: { lines: ({ B, obj }) => ((B.throwN(obj) + 1) % 3 === 0 ? [{ text: "Hermes' Horseshoe: every 3rd throw ×2", mul: 2, kind: 'art' }] : []) },
+  pandora: { lines: ({ B, obj }) => { const n = B.throwN(obj) % 3; return [n === 0 ? { text: "Pandora's Jar: 1st of 3 ×3", mul: 3, kind: 'art' } : n === 1 ? { text: "Pandora's Jar: 2nd of 3 ×1", mul: 1, kind: 'note' } : { text: "Pandora's Jar: 3rd of 3, it fizzles", mul: 0, kind: 'anti', pandora: true }]; } },
   golden_ratio: { lines: ({ obj }) => (obj?.golden ? [{ text: 'Golden Ratio (a 5th merge)', mul: 1.618, kind: 'art' }] : []) },
   lead_boots: { lines: ({ mv }) => (hasTag(mv, 'heavy') ? [{ text: 'Lead Boots: Mass counts double (in the kg)', mul: 1, kind: 'note' }] : []) },
   lyre: { lines: ({ mv }) => (mv.n === 3 ? [{ text: "Pythagoras' Lyre: a harmony of 3", mul: 1.5, kind: 'art' }] : mv.n >= 5 ? [{ text: "Pythagoras' Lyre: discord of 5+", mul: 0.75, kind: 'anti' }] : []) },
@@ -115,10 +121,10 @@ export const ARTIFACT_MATH = {
   amphora: { lines: ({ mv }) => [...(hasTag(mv, 'wet') ? [{ text: 'Leaky Amphora: water', mul: 2, kind: 'art' }] : []), ...(hasTag(mv, 'hot') ? [{ text: 'Leaky Amphora: heat', mul: 0.5, kind: 'anti' }] : [])] },
   icarus_feather: { lines: ({ mv }) => (mv.attack.fall ? [{ text: "Icarus' Feather: falling", mul: 2, kind: 'art' }] : []) },
 };
-/** artifact lines and odds for a move against a foe */
+/** artifact lines for a move against a foe (all deterministic: no odds are left in the game) */
 export function artifactLines(B, mv, e, obj) {
   const lines = [], odds = []; let split = false;
   for (const id of B.run.items) { const A = ARTIFACT_MATH[id]; if (!A) continue; const ctx = { B, mv, e, obj };
-    if (A.lines) lines.push(...A.lines(ctx).map((l) => ({ ...l, art: id }))); if (A.odds) odds.push(...A.odds(ctx).map((o) => ({ ...o, art: id }))); if (A.split?.(ctx)) split = true; }
+    if (A.lines) lines.push(...A.lines(ctx).map((l) => ({ ...l, art: id }))); if (A.split?.(ctx)) split = true; }
   return { lines, odds, split };
 }

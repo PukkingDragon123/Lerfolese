@@ -14,7 +14,8 @@ import { audio } from '../core/audio.js';
 import { tweens, Spring } from '../core/tween.js';
 import { baseOf, flatten } from '../game/combos.js';
 import { FloatText } from '../ui3d/floatlabel.js';
-import { attackStyle, Vignette } from './battlecine.js';
+import { attackStyle } from './battlecine.js';
+import { SpellCard } from './spellcard.js'; // a merged object's complete SPELL CARD (equation + live 3D Isaac), replacing the old pixel vignette
 
 // a floating-letter tag (the Tag API: set(text), group, w, update(dt)) for the damage, the multiplier and the target
 class FTag {
@@ -62,11 +63,8 @@ class HeldView {
     this.dotN = 26; this.dotGeo = new THREE.BufferGeometry(); this.dotGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.dotN * 3), 3));
     this.dots = new THREE.Points(this.dotGeo, new THREE.PointsMaterial({ map: moteTex(), size: 0.4, sizeAttenuation: true, transparent: true, alphaTest: 0.5, depthWrite: false, toneMapped: false })); this.dots.frustumCulled = false; L.S.scene.add(this.dots);
     this.hit = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), new THREE.MeshBasicMaterial({ visible: false })); this.hit.userData.target = { type: 'held', uid: o.uid }; this.g.add(this.hit);
-    this.tag = new FTag('0', { color: '#ffd27a' }); L.S.ui.root.add(this.tag.group);
-    this.mark = new FTag('TARGET', { color: '#ff8a70', font: 'head' }); L.S.ui.root.add(this.mark.group); // floats beside the foe it will hit
-    this.mulTag = new FTag('x1', { color: '#c8a8ff', font: 'num' }); this.mulTag.group.visible = false; L.S.ui.root.add(this.mulTag.group); // the product of every multiplier
-    // the attack vignette: a little pixel-art panel of Sir Isaac performing this object's strike (appears once it is launched)
-    this.vig = null; this.vigM = new THREE.Mesh(new THREE.PlaneGeometry(64 * 0.07, 40 * 0.07), new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false, depthWrite: false })); this.vigM.visible = false; this.vigS = new Spring(0, 12, 0.5); L.S.ui.root.add(this.vigM);
+    this.tag = new FTag('0', { color: '#ffd27a' }); L.S.ui.root.add(this.tag.group); // one crisp number: what it will deal (the spell card holds the rest)
+    this.spell = new SpellCard(L.S.engine); L.S.ui.root.add(this.spell.group); // once two cards are mixed, the spell card hangs beside it
     this.rebuild(true);
   }
   // the object itself, rebuilt from its current Move art whenever a Law changes it
@@ -74,15 +72,13 @@ class HeldView {
     const pv = this.L.S.battle.heldPreview(this.o); this.pv = pv; this.art = pv.mv.art;
     if (this.model) this.g.remove(this.model);
     this.model = projectileModel(this.art); this.model.scale.multiplyScalar(0.85); this.baseScale = this.model.scale.x; this.g.add(this.model);
-    const a = pv.mv.attack; const style = a.valid && a.launched && !a.fizzle ? attackStyle(pv.mv) : null; const vk = style ? style + ':' + (this.art.core || '') + (this.art.hot ? 'h' : '') + (this.art.electric ? 'e' : '') : null;
-    if (vk !== this.vigKey) { this.vigKey = vk; this.vig?.dispose(); this.vig = style ? new Vignette(style, this.art) : null; if (this.vig) { this.vigM.material.map = this.vig.tex; this.vigM.material.needsUpdate = true; this.vigS.value = 0; this.vigS.target = 1; this.vigS.kick(6); if (!first) { audio.play('page_turn', { vol: 0.35 }); audio.play('magic_sparkle', { vol: 0.35 }); } } else this.vigS.target = 0; }
-    this.liftT = this.art.falling ? 0.9 : 0; this.pop = first ? 1 : 0.6;
+    void first; this.liftT = this.art.falling ? 0.9 : 0; this.pop = first ? 1 : 0.6;
     this.refresh();
   }
   refresh() {
     const pv = (this.pv = this.L.S.battle.heldPreview(this.o)); const e = pv.est; const a = pv.mv.attack;
-    this.tag.set(a.fizzle ? 'FIZZLE' : !e ? '?' : e.lo !== e.hi ? `${e.lo}-${e.hi}` : String(e.total));
-    const k = e ? e.mul : 1; this.mulTag.group.visible = !!e && !a.fizzle && Math.abs(k - 1) > 0.01; if (this.mulTag.group.visible) this.mulTag.set('x' + fmtMul(k));
+    this.tag.set(a.fizzle || e?.fizzle ? 'FIZZLE' : !e ? (a.launched ? '?' : '+ FORCE') : String(e.total));
+    if (this.spell.set(pv, this.o, this.L.S.battle) && this.o.comps.length > 1) { audio.play('page_turn', { vol: 0.3 }); audio.play('magic_sparkle', { vol: 0.3 }); }
   }
   pos(out = V()) { return out.copy(this.g.position); }
   target() { return this.pv?.target ? this.L.S.enemyPos(this.pv.target) : null; }
@@ -111,12 +107,10 @@ class HeldView {
     if (Math.random() < dt * 3) P.spawn({ pos: [top.x, top.y - 0.3, top.z], vel: [0, -2.2, 0], life: 1.6, size: 16, color: '#cdb6f0', sprite: 'star4' });
     // the damage tag hangs just above it, in the UI layer
     const ui = this.L.S.engine.worldToUI(_t.copy(q).add(V(0, 1.0 + (a.falling ? 0.2 : 0), 0))); uiPos(this.tag.group, ui.x, ui.y, 3); this.tag.group.scale.setScalar((40 - 3) / 40); this.tag.update(dt, null);
-    this.vigS.update(dt); const vs = Math.max(0, this.vigS.value); this.vigM.visible = !!this.vig && vs > 0.02 && !this.L.insp; if (this.vigM.visible) { this.vig.update(dt); uiPos(this.vigM, ui.x + 3.4, ui.y + 1.2, 3.05); this.vigM.scale.set(vs * (40 - 3.05) / 40, Math.max(0.02, vs) * (40 - 3.05) / 40, 1); this.vigM.rotation.z = Math.sin(t * 1.3 + this.seed) * 0.03; }
-    if (this.mulTag.group.visible) { uiPos(this.mulTag.group, ui.x + this.tag.w * 0.5 + this.mulTag.w * 0.55 + 0.15, ui.y - 0.12, 3.1); this.mulTag.group.scale.setScalar(((40 - 3.1) / 40) * 0.9); this.mulTag.update(dt, null); }
-    const foe = this.pv?.target, fv = foe && this.L.S.enemyViews.get(foe.uid); this.mark.group.visible = !!fv && !this.L.insp;
-    if (fv) { const mp = this.L.S.engine.worldToUI(_t.copy(fv.api.root.position).add(V(-0.75, fv.h * 0.62, 0))); const k = this.L.targetSlot(this); uiPos(this.mark.group, mp.x - 1.2, mp.y + k * 0.9, 3.2); this.mark.group.scale.setScalar(((40 - 3.2) / 40) * 0.9); this.mark.update(dt, null); }
+    // the spell card hangs up and to the side of it; hover the object (or the card) and it comes forward to be read
+    const hov = !this.L.insp && (this.L.hoverUid === this.uid); const ox = this.L.cardSide(this); this.spell.update(dt, ui.x + ox, ui.y + 2.5, 3.4, hov); this.spell.group.visible = this.spell.group.visible && !this.L.insp;
   }
-  dispose() { const S = this.L.S; S.scene.remove(this.g, this.str, this.dots); this.strGeo.dispose(); this.dotGeo.dispose(); this.str.material.dispose(); this.dots.material.dispose(); for (const t of [this.tag, this.mark, this.mulTag]) { t.T?.dispose(); t.group.parent?.remove(t.group); } this.vig?.dispose(); this.vigM.parent?.remove(this.vigM); this.vigM.geometry.dispose(); this.vigM.material.dispose(); }
+  dispose() { const S = this.L.S; S.scene.remove(this.g, this.str, this.dots); this.strGeo.dispose(); this.dotGeo.dispose(); this.str.material.dispose(); this.dots.material.dispose(); this.tag.T?.dispose(); this.tag.group.parent?.remove(this.tag.group); this.spell.dispose(); }
 }
 
 export class HeldLayer {
@@ -172,7 +166,7 @@ export class HeldLayer {
   async fly(o, mv, foe) {
     const v = this.views.get(o.uid); if (!v) return; const S = this.S; v.flying = true; v.art = mv.art; const prof = S.prof; const cam = S.shotCam;
     const style = attackStyle(mv); const to = foe ? S.enemyPos(foe) : v.target() || V(3, 1, 0); const pp = S.profHome || prof.root.position;
-    S.scene.remove(v.str); for (const t of [v.tag, v.mark, v.mulTag]) t.group.visible = false; v.vigS.target = 0; audio.play('string_pluck', { vol: 0.6 });
+    S.scene.remove(v.str); v.tag.group.visible = false; v.spell.target = 0; audio.play('string_pluck', { vol: 0.6 });
     // 1. the push-in (a quick cut on the first throw of a turn, an ease for the rest)
     const first = !this._cutDone; this._cutDone = true; setTimeout(() => { this._cutDone = false; }, 2500);
     cam.shot(V(pp.x + 2.3, 1.8, pp.z + 4.6), V(pp.x + 0.7, 1.25, pp.z), { snap: first, speed: 6, fov: 30 });
@@ -194,9 +188,12 @@ export class HeldLayer {
     cam.shot(V(to.x - 1.8, to.y + 0.7, to.z + 3.6), to, { speed: 8, fov: 29 }); setTimeout(() => { if (!this._cutDone) cam.release(2.2); }, 650); prof.face(S.profRy ?? 0.55); setTimeout(() => prof.face(null), 1200);
     this.remove(o);
   }
+  /** which side its spell card hangs on (alternating, so neighbours' cards do not overlap) */
+  cardSide(v) { let i = 0; for (const w of this.views.values()) { if (w === v) break; i++; } return i % 2 ? -3.2 : 3.2; }
   update(dt, t) {
     if (!this.S.battle) return this.dispose();
     this.t += dt; this.acc -= dt; const refresh = this.acc <= 0; if (refresh) this.acc = 0.2; this.insp?.c3.update(dt, this.t); this.leaving?.update(dt, this.t);
+    { const h = this.S.hand?.drag ? null : this.pick(); let uid = h?.uid || null; if (!uid && !this.S.hand?.drag) { this.ray.setFromCamera(this.S.input.ndc, this.S.engine.ui.camera); const hit = this.ray.intersectObjects([...this.views.values()].filter((v) => v.spell.group.visible).map((v) => v.spell.mesh), false)[0]; uid = hit ? [...this.views.values()].find((v) => v.spell.mesh === hit.object)?.uid || null : null; } this.hoverUid = uid; }
     if (!this.S.hand?.drag) for (const [, ev] of this.S.enemyViews) ev.api.root.userData.hl = this.isTargeted(ev.e.uid);
     for (const v of this.views.values()) {
       if (refresh && !v.flying) v.refresh();
@@ -220,7 +217,13 @@ export function heldFx(S) {
       v.rebuild(); S.burst(v.g.position, ids.includes('heat') ? 'fire' : ids.includes('spark') ? 'zap' : 'magic', 14); S.prof.act('cast');
       // the snap: a crack of sparks round the object, a tiny camera kick, the object pops
       audio.play('card_snap', { vol: 0.8 }); for (let i = 0; i < 26; i++) { const a = (i / 26) * Math.PI * 2; S.glowParts.spawn({ pos: [v.g.position.x, v.g.position.y, v.g.position.z], vel: [Math.cos(a) * 3.2, Math.sin(a) * 3.2, (Math.random() - 0.5) * 1.5], life: 0.35 + Math.random() * 0.2, size: 26, size1: 3, color: i % 3 ? '#ffe6a0' : '#ffffff', sprite: 'spark2', drag: 4 }); }
-      S.camPunch = Math.max(S.camPunch || 0, 0.12); v.pop = 1; await tweens.wait(0.15);
+      S.camPunch = Math.max(S.camPunch || 0, 0.12); v.pop = 1;
+      // MIXING THE EQUATION: the ingredients and the formula write themselves over the object, then settle into its spell card
+      try { const pv = S.battle.heldPreview(o); const names = []; const seen = new Map(); for (const c of o.comps) seen.set(c.id, (seen.get(c.id) || 0) + 1); for (const [id, n] of seen) names.push((n > 1 ? n + '× ' : '') + (BASICS[id]?.name || id));
+        const a = pv.mv.attack, e = pv.est; const eq = a.fizzle ? 'fizzles' : `${a.m}kg × ${a.v}m/s${(e?.hits || a.hits) > 1 ? ` × ${e?.hits || a.hits}` : ''}${e && Math.abs(e.mul - 1) > 0.01 ? ` × ${fmtMul(e.mul)}` : ''} = ${e ? e.total : a.total}`;
+        const T = new FloatText([[[names.join(' + '), '#cdb6ff']], [[eq, '#ffe6a0']]], { font: 'head', align: 'center', lighten: false, fonts: ['body', 'head'] }); S.ui.root.add(T.group); T.show(); const ui = L().uiOf(o); const st = { k: 0 };
+        tweens.to(st, { k: 1 }, 1.6, { ease: 'linear', onUpdate: () => { T.place(ui.x, ui.y + 1.6 + st.k * 1.2, 4.5); if (st.k > 0.7) T.hide(); T.update(1 / 60); } }).then(() => T.dispose()); } catch (err) { console.warn('equation', err); }
+      await tweens.wait(0.15);
     },
     aimed(o) { L().views.get(o.uid)?.refresh(); },
     async release(o, mv, foe, rolled) {

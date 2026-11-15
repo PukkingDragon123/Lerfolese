@@ -1,9 +1,10 @@
 // Persistent storage. The Discovery Journal survives every loop; the run save is wiped on death.
 //
-// META (the Hall of Memories in the tower: achievements and challenges as memory shards, their permanent rewards).
-// Shape, persisted under aod.meta.v1:
+// META (the STARS, scenes/stars.js: achievements and challenges as constellations, their permanent rewards; and the
+// STUDIES of the Experiment Hall, scenes/studies.js + game/studies.js). Shape, persisted under aod.meta.v1:
 //   save.meta = { shards, unlocks: { [id]: loop }, achievements: { [id]: loopWhenEarned }, claimed: { [achId]: loop },
-//                 cosmetics: { ['tower:*']: loop }, seen: { loops, wins } }
+//                 cosmetics: { ['tower:*']: loop }, seen: { loops, wins }, studies: { [studyId]: { uses, claimed, reward } } }
+// BATTLE HOOK: recordStudyUse(mv) (below) each time a merged Move is played; ACHIEVEMENTS may carry prog(j) -> [cur, goal].
 // Every ACHIEVEMENT and CHALLENGE carries a REWARD (one id or a list): content ids from STAR_UNLOCKS ('artifact:',
 // 'card:', 'event:', 'stage:') or cosmetic tower upgrades ('tower:banners_royal', 'tower:crystals_lit',
 // 'tower:orrery_gold', 'tower:gears_gilded', 'tower:lanterns'). Earning one lights its shard; claiming it in the Hall
@@ -27,10 +28,11 @@ function write(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch
 export const defaultJournal = () => ({
   loops: 0, wins: 0, combos: {}, enemies: {}, items: {}, events: {}, notes: [], history: [], bestHit: 0, seenIntro: false,
 });
-export const defaultMeta = () => ({ shards: 0, unlocks: {}, achievements: {}, claimed: {}, cosmetics: {}, seen: { loops: 0, wins: 0 } });
+export const defaultMeta = () => ({ shards: 0, unlocks: {}, achievements: {}, claimed: {}, cosmetics: {}, seen: { loops: 0, wins: 0 }, studies: {} });
 
 const killed = (j, id) => (j.enemies?.[id]?.killed || 0) > 0;
 const count = (o) => Object.keys(o || {}).length;
+const BESTIARY = ['satyr', 'kobalos', 'medusa', 'minotaur', 'hydra', 'harpy', 'centaur', 'wolf', 'spartoi', 'cyclops', 'chimera', 'talos'];
 export const ACHIEVEMENTS = [
   { id: 'first_eureka', name: 'First Eureka', text: 'Begin your first loop.', shards: 1, reward: 'tower:lanterns', scene: 'garden', test: (j) => j.loops >= 1 },
   { id: 'first_win', name: 'Laurels of the Wilds', text: 'Topple a guardian.', shards: 4, reward: 'artifact:astrolabe', scene: 'laurels', test: (j) => j.wins >= 1 },
@@ -39,23 +41,23 @@ export const ACHIEVEMENTS = [
   { id: 'medusa', name: 'Mirror, Mirror', text: 'Defeat Medusa.', shards: 2, reward: 'artifact:prism', scene: 'medusa', test: (j) => killed(j, 'medusa') },
   { id: 'minotaur', name: 'By the Horns', text: 'Defeat a Minotaur.', shards: 2, reward: 'artifact:lead_boots', scene: 'minotaur', test: (j) => killed(j, 'minotaur') || killed(j, 'minotaur_king') },
   { id: 'hydra', name: 'Hydra Slayer', text: 'Defeat the Hydra.', shards: 3, reward: 'artifact:achilles', scene: 'hydra', test: (j) => killed(j, 'hydra') || killed(j, 'hydra_elder') },
-  { id: 'combos5', name: 'Apprentice Alchemist', text: 'Discover 5 combinations.', shards: 2, reward: 'card:optics', scene: 'alchemy', test: (j) => count(j.combos) >= 5 },
-  { id: 'combos15', name: 'Natural Philosopher', text: 'Discover 15 combinations.', shards: 4, reward: 'card:orbits', scene: 'alchemy', test: (j) => count(j.combos) >= 15 },
-  { id: 'hit100', name: 'Equal and Opposite', text: 'Deal 100 damage in a single hit.', shards: 3, reward: 'artifact:golden_ratio', scene: 'impact', test: (j) => (j.bestHit || 0) >= 100 },
-  { id: 'items10', name: 'Cabinet of Curiosities', text: 'Collect 10 different artifacts.', shards: 3, reward: 'artifact:pandora', scene: 'cabinet', test: (j) => count(j.items) >= 10 },
-  { id: 'events6', name: 'Wanderer', text: 'Witness 6 curiosities of the Wilds.', shards: 2, reward: 'event:royal_society', scene: 'road', test: (j) => count(j.events) >= 6 },
-  { id: 'loops5', name: 'Eternal Return', text: 'Live through 5 loops.', shards: 2, reward: 'tower:banners_royal', scene: 'loop', test: (j) => j.loops >= 5 },
-  { id: 'wins3', name: 'Thrice Crowned', text: 'Win three times.', shards: 5, reward: 'stage:olympus', scene: 'laurels', test: (j) => j.wins >= 3 },
-  { id: 'bestiary', name: 'Bestiary Complete', text: 'Defeat every kind of foe once.', shards: 6, reward: 'tower:gears_gilded', scene: 'bestiary', test: (j) => ['satyr', 'kobalos', 'medusa', 'minotaur', 'hydra', 'harpy', 'centaur', 'wolf', 'spartoi', 'cyclops', 'chimera', 'talos'].every((id) => killed(j, id)) },
+  { id: 'combos5', name: 'Apprentice Alchemist', text: 'Discover 5 combinations.', shards: 2, reward: 'card:optics', scene: 'alchemy', test: (j) => count(j.combos) >= 5, prog: (j) => [count(j.combos), 5] },
+  { id: 'combos15', name: 'Natural Philosopher', text: 'Discover 15 combinations.', shards: 4, reward: 'card:orbits', scene: 'alchemy', test: (j) => count(j.combos) >= 15, prog: (j) => [count(j.combos), 15] },
+  { id: 'hit100', name: 'Equal and Opposite', text: 'Deal 100 damage in a single hit.', shards: 3, reward: 'artifact:golden_ratio', scene: 'impact', test: (j) => (j.bestHit || 0) >= 100, prog: (j) => [j.bestHit || 0, 100] },
+  { id: 'items10', name: 'Cabinet of Curiosities', text: 'Collect 10 different artifacts.', shards: 3, reward: 'artifact:pandora', scene: 'cabinet', test: (j) => count(j.items) >= 10, prog: (j) => [count(j.items), 10] },
+  { id: 'events6', name: 'Wanderer', text: 'Witness 6 curiosities of the Wilds.', shards: 2, reward: 'event:royal_society', scene: 'road', test: (j) => count(j.events) >= 6, prog: (j) => [count(j.events), 6] },
+  { id: 'loops5', name: 'Eternal Return', text: 'Live through 5 loops.', shards: 2, reward: 'tower:banners_royal', scene: 'loop', test: (j) => j.loops >= 5, prog: (j) => [j.loops || 0, 5] },
+  { id: 'wins3', name: 'Thrice Crowned', text: 'Win three times.', shards: 5, reward: 'stage:olympus', scene: 'laurels', test: (j) => j.wins >= 3, prog: (j) => [j.wins || 0, 3] },
+  { id: 'bestiary', name: 'Bestiary Complete', text: 'Defeat every kind of foe once.', shards: 6, reward: 'tower:gears_gilded', scene: 'bestiary', test: (j) => ['satyr', 'kobalos', 'medusa', 'minotaur', 'hydra', 'harpy', 'centaur', 'wolf', 'spartoi', 'cyclops', 'chimera', 'talos'].every((id) => killed(j, id)), prog: (j) => [BESTIARY.filter((id) => killed(j, id)).length, BESTIARY.length] },
 ];
 // CHALLENGES: hard feats. Each lights a memory shard and unlocks something big for good.
 const hist = (j) => j.history || [];
 export const CHALLENGES = [
   { id: 'no_heal', name: 'Iron Stomach', text: 'Win a run without healing once.', shards: 6, hard: true, reward: ['tower:crystals_lit', "artifact:icarus_feather"], scene: 'icarus', test: (j) => hist(j).some((h) => h.won && h.healed === 0) },
-  { id: 'hit500', name: 'The Falling Moon', text: 'Deal 500 damage in a single hit.', shards: 8, hard: true, reward: 'tower:orrery_gold', scene: 'impact', test: (j) => (j.bestHit || 0) >= 500 },
+  { id: 'hit500', name: 'The Falling Moon', text: 'Deal 500 damage in a single hit.', shards: 8, hard: true, reward: 'tower:orrery_gold', scene: 'impact', test: (j) => (j.bestHit || 0) >= 500, prog: (j) => [j.bestHit || 0, 500] },
   { id: 'bookworm', name: 'Overdue', text: 'Beat the Bookworm Queen.', shards: 8, hard: true, reward: ['stage:olympus', 'card:optics'], scene: 'bookworm', test: (j) => killed(j, 'bookworm_queen') },
   { id: 'frog', name: 'Kiss Nothing', text: 'Defeat the Frog Wizard.', shards: 8, hard: true, reward: ['card:orbits', 'tower:gears_gilded'], scene: 'frog', test: (j) => killed(j, 'frog_wizard') },
-  { id: 'combos30', name: 'Principia', text: 'Discover 30 combinations.', shards: 8, hard: true, reward: ['artifact:pandora', 'tower:banners_royal'], scene: 'alchemy', test: (j) => count(j.combos) >= 30 },
+  { id: 'combos30', name: 'Principia', text: 'Discover 30 combinations.', shards: 8, hard: true, reward: ['artifact:pandora', 'tower:banners_royal'], scene: 'alchemy', test: (j) => count(j.combos) >= 30, prog: (j) => [count(j.combos), 30] },
   { id: 'raccoon', name: 'Masked Bandit', text: 'Win a fight in 2 turns or fewer.', shards: 5, hard: true, reward: 'event:halley', scene: 'raccoon', test: (j) => hist(j).some((h) => h.fastest != null && h.fastest <= 2) },
 ];
 export const REWARD_NAME = { 'tower:lanterns': 'Blazing Lanterns', 'tower:banners_royal': 'Royal Banners', 'tower:crystals_lit': 'Burning Crystals', 'tower:orrery_gold': 'A Golden World', 'tower:gears_gilded': 'Gilded Gears' };
@@ -101,6 +103,13 @@ export const save = {
     const loop = this.journal.loops || 1; m.claimed[achId] = loop; const got = rewardsOf(a); for (const id of got) { if (id.startsWith('tower:')) m.cosmetics[id] = loop; else m.unlocks[id] = loop; } this.saveMeta(); return got; },
   unlock(id) { const u = STAR_UNLOCKS.find((x) => x.id === id); if (!u || this.meta.unlocks[id] || this.meta.shards < u.cost) return false; this.meta.shards -= u.cost; this.meta.unlocks[id] = this.journal.loops; this.saveMeta(); return true; },
   addShards(n) { this.meta.shards = Math.max(0, (this.meta.shards || 0) + n); this.saveMeta(); },
+  // ---- STUDIES (menu agent; the Experiment Hall, scenes/studies.js + game/studies.js): every discovered combination or
+  // Law is a study. Using it in battle advances it; completing it and claiming it in the Hall grants a permanent reward.
+  //   meta.studies[id] = { uses, claimed: loop | 0, reward: { kind: 'start' | 'weight' | 'gold' | 'cosmetic', ... } }
+  //   id = the move's named discovery key when it has one (mv.special.key), else its recipe key (mv.key)
+  studyUses(id) { return this.meta.studies?.[id]?.uses || 0; },
+  /** claim a completed study: stores its reward for good (game/studies.js decides what it is); false if already claimed */
+  claimStudy(id, reward) { const m = this.meta; m.studies ||= {}; const s = (m.studies[id] ||= { uses: 0 }); if (s.claimed) return false; s.claimed = this.journal.loops || 1; s.reward = reward; this.saveMeta(); return true; },
   evaluate() {
     const j = this.journal, m = this.meta; const fresh = [];
     for (const a of [...ACHIEVEMENTS, ...CHALLENGES]) if (!m.achievements[a.id] && a.test(j)) { m.achievements[a.id] = j.loops || 1; m.shards += a.shards; fresh.push(a.id); }
@@ -109,3 +118,9 @@ export const save = {
   },
 };
 export const unlocked = (id) => save.unlocked(id);
+/** STUDY HOOK for the battle: call once each time the player plays a merged Move (n >= 2), with the move object from
+ *  game/combos.js computeMove (or a study id string). Advances that study in the Experiment Hall. */
+export function recordStudyUse(mvOrId) {
+  const id = typeof mvOrId === 'string' ? mvOrId : mvOrId?.special?.key || mvOrId?.key; if (!id) return 0;
+  const m = save.meta; m.studies ||= {}; const s = (m.studies[id] ||= { uses: 0 }); s.uses = (s.uses || 0) + 1; save.saveMeta(); return s.uses;
+}

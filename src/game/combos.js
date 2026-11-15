@@ -353,8 +353,8 @@ export function describeAttack(a) {
   if (a.bounce) out.push(`Bounces to ${a.bounce} more`);
   if (a.weak || a.chill || a.weakOnHit) out.push(`Weak ${a.weak || a.chill || a.weakOnHit}`);
   if (a.vulnerable) out.push(`Vulnerable ${a.vulnerable}`);
-  if (a.dizzy) out.push('Dizzy: may hit its friends');
-  if (a.blind) out.push('Blind ALL foes');
+  if (a.dizzy) out.push('Dizzy: its first blow hits its friend');
+  if (a.blind) out.push('Blind ALL foes (blows halved)');
   if (a.disarm) out.push(`-${a.disarm} Strength`);
   if (a.recoil) out.push(`You take ${a.recoil}`);
   if (a.shove) out.push(`Shove: its next attack -${a.shove}`);

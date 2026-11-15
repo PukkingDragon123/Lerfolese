@@ -59,10 +59,12 @@ const A = () => asset('raccoon', { bones: BONES, sculpt, pal: PAL, cell: 0.0095,
 
 const up = { pelvis: [-0.85, 0, 0], thigh_L: [0.75, 0, 0], thigh_R: [0.75, 0, 0], shin_L: [-0.2, 0, 0], shin_R: [-0.2, 0, 0], hock_L: [0.3, 0, 0], hock_R: [0.3, 0, 0], neck1: [0.45, 0, 0], head: [0.3, 0, 0], tail1: [0.5, 0, 0] }; // reared up on his haunches
 const CLIPS = {
+  // the BELLY FLOP: he rears right up on his haunches, wobbles, then throws his whole round self forward onto you
   attack: [[0, {}],
-    [0.3, { _pos: [0, 0.04, -0.1], ...up, farm_L: [-0.6, 0, 0.3], farm_R: [-0.6, 0, -0.3], fore_L: [-1.2, 0, 0], fore_R: [-1.2, 0, 0], jaw: [0.3, 0, 0] }],
-    [0.42, { _pos: [0, 0.02, 0.42], pelvis: [-0.35, 0, 0], thigh_L: [0.2, 0, 0], thigh_R: [0.2, 0, 0], neck1: [0.1, 0, 0], head: [0.25, 0, 0], farm_L: [-1.5, 0, -0.1], farm_R: [-1.5, 0, 0.1], fore_L: [0.2, 0, 0], fore_R: [0.2, 0, 0], jaw: [0.5, 0, 0] }],
-    [0.62, { _pos: [0, 0.06, 0.1], ...up, farm_L: [-1.2, 0, -0.5], farm_R: [-1.2, 0, 0.5], fore_L: [-1.4, 0, 0], fore_R: [-1.4, 0, 0], head: [0.5, 0.2, 0], jaw: [0.1, 0, 0] }],
+    [0.28, { _pos: [0, 0.1, -0.12], ...up, pelvis: [-1.05, 0, 0], neck1: [0.6, 0, 0], head: [0.45, 0, 0], farm_L: [-1.4, 0, 0.6], farm_R: [-1.4, 0, -0.6], fore_L: [-0.6, 0, 0], fore_R: [-0.6, 0, 0], jaw: [0.45, 0, 0], tail1: [0.9, 0, 0] }],
+    [0.36, { _pos: [0, 0.14, -0.08], ...up, pelvis: [-1.1, 0, 0.12], neck1: [0.6, 0, 0], head: [0.5, 0.2, 0.15], farm_L: [-1.6, 0, 0.8], farm_R: [-1.6, 0, -0.8], jaw: [0.5, 0, 0], tail1: [0.9, 0.3, 0] }],
+    [0.44, { _pos: [0, -0.06, 0.48], pelvis: [0.25, 0, 0], spine1: [0.15, 0, 0], spine2: [0.12, 0, 0], neck1: [-0.2, 0, 0], head: [-0.3, 0, 0], farm_L: [-1.5, 0, -0.4], farm_R: [-1.5, 0, 0.4], thigh_L: [0.9, 0, 0], thigh_R: [0.9, 0, 0], jaw: [0.6, 0, 0], tail1: [-0.5, 0, 0] }],
+    [0.6, { _pos: [0, -0.04, 0.4], pelvis: [0.15, 0, 0], farm_L: [-1.2, 0, -0.5], farm_R: [-1.2, 0, 0.5], thigh_L: [0.6, 0, 0], thigh_R: [0.6, 0, 0], head: [0.1, 0.3, 0.2], jaw: [0.2, 0, 0] }],
     [1.0, {}]],
   cast: [[0, {}], [0.35, { ...up, farm_L: [-1.0, 0, -0.4], farm_R: [-1.0, 0, 0.4], fore_L: [-1.6, 0, 0], fore_R: [-1.6, 0, 0], head: [0.55, 0, 0], jaw: [0.35, 0, 0] }], [0.6, { ...up, farm_L: [-1.0, 0, -0.4], farm_R: [-1.0, 0, 0.4], fore_L: [-1.6, 0, 0], fore_R: [-1.6, 0, 0], head: [0.6, 0.1, 0], jaw: [0.05, 0, 0] }], [0.85, { ...up, farm_L: [-1.0, 0, -0.4], farm_R: [-1.0, 0, 0.4], fore_L: [-1.6, 0, 0], fore_R: [-1.6, 0, 0], head: [0.55, -0.1, 0], jaw: [0.35, 0, 0] }], [1.3, {}]],
   hurt: [[0, {}], [0.1, { _pos: [0, 0.04, -0.16], spine2: [-0.12, 0.18, 0.12], neck1: [-0.25, 0.3, 0], head: [-0.3, 0.4, 0.2], jaw: [0.45, 0, 0], ear_L: [0.6, 0, 0], ear_R: [0.6, 0, 0], tail1: [-0.6, 0, 0], tail2: [-0.3, 0, 0] }], [0.35, { head: [0.1, -0.1, 0], tail1: [-0.3, 0, 0] }], [0.7, {}]],
@@ -79,13 +81,22 @@ const SPEC = {
     // now and then he washes his little hands
     const wash = Math.max(0, Math.sin(t * 0.37 + 1)) ** 8; if (wash > 0.01) { add(P, 'farm_L', -0.9 * wash, 0, -0.3 * wash + Math.sin(t * 14) * 0.15 * wash); add(P, 'farm_R', -0.9 * wash, 0, 0.3 * wash - Math.sin(t * 14) * 0.15 * wash); add(P, 'fore_L', -1.2 * wash); add(P, 'fore_R', -1.2 * wash); add(P, 'pelvis', -0.3 * wash); add(P, 'thigh_L', 0.3 * wash); add(P, 'thigh_R', 0.3 * wash); add(P, 'head', 0.4 * wash); }
     add(P, 'ear_L', Math.max(0, Math.sin(t * 0.8) - 0.9) * 4); add(P, 'ear_R', Math.max(0, Math.sin(t * 0.7 + 2) - 0.9) * 4);
+    const pat = Math.max(0, Math.sin(t * 0.23 + 3.5)) ** 10; if (pat > 0.01) { add(P, 'pelvis', -0.55 * pat); add(P, 'thigh_L', 0.5 * pat); add(P, 'thigh_R', 0.5 * pat); add(P, 'farm_R', -0.9 * pat, 0, 0.5 * pat); add(P, 'fore_R', -0.9 * pat + Math.abs(Math.sin(t * 9)) * 0.3 * pat); add(P, 'head', -0.25 * pat, 0, 0.15 * pat); add(P, 'jaw', 0.35 * pat * Math.max(0, Math.sin(t * 3))); } // pats his full belly, very pleased with himself
   },
   gait(P, g, a) { // a fat waddle: short quick steps, the belly rolls side to side
     for (const [n, ph] of [['farm_L', 0], ['farm_R', Math.PI], ['thigh_L', Math.PI], ['thigh_R', 0]]) add(P, n, Math.sin(g * 1.3 + ph) * 0.45 * a);
     add(P, 'fore_L', -Math.max(0, Math.cos(g * 1.3)) * 0.6 * a); add(P, 'fore_R', -Math.max(0, -Math.cos(g * 1.3)) * 0.6 * a);
     add(P, 'spine2', 0, 0, Math.sin(g * 1.3) * 0.16 * a); add(P, 'pelvis', 0, Math.sin(g * 1.3) * 0.1 * a, -Math.sin(g * 1.3) * 0.12 * a); add(P, 'tail1', 0, -Math.sin(g * 1.3) * 0.3 * a, 0);
   },
-  props(ctx) { ctx.B.map.head.scale.setScalar(1.28); }, // a big round bandit face on the fat body
+  props(ctx) { ctx.B.map.head.scale.setScalar(1.28); ctx.vars.jig = 0; ctx.vars.jv = 0; }, // a big round bandit face on the fat body
+  onAct(m, ctx) { if (m === 'hurt') ctx.vars.jv -= 9; if (m === 'attack') ctx.vars.flop = true; },
+  // comedy in the body: puffed cheeks while he stuffs them, a belly that jiggles on every hit and on the landing of a flop
+  after(dt, t, ctx) {
+    const V = ctx.vars, st = ctx.st, B = ctx.B.map; if (V.flop && st.mode === 'attack' && st.modeT > 0.44) { V.flop = false; V.jv -= 14; }
+    V.jv += (-V.jig * 170 - V.jv * 7) * dt; V.jig += V.jv * dt; const j = 1 + Math.max(-0.25, Math.min(0.25, V.jig * 0.5));
+    if (B.spine2 && !(st.dead > 0)) B.spine2.scale.set(1 / Math.sqrt(j), j, 1 / Math.sqrt(j));
+    const puff = st.mode === 'cast' ? 1 + Math.min(1, st.modeT * 3) * (0.16 + Math.abs(Math.sin(t * 14)) * 0.05) : 1; if (B.head) B.head.scale.set(1.28 * puff, 1.28, 1.28 * (1 + (puff - 1) * 0.4));
+  },
   hover: (t, st) => 0,
   death: (T, m, ctx) => ragdollFall(T, m, ctx),
 };

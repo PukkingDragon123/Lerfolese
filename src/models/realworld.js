@@ -22,14 +22,15 @@ const V3 = THREE.Vector3;
 const GROUND = { meadow: 'ground_meadow', garden: 'ground_meadow', gully: 'ground_meadow', labyrinth: 'ground_dry_grass', marsh: 'mud_mossy', guardian: 'ground_dry_grass' };
 const ARENA = { meadow: 'ground_dry_grass', garden: 'ground_rocky_trail', gully: 'ground_dry_dirt', labyrinth: 'ground_rocky_trail', marsh: 'mud_wet', guardian: 'ground_rocky_trail' };
 const HDRI = { meadow: 'sunset_dry_plain', garden: 'sunset_dry_plain', gully: 'golden_dry_valley', labyrinth: 'sunset_dry_plain', marsh: 'golden_dry_valley', guardian: 'sunset_dry_plain' };
-// sky looks per theme: Preetham sky params, haze colour (fog = aerial perspective), cloud tint
+// sky looks per theme: Preetham sky params, haze colour (fog = aerial perspective: it starts just behind the fighters, so the
+// woods and houses behind them recede in soft, lighter layers and the figures stay the clear focal point), cloud tint
 const LOOKS = {
-  meadow: { turb: 4.6, ray: 1.9, mie: 0.0042, g: 0.78, haze: '#d9b38c', fog: [40, 175], cloud: '#fff1dc', shade: '#9c86a8', grass: 0.12 },
-  garden: { turb: 4.2, ray: 2.1, mie: 0.004, g: 0.77, haze: '#e0b4a0', fog: [40, 175], cloud: '#ffeee4', shade: '#a48ab4', grass: 0.1 },
-  gully: { turb: 4.5, ray: 1.0, mie: 0.0035, g: 0.76, haze: '#d8a878', fog: [38, 165], cloud: '#ffe8cc', shade: '#a08490', grass: 0.55 },
-  labyrinth: { turb: 4, ray: 1.5, mie: 0.0032, g: 0.75, haze: '#d4987c', fog: [38, 165], cloud: '#ffe2cc', shade: '#90709a', grass: 0.5 },
-  marsh: { turb: 6, ray: 1.3, mie: 0.005, g: 0.75, haze: '#a8b4a4', fog: [30, 150], cloud: '#eef0e4', shade: '#7c8a98', grass: 0.03 },
-  guardian: { turb: 6, ray: 2.0, mie: 0.004, g: 0.78, haze: '#b8786a', fog: [36, 160], cloud: '#ffd4b8', shade: '#6a4a6a', grass: 0.35 },
+  meadow: { turb: 4.6, ray: 1.9, mie: 0.0042, g: 0.78, haze: '#d6c4ae', fog: [16, 120], cloud: '#fff1dc', shade: '#9c86a8', grass: 0.12 },
+  garden: { turb: 4.2, ray: 2.1, mie: 0.004, g: 0.77, haze: '#dac4b8', fog: [16, 120], cloud: '#ffeee4', shade: '#a48ab4', grass: 0.1 },
+  gully: { turb: 4.5, ray: 1.0, mie: 0.0035, g: 0.76, haze: '#d6b89c', fog: [16, 115], cloud: '#ffe8cc', shade: '#a08490', grass: 0.55 },
+  labyrinth: { turb: 4, ray: 1.5, mie: 0.0032, g: 0.75, haze: '#d0ae9e', fog: [16, 115], cloud: '#ffe2cc', shade: '#90709a', grass: 0.5 },
+  marsh: { turb: 6, ray: 1.3, mie: 0.005, g: 0.75, haze: '#b2beb4', fog: [14, 105], cloud: '#eef0e4', shade: '#7c8a98', grass: 0.03 },
+  guardian: { turb: 6, ray: 2.0, mie: 0.004, g: 0.78, haze: '#b88c86', fog: [16, 115], cloud: '#ffd4b8', shade: '#6a4a6a', grass: 0.35 },
 };
 export const SUN_SKY = new V3(Math.sin(0.3), 0.088, -Math.cos(0.3)).normalize(); // visible sun, upper right of the battle view
 const SUN_KEY = new V3(-0.55, 0.62, 0.42).normalize(); // key light kept from the front-left so faces read
@@ -37,7 +38,7 @@ const CAM = new V3(-0.1, 3, 11.4);
 const vcount = new Map();
 async function variant(name, rnd) { if (name.includes('#')) return loadModel(name); if (!vcount.has(name)) vcount.set(name, await variantCount(name).catch(() => 0)); const n = vcount.get(name); return loadModel(n > 1 ? `${name}#${Math.floor(rnd() * n)}` : name); }
 const LOOK = { // per-family toon tuning: saturation, albedo tint, leaf tint, wind
-  tree: { sat: 1.35, leafTint: '#e8f0c0', wind: 1, windH: 0.18 }, shrub: { sat: 1.4, leafTint: '#f0f4c8', wind: 0.8, windH: 0.6 }, grass: { sat: 1.45, leafTint: '#f4f0b0', wind: 1.3, windH: 1.2 },
+  tree: { sat: 1.2, leafTint: '#e4ecc4', wind: 1, windH: 0.18 }, shrub: { sat: 1.22, leafTint: '#ecf0cc', wind: 0.8, windH: 0.6 }, grass: { sat: 1.18, leafTint: '#ece8bc', wind: 1.3, windH: 1.2 }, // (painterly: rich, not acid)
   rock: { sat: 0.95, tint: '#f6efe4', wind: 0 }, stone: { sat: 1.1, tint: '#fff4ea', wind: 0 }, prop: { sat: 1.25, wind: 0 },
 };
 function lookFor(name) {
@@ -96,8 +97,8 @@ function sunBillboard(pos, size) {
 function windMotes(theme, hAt) {
   const leaves = new Particles(160), pollen = new Particles(220, { additive: true }); let last = performance.now();
   const step = () => { const now = performance.now(); const dt = Math.min(0.05, (now - last) / 1000) * (T.WIND.scale ?? 1); last = now; const t = now / 1000; const wd = T.WIND.dir.value;
-    if (Math.random() < dt * 2.2) leaves.spawn({ pos: [-14 + Math.random() * 28, 4 + Math.random() * 3, -10 + Math.random() * 8], vel: [wd.x * 1.4, -0.1, wd.y * 1.4], grav: 0.25, drag: 0.4, wobble: 1.8, spin: 3, life: 6, size: 13, color: theme === 'marsh' ? '#7a8a4a' : Math.random() < 0.5 ? '#8aa040' : '#d0a040', sprite: 'leaf', floor: 0.05, bounce: 0 });
-    if (Math.random() < dt * 9) pollen.spawn({ pos: [-12 + Math.random() * 24, 0.4 + Math.random() * 3.2, -8 + Math.random() * 10], vel: [wd.x * 0.25, 0.04, wd.y * 0.25], wobble: 0.35, life: 6, size: 5 + Math.random() * 5, color: '#fff2c0', alpha: 0.55, sprite: 'dot' });
+    if (Math.random() < dt * 1.1) leaves.spawn({ pos: [-14 + Math.random() * 28, 4 + Math.random() * 3, -10 + Math.random() * 8], vel: [wd.x * 1.4, -0.1, wd.y * 1.4], grav: 0.25, drag: 0.4, wobble: 1.8, spin: 3, life: 6, size: 13, color: theme === 'marsh' ? '#7a8a4a' : Math.random() < 0.5 ? '#8aa040' : '#d0a040', sprite: 'leaf', floor: 0.05, bounce: 0 });
+    if (Math.random() < dt * 3.5) pollen.spawn({ pos: [-12 + Math.random() * 24, 0.4 + Math.random() * 3.2, -8 + Math.random() * 10], vel: [wd.x * 0.25, 0.04, wd.y * 0.25], wobble: 0.35, life: 6, size: 5 + Math.random() * 5, color: '#fff2c0', alpha: 0.55, sprite: 'dot' });
     leaves.update(dt, t); pollen.update(dt, t); void hAt; };
   for (const p of [leaves, pollen]) { p.points.frustumCulled = false; p.points.userData.noInk = true; p.points.userData.noAO = true; }
   leaves.points.onBeforeRender = step; const g = new THREE.Group(); g.add(leaves.points, pollen.points); return g;
@@ -242,7 +243,7 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
       const j = Math.sin(it.x * 12.9898 + it.z * 78.233) * 0.5; c.setRGB(1, 1, 1).offsetHSL(j * 0.02, 0, j * 0.04).multiplyScalar(Math.max(0.62, k) * (it.dry ? 1.04 : 1)); it.tint = c.clone(); }
     g.add(plantField(plants, { wind: T.WIND, tick: T.tickWind, push: { value: F.GRASS_PUSH }, onScene: F.updatePushers, cam: CAM, tint: PLANT_TINT[theme] || PLANT_TINT.meadow, ground: { map: groundMat.map, rep: 88 / 220, tint: '#ffffff' }, hue: 0.78, rootH: 0.55 })); } // lit by the scene, the same hue as the soil it grows from
   const rockTops = ctx.rocks.map(([x, z, s]) => new V3(x, hAt(x, z) + 0.4 * s, z));
-  const animals = (cr) => { if (!cr) return; if (theme !== 'marsh') { cr.spawnGrazers?.(4, ctx.pasture || { x: [-15, -9.5], z: [-6.5, -3.8] }, ['sheep', 'sheep', 'goat']); cr.spawnGrazers?.(4, { x: [-24, -15], z: [9, 17] }); } cr.spawnLizards?.(3, rockTops); cr.spawnButterflies?.(5, new V3(-13, 0.8, 11), 7); };
+  const animals = (cr) => { if (!cr) return; if (theme !== 'marsh') { cr.spawnGrazers?.(4, ctx.pasture || { x: [-15, -9.5], z: [-6.5, -3.8] }, ['sheep', 'sheep', 'goat']); cr.spawnGrazers?.(4, { x: [-24, -15], z: [9, 17] }); } cr.spawnLizards?.(3, rockTops); cr.spawnButterflies?.(2, new V3(-13, 0.8, 11), 7); };
   return { group: g, theme, trees, env: hdr?.envMap ?? T.gradientEnv(renderer, 'stage:' + theme), background: null, sunDir: SUN_KEY.clone(), sunPos, road, fog: new THREE.Fog(L.haze, L.fog[0], L.fog[1]), animals, hAt, waters };
 }
 

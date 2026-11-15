@@ -21,47 +21,52 @@
 <canvas id="game" tabindex="0" aria-label="Lerfolese game canvas"></canvas>
 <div id="boot"><canvas id="boot-cv"></canvas></div>
 <script>
-// First frame, at full native resolution: deep space (soft nebula veils in the violet / teal / gold of src/gfx/spacebg.js,
-// fine twinkling stars, the near star with breathing diffraction spikes), a glossy apple where the 3D time-lapse apple
-// will appear, and a thin line of golden light for progress. No text. The module scene fades this out once its own
-// first frame (the same space, the real apple) is drawn, so the hand-off is seamless.
+// First frame: deep space (soft nebula veils in the violet / teal / gold of src/gfx/spacebg.js, fine twinkling stars, the
+// near star with breathing diffraction spikes), a glossy apple turning slowly where the 3D time-lapse apple will appear,
+// and a thin line of golden light for progress. No text. Drawn in the same slight pixel look as the loading scene (an
+// art buffer of about 540 rows, upscaled in whole blocks), so the hand-off to the module scene is seamless.
 (function () {
-  var cv = document.getElementById('boot-cv'), g = cv.getContext('2d'), st = { p: 0.04, shown: 0.04 }, W = 0, H = 0, dpr = 1, neb = null, stars = [], t0 = performance.now();
+  var cv = document.getElementById('boot-cv'), g = cv.getContext('2d'), st = { p: 0.04, shown: 0.04 }, W = 0, H = 0, B = 1, AW = 0, AH = 0, dpr = 1, neb = null, art = null, a = null, stars = [], t0 = performance.now();
   window.__boot = function (m, p) { if (p != null) st.p = Math.max(st.p, p / 100); };
   function h(x, y) { var n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n); }
   function vn(x, y) { var i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j; fx = fx * fx * (3 - 2 * fx); fy = fy * fy * (3 - 2 * fy); var a = h(i, j), b = h(i + 1, j), c = h(i, j + 1), d = h(i + 1, j + 1); return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; }
   function fbm(x, y) { var s = 0, a = 0.5; for (var o = 0; o < 5; o++) { s += a * vn(x, y); x = x * 2.03 + 1.7; y = y * 2.03 + 9.2; a *= 0.5; } return s; }
   function sm(a, b, x) { var t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
-  function paintNebula() { // computed on a coarse grid, then drawn smoothly (bilinear) at full size: soft gas, no visible cells
-    var nw = 360, nh = Math.round(360 * H / W), c = document.createElement('canvas'); c.width = nw; c.height = nh; var x2 = c.getContext('2d'), im = x2.createImageData(nw, nh), D = im.data, asp = nw / nh;
+  var BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  function paintNebula() { // soft gas computed on a coarse grid, smoothed up to the art resolution, then stepped in ordered-dither bands (fine pixel-art gas)
+    var nw = 360, nh = Math.round(360 * AH / AW), c = document.createElement('canvas'); c.width = nw; c.height = nh; var x2 = c.getContext('2d'), im = x2.createImageData(nw, nh), D = im.data, asp = nw / nh;
     for (var y = 0; y < nh; y++) for (var x = 0; x < nw; x++) { var u = x / nw * asp * 2.2, v = y / nh * 2.2; var wx = fbm(u * 1.3 + 3.1, v * 1.3), wy = fbm(u * 1.3 - 5.2, v * 1.3 + 2.4);
       var vi = fbm(u + wx * 1.6, v + wy * 1.6), te = fbm(u * 1.6 - wy * 1.2 + 7.0, v * 1.6 + wx * 1.2), dust = fbm(u * 3.1 + 11.0, v * 3.1); var band = Math.exp(-Math.pow((y / nh - 0.55 + (x / nw - 0.5) * 0.35) * 2.6, 2));
       var dv = sm(0.45, 0.85, vi) * (0.3 + band) * (1 - sm(0.5, 0.8, dust) * 0.7), dt = sm(0.55, 0.9, te) * band * (1 - sm(0.5, 0.8, dust) * 0.6);
       var sx = x / nw - 0.77, sy = (1 - y / nh) - 0.78, sd = Math.sqrt(sx * sx * asp * asp + sy * sy), dg = sm(0.4, 0.8, vi) * Math.max(0, 0.36 - sd) * 2.6;
       var r = 2 + dv * 120 + dt * 18 + dg * 230, gg = 1 + dv * 50 + dt * 110 + dg * 130, b = 6 + dv * 160 + dt * 105 + dg * 40; var i = (y * nw + x) * 4; D[i] = Math.min(255, r * 0.8); D[i + 1] = Math.min(255, gg * 0.8); D[i + 2] = Math.min(255, b * 0.8); D[i + 3] = 255; }
-    x2.putImageData(im, 0, 0); return c; }
-  function resize() { dpr = Math.min(2, window.devicePixelRatio || 1); W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr); cv.width = W; cv.height = H; neb = paintNebula(); stars = [];
-    for (var i = 0; i < 420; i++) stars.push([h(i, 7) * W, h(i, 13) * H, h(i, 29), h(i, 31), h(i, 37)]); }
-  function apple(cx, cy, R, t) { // a glossy red apple: two lobed bezier halves, a warm key from upper right, a cool rim, a stem and a leaf
-    g.save(); g.translate(cx, cy);
-    g.beginPath(); g.moveTo(0, -R * 0.62); g.bezierCurveTo(R * 0.55, -R * 1.05, R * 1.18, -R * 0.55, R * 1.02, R * 0.2); g.bezierCurveTo(R * 0.9, R * 0.85, R * 0.42, R * 1.05, 0, R * 0.86); g.bezierCurveTo(-R * 0.42, R * 1.05, -R * 0.9, R * 0.85, -R * 1.02, R * 0.2); g.bezierCurveTo(-R * 1.18, -R * 0.55, -R * 0.55, -R * 1.05, 0, -R * 0.62); g.closePath();
-    var gr = g.createLinearGradient(-R, -R, R * 0.9, R); gr.addColorStop(0, '#5a0e14'); gr.addColorStop(0.45, '#a8222a'); gr.addColorStop(0.75, '#d8423a'); gr.addColorStop(1, '#f07a52'); g.fillStyle = gr; g.fill();
-    g.save(); g.clip(); var sh = g.createLinearGradient(-R, 0, R * 0.2, 0); sh.addColorStop(0, 'rgba(8,4,20,0.75)'); sh.addColorStop(1, 'rgba(8,4,20,0)'); g.fillStyle = sh; g.fillRect(-R * 1.3, -R * 1.3, R * 2.6, R * 2.6);
-    g.strokeStyle = 'rgba(255,214,150,0.85)'; g.lineWidth = R * 0.07; g.beginPath(); g.moveTo(R * 0.35, -R * 0.75); g.bezierCurveTo(R * 0.95, -R * 0.55, R * 1.05, 0, R * 0.92, R * 0.42); g.stroke(); // the star's rim light
-    g.fillStyle = 'rgba(255,240,225,' + (0.55 + 0.1 * Math.sin(t * 2)) + ')'; g.beginPath(); g.moveTo(R * 0.28, -R * 0.42); g.quadraticCurveTo(R * 0.62, -R * 0.38, R * 0.58, -R * 0.08); g.quadraticCurveTo(R * 0.42, -R * 0.3, R * 0.28, -R * 0.42); g.fill(); g.restore();
-    g.strokeStyle = '#4a2a14'; g.lineWidth = R * 0.08; g.lineCap = 'round'; g.beginPath(); g.moveTo(0, -R * 0.6); g.quadraticCurveTo(R * 0.05, -R * 0.95, R * 0.18, -R * 1.12); g.stroke();
-    g.fillStyle = '#5f8a3a'; g.beginPath(); g.moveTo(R * 0.12, -R * 0.95); g.bezierCurveTo(R * 0.4, -R * 1.35, R * 0.85, -R * 1.2, R * 0.95, -R * 1.05); g.bezierCurveTo(R * 0.7, -R * 0.85, R * 0.35, -R * 0.82, R * 0.12, -R * 0.95); g.fill();
-    g.strokeStyle = 'rgba(200,240,150,0.6)'; g.lineWidth = R * 0.02; g.beginPath(); g.moveTo(R * 0.14, -R * 0.95); g.quadraticCurveTo(R * 0.55, -R * 1.05, R * 0.9, -R * 1.06); g.stroke(); g.restore(); }
+    x2.putImageData(im, 0, 0); var o = document.createElement('canvas'); o.width = AW; o.height = AH; var og = o.getContext('2d'); og.imageSmoothingEnabled = true; og.imageSmoothingQuality = 'high'; og.drawImage(c, 0, 0, AW, AH);
+    var id = og.getImageData(0, 0, AW, AH), E = id.data, step = 7; for (var yy = 0; yy < AH; yy++) for (var xx = 0; xx < AW; xx++) { var q = (BAY[(yy & 3) * 4 + (xx & 3)] + 0.5) / 16, j = (yy * AW + xx) * 4; for (var k = 0; k < 3; k++) E[j + k] = Math.min(255, Math.floor(E[j + k] / step + q) * step); }
+    og.putImageData(id, 0, 0); return o; }
+  function resize() { dpr = Math.min(2, window.devicePixelRatio || 1); W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr); cv.width = W; cv.height = H;
+    B = Math.max(1, Math.round(H / 533)); AW = Math.ceil(W / B); AH = Math.ceil(H / B); art = document.createElement('canvas'); art.width = AW; art.height = AH; a = art.getContext('2d');
+    neb = paintNebula(); stars = []; for (var i = 0; i < Math.round(AW * AH / 2200); i++) stars.push([Math.floor(h(i, 7) * AW), Math.floor(h(i, 13) * AH), h(i, 29), h(i, 31), h(i, 37)]); }
+  function apple(cx, cy, R, t) { // a glossy red apple turning slowly: the stem, leaf and gloss slide round with the spin
+    var sp = t * 0.62, sx = Math.sin(sp), cx2 = Math.cos(sp); a.save(); a.translate(cx, cy);
+    a.beginPath(); a.moveTo(0, -R * 0.62); a.bezierCurveTo(R * 0.55, -R * 1.05, R * 1.18, -R * 0.55, R * 1.02, R * 0.2); a.bezierCurveTo(R * 0.9, R * 0.85, R * 0.42, R * 1.05, 0, R * 0.86); a.bezierCurveTo(-R * 0.42, R * 1.05, -R * 0.9, R * 0.85, -R * 1.02, R * 0.2); a.bezierCurveTo(-R * 1.18, -R * 0.55, -R * 0.55, -R * 1.05, 0, -R * 0.62); a.closePath();
+    var gr = a.createLinearGradient(-R, -R, R * 0.9, R); gr.addColorStop(0, '#5a0e14'); gr.addColorStop(0.45, '#a8222a'); gr.addColorStop(0.75, '#d8423a'); gr.addColorStop(1, '#f07a52'); a.fillStyle = gr; a.fill();
+    a.save(); a.clip(); var sh = a.createLinearGradient(-R, 0, R * 0.2, 0); sh.addColorStop(0, 'rgba(8,4,20,0.7)'); sh.addColorStop(1, 'rgba(8,4,20,0)'); a.fillStyle = sh; a.fillRect(-R * 1.3, -R * 1.3, R * 2.6, R * 2.6);
+    a.strokeStyle = 'rgba(98,216,230,0.75)'; a.lineWidth = Math.max(1, R * 0.06); a.beginPath(); a.moveTo(-R * 0.35, -R * 0.78); a.bezierCurveTo(-R * 0.95, -R * 0.55, -R * 1.05, 0, -R * 0.9, R * 0.45); a.stroke(); // the nebula's cool rim
+    a.strokeStyle = 'rgba(255,214,150,0.85)'; a.lineWidth = Math.max(1, R * 0.07); a.beginPath(); a.moveTo(R * 0.35, -R * 0.75); a.bezierCurveTo(R * 0.95, -R * 0.55, R * 1.05, 0, R * 0.92, R * 0.42); a.stroke(); // the star's warm light
+    var hx = R * (0.42 + 0.16 * sx); a.fillStyle = 'rgba(255,244,228,' + (0.75 + 0.15 * cx2) + ')'; a.beginPath(); a.moveTo(hx - R * 0.14, -R * 0.42); a.quadraticCurveTo(hx + R * 0.2, -R * 0.38, hx + R * 0.16, -R * 0.08); a.quadraticCurveTo(hx, -R * 0.3, hx - R * 0.14, -R * 0.42); a.fill(); a.restore(); // the gloss
+    var stx = R * 0.16 * sx; a.strokeStyle = '#4a2a14'; a.lineWidth = Math.max(1, R * 0.08); a.lineCap = 'round'; a.beginPath(); a.moveTo(stx, -R * 0.6); a.quadraticCurveTo(stx + R * 0.05, -R * 0.95, stx + R * 0.18 * cx2, -R * 1.12); a.stroke();
+    a.save(); a.translate(stx + R * 0.12, -R * 0.95); a.scale(cx2, 1); a.fillStyle = cx2 > 0 ? '#5f8a3a' : '#466c2a'; a.beginPath(); a.moveTo(0, 0); a.bezierCurveTo(R * 0.28, -R * 0.4, R * 0.73, -R * 0.25, R * 0.83, -R * 0.1); a.bezierCurveTo(R * 0.58, R * 0.1, R * 0.23, R * 0.13, 0, 0); a.fill(); a.restore(); a.restore(); }
   function frame() { var el = document.getElementById('boot'); if (!el || el.classList.contains('done')) return; requestAnimationFrame(frame);
-    var t = (performance.now() - t0) / 1000; g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(neb, 0, 0, W, H);
-    for (var i = 0; i < stars.length; i++) { var s = stars[i], tw = 0.55 + 0.45 * Math.sin(t * (0.7 + s[2] * 3) + s[2] * 40), sz = (0.5 + s[3] * s[3] * 1.6) * dpr; g.globalAlpha = tw * (0.35 + s[4] * 0.65); g.fillStyle = s[3] > 0.85 ? '#ffe8c8' : '#c8d4ff'; g.fillRect(s[0], s[1], sz, sz); }
-    g.globalAlpha = 1; var sx = W * 0.77, sy = H * 0.22, sp = (60 + Math.sin(t * 1.3) * 12) * dpr; // the near star: core and breathing spikes
-    g.globalCompositeOperation = 'lighter'; for (var k = 0; k < 2; k++) { var gr = k ? g.createLinearGradient(sx, sy - sp, sx, sy + sp) : g.createLinearGradient(sx - sp, sy, sx + sp, sy); gr.addColorStop(0, 'rgba(255,200,120,0)'); gr.addColorStop(0.5, 'rgba(255,240,210,0.95)'); gr.addColorStop(1, 'rgba(255,200,120,0)'); g.fillStyle = gr; if (k) g.fillRect(sx - dpr, sy - sp, 2 * dpr, sp * 2); else g.fillRect(sx - sp, sy - dpr, sp * 2, 2 * dpr); }
-    g.fillStyle = '#fff6e6'; g.fillRect(sx - 2 * dpr, sy - 2 * dpr, 4 * dpr, 4 * dpr); g.globalCompositeOperation = 'source-over';
-    apple(W / 2, H * 0.5 + Math.sin(t * 1.6) * 3 * dpr, Math.min(W, H) * 0.045, t);
-    st.shown += (st.p - st.shown) * 0.08; var lw = Math.min(W, H) * 0.22, lx = W / 2 - lw / 2, ly = H * 0.5 + Math.min(W, H) * 0.11; // progress: a thin line of golden light
-    g.fillStyle = 'rgba(120,90,160,0.35)'; g.fillRect(lx, ly, lw, Math.max(1, dpr)); var pw = lw * st.shown, gl = g.createLinearGradient(lx, 0, lx + pw, 0); gl.addColorStop(0, 'rgba(230,164,58,0.2)'); gl.addColorStop(1, 'rgba(255,224,150,1)'); g.fillStyle = gl; g.fillRect(lx, ly - dpr * 0.5, pw, Math.max(1, dpr * 2));
-    g.globalCompositeOperation = 'lighter'; g.fillStyle = 'rgba(255,230,170,0.9)'; g.fillRect(lx + pw - 2 * dpr, ly - 3 * dpr, 2 * dpr, 7 * dpr); g.globalCompositeOperation = 'source-over'; }
+    var t = (performance.now() - t0) / 1000; a.imageSmoothingEnabled = false; a.drawImage(neb, 0, 0);
+    for (var i = 0; i < stars.length; i++) { var s = stars[i], tw = 0.55 + 0.45 * Math.sin(t * (0.7 + s[2] * 3) + s[2] * 40); a.globalAlpha = tw * (0.35 + s[4] * 0.65); a.fillStyle = s[3] > 0.85 ? '#ffe8c8' : '#c8d4ff'; a.fillRect(s[0], s[1], s[3] > 0.93 ? 2 : 1, s[3] > 0.93 ? 2 : 1); }
+    a.globalAlpha = 1; var sx = Math.round(AW * 0.77), sy = Math.round(AH * 0.22), sp = Math.round((36 + Math.sin(t * 1.3) * 7) * AH / 540); // the near star: core and breathing spikes, one art pixel wide
+    a.globalCompositeOperation = 'lighter'; for (var k = 0; k < 2; k++) { var gr = k ? a.createLinearGradient(sx, sy - sp, sx, sy + sp) : a.createLinearGradient(sx - sp, sy, sx + sp, sy); gr.addColorStop(0, 'rgba(255,200,120,0)'); gr.addColorStop(0.5, 'rgba(255,240,210,0.95)'); gr.addColorStop(1, 'rgba(255,200,120,0)'); a.fillStyle = gr; if (k) a.fillRect(sx, sy - sp, 1, sp * 2); else a.fillRect(sx - sp, sy, sp * 2, 1); }
+    a.fillStyle = '#fff6e6'; a.fillRect(sx - 1, sy - 1, 3, 3); a.globalCompositeOperation = 'source-over';
+    apple(AW / 2, AH * 0.5 + Math.sin(t * 0.8) * 1.5, Math.min(AW, AH) * 0.045, t);
+    st.shown += (st.p - st.shown) * 0.08; var lw = Math.round(Math.min(AW, AH) * 0.22), lx = Math.round(AW / 2 - lw / 2), ly = Math.round(AH * 0.5 + Math.min(AW, AH) * 0.11); // progress: a thin line of golden light
+    a.fillStyle = 'rgba(120,90,160,0.35)'; a.fillRect(lx, ly, lw, 1); var pw = Math.round(lw * st.shown); a.fillStyle = '#e6a43a'; a.fillRect(lx, ly, Math.max(0, pw - 3), 1); a.fillStyle = '#ffe096'; a.fillRect(lx + pw - 3, ly, 3, 1);
+    a.globalCompositeOperation = 'lighter'; a.fillStyle = 'rgba(255,230,170,0.9)'; a.fillRect(lx + pw - 1, ly - 1, 1, 3); a.globalCompositeOperation = 'source-over';
+    g.imageSmoothingEnabled = false; g.drawImage(art, 0, 0, AW * B, AH * B); }
   resize(); addEventListener('resize', resize); frame();
 })();
 </script>

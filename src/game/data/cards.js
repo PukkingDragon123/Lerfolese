@@ -74,7 +74,7 @@ export const BASICS = {
     desc: { use: 'Merge it into a big object. On Newton: Block 3.', merge: '+1 kg for every other card in the object.', skill: 'Compression: the payoff for big merges.' }, flavor: 'Force per area. Mostly per area of face.' }),
   sound: card({ name: 'Sound', kind: 'energy', num: 26, launch: true, spread: true, waveMul: 0.5, dm: 1, dv: 2, dizzyOnHit: 1, adj: 'Sonic', noun: 'Shockwave', draw: 1,
     text: ['+2 v, hits ALL at half', 'Foes DIZZY 1', 'Self-launching', 'SELF: draw 1'],
-    desc: { use: 'Merge it as a launcher, or place it alone as a shockwave. On Newton: draw 1.', merge: 'The object becomes a shockwave that hits every foe at half damage.', skill: 'Dizzy: shaken foes may strike each other.' }, flavor: 'A wave of pressure. Rude, at volume.' }),
+    desc: { use: 'Merge it as a launcher, or place it alone as a shockwave. On Newton: draw 1.', merge: 'The object becomes a shockwave that hits every foe at half damage.', skill: 'Dizzy: a shaken foe\'s first blow lands on the foe beside it.' }, flavor: 'A wave of pressure. Rude, at volume.' }),
 
   earth: card({ name: 'Earth', kind: 'matter', num: 27, m: 4, v: 0, noun: 'Clod', hard: true, block: 7, field: 'boulder', up: { m: 5, block: 9 }, art: 'stone',
     text: ['Matter: 4 kg, at rest', 'Counts as Stone', 'SELF: Block 7', 'Hides a Law...'], upText: ['Matter: 5 kg, at rest', 'Counts as Stone', 'SELF: Block 9', 'Hides a Law...'],
@@ -168,7 +168,7 @@ export const BASICS = {
     text: ['SELF: draw 3,', 'then discard 1'], desc: { use: 'On Newton: draw 3 cards, then discard 1 card of your choice.', merge: 'It has no physics of its own: use it on Newton.', skill: 'Rough work: the margin is where ideas are born.' }, flavor: 'Mostly crossed out. The rest is genius.' }),
   paper_plane: card({ name: 'Paper Plane', kind: 'tool', num: 40, launch: true, dv: 2, plane: 6, adj: 'Folded', noun: 'Glider', art: 'motion', up: { plane: 9, dv: 3 },
     rules: ['+2 {v}, {launch} LAUNCHES', 'DISCARDED: {hit} 6 to a foe'], upRules: ['+3 {v}, {launch} LAUNCHES', 'DISCARDED: {hit} 9 to a foe'],
-    text: ['+2 v, LAUNCHES it', 'DISCARDED: 6 to a foe'], desc: { use: 'Merge it as a launcher.', merge: '+2 m/s and it launches the object.', skill: 'Glide: whenever you DISCARD it (Recycle, Scratchpad, a foe), it flies at a random foe for 6.' }, flavor: 'Aerodynamics, folded from a failed proof.' }),
+    text: ['+2 v, LAUNCHES it', 'DISCARDED: 6 to a foe'], desc: { use: 'Merge it as a launcher.', merge: '+2 m/s and it launches the object.', skill: 'Glide: whenever you DISCARD it (Recycle, Scratchpad, a foe), it flies at the front foe for 6.' }, flavor: 'Aerodynamics, folded from a failed proof.' }),
 
   // ------------------------------------------------------------------ Block (brace for the thought bubbles)
   equilibrium: card({ name: 'Equilibrium', kind: 'law', num: 41, dm: 2, block: 7, keepBlock: true, adj: 'Balanced', noun: 'Balance', art: 'mass', up: { block: 10 },
@@ -226,7 +226,7 @@ export const MUTATIONS = {
 export const POWERS = {
   first_law: { name: 'First Law', num: 13, text: ['Field objects and', 'repeating Moves last', '+1 turn.'], upText: ['Field objects and', 'repeating Moves last', '+2 turns.'], flavor: 'Lex I. Nothing stops unless something stops it.' },
   third_law: { name: 'Third Law', num: 14, text: ['When a foe hits you,', 'it takes 3 damage.'], upText: ['When a foe hits you,', 'it takes 5 damage.'], flavor: 'Lex III. Equal, opposite, petty.' },
-  gravitation: { name: 'Universal Gravitation', short: 'Gravitation', num: 15, text: ['Gravity +2 v. Each turn', 'an apple falls on a', 'random foe (m1 v6).'], upText: ['Gravity +3 v. Each turn', 'an apple falls on a', 'random foe (m2 v6).'], flavor: 'Every apple attracts every other apple.' },
+  gravitation: { name: 'Universal Gravitation', short: 'Gravitation', num: 15, text: ['Gravity +2 v. Each turn', 'an apple falls on the', 'front foe (m1 v6).'], upText: ['Gravity +3 v. Each turn', 'an apple falls on the', 'front foe (m2 v6).'], flavor: 'Every apple attracts every other apple.' },
   calculus: { name: 'Calculus', num: 16, text: ['Your first Move each', 'turn gets +2 m', 'and +2 v.'], upText: ['Your first Move each', 'turn gets +3 m', 'and +3 v.'], flavor: 'Invented first. Allegedly.' },
   thermo: { name: 'Thermodynamics', num: 17, text: ['Burn no longer fades.', 'Heat applies +1 Burn.'], upText: ['Burn no longer fades.', 'Heat applies +2 Burn.'], flavor: 'Entropy always wins. Today, it is on your side.' },
   orbit: { name: 'Orbit', num: 18, text: ['A moon orbits you:', 'Block 4 each turn.', 'Gravity: it strikes (8).'], upText: ['A moon orbits you:', 'Block 6 each turn.', 'Gravity: it strikes (12).'], flavor: 'Falling forever and always missing. Relatable.' },

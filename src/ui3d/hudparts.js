@@ -189,9 +189,11 @@ export class EnemyBoard {
     const pole = mesh(turned([[0.05, -1.25], [0.05, 0.85], [0.1, 0.9], [0.11, 0.97], [0.06, 1.04], [0.001, 1.06]], 28), plainMat('walnut'), this.flag.pivot, { ink: 0.025 }); pole.position.y = -0.05; void pole;
     this.flag.group.visible = false; this.hpKey = ''; this.key = ''; this.vis = true; this.bob = Math.random() * 6; this.show = new Spring(0, 12, 0.5); this.show.target = 1;
   }
+  /** the forecast: how much HP this foe will have after the coming turn (null = none); shown as cracked, paled wax */
+  setForecast(hpAfter) { const h = hpAfter == null ? null : Math.max(0, hpAfter); if (h === this.fcHp) return; this.fcHp = h; if (this.hp != null) { this.hpKey = ''; this.setHP(this.hp, this.max, this.block, this.st); } }
   setHP(hp, max, block, st) {
-    const keys = Object.keys(st || {}).filter((k) => st[k] && typeof st[k] !== 'object'); const key = `${hp}/${max}/${block}/${keys.map((k) => k + st[k]).join(',')}`; if (key === this.hpKey) return;
-    const hurt = this.hp != null && hp < this.hp; this.hpKey = key; this.hp = hp; if (hurt) { this.board.kick(0.7); }
+    const keys = Object.keys(st || {}).filter((k) => st[k] && typeof st[k] !== 'object'); const fh = this.fcHp != null && this.fcHp < hp ? this.fcHp : null; const key = `${hp}/${max}/${block}/${keys.map((k) => k + st[k]).join(',')}/${fh}`; if (key === this.hpKey) return;
+    const hurt = this.hp != null && hp < this.hp; this.hpKey = key; this.hp = hp; this.max = max; this.block = block; this.st = st; if (hurt) { this.board.kick(0.7); }
     const H = keys.length ? 36 : 26; if (this.tex.h !== H) { this.tex.dispose(); this.tex = new SurfTex(80, H); this.mesh.material[0].map = this.tex.tex; this.mesh.material[0].needsUpdate = true; this.mesh.geometry = slab(5, H / PX, 0.22, { cut: 0.14, bevel: 0.07 }); this.mesh.position.y = -(H - 26) / PX / 2; }
     this.tex.paint((S) => {
       wood(S, 0, 0, 80, H, RAMP.walnut, { seed: this.name.length, base: 2, knots: 1, quiet: true }); S.bevel(null, { lit: 2, dark: -2 });
@@ -201,7 +203,8 @@ export class EnemyBoard {
       for (let y = Y0; y <= Y1; y++) for (let x = X0; x <= X1; x++) { const edge = y === Y0 || y === Y1 || x === X0 || x === X1; if (edge) { S.setT(x, y, y === Y1 || x === X1 ? 4 : 0); continue; } if (x < xf) S.set(x, y, RAMP.wax, y === Y0 + 1 ? 4 : y === Y1 - 1 ? 1 : (x + y) % 9 === 0 ? 4 : 3); else S.setT(x, y, y === Y0 + 1 ? 0 : 1); }
       for (let i = 1; i < 10; i++) { const x = X0 + round((X1 - X0) * i / 10); S.setT(x, Y0, 0); S.setT(x, Y1, 1); if (x >= xf) S.setT(x, Y0 + 1, 0); }
       if (xf > X0 + 1 && xf < X1) for (let y = Y0 + 1; y < Y1; y++) S.set(xf, y, RAMP.wax, y < Y1 - 2 ? 2 : 1);
-      const txt = `${Math.max(0, hp)}/${max}`; const nf = measure(txt, 'num') > 35 ? 'tiny' : 'num'; inscribe(S, txt, 43 + Math.max(0, round((35 - measure(txt, nf)) / 2)), nf === 'num' ? 22 : 20, nf, 'paint', { ramp: RAMP.ivory });
+      if (fh != null) { const xa = X0 + round((X1 - X0) * Math.max(0, fh / max)); for (let y = Y0 + 1; y < Y1; y++) for (let x = Math.max(X0 + 1, xa); x < xf; x++) S.set(x, y, RAMP.parch, (x - y) % 3 === 0 ? 3 : 6); } // the predicted loss: paled, hatched wax
+      const txt = fh != null ? `${Math.max(0, hp)}→${fh}` : `${Math.max(0, hp)}/${max}`; const nf = measure(txt, 'num') > 35 ? 'tiny' : 'num'; inscribe(S, txt, 43 + Math.max(0, round((35 - measure(txt, nf)) / 2)), nf === 'num' ? 22 : 20, nf, 'paint', { ramp: RAMP.ivory });
       if (block > 0) { const bx = 64, by = 1; for (let y = 0; y < 10; y++) for (let x = 0; x < 14; x++) { const u = Math.abs(x - 6.5) / 7, v = y / 10; if (u > 1 - Math.max(0, v - 0.55) * 1.6) continue; S.set(bx + x, by + y, RAMP.iron, y === 0 || u > 0.82 ? 4 : 2); } inscribe(S, String(block), bx + 7 - round(measure(String(block), 'tiny') / 2), by + 8, 'tiny', 'paint', { color: '#f2ecd8' }); }
       let x = 4; for (const k of keys) { const t = `${k.slice(0, 4).toUpperCase()} ${st[k] === true ? '' : st[k]}`.trim(); const w = measure(t, 'tiny') + 6; if (x + w > 78) break;
         for (let y = 25; y < 34; y++) for (let xx = x; xx < x + w; xx++) S.set(xx, y, RAMP.parch, y === 25 ? 6 : y === 33 ? 3 : xx === x || xx === x + w - 1 ? 4 : 5); inscribe(S, t, x + 3, 32, 'tiny', 'ink', { color: ST_INK[k] || '#2a1a14' }); x += w + 2; }

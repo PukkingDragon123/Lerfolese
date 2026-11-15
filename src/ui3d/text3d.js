@@ -55,7 +55,9 @@ function faceTexture(cells, W, H, S, seed) {
     const up = !cells[y - 1]?.[x], left = !cells[y][x - 1], down = !cells[y + 1]?.[x], right = !cells[y][x + 1];
     if (up || left) l = Math.min(5, l + 1); if (down || right) l = Math.max(0, l - 2); if (!(up || left || down || right) && h2(x + seed, y) < S.pit) l = Math.max(0, l - 1);
     g.fillStyle = R[l]; g.fillRect(x, y, 1, 1); }
-  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapNearestFilter; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+  // magnified: exact font-pixel cells (one texel each, aligned with the extruded geometry); minified: trilinear, so small
+  // lettering never shimmers or breaks up into a low-res sparkle
+  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
 }
 
 /**
