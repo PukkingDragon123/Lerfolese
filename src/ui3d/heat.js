@@ -84,7 +84,7 @@ export class ThermoGauge extends Body {
     this.valveTip = new THREE.Vector3(0.32, TUBE.y1 + 0.42, 0);
     // 6. the readout: an engraved brass plate on the foot of the board
     this.plate = new SurfTex(28, 14); const pm = new THREE.MeshStandardMaterial({ map: this.plate.tex, roughness: 0.4, metalness: 0.35, toneMapped: false });
-    this.plateM = M(new THREE.BoxGeometry(28 / 22, 14 / 22, 0.07), [this.brassM, this.brassM, this.brassM, this.brassM, pm, this.brassM], p, 0.015); this.plateM.position.set(0, BB + 0.42, -0.06);
+    this.plateM = M(new THREE.BoxGeometry(28 / 22, 14 / 22, 0.07), [this.brassM, this.brassM, this.brassM, this.brassM, pm, this.brassM], p, 0.015); this.plateM.position.set(0, BB - 0.3, 0.02);
     // hit volume (covers the whole instrument)
     this.hit = new THREE.Mesh(new THREE.BoxGeometry(1.7, BT - BB + 0.8, 1.0), new THREE.MeshBasicMaterial({ visible: false })); this.hit.position.set(0, (BT + BB) / 2 + 0.2, 0); p.add(this.hit);
     this.shown = 0; this.target = 0; this.shake = new Spring(0, 30, 0.18); this.turn = new Spring(0, 9, 0.5); this.flash = 0; this.canVent = false; this.on = true; this.paint(0);
@@ -204,7 +204,7 @@ export class HeatLayer {
       if (!o.isMesh || !o.material || Array.isArray(o.material) || !('emissive' in o.material) || o.userData.noHeat) return;
       if (o.userData.heatMat?.m !== o.material) { const base = o.material; o.material = base.clone(); o.userData.heatMat = { m: o.material, e: base.emissive.clone(), i: base.emissiveIntensity ?? 1 }; } // own copy (apple materials are shared)
       const H = o.userData.heatMat; const flick = tier.id === 'scorch' ? 0.15 * Math.sin(t * 13 + o.id) : 0;
-      o.material.emissive.copy(H.e).lerp(_c, Math.min(1, k * 1.15 + flare * 0.5)); o.material.emissiveIntensity = H.i * (1 - k) + (0.15 + k * 1.6 + flick + flare * 2.5) * (k > 0 || flare > 0 ? 1 : 0);
+      o.material.emissive.copy(H.e).lerp(_c, Math.min(1, k * 1.15 + flare * 0.5)); o.material.emissiveIntensity = H.i * (1 - k) + (0.08 + k * 0.62 + flick + flare * 1.6) * (k > 0 || flare > 0 ? 1 : 0); // glows from within, keeps its shading
     });
   }
   appleSpots() {

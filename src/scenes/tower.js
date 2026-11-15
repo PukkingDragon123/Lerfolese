@@ -54,7 +54,7 @@ export class MenuScene extends UIScreen {
     const T = (this.tower = clockTower({ upgrades: this.upgrades, base: BASE, prowA: PROW_A, viewA })); sc.add(T.group);
     const VZ = (this.vista = buildVista({ groundY: -BASE - 2.6, hole: HOLE })); sc.add(VZ.group); sc.fog = VZ.fog;
     const gateA = viewA - 0.5; const gate = V(Math.sin(gateA) * 7.5, 0, Math.cos(gateA) * 7.5);
-    const TW = (this.town = buildTown({ hAt: VZ.hAt, riverX: VZ.riverX, gate, keepTree: this.keepTree() })); sc.add(TW.group);
+    const TW = (this.town = buildTown({ hAt: VZ.hAt, riverX: VZ.riverX, gate, keepTree: this.keepTree(), square: this.groundAt(-0.22, -0.62, VZ.hAt) })); sc.add(TW.group);
     this.camera = new THREE.PerspectiveCamera(HERO.fov, this.engine.aspect, 0.1, 4000); this.camera.position.copy(HERO.pos); this.look = HERO.look.clone(); this.camera.lookAt(this.look);
     this.lights(sc);
     // Sir Isaac on the prow in his heroic stance, turned out over the land toward the low sun
@@ -62,7 +62,7 @@ export class MenuScene extends UIScreen {
     this.profHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.0, 0.9), new THREE.MeshBasicMaterial({ visible: false })); this.profHit.position.copy(T.prow).add(V(0, 1, 0)); sc.add(this.profHit);
     this.motes = new Motes(1100, { px: 2 }); sc.add(this.motes.points); this.rnd = mulberry32(31); this.acc = 0;
     this.hasRun = !!save.loadRun();
-    this.astral = new Astral({ starts: STARTS }); this.astral.frame(ASTRAL.dir, ASTRAL.fov, this.engine.aspect); sc.add(this.astral.group);
+    this.astral = new Astral({ starts: STARTS }); this.astral.engine = this.engine; this.astral.frame(ASTRAL.dir, ASTRAL.fov, this.engine.aspect); sc.add(this.astral.group);
     await this.buildMenu(sc); this.buildSmall(sc);
     this.envMap(sc);
     this.engine.setWorld(sc, this.camera);
@@ -73,6 +73,9 @@ export class MenuScene extends UIScreen {
     if (this.intro) { this.mode = 'intro'; this.camera.position.copy(this.introPath()[0][0]); this.look.copy(this.introPath()[0][1]); }
     if (this.back) { this.camera.position.copy(T.door).add(V(0, 0.3, 0)); this.look.copy(T.doorOut); }
   }
+  groundAt(nx, ny, hAt) { // where the hero view's ray through (nx, ny) meets the land (the town square goes there, in sight)
+    const c = new THREE.PerspectiveCamera(HERO.fov, this.engine.aspect, 0.1, 1000); c.position.copy(HERO.pos); c.lookAt(HERO.look); c.updateMatrixWorld(); const d = V(nx, ny, 0.5).unproject(c).sub(c.position).normalize();
+    const p = HERO.pos.clone(); for (let i = 0; i < 400; i++) { p.addScaledVector(d, 0.5); if (p.y < hAt(p.x, p.z)) break; } const k = Math.min(1, 62 / Math.max(1, Math.hypot(p.x, p.z))); return V(p.x * k, 0, p.z * k); }
   keepTree() { // thin the grove where it would stand in front of the town in the hero frame (left and lower middle, near)
     const c = new THREE.PerspectiveCamera(HERO.fov, this.engine.aspect, 0.1, 1000); c.position.copy(HERO.pos); c.lookAt(HERO.look); c.updateMatrixWorld(); const r = mulberry32(5);
     return (x, y, z) => { const p = V(x, y + 4, z); const d = p.distanceTo(HERO.pos); p.project(c); const inFrame = Math.abs(p.x) < 1.05 && p.y > -1.1 && p.y < 0.2; return !(inFrame && p.x < 0.32 && d < 85 && r() < 0.88); }; }
@@ -183,7 +186,8 @@ export class MenuScene extends UIScreen {
     const nd = this.input.ndc;
     // the sky: night falls and the astral cosmos reveals as we look up (and lifts again on the way back)
     if (this.skyDir) { this.skyT = Math.max(0, Math.min(1, this.skyT + this.skyDir * dt / 2.1)); if (this.skyT <= 0 && this.skyDir < 0) { this.skyDir = 0; this.mode = 'hero'; for (const w of this.words) w.vis.target = 1; for (const c of this.clouds) c.vis.target = 1; } }
-    const sk = ease5(this.skyT); this.vista.sky.material.uniforms.uNight.value = sk; this.astral.fade = ease(Math.max(0, (this.skyT - 0.2) / 0.8));
+    const sk = ease5(this.skyT);
+    { const px = this.skyT > 0.6 ? 0.6 : 0; if (px !== this._pix) { this._pix = px; this.engine.setPixel?.(px); } } /* the astral sky alone gets the engine's slight pixel look; the tower menu stays full resolution */ this.vista.sky.material.uniforms.uNight.value = sk; this.astral.fade = ease(Math.max(0, (this.skyT - 0.2) / 0.8));
     // camera: establishing rise -> hero shot (breathing, parallax) | back out of the hatch | into the hall | up into the stars | zoom into a constellation
     if (this.mode === 'intro') { this.intro.t += dt; const u = ease5(this.intro.t / this.intro.dur); const P = this.introPath();
       const curve = this._ic || (this._ic = new THREE.CatmullRomCurve3(P.map((q) => q[0]), false, 'centripetal')); const lcurve = this._il || (this._il = new THREE.CatmullRomCurve3(P.map((q) => q[1]), false, 'centripetal'));

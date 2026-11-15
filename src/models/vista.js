@@ -150,7 +150,7 @@ export function buildVista({ groundY = -64, seed = 5, hole = 0 } = {}) { // hole
   const birds = []; { const bm = new THREE.MeshStandardMaterial({ color: 0x1a1418, roughness: 0.9, side: THREE.DoubleSide, flatShading: true });
     for (let k = 0; k < 14; k++) { const b = new THREE.Group(); const body = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.42, 4), bm); body.rotation.x = Math.PI / 2; b.add(body);
       const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, -0.08, 0, 0, 0.1, 0.55, 0.0, -0.06, 0.55, 0, -0.06, 0, 0, 0.1, 0.9, -0.02, 0.05], 3)); wg.computeVertexNormals();
-      const L = new THREE.Mesh(wg, bm), R = new THREE.Mesh(wg, bm); R.scale.x = -1; b.add(L, R); b.userData = { L, R, ph: r() * 10, rad: 18 + r() * 26, h: -6 + r() * 14, sp: (0.12 + r() * 0.08) * (k % 4 === 0 ? -1 : 1), off: r() * 6.3, bob: r() * 3 }; G.add(b); birds.push(b); } }
+      const L = new THREE.Mesh(wg, bm), R = new THREE.Mesh(wg, bm); R.scale.x = -1; b.add(L, R); b.userData = { L, R, ph: r() * 10, rad: 42 + r() * 36, h: 4 + r() * 16, sp: (0.12 + r() * 0.08) * (k % 4 === 0 ? -1 : 1), off: r() * 6.3, bob: r() * 3 }; G.add(b); birds.push(b); } }
   const sk = sky(SUN_DIR); G.add(sk);
   const fog = new THREE.FogExp2(C('#8a5a5c'), 0.00085);
   const sunPos = SUN_DIR.clone().multiplyScalar(1800);

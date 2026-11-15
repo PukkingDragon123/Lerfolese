@@ -28,11 +28,11 @@ function segD(x, z, pts) { let best = 1e9; for (let i = 0; i < pts.length - 1; i
 /** a smooth winding lane through control points (Catmull-Rom, sampled) */
 const lane = (ctrl, n = 60) => new THREE.CatmullRomCurve3(ctrl.map(([x, z]) => V(x, 0, z)), false, 'centripetal').getPoints(n);
 
-export function buildTown({ hAt, gate = V(0, 0, 8), riverX = () => -40, seed = 21, avoid = [], keepTree = null } = {}) { // keepTree(x, y, z): the menu thins the grove where it would hide the town from its camera
+export function buildTown({ hAt, gate = V(0, 0, 8), riverX = () => -40, seed = 21, avoid = [], keepTree = null, square = null } = {}) { // keepTree(x, y, z): the menu thins the grove where it would hide the town from its camera
   const G = new THREE.Group(); G.name = 'town'; const r = mulberry32(seed); const anim = [];
   // ---------------------------------------------------------------- lanes: the high street from the gate down to the bridge, the square, side lanes
-  const sq = V(-14, 0, -30); // the market square
-  const bz = -46; const bx = riverX(bz); // the bridge over the river
+  const sq = square ? V(square.x, 0, square.z) : V(-14, 0, -30); // the market square (the menu puts it where its camera looks down)
+  const bz = sq.z - 16; const bx = riverX(bz); // the bridge over the river
   const high = lane([[gate.x, gate.z], [gate.x - 4, gate.z - 6], [-6, -14], [sq.x + 3, sq.z + 6], [sq.x, sq.z], [sq.x - 6, sq.z - 8], [bx + 9, bz + 1], [bx - 9, bz - 1], [bx - 22, bz - 8], [bx - 40, bz - 30]], 90);
   const side1 = lane([[sq.x, sq.z], [sq.x + 12, sq.z - 6], [10, -46], [24, -60], [34, -78]], 50);
   const side2 = lane([[sq.x - 2, sq.z + 2], [sq.x - 14, sq.z + 9], [-38, -14], [-52, -4]], 40);

@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles/main.css">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>body{background:#1c1712;margin:0;overflow:hidden} #boot{display:none}</style></head><body>
+<script type="module">
+// APPLE HEAT preview (rules agent): the thermometer at 0 / 4 / 7 / 10 Heat, and an apple glowing at each tier.
+import * as THREE from 'three';
+import { ThermoGauge, heatColor } from '../src/ui3d/heat.js';
+import * as P3 from '../src/models/props3d.js';
+await Promise.all(['11px "PixelSans"', '13px "NanoPlus"', '16px "Alagard"'].map((f) => document.fonts.load(f).catch(() => {})));
+const R = new THREE.WebGLRenderer({ antialias: true }); R.setSize(innerWidth, innerHeight); R.setPixelRatio(1); document.body.appendChild(R.domElement); R.shadowMap.enabled = true;
+const sc = new THREE.Scene(); sc.background = new THREE.Color(0x1c1712);
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 100); cam.position.set(0, 0.6, 26); cam.lookAt(0, 0.6, 0);
+const key = new THREE.DirectionalLight(0xfff0dc, 2.2); key.position.set(-8, 12, 30); sc.add(key); sc.add(new THREE.AmbientLight(0xfff6ea, 1.1));
+const heats = [0, 4, 7, 10]; const G = [];
+heats.forEach((h, i) => {
+  const g = new ThermoGauge(); g.group.position.set(-7.5 + i * 5, 1.4, 0); g.set(h); g.shown = h; sc.add(g.group); G.push(g);
+  const a = P3.apple(); a.position.set(-5.6 + i * 5, -2.6, 1); a.scale.setScalar(1.5); sc.add(a); heatColor(h, new THREE.Color());
+  const k = Math.max(0, h - 1) / 9; a.traverse((o) => { if (o.isMesh && o.material && 'emissive' in o.material) { o.material = o.material.clone(); o.material.emissive.lerp(heatColor(h), Math.min(1, k * 1.15)); o.material.emissiveIntensity = k > 0 ? 0.08 + k * 0.62 : o.material.emissiveIntensity; } });
+});
+let t = 0; const loop = () => { t += 1 / 60; for (const g of G) g.update(1 / 60, null, t); R.render(sc, cam); requestAnimationFrame(loop); }; loop();
+setTimeout(() => (window.__done = true), 1500);
+</script></body></html>

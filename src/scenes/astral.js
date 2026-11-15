@@ -50,10 +50,10 @@ vec3 ramp(float l, vec3 a, vec3 b, vec3 c, vec3 d, vec3 e, vec3 f){ return l < 1
 // a stepped level with a 2-tone ordered dither only on the boundary band (classic hand pixelling)
 float lev(float v, vec2 P, float n){ float x = v * n; float f = fract(x); return floor(x) + step(0.82, f) * step(bayer(P) * 0.18 + 0.82, f) ; }
 void main(){
-  vec3 d = normalize(vW - cameraPosition); float fd = dot(d, uA); if (fd < 0.08) { gl_FragColor = vec4(0.0); return; }
+  vec3 d = normalize(vW - cameraPosition); float fd = dot(d, uA); if (fd < 0.08) discard;
   vec2 p = vec2(dot(d, uE1), dot(d, uE2)) / fd; vec2 P = floor(p / uArt); vec2 q = (P + 0.5) * uArt; // one art pixel
   float el = d.y; float reveal = clamp((uFade * 1.35 - (1.0 - smoothstep(0.05, 0.95, el)) * 0.55 - h21(P * 0.37 + 2.0) * 0.35) / 0.25, 0.0, 1.0);
-  if (reveal <= 0.0) { gl_FragColor = vec4(0.0); return; } reveal = step(0.5, reveal);
+  if (reveal <= 0.0) discard; reveal = step(0.5, reveal);
   vec2 g = q * 7.0; // the art's own scale
   // deep space: three tones, dithered
   float sp = fbm(g * 0.35 + 3.0) * 0.6 + (0.5 - q.y) * 0.25; vec3 col = mix(vec3(0.012, 0.01, 0.03), vec3(0.026, 0.02, 0.055), step(0.44, sp)); col = mix(col, vec3(0.04, 0.028, 0.075), step(0.6, sp));
@@ -84,7 +84,8 @@ void main(){
   // a shooting star (uShoot: start xy in tan space, angle, progress)
   if (uShoot.w > 0.0 && uShoot.w < 1.0) { vec2 dir = vec2(cos(uShoot.z), sin(uShoot.z)); vec2 head = uShoot.xy + dir * uShoot.w * 0.5; vec2 o = q - head; float al = -dot(o, dir) / uArt; float pe = abs(dot(o, vec2(-dir.y, dir.x))) / uArt; float len = 22.0 * sin(uShoot.w * 3.14159);
     if (al >= 0.0 && al < len && pe < 0.75) { float k = 1.0 - al / len; col = mix(col, mix(vec3(0.55, 0.4, 0.7), vec3(1.6, 1.5, 1.3), step(0.6, k)), step(0.15, k)); } }
-  gl_FragColor = vec4(col, reveal * clamp(uFade * 3.0, 0.0, 1.0) * smoothstep(0.0, 0.18, el));
+  float a = reveal * clamp(uFade * 3.0, 0.0, 1.0) * smoothstep(0.0, 0.18, el); if (h21(P * 0.71 + 9.0) >= a) discard; // a pixel dissolve, never a soft blend
+  gl_FragColor = vec4(col, 1.0);
   #include <colorspace_fragment>
 }`;
 
@@ -117,8 +118,8 @@ export class Astral {
   constructor({ starts = {} } = {}) {
     this.group = new THREE.Group(); this.group.name = 'astral'; this.fade = 0; this.hover = -1; this.pickIdx = -1; this.pickT = 0;
     const U = (this.U = { uA: { value: V(0, 1, 0) }, uE1: { value: V(1, 0, 0) }, uE2: { value: V(0, 0, -1) }, uArt: { value: 0.004 }, uFade: { value: 0 }, uTime: { value: 0 }, uHov: { value: new THREE.Vector4(0, 0, 0.1, 0) }, uHovCol: { value: new THREE.Color() }, uShoot: { value: new THREE.Vector4(0, 0, 0, -1) } });
-    const dm = new THREE.ShaderMaterial({ uniforms: U, vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }', fragmentShader: DOME_FS, transparent: true, depthWrite: false, depthTest: true, side: THREE.BackSide, fog: false, toneMapped: false });
-    this.dome = new THREE.Mesh(new THREE.SphereGeometry(R_DOME, 48, 24), dm); this.dome.frustumCulled = false; this.dome.renderOrder = -5; this.dome.userData.noInk = true; this.dome.userData.noAO = true; this.group.add(this.dome);
+    const dm = new THREE.ShaderMaterial({ uniforms: U, vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }', fragmentShader: DOME_FS, transparent: false, depthWrite: false, depthTest: false, side: THREE.BackSide, fog: false, toneMapped: false });
+    this.dome = new THREE.Mesh(new THREE.SphereGeometry(R_DOME, 48, 24), dm); this.dome.frustumCulled = false; this.dome.renderOrder = -9; /* opaque, drawn right after the sunset sky and before the world, so the tower and land always stand in front */ this.dome.userData.noInk = true; this.dome.userData.noAO = true; this.group.add(this.dome);
     this.ids = Object.keys(FIGURES).filter((k) => !Object.keys(starts).length || starts[k]); this.starts = starts; this.cons = [];
     this.PU = { uPx: { value: 3 }, uHover: { value: -1 }, uHovT: { value: 0 }, uFade: { value: 0 }, uTime: { value: 0 }, uPick: { value: -1 }, uPickT: { value: 0 } };
     this.pts = null; this.labels = new THREE.Group(); this.group.add(this.labels); this.hovT = new Spring(0, 5, 0.9);
@@ -151,7 +152,10 @@ export class Astral {
   centerDir(i) { const c = this.cons[i]; return this.A.clone().addScaledVector(this.e1, c.u).addScaledVector(this.e2, c.v).normalize(); }
   update(dt, t, cam, renderer) {
     this.group.position.copy(cam.position); const U = this.U; U.uTime.value = t; U.uFade.value = this.fade; this.PU.uTime.value = t;
-    const bs = renderer.getDrawingBufferSize(this._bs || (this._bs = new THREE.Vector2())); const px = Math.max(1, Math.round(bs.y / 360)); // gently pixel-art: about 360 art rows (2 device px at 720p, 3 at 1080p) this.PU.uPx.value = px; U.uArt.value = (2 * Math.tan((cam.fov * Math.PI) / 360)) / (bs.y / px);
+    const bs = renderer.getDrawingBufferSize(this._bs || (this._bs = new THREE.Vector2())); const E = this.engine;
+    // gently pixel-art: about 360 art rows of its own (2 device px at 720p); with the engine's slight pixel look on, the art grid IS the engine's art buffer
+    const buf = E?.pixelOn && E.artSize ? E.artSize.y : bs.y; const px = Math.max(1, Math.round(buf / 360)); const rows = buf / px; // points and dome share one grid of whole buffer pixels
+    this.PU.uPx.value = px; U.uArt.value = (2 * Math.tan((cam.fov * Math.PI) / 360)) / rows;
     this.PU.uFade.value = Math.max(0, Math.min(1, (this.fade - 0.55) / 0.35));
     if (this.hover !== this._hv) { this._hv = this.hover; this.hovT.value = 0; this.hovT.target = this.hover >= 0 ? 1 : 0; } this.hovT.update(dt);
     this.PU.uHover.value = this.hover; this.PU.uHovT.value = Math.max(0, this.hovT.value); this.PU.uPick.value = this.pickIdx; if (this.pickIdx >= 0) this.pickT += dt; this.PU.uPickT.value = this.pickT;
