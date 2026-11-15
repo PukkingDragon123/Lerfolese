@@ -14,6 +14,7 @@ import { lmat, glowMat, extrude, shape, cbox, prop, jitter } from './lowprops.js
 import { leafTex } from '../gfx/pixeltex.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { mulberry32 } from '../core/util.js';
+import { mergeStatic } from '../gfx/merge.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const TAU = Math.PI * 2; const N = 8; const CO = Math.cos(Math.PI / N);
@@ -262,7 +263,10 @@ export function clockTower({ seed = 11, upgrades = new Set(), base = 26, prowA =
     for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; K.add('stone', panel, at(a, ap - 0.14, CH - 1.0), tq(a)); } }
   K.add('marble', oct([[PCR + 0.2, CH + 0.25], [PCR + 0.42, CH + 0.35], [PCR + 0.42, CH + 0.55], [PCR + 0.25, CH + 0.62], [0.001, CH + 0.62]], 16), V());
   const DY = CH + 0.6; const dprof = [[1.95, 0], [1.9, 0.45], [1.7, 1.1], [1.32, 1.68], [0.84, 2.1], [0.38, 2.34], [0.001, 2.4]];
-  { const dome = new THREE.Mesh(lat(dprof, 16), lmat('verd', { color: 0x9fb2a6 })); dome.position.y = DY; dome.castShadow = dome.receiveShadow = true; G.add(dome);
+  { const dome = new THREE.Mesh(lat(dprof, 32), glassDomeMat(upgrades)); dome.position.y = DY; dome.castShadow = dome.receiveShadow = true; dome.userData.keep = true; G.add(dome); // MENU AGENT: a leaded-glass observatory dome (see glassDomeMat)
+    dome.onBeforeRender = () => { dome.getWorldPosition(dome.material.userData.U.uCenter.value); }; dome.material.userData.U.uSpin = { value: 0 }; G.userData.domeMat = dome.material;
+    { const gm = lmat(upgrades.has('tower:orrery_gold') ? 'gold' : 'brass'); const band = new THREE.Mesh(new THREE.TorusGeometry(1.97, 0.06, 4, 32), gm); band.rotation.x = Math.PI / 2; band.position.y = DY + 0.04; band.castShadow = true; G.add(band); const col = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.05, 4, 16), gm); col.rotation.x = Math.PI / 2; col.position.y = DY + 2.32; G.add(col);
+      for (let i = 0; i < 12; i++) { const a = (i / 12) * TAU; const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.07, 0), gm); c.position.set(Math.sin(a) * 1.97, DY + 0.12, Math.cos(a) * 1.97); c.scale.y = 1.6; G.add(c); } } // a gilt ring at the foot, a collar at the crown, crockets
     const rib = (s0) => { const pts = []; for (let k = 0; k <= 12; k++) { const u = k / 12; const f = u * (dprof.length - 1); const i = Math.min(dprof.length - 2, Math.floor(f)), q = f - i; const R = dprof[i][0] + (dprof[i + 1][0] - dprof[i][0]) * q + 0.04, y = dprof[i][1] + (dprof[i + 1][1] - dprof[i][1]) * q + 0.02; const a = s0 + u * 1.5; pts.push(V(Math.sin(a) * R, y + DY, Math.cos(a) * R)); } return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 18, 0.05, 4).toNonIndexed(); };
     const rm = new THREE.Mesh(mergeGeometries(Array.from({ length: 12 }, (_, i) => rib((i / 12) * TAU))), lmat(upgrades.has('tower:orrery_gold') ? 'gold' : 'brass')); rm.castShadow = true; G.add(rm); }
   const LY = DY + 2.3; K.add('marble', oct([[0.6, LY], [0.6, LY + 0.1], [0.5, LY + 0.14], [0.001, LY + 0.14]], 6), V());
@@ -314,14 +318,60 @@ export function clockTower({ seed = 11, upgrades = new Set(), base = 26, prowA =
   { const gl = new THREE.Mesh(mergeGeometries(lit), glowMat(upgrades.has('tower:lanterns') ? '#ffc86a' : '#ff9a3a', upgrades.has('tower:lanterns') ? 1.6 : 1.15)); gl.userData.noAO = true; G.add(gl); const dk = new THREE.Mesh(mergeGeometries(dark), lmat('glass', { color: 0x262c3c })); G.add(dk); }
   K.build(G, { uvScale: { stone: 0.9, rubble: 0.8, marble: 0.6, tile: 1.4 } });
   G.traverse((o) => { if (o.isMesh && o.castShadow !== false) o.receiveShadow = true; });
+  // MENU AGENT: batch every still part into one mesh per material (the menu's biggest cost); moving parts are kept
+  for (const s of spinners) s.o.userData.keep = true; for (const g of gears) g.w.userData.keep = true; for (const c of crystals) c.userData.keep = true; G.userData.vane.userData.keep = true; if (clock.hh) clock.hh.userData.keep = true; if (clock.mm) clock.mm.userData.keep = true; if (G.userData.doorGlow) G.userData.doorGlow.userData.keep = true; for (const b of banners) b.userData.keep = true;
+  G.userData.merged = mergeStatic(G);
   const api = {
     group: G, prow: prowP.clone(), prowA, door: at(prowA + Math.PI, 0.8, 1.1), doorOut: at(prowA, 3.5, 1.6), height: BASE, terraceR: TA, spireTop: SY + SH, crystals, banners, rad, rampY, rampA, ramp: { RY0, RY1, TURNS },
-    update(dt, t) { windU.uTime.value = t; for (const g of gears) g.w.rotation.z += g.speed * dt * 0.35; for (const s of spinners) s.o.rotation[s.ax] += s.s * dt;
+    update(dt, t) { windU.uTime.value = t; for (const g of gears) g.w.rotation.z += g.speed * dt * 0.35; for (const s of spinners) s.o.rotation[s.ax] += s.s * dt; if (G.userData.domeMat) G.userData.domeMat.userData.U.uTime.value = t;
       for (const [i, L] of lamps.entries()) L.l.intensity = L.k * (0.92 + Math.sin(t * 7.3 + i * 2) * 0.06 + Math.sin(t * 13.1 + i) * 0.04);
       const d = new Date(); const h = (d.getHours() % 12) + d.getMinutes() / 60, m = d.getMinutes() + d.getSeconds() / 60; clock.hh.rotation.z = -(h / 12) * TAU; clock.mm.rotation.z = -(m / 60) * TAU;
       G.userData.vane.rotation.y = Math.sin(t * 0.3) * 0.6 + t * 0.05; for (const [i, c] of crystals.entries()) c.rotation.y = Math.sin(t * 0.2 + i) * 0.2; crysMat.emissiveIntensity = (upgrades.has('tower:crystals_lit') ? 1.3 : 0.5) + Math.sin(t * 1.3) * 0.12; },
   };
   return api;
+}
+/** MENU AGENT: the observatory's LEADED-GLASS DOME. An opaque material (so the ink outlines and GTAO still treat it
+ *  as a solid surface) that looks like glass: panes laid along the spiral of the gilt ribs, cut into diamonds by thin
+ *  lead cames, each pane its own tint (sea-green, pale aqua, amber, a few ruby and cobalt); low roughness and a
+ *  fresnel lift give the sky's reflections and sunset glints; and THROUGH each pane you see the lamplit interior: a ray
+ *  from the eye is traced into the dome to the warm lamp-lit floor, the brass rings of the orrery turning over it, and
+ *  the glowing sun at its heart (a parallax interior, no transparency). */
+function glassDomeMat(upgrades) {
+  const U = { uCenter: { value: new THREE.Vector3() }, uTime: { value: 0 }, uWarm: { value: upgrades.has('tower:lanterns') ? 1.35 : 1.0 } };
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.12, metalness: 0.15, envMapIntensity: 1.7, flatShading: false });
+  m.userData.U = U;
+  m.onBeforeCompile = (sh) => { Object.assign(sh.uniforms, U);
+    sh.vertexShader = 'varying vec3 vWP; varying vec3 vOP;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vOP = transformed;');
+    sh.fragmentShader = `uniform vec3 uCenter; uniform float uTime; uniform float uWarm; varying vec3 vWP; varying vec3 vOP;
+float hh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+// the interior seen through the glass: trace the eye ray inward (object space, dome base at y = 0, radius ~1.9)
+vec3 interior(vec3 o, vec3 d){
+  vec3 col = vec3(0.0); float tf = (0.02 - o.y) / min(d.y, -1e-3); vec3 f = o + d * tf; float rf = length(f.xz);
+  float lampLit = exp(-rf * rf * 0.55) * 1.1 + 0.18; col = vec3(1.0, 0.55, 0.22) * lampLit * 0.55 * uWarm * step(rf, 1.9); // the lamplit floor
+  float flag = step(0.5, fract(f.x * 1.6)) + step(0.5, fract(f.z * 1.6)); col *= 0.8 + 0.2 * mod(flag, 2.0);
+  // the orrery: three tilted brass rings and its sun, turning
+  for (int i = 0; i < 3; i++) { float fi = float(i); float R = 0.55 + fi * 0.38; float h = 0.9 + fi * 0.12; float a = uTime * (0.3 - fi * 0.12) + fi * 2.1;
+    float tr = (h - o.y) / (abs(d.y) < 1e-3 ? 1e-3 : d.y); if (tr > 0.0 && tr < tf) { vec3 q = o + d * tr; float r = length(q.xz); float w = 0.035; if (abs(r - R) < w) { float sh = 0.5 + 0.5 * sin(atan(q.z, q.x) * 3.0 + a); col = mix(col, vec3(1.0, 0.72, 0.3) * (0.5 + 0.8 * sh) * uWarm, 0.9); }
+      float pa = atan(q.z, q.x) - a; vec2 pp = vec2(cos(a), sin(a)) * R; if (length(q.xz - pp) < 0.09) col = vec3(0.5, 0.7, 1.0) * 0.6; } }
+  vec3 oc = o - vec3(0.0, 1.0, 0.0); float b = dot(oc, d); float c = dot(oc, oc) - 0.06; float disc = b * b - c; if (disc > 0.0 && -b - sqrt(disc) > 0.0) col = mix(col, vec3(1.6, 1.05, 0.45) * uWarm, 0.95); // the sun
+  return col; }
+` + sh.fragmentShader
+      .replace('#include <color_fragment>', `#include <color_fragment>
+  // panes along the spiral ribs (12 ribs, each sweeping 1.5 rad up the dome), rows by height, diamonds by lead cames
+  float hgt = clamp(vOP.y / 2.4, 0.0, 1.0); float ang = atan(vOP.x, vOP.z); float sp = (ang - hgt * 1.5) / 6.28318 * 12.0; float row = hgt * 6.0;
+  vec2 cell = vec2(floor(sp), floor(row)); vec2 fc = vec2(fract(sp), fract(row)); float dia = abs(fract(fc.x + fc.y) - 0.5) * 2.0; float dia2 = abs(fract(fc.x - fc.y) - 0.5) * 2.0;
+  float ew = fwidth(sp) * 1.2 + 0.015; float came = max(max(step(fc.x, ew), step(1.0 - ew, fc.x)) * 0.0 + max(step(fc.y, 0.03), step(0.97, fc.y)), max(step(0.94, dia), step(0.94, dia2)) * step(0.15, hgt));
+  float pick = hh(cell + 3.0); vec3 tint = pick < 0.42 ? vec3(0.35, 0.78, 0.62) : pick < 0.7 ? vec3(0.62, 0.88, 0.9) : pick < 0.86 ? vec3(1.0, 0.72, 0.32) : pick < 0.94 ? vec3(0.85, 0.22, 0.26) : vec3(0.25, 0.4, 0.95);
+  tint *= 0.85 + 0.3 * hh(cell * 1.7 + floor(fc * 3.0));
+  diffuseColor.rgb = mix(tint * 0.16, vec3(0.08, 0.075, 0.07), came); float gCame = came;`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(0.08, 0.55, gCame);')
+      .replace('#include <opaque_fragment>', `
+  { vec3 V = normalize(vWP - cameraPosition); vec3 o = vWP - uCenter; float fres = pow(1.0 - clamp(dot(normalize(normal), -normalize((viewMatrix * vec4(V, 0.0)).xyz)), 0.0, 1.0), 3.0);
+    vec3 inside = interior(o + V * 0.02, V) * tint * 1.7; outgoingLight += inside * (1.0 - gCame) * (1.0 - fres * 0.7);
+    outgoingLight += vec3(1.0, 0.62, 0.42) * fres * 0.22 * (1.0 - gCame); }
+  #include <opaque_fragment>`);
+  };
+  m.customProgramCacheKey = () => 'glassDome'; return m;
 }
 /** box-projected UVs for a geometry in its own space (tile = 1 / s units) */
 function worldUVLocal(geo, s) { const p = geo.attributes.position; geo.computeVertexNormals(); const n = geo.attributes.normal; const uv = new Float32Array(p.count * 2);
