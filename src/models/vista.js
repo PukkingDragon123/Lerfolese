@@ -16,6 +16,7 @@ import { makeNoise } from '../gfx/pixel.js';
 import { mulberry32 } from '../core/util.js';
 import { Grove } from './flora.js';
 import { bakeImpostors, impostorForest } from '../gfx/impostor.js';
+import { terrainMaterial, smoothNormals } from '../gfx/terrain.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
@@ -123,29 +124,23 @@ export function buildVista(opts = {}) { const { groundY = -64, seed = 5, hole = 
   const cMeadow = C('#867634'), cMeadow2 = C('#9c8a3e'), cForest = C('#3e4220'), cField = C('#b08a3a'), cField2 = C('#8a7a30'), // warm grass: golden, olive, ochre
     cRock = C('#6a5c50'), cRock2 = C('#8a7666'), cSnow = C('#e2dce8'), cBank = C('#5a5034'), cOrch = C('#7a6a34'), cc = new THREE.Color();
   // fields round each village in a patchwork: wheat (furrows across), barley (furrows along), olive orchards in rows
-  const fieldAt = (x, z) => { for (const [vx, vz] of villages) { const vd = Math.hypot(x - vx, z - vz); if (vd < 95 && vd > 22) { const fx = Math.floor((x - vx) / 14), fz = Math.floor((z - vz) / 9); const h = Math.abs(Math.sin(fx * 12.9898 + fz * 78.233 + vx) * 43758.5453) % 1; return h < 0.36 ? 1 : h < 0.68 ? 2 : 3; } } return 0; };
+  // ... and a ring of farmland round the tower's hill, just past the town, so the near view is worked land, not blank
+  const FIELDS = [[0, 0, 96, 220, 1], ...villages.map(([vx, vz]) => [vx, vz, 22, 95, 0])];
+  const fieldAt = (x, z) => { for (const [vx, vz, r0, r1, near] of FIELDS) { const vd = Math.hypot(x - vx, z - vz); if (vd < r1 && vd > r0) { if (near && (n.fbm(x * 0.011 + 17, z * 0.011, 2) < 0.47 || Math.abs(x - riverX(z)) < 26)) continue; const fx = Math.floor((x - vx) / 14), fz = Math.floor((z - vz) / 9); const h = Math.abs(Math.sin(fx * 12.9898 + fz * 78.233 + vx) * 43758.5453) % 1; return h < 0.36 ? 1 : h < 0.68 ? 2 : 3; } } return 0; };
   const tri = (ax, ay, az, bx, by, bz, cx, cy, cz) => {
     const mx = (ax + bx + cx) / 3, my = (ay + by + cy) / 3, mz = (az + bz + cz) / 3; const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az; const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const slope = 1 - Math.abs(ny) / Math.hypot(nx, ny, nz);
     const rel = my; const dx = Math.abs(mx - riverX(mz)); let f = 0; const fm = n.fbm(mx * 0.012 + 40, mz * 0.012, 3); const jit = (n(mx * 0.3, mz * 0.3) - 0.5) * 0.12;
-    if (rel > 120 + (n(mx * 0.02, mz * 0.02) - 0.5) * 50 && slope < 0.75) cc.copy(cSnow); else if (slope > 0.55 || rel > 95) cc.copy(cRock).lerp(cRock2, n(mx * 0.05, mz * 0.05)); else if (dx < 20) cc.copy(cBank).lerp(cMeadow, sm(12, 20, dx));
-    else { f = fieldAt(mx, mz); if (f) cc.copy(f === 1 ? cField : f === 2 ? cField2 : cOrch); else if (fm > 0.52) cc.copy(cForest); else cc.copy(cMeadow).lerp(cMeadow2, n.fbm(mx * 0.03, mz * 0.03, 2)); }
-    cc.offsetHSL(0, 0, jit * 0.25); for (const [x, y, z] of [[ax, ay, az], [cx, cy, cz], [bx, by, bz]]) { use[o / 3] = f; pos[o] = x; pos[o + 1] = y + groundY; pos[o + 2] = z; col[o] = cc.r; col[o + 1] = cc.g; col[o + 2] = cc.b; o += 3; } };
+    if (rel > 120 + (n(mx * 0.02, mz * 0.02) - 0.5) * 50 && slope < 0.75) { cc.copy(cSnow); f = 9; } else if (slope > 0.55 || rel > 95) { cc.copy(cRock).lerp(cRock2, n(mx * 0.05, mz * 0.05)); f = 8; } else if (dx < 20) { cc.copy(cBank).lerp(cMeadow, sm(12, 20, dx)); f = dx < 12 ? 6 : 0; }
+    else { f = fieldAt(mx, mz); if (f) cc.copy(f === 1 ? cField : f === 2 ? cField2 : cOrch); else if (fm > 0.52) { cc.copy(cForest); f = 7; } else cc.copy(cMeadow).lerp(cMeadow2, n.fbm(mx * 0.03, mz * 0.03, 2)); }
+    cc.offsetHSL(0, 0, jit * 0.12); for (const [x, y, z] of [[ax, ay, az], [cx, cy, cz], [bx, by, bz]]) { use[o / 3] = f; pos[o] = x; pos[o + 1] = y + groundY; pos[o + 2] = z; col[o] = cc.r; col[o + 1] = cc.g; col[o + 2] = cc.b; o += 3; } };
   for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) { const x0 = xs[i], x1 = xs[i + 1], z0 = zs[j], z1 = zs[j + 1]; const a = H[j][i], b = H[j][i + 1], c = H[j + 1][i], d = H[j + 1][i + 1];
     if (hole && Math.max(Math.hypot(x0, z0), Math.hypot(x1, z1), Math.hypot(x0, z1), Math.hypot(x1, z0)) < hole) continue; // the town's own ground covers this
     if ((i + j) & 1) { tri(x0, a, z0, x0, c, z1, x1, b, z0); tri(x1, b, z0, x0, c, z1, x1, d, z1); } else { tri(x0, a, z0, x0, c, z1, x1, d, z1); tri(x0, a, z0, x1, d, z1, x1, b, z0); } }
-  const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.BufferAttribute(pos.slice(0, o), 3)); tg.setAttribute('color', new THREE.BufferAttribute(col.slice(0, o), 3)); tg.setAttribute('aUse', new THREE.BufferAttribute(use.slice(0, o / 3), 1)); tg.computeVertexNormals(); boxUV(tg, 0.5);
-  // the land's paint: ploughed furrows (crisp stripes that fade out before they could shimmer), orchard rows, and a
-  // broken, brushy value variation so big facets never read as flat cardboard
-  const landMat = new THREE.MeshStandardMaterial({ vertexColors: true, map: grainTex(), roughness: 0.95, metalness: 0, flatShading: true });
-  landMat.onBeforeCompile = (sh) => {
-    sh.vertexShader = 'attribute float aUse; varying float vUse; varying vec3 vLW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vUse = aUse; vLW = (modelMatrix * vec4(position, 1.0)).xyz;');
-    sh.fragmentShader = 'varying float vUse; varying vec3 vLW;\nfloat lh21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }\nfloat lvn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(lh21(i), lh21(i + vec2(1, 0)), f.x), mix(lh21(i + vec2(0, 1)), lh21(i + vec2(1, 1)), f.x), f.y); }\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
-      { float u = floor(vUse + 0.5); vec2 wp = vLW.xz;
-        if (u > 0.5 && u < 2.5) { float c = u < 1.5 ? wp.x : wp.y; float fw = fwidth(c / 1.7); float st = step(0.5, fract(c / 1.7)); diffuseColor.rgb *= mix(1.0, mix(0.84, 1.06, st), 1.0 - smoothstep(0.25, 0.6, fw)); }
-        if (u > 2.5) { vec2 g = fract(wp / vec2(5.0, 4.0)) - 0.5; float fw = fwidth(wp.x / 5.0); float row = smoothstep(0.32, 0.18, abs(g.y)); diffuseColor.rgb *= mix(1.0, mix(1.04, 0.78, row), 1.0 - smoothstep(0.2, 0.5, fw)); }
-        float br = lvn(wp * 0.09) * 0.6 + lvn(wp * 0.31 + 7.0) * 0.4; diffuseColor.rgb *= 0.9 + br * 0.2; }`);
-  };
-  landMat.customProgramCacheKey = () => 'vistaLand'; aerial(landMat);
+  const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.BufferAttribute(pos.slice(0, o), 3)); tg.setAttribute('color', new THREE.BufferAttribute(col.slice(0, o), 3)); tg.setAttribute('aUse', new THREE.BufferAttribute(use.slice(0, o / 3), 1)); smoothNormals(tg);
+  // the land's paint (gfx/terrain.js): pixel-art ground tiles splatted by land use, slope and a macro variation map in ONE
+  // material (meadow grass drifting to dry, ploughed soil with furrows, orchard rows, banks, forest floor, triplanar rock),
+  // smooth light across the facets, then the aerial perspective
+  const landMat = aerial(terrainMaterial({ scale: 0.25 }));
   const land = new THREE.Mesh(tg, landMat); land.receiveShadow = true; land.name = 'land'; land.userData.noInk = true; G.add(land);
   // the river ribbon (a mirror of the sunset: hot gold toward the sun, violet near) and the lake
   { const pts = []; for (let z = 240; z > -1500; z -= 12) pts.push(V(riverX(z), 0, z)); const P = [], Cc = [], I = []; const warm = C('#ffb46a'), cool = C('#2a2a50'), mid = C('#a86a6a');
@@ -191,14 +186,17 @@ export function buildVista(opts = {}) { const { groundY = -64, seed = 5, hole = 
       if (Math.abs(x - riverX(z)) < 16) continue; if (Math.hypot(x - lake.x, z - lake.z) < lake.r + 5) continue; if (villages.some(([vx, vz]) => Math.hypot(x - vx, z - vz) < 36)) continue; if (fieldAt(x, z)) continue;
       const y = hAt(x, z); if (y > 112) continue; put(pick(x, y, z, d), x, z, 0.85 + r() * 0.6); }
     // olive orchards: trees in rows on the orchard fields; cypress lines along the lanes into each village
-    for (const [vx, vz] of villages) for (let fx = -7; fx <= 6; fx++) for (let fz = -11; fz <= 10; fz++) { const x0 = vx + fx * 14, z0 = vz + fz * 9; if (fieldAt(x0 + 7, z0 + 4.5) !== 3) continue;
+    for (const [vx, vz, , r1] of FIELDS) { const R = Math.ceil(r1 / 14), RZ = Math.ceil(r1 / 9); for (let fx = -R; fx <= R; fx++) for (let fz = -RZ; fz <= RZ; fz++) { const x0 = vx + fx * 14, z0 = vz + fz * 9; if (fieldAt(x0 + 7, z0 + 4.5) !== 3) continue;
       for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { const x = x0 + 2.5 + i * 4.6 + (r() - 0.5) * 0.6, z = z0 + 2.2 + j * 4.0 + (r() - 0.5) * 0.6; if (fieldAt(x, z) === 3) put('olive', x, z, 0.62 + r() * 0.2); } }
+      // hedgerows of myrtle and bramble along most field edges (a patchwork, with gaps), as impostor cards
+      for (let fx = -R; fx <= R; fx++) for (let fz = -RZ; fz <= RZ; fz++) { const x0 = vx + fx * 14, z0 = vz + fz * 9; if (!fieldAt(x0 + 7, z0 + 4.5) || r() < 0.4) continue;
+        for (let t = 0.6; t < 14; t += 2.1 + r() * 0.6) { const x = x0 + t, z = z0 + (r() - 0.5) * 0.5; if (!fieldAt(x, z + 1) && !fieldAt(x, z - 1)) continue; const y = hAt(x, z); far.push({ kind: r() < 0.6 ? 'bush' : 'myrtle', x, y: y + groundY - 0.1, z, s: 0.7 + r() * 0.4, d: Math.hypot(x, z) }); } } }
     for (const [vx, vz] of villages) { const a0 = r() * 6.28; for (let k = 0; k < 9; k++) { const d = 26 + k * 6; const x = vx + Math.cos(a0) * d + Math.sin(a0) * 3 * (k % 2 ? 1 : -1), z = vz + Math.sin(a0) * d - Math.cos(a0) * 3 * (k % 2 ? 1 : -1); put('cypress', x, z, 0.9 + r() * 0.3); } }
     // the near belt: instanced tree models (lower detail), thinned so it stays light
     const grove = new Grove({ shadows: false }); near.sort((p, q) => p.d - q.d); near.slice(0, 320).forEach((it) => grove.add(it.kind, it.x, it.y, it.z, { s: it.s, lod: 1 })); far.push(...near.slice(320)); G.add(grove.build());
     // everything beyond: impostor cards baked from the same models
     const renderer = opts.renderer || window.__game?.engine?.renderer;
-    if (renderer && far.length) { const KINDS = ['oak', 'pine', 'fir', 'cypress', 'olive']; const list = []; for (const kind of KINDS) for (let v = 0; v < 2; v++) list.push({ kind, v, lod: 0, yaw: v * 1.9 });
+    if (renderer && far.length) { const KINDS = ['oak', 'pine', 'fir', 'cypress', 'olive', 'bush', 'myrtle']; const list = []; for (const kind of KINDS) for (let v = 0; v < 2; v++) list.push({ kind, v, lod: 0, yaw: v * 1.9 });
       const IM = bakeImpostors(renderer, list, { cell: 256 }); const items = far.map((it) => ({ x: it.x, y: it.y, z: it.z, s: it.s, cell: KINDS.indexOf(it.kind) * 2 + (Math.floor(it.x * 3.1 + it.z * 7.7) & 1) }));
       const forest = impostorForest(IM, items, { soft: [320, 1300], softK: 1.3 }); aerial(forest.material); G.add(forest); api_.impostors = IM; } }
   // clouds BELOW the tower top: a scattered deck of faceted cumulus, lit by the low sun (hot rims toward it, violet bellies)

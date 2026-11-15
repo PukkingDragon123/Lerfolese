@@ -15,7 +15,10 @@ import { cottage, windmill, well, tholos, stoneBridge, stoneWall, chimneySmoke }
 import { Grove } from './flora.js';
 import { prop, lowSwap } from './lowprops.js';
 import { toonModel } from './realworld.js';
-import { grainTex } from './vista.js';
+import { terrainMaterial, smoothNormals } from '../gfx/terrain.js';
+import { plantField } from '../gfx/plants.js';
+import { groundTex } from '../gfx/pixeltex.js';
+import * as T from './toon.js';
 import { mulberry32 } from '../core/util.js';
 import { mergeStatic } from '../gfx/merge.js';
 
@@ -44,17 +47,17 @@ export function buildTown({ hAt, gate = V(0, 0, 8), riverX = () => -40, seed = 2
   { const S = 1.55, N = Math.ceil(TOWN_R / S); const pts = []; const R2 = mulberry32(seed + 1);
     const idx = (i, j) => (j + N) * (2 * N + 1) + (i + N);
     for (let j = -N; j <= N; j++) for (let i = -N; i <= N; i++) { const x = i * S + (Math.abs(i) < N && Math.abs(j) < N ? (R2() - 0.5) * S * 0.5 : 0), z = j * S + (Math.abs(i) < N && Math.abs(j) < N ? (R2() - 0.5) * S * 0.5 : 0); const d = Math.hypot(x, z); pts.push([x, hAt(x, z) - Math.max(0, d - 80) * 0.08, z, d]); }
-    const pos = [], col = []; const cc = new THREE.Color();
+    const pos = [], col = [], use = []; const cc = new THREE.Color();
     const cMeadow = C('#8a7a34'), cMeadow2 = C('#a08a3c'), cDark = C('#6a6228'), cEarth = C('#7a5e36'), cCobble = C('#8a7c68'), cCobble2 = C('#6e6254'), cBank = C('#6a5a30'), cSquare = C('#a09078');
     const tri = (a, b, c) => { const mx = (a[0] + b[0] + c[0]) / 3, mz = (a[2] + b[2] + c[2]) / 3; if (Math.min(a[3], b[3], c[3]) > TOWN_R) return; const ld = laneD(mx, mz), rv = river(mx, mz), sd = Math.hypot(mx - sq.x, mz - sq.z);
       const h = Math.sin(mx * 12.9898 + mz * 78.233) * 43758.5453; const j = h - Math.floor(h);
-      if (sd < 7.5) cc.copy(j < 0.5 ? cSquare : cCobble); else if (ld < 1.5) cc.copy(j < 0.5 ? cCobble : cCobble2); else if (ld < 2.6) cc.copy(cEarth).lerp(cMeadow, (ld - 1.5) / 1.1 * 0.6);
-      else if (rv < 9) cc.copy(cBank).lerp(cMeadow, sm(4, 9, rv)); else { cc.copy(cMeadow).lerp(cMeadow2, Math.sin(mx * 0.11) * Math.cos(mz * 0.09) * 0.5 + 0.5); if (j < 0.12) cc.lerp(cDark, 0.5); }
-      cc.offsetHSL(0, 0, (j - 0.5) * 0.035); for (const p of [a, b, c]) { pos.push(p[0], p[1], p[2]); col.push(cc.r, cc.g, cc.b); } };
+      let u = 0; if (sd < 7.5) { cc.copy(j < 0.5 ? cSquare : cCobble); u = 4; } else if (ld < 1.5) { cc.copy(j < 0.5 ? cCobble : cCobble2); u = 4; } else if (ld < 2.6) { cc.copy(cEarth).lerp(cMeadow, (ld - 1.5) / 1.1 * 0.6); u = 5; }
+      else if (rv < 9) { cc.copy(cBank).lerp(cMeadow, sm(4, 9, rv)); u = rv < 6 ? 6 : 0; } else { cc.copy(cMeadow).lerp(cMeadow2, Math.sin(mx * 0.11) * Math.cos(mz * 0.09) * 0.5 + 0.5); if (j < 0.12) cc.lerp(cDark, 0.5); }
+      cc.offsetHSL(0, 0, (j - 0.5) * 0.02); for (const p of [a, b, c]) { pos.push(p[0], p[1], p[2]); col.push(cc.r, cc.g, cc.b); use.push(u); } };
     for (let j = -N; j < N; j++) for (let i = -N; i < N; i++) { const a = pts[idx(i, j)], b = pts[idx(i + 1, j)], c = pts[idx(i, j + 1)], d = pts[idx(i + 1, j + 1)]; if ((i + j) & 1) { tri(a, c, b); tri(b, c, d); } else { tri(a, c, d); tri(a, d, b); } }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
-    const p = g.attributes.position, uv = new Float32Array(p.count * 2); for (let i = 0; i < p.count; i++) { uv[i * 2] = p.getX(i) * 0.5; uv[i * 2 + 1] = p.getZ(i) * 0.5; } g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, map: grainTex(), roughness: 0.95, metalness: 0, flatShading: true })); m.receiveShadow = true; m.name = 'townGround'; m.userData.noInk = true; G.add(m); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setAttribute('aUse', new THREE.Float32BufferAttribute(use, 1)); smoothNormals(g);
+    // pixel-art ground tiles splatted in one material (gfx/terrain.js): grass to dry grass, cobbled lanes and square, trodden verges, banks, rock on the steep
+    const m = new THREE.Mesh(g, terrainMaterial({ scale: 0.25, detail: 1 })); m.receiveShadow = true; m.name = 'townGround'; m.userData.noInk = true; G.add(m); }
   // ---------------------------------------------------------------- placement bookkeeping
   const taken = [...avoid.map(([x, z, rr]) => [x, z, rr]), [0, 0, 9], [sq.x, sq.z, 7.5]];
   const free = (x, z, rr) => { if (Math.hypot(x, z) > TOWN_R - 6) return false; if (laneD(x, z) < 2.0 + rr * 0.6) return false; if (river(x, z) < 6 + rr) return false; for (const [a, b, q] of taken) if ((x - a) ** 2 + (z - b) ** 2 < (q + rr) ** 2) return false; return true; };
@@ -85,12 +88,22 @@ export function buildTown({ hAt, gate = V(0, 0, 8), riverX = () => -40, seed = 2
   for (let k = 0; k < 340; k++) { const a = r() * Math.PI * 2, d = 10 + Math.pow(r(), 0.8) * (TOWN_R - 12); const x = Math.cos(a) * d, z = Math.sin(a) * d; const rr = 1.4; if (!free(x, z, rr) || inView(x, z)) continue;
     const kind = d < 18 ? 'cypress' : laneD(x, z) < 5 ? (r() < 0.7 ? 'cypress' : 'olive') : d > 60 ? (r() < 0.6 ? 'pine' : 'oak') : ['olive', 'oak', 'olive', 'cypress', 'laurel'][Math.floor(r() * 5)];
     grove.add(kind, x, hAt(x, z) - 0.05, z, { s: (kind === 'cypress' ? 1.1 : 1.25) + r() * 0.5, lod: d > 45 ? 1 : 0 }); taken.push([x, z, rr]); }
+  // ground cover: shrubs along the lanes and at the house corners, and a field of pixel-art tufts and flower drifts over
+  // every bit of open ground (one instanced draw call), coloured from the same grass tile the ground is painted with
+  for (let k = 0; k < 260; k++) { const L = lanes[k % lanes.length]; const p = L[Math.floor(r() * L.length)]; const a = r() * 6.28, d = 2.6 + r() * 3; const x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d; if (!free(x, z, 0.7) || inView(x, z)) continue;
+    grove.add(['bush', 'myrtle', 'broom', 'oleander', 'bush'][Math.floor(r() * 5)], x, hAt(x, z) - 0.05, z, { s: 0.8 + r() * 0.5, lod: Math.hypot(x, z) > 45 ? 1 : 0 }); taken.push([x, z, 0.7]); }
+  { const items = []; const FL = ['poppy', 'chamomile', 'cornflower', 'lavender'];
+    for (let k = 0; k < 9000 && items.length < 5200; k++) { const a = r() * Math.PI * 2, d = 9 + Math.sqrt(r()) * (TOWN_R - 11); const x = Math.cos(a) * d, z = Math.sin(a) * d; const ld = laneD(x, z); if (ld < 2.2 || river(x, z) < 4 || Math.hypot(x - sq.x, z - sq.z) < 8.5) continue;
+      if (taken.some(([tx, tz, q]) => q > 2 && (x - tx) ** 2 + (z - tz) ** 2 < (q * 0.9) ** 2)) continue; // not inside houses
+      const drift = Math.sin(x * 0.21 + 1.3) * Math.cos(z * 0.17) > 0.55; const kind = drift ? FL[Math.floor(Math.abs(Math.sin(x * 0.05 + z * 0.03)) * 4) % 4] : ld < 3.2 ? (r() < 0.5 ? 'dry' : 'wispy') : ['short', 'short', 'tall', 'wide', 'wispy', 'clover'][Math.floor(r() * 6)];
+      items.push({ kind, x, y: hAt(x, z) - 0.02, z, s: 0.9 + r() * 0.5 }); }
+    G.add(plantField(items, { wind: T.WIND, tick: T.tickWind, texel: 0.03, cam: V(-12, 0, 18), far: 30, ground: { map: groundTex('meadow'), rep: 0.25, tint: '#ffffff' }, hue: 0.7, rootH: 0.5 })); }
   G.add(grove.build());
   if (smoke.length) G.add(chimneySmoke(smoke.slice(0, 18), { n: 7, rate: 0.8 }));
   // CC0 library pieces (async): moss rocks on the slopes, a ruined column by the bridge, a stretch of old fort wall
   const jobs = [];
   const lib = (name, x, z, { s = 1, ry = r() * 6.28, y = 0 } = {}) => { jobs.push(toonModel(name, r).then((o) => { o.position.set(x, hAt(x, z) + y, z); o.rotation.y = ry; o.scale.multiplyScalar(s); o.traverse((m) => { if (m.isMesh) { m.castShadow = false; m.receiveShadow = true; } }); G.add(o); }).catch(() => null)); };
-  for (let k = 0; k < 14; k++) { const a = r() * Math.PI * 2, d = 20 + r() * 60; const x = Math.cos(a) * d, z = Math.sin(a) * d; if (!free(x, z, 1.6)) continue; taken.push([x, z, 1.6]); lib(r() < 0.5 ? 'rock_moss_set_01' : 'rock_moss_set_02', x, z, { s: 1 + r() * 0.8, y: -0.25 }); }
+  for (let k = 0; k < 26; k++) { const a = r() * Math.PI * 2, d = 14 + r() * 68; const x = Math.cos(a) * d, z = Math.sin(a) * d; if (!free(x, z, 1.6)) continue; taken.push([x, z, 1.6]); lib(r() < 0.5 ? 'rock_moss_set_01' : 'rock_moss_set_02', x, z, { s: 1 + r() * 0.8, y: -0.25 }); }
   lib('greek_column', bx + 9, bz + 6, { s: 0.7, y: -0.1 });
   lib('stone_wall_kit#2', -58, -30, { s: 0.42, ry: 1.1, y: -0.4 });
   // static batching: the hundreds of cottage, lantern, crate and wall parts collapse into a few dozen draw calls (the town

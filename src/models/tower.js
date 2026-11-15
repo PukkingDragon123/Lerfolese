@@ -347,11 +347,11 @@ float hh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 // the interior seen through the glass: trace the eye ray inward (object space, dome base at y = 0, radius ~1.9)
 vec3 interior(vec3 o, vec3 d){
   vec3 col = vec3(0.0); float tf = (0.02 - o.y) / min(d.y, -1e-3); vec3 f = o + d * tf; float rf = length(f.xz);
-  float lampLit = exp(-rf * rf * 0.55) * 1.1 + 0.18; col = vec3(1.0, 0.55, 0.22) * lampLit * 0.55 * uWarm * step(rf, 1.9); // the lamplit floor
+  float lampLit = exp(-rf * rf * 0.55) * 1.1 + 0.18; col = vec3(1.0, 0.58, 0.26) * lampLit * 0.85 * uWarm * step(rf, 1.9); // the lamplit floor
   float flag = step(0.5, fract(f.x * 1.6)) + step(0.5, fract(f.z * 1.6)); col *= 0.8 + 0.2 * mod(flag, 2.0);
   // the orrery: three tilted brass rings and its sun, turning
   for (int i = 0; i < 3; i++) { float fi = float(i); float R = 0.55 + fi * 0.38; float h = 0.9 + fi * 0.12; float a = uTime * (0.3 - fi * 0.12) + fi * 2.1;
-    float tr = (h - o.y) / (abs(d.y) < 1e-3 ? 1e-3 : d.y); if (tr > 0.0 && tr < tf) { vec3 q = o + d * tr; float r = length(q.xz); float w = 0.035; if (abs(r - R) < w) { float sh = 0.5 + 0.5 * sin(atan(q.z, q.x) * 3.0 + a); col = mix(col, vec3(1.0, 0.72, 0.3) * (0.5 + 0.8 * sh) * uWarm, 0.9); }
+    float tr = (h - o.y) / (abs(d.y) < 1e-3 ? 1e-3 : d.y); if (tr > 0.0 && tr < tf) { vec3 q = o + d * tr; float r = length(q.xz); float w = 0.06; if (abs(r - R) < w) { float sh = 0.5 + 0.5 * sin(atan(q.z, q.x) * 3.0 + a); col = mix(col, vec3(1.0, 0.72, 0.3) * (0.5 + 0.8 * sh) * uWarm, 0.9); }
       float pa = atan(q.z, q.x) - a; vec2 pp = vec2(cos(a), sin(a)) * R; if (length(q.xz - pp) < 0.09) col = vec3(0.5, 0.7, 1.0) * 0.6; } }
   vec3 oc = o - vec3(0.0, 1.0, 0.0); float b = dot(oc, d); float c = dot(oc, oc) - 0.06; float disc = b * b - c; if (disc > 0.0 && -b - sqrt(disc) > 0.0) col = mix(col, vec3(1.6, 1.05, 0.45) * uWarm, 0.95); // the sun
   return col; }
