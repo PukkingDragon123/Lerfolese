@@ -1,6 +1,6 @@
 // THE EXPERIMENT HALL'S FURNISHINGS (menu agent): real CC0 Poly Haven models (polyhaven.com) converted to high-
 // resolution pixel art with the lowpix toolkit (pixel-hd: decimated low-poly, a hand-pixel atlas quantised to hue-
-// shifted ramps, rim light on creases), stored in assets/models/lab/<id>.glb (+ .glb.b64.json for the hosted build).
+// shifted ramps, rim light on creases), stored in assets/models/lab/<id>.glb (+ one assets/models/lab/pack.b64.json for the hosted build).
 // Lit here like the rest of the room: flat-shaded MeshStandard with the atlas sampled NEAREST up close (crisp texels)
 // and mip-mapped far away; brass and glass get a metal / gloss response so the lamps and windows glint on them.
 //   await preloadLab(['WoodenTable_01', ...]);  const t = labProp('WoodenTable_01', { w: 2.2 });  t.position.set(...)
