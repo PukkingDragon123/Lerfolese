@@ -203,7 +203,7 @@ export class Diorama {
       const dry = samp(DRYF); if (dry > 0.67 && wet > 1.5) c = tone(DRY, clamp((dry - 0.67) * 5 + fine * 0.3, 0, 0.99), b);
       if (h > 2.5) c = tone(HIGH, clamp((h - 2.5) * 0.4 + fine * 0.3, 0, 0.99), b); if (h > 4.9) c = tone(ROCK, clamp(fine + (h - 5) * 0.1, 0, 0.99), b); if (h + (fine - 0.5) * 0.8 > 7.2) c = tone(SNOW, fine, b);
       // wildflowers: single-pixel blooms in meadow patches
-      const fl = samp(FLF); if (fl > 0.64 && hsh > 0.955 && h < 2.6 && wet > 0.8) c = FLOW[Math.floor(samp(FLC) * 5 + hsh * 2) % 5];
+      const fl = samp(FLF); if (fl > 0.7 && hsh > 0.982 && h < 2.6 && wet > 0.8) c = FLOW[Math.floor(samp(FLC) * 5 + hsh * 2) % 5]; // (visuals: a calm board) sparse, so blooms read as flowers, not speckle
       // trampled clearings round the nodes
       if (dn < 1.25) { const k = (1.25 - dn) / 0.45 + (b - 0.5) * 0.8; if (k > 0.5) { c = tone(DIRT, clamp(0.55 + (fine - 0.5) * 0.5 - (dn > 1.0 ? 0.2 : 0), 0, 0.99), b); grass = 0; } }
       // paths: dark worn verge, packed earth, pale ruts, pebbles

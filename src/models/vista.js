@@ -38,7 +38,7 @@ const boxUV = (geo, s) => { const p = geo.attributes.position, n = geo.attribute
 // replaces the flat fog on the vista's own materials: the haze takes the sky's horizon colour in the direction you look
 // (hot gold toward the low sun, cool violet-blue away from it), builds gently with distance and never fully swallows the
 // far ridges, so the land recedes in soft, coloured layers instead of a grey or pink murk
-export const HAZE = { warm: new THREE.Color(1.0, 0.6, 0.3), cool: new THREE.Color(0.32, 0.34, 0.62), max: 0.72 };
+export const HAZE = { warm: new THREE.Color(0.96, 0.58, 0.3), cool: new THREE.Color(0.25, 0.29, 0.56), max: 0.64 };
 const AP_U = { uApSun: { value: SUN_DIR.clone() }, uApWarm: { value: HAZE.warm }, uApCool: { value: HAZE.cool }, uApMax: { value: HAZE.max } };
 export function aerial(mat) {
   const prev = mat.onBeforeCompile;
@@ -211,7 +211,7 @@ export function buildVista(opts = {}) { const { groundY = -64, seed = 5, hole = 
       const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, -0.08, 0, 0, 0.1, 0.55, 0.0, -0.06, 0.55, 0, -0.06, 0, 0, 0.1, 0.9, -0.02, 0.05], 3)); wg.computeVertexNormals();
       const L = new THREE.Mesh(wg, bm), R = new THREE.Mesh(wg, bm); R.scale.x = -1; b.add(L, R); b.userData = { L, R, ph: r() * 10, rad: 42 + r() * 36, h: 4 + r() * 16, sp: (0.12 + r() * 0.08) * (k % 4 === 0 ? -1 : 1), off: r() * 6.3, bob: r() * 3 }; G.add(b); birds.push(b); } }
   const sk = sky(SUN_DIR); G.add(sk);
-  const fog = new THREE.FogExp2(new THREE.Color(0.6, 0.46, 0.5), 0.0007); // linear haze between the warm and cool horizon (the vista's own materials use the directional aerial perspective)
+  const fog = new THREE.FogExp2(new THREE.Color(0.56, 0.44, 0.5), 0.0006); // linear haze between the warm and cool horizon (the vista's own materials use the directional aerial perspective)
   const sunPos = SUN_DIR.clone().multiplyScalar(1800);
   const api = {
     group: G, fog, hAt: (x, z) => hAt(x, z) + groundY, riverX, sunDir: SUN_DIR, sunPos, sky: sk, clouds, birds, impostors: api_.impostors || null,

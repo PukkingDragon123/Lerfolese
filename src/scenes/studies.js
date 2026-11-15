@@ -19,6 +19,9 @@ import { drawPixelText } from '../ui3d/craft.js';
 import { cineText } from '../ui3d/cinetext.js';
 import { Motes } from '../gfx/motes.js';
 import { makeDemo, put, smat, M, glassM } from './studydemos.js';
+import { bookcase, skull, specimenJar, dripCandle, wallChart, cobweb, openBook, hollowBook, lectern, rug as labRug, plankMat, Books } from './labprops.js';
+import { createBookworm } from '../models/bookworm.js';
+import * as LP from '../models/libprops.js';
 import { studyList, claimStudy, DEMO, REWARD_ICON } from '../game/studies.js';
 import { save } from '../core/save.js';
 import { Spring } from '../core/tween.js';
@@ -36,11 +39,12 @@ export class StudiesScene extends UIScreen {
   async enter({ from = null } = {}) {
     const sc = (this.scene = new THREE.Scene()); sc.background = new THREE.Color(0x0c0806); sc.fog = new THREE.Fog(0x140c08, 9, 22);
     if (new URLSearchParams(location.search).get('study') === 'demo') this.seedDemo();
-    this.camera = new THREE.PerspectiveCamera(CAM.fov, this.engine.aspect, 0.05, 80); this.camera.position.copy(DOOR.pos); this.look = DOOR.look.clone(); this.camera.lookAt(this.look);
+    { const cq = new URLSearchParams(location.search).get('cam'); if (cq === 'wide') { CAM.pos.set(1.2, 2.5, 5.2); CAM.look.set(-1.0, 1.7, -2.5); CAM.fov = 58; } else if (cq && cq.includes(',')) { const n = cq.split(',').map(Number); CAM.pos.set(n[0], n[1], n[2]); CAM.look.set(n[3], n[4], n[5]); CAM.fov = n[6] || 40; } } // debug: ?cam=wide or ?cam=x,y,z,lx,ly,lz,fov
+    this.camera = new THREE.PerspectiveCamera(CAM.fov, this.engine.aspect, 0.05, 80); this.camera.fov = CAM.fov; this.camera.position.copy(DOOR.pos); this.look = DOOR.look.clone(); this.camera.lookAt(this.look);
     this.rnd = mulberry32(9); this.motes = new Motes(900, { px: 2 }); sc.add(this.motes.points); this.acc = 0;
-    this.buildRoom(sc); this.buildBench(sc); this.buildBoard(sc); this.buildCabinet(sc); this.envMap(sc);
+    this.buildRoom(sc); this.buildBench(sc); this.buildBoard(sc); this.buildCabinet(sc); this.buildWorms(sc); this.envMap(sc);
     this.engine.setWorld(sc, this.camera);
-    this.engine.setFx({ bloom: [0.6, 0.5, 0.82], ao: 0.9, exposure: 1.0, grade: { sat: 1.1, vib: 0.24, contrast: 1.1, vignette: 0.55, warmth: 0.1, lift: [0.01, 0.006, 0.012], gain: [1.05, 0.99, 0.92], toe: 0.04 }, ink: { fade: [10, 30], strength: 0.7 } });
+    this.engine.setFx({ bloom: [0.6, 0.5, 0.82], ao: 0.9, exposure: 1.0, grade: { sat: 1.04, vib: 0.2, contrast: 1.08, vignette: 0.5, warmth: 0.02, lift: [0.008, 0.008, 0.016], gain: [1.02, 1.0, 0.97], toe: 0.04 }, ink: { fade: [10, 30], strength: 0.7 } });
     this.engine.add(this); this.pushInput(); audio.setAmbSet(['campfire']); audio.playMusic(audio.manifest?.music?.hall ? 'hall' : 'journal');
     this.UI = new Scholar(); this.studies = studyList(); this.buildUI(); this.select(this.studies[0] || null);
     this.intro = { t: 0 }; this.push = new Spring(0, 4, 0.8); this.reveals = []; this.debris = [];
@@ -70,27 +74,61 @@ export class StudiesScene extends UIScreen {
       const fr = new THREE.Group(); fr.position.set(x, 2.45, -D + 0.2); sc.add(fr); for (const [w, h, px, py] of [[1.5, 0.12, 0, 1.36], [1.5, 0.16, 0, -1.36], [0.12, 2.8, -0.7, 0], [0.12, 2.8, 0.7, 0], [0.06, 2.6, 0, 0]]) put(fr, cbox(w, h, 0.14, 0.02), M.walnut(), px, py, 0);
       const arch = put(fr, extrude(shape(Array.from({ length: 11 }, (_, k) => { const t = (k / 10) * Math.PI; return [Math.cos(t) * 0.72, 1.36 + Math.sin(t) * 0.45]; })), 0.12, 0.02), M.walnut()); void arch; }
     // the dusk through the windows
-    const dusk = new THREE.DirectionalLight(0x8a7ad0, 0.7); dusk.position.set(-2, 5, -9); sc.add(dusk); sc.add(new THREE.HemisphereLight(0x5a4a7a, 0x2a160a, 0.45));
+    const dusk = new THREE.DirectionalLight(0x9ab4ff, 1.15); dusk.position.set(-3, 6, -10); sc.add(dusk); const dusk2 = new THREE.DirectionalLight(0x7a90e0, 0.55); dusk2.position.set(5, 4, -8); sc.add(dusk2); sc.add(new THREE.HemisphereLight(0x6a78a8, 0x2a1e16, 0.55)); // cool dusk from the windows, a neutral sky fill
     // hanging brass lanterns on chains: the warm key light
     this.lamps = []; for (const [x, z, k] of [[-0.4, 0.2, 1], [-3.4, -1.6, 0], [3.0, -1.4, 0], [-1.6, 2.4, 0]]) { const L = prop('lantern', { h: 0.42 }); L.position.set(x, H - 1.6, z); sc.add(L); put(sc, cbox(0.02, 1.25, 0.02, 0.004), M.iron(), x, H - 0.6, z);
-      const pl = new THREE.PointLight(0xffc88a, k ? 9 : 5, k ? 9 : 7, 1.5); pl.position.set(x, H - 1.75, z); if (k) { pl.castShadow = true; pl.shadow.mapSize.set(1024, 1024); pl.shadow.bias = -0.002; } sc.add(pl); this.lamps.push({ pl, base: pl.intensity, ph: r() * 10, L }); }
+      const pl = new THREE.PointLight(0xffd6a8, k ? 8 : 4.5, k ? 9 : 7, 1.5); pl.position.set(x, H - 1.75, z); if (k) { pl.castShadow = true; pl.shadow.mapSize.set(1024, 1024); pl.shadow.bias = -0.002; } sc.add(pl); this.lamps.push({ pl, base: pl.intensity, ph: r() * 10, L }); }
     // walls of learning: shelves of books and glassware, a back counter, the globe, the telescope, a cauldron, a rug
-    for (const [x, z, ry] of [[-6.6, -2.4, Math.PI / 2], [-6.6, -0.6, Math.PI / 2], [6.6, -2.4, -Math.PI / 2], [6.6, 0.4, -Math.PI / 2], [-2.4, -4.3, 0]]) { const s = prop('bookshelf', { w: 1.6, h: 2.6, d: 0.42, seed: (x * 7 + z * 3) | 0 }); s.position.set(x, 0, z); s.rotation.y = ry; sc.add(s); }
+    this.cases = []; for (const [x, z, ry, w, h, n] of [[-2.6, -4.22, 0, 1.9, 3.5, 7], [-6.62, -2.4, Math.PI / 2, 2.0, 3.4, 7], [-6.62, 0.2, Math.PI / 2, 2.0, 3.4, 7], [6.62, -1.2, -Math.PI / 2, 2.0, 3.4, 7], [-4.9, -4.22, 0, 1.0, 3.0, 6]]) { const C = bookcase(w, h, n, Math.round(x * 13 + z * 7)); C.group.position.set(x, 0, z); C.group.rotation.y = ry; sc.add(C.group); this.cases.push(C); }
+    { const L = LP.ladder(3.2); L.position.set(-2.05, 0, -3.3); L.rotation.x = -(Math.PI / 2 + 0.24); sc.add(L); L.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); this.ladder = L; put(sc, cbox(1.9, 0.03, 0.03, 0.006), M.brass(), -2.6, 3.18, -3.98); }
+    // a low case of books and jars under the chalkboard, wall shelves of curios over the counter, charts and cobwebs
+    { const C = bookcase(2.4, 0.95, 2, 91, { curios: true }); C.group.position.set(0, 0, -4.22); sc.add(C.group); this.cases.push(C); }
+    for (const [y, n] of [[1.75, 0], [2.35, 1]]) { const sh = new THREE.Group(); sh.position.set(2.2, y, -4.3); sc.add(sh); put(sh, cbox(2.6, 0.04, 0.3, 0.008), M.oak(), 0, 0, 0); for (const x of [-1.1, 1.1]) put(sh, cbox(0.04, 0.16, 0.26, 0.006), M.walnut(), x, -0.1, 0);
+      const items = n ? [skull(1), specimenJar(1, 0.24), dripCandle(0.14), specimenJar(2, 0.2)] : [specimenJar(0, 0.26), dripCandle(0.12), skull(0.85), specimenJar(1, 0.22)]; items.forEach((o, i) => { o.position.set(-0.9 + i * 0.58, 0.02, 0.02); o.rotation.y = (i - 1.5) * 0.3; sh.add(o); });
+      const bk = new Books(); for (let i = 0; i < 6; i++) bk.add(new THREE.Matrix4().compose(new THREE.Vector3(-0.2 + i * 0.045 + (n ? 0.62 : -0.6), 0.02, 0), new THREE.Quaternion(), new THREE.Vector3(0.04, 0.2 + (i % 3) * 0.03, 0.2)), (i * 5 + n * 3) % 16, 0.95); sh.add(bk.build()); }
+    for (const [kind, x, y, z, ry, w, h] of [['stars', -3.55, 2.6, -4.36, 0, 0.8, 0.62], ['worm', 3.15, 3.35, -4.36, 0, 0.9, 0.55], ['orbits', 1.35, 3.35, -4.36, 0, 0.75, 0.55], ['prism', -6.82, 2.2, 1.6, Math.PI / 2, 0.8, 0.6], ['stars', 6.82, 2.4, 1.0, -Math.PI / 2, 0.9, 0.7]]) { const c = wallChart(kind, w, h); c.position.set(x, y, z); c.rotation.y = ry; sc.add(c); }
+    for (const [x, z, ry] of [[-6.85, -4.45, 0], [6.85, -4.45, Math.PI / 2], [-1.6, -4.45, 0]]) { const w = cobweb(0.9); w.position.set(x, 4.3, z); w.rotation.y = ry; sc.add(w); }
+    { const lec = lectern(); lec.position.set(-3.6, 0, -2.2); lec.rotation.y = 0.5; sc.add(lec); this.lectern = lec; }
+    { const c = dripCandle(0.26, { light: true }); c.position.set(3.45, 0.97, -3.85); sc.add(c); this.candles = [c]; }
     const counter = new THREE.Group(); counter.position.set(2.2, 0, -3.9); sc.add(counter); put(counter, cbox(3.2, 0.1, 0.8, 0.02), M.oak(), 0, 0.92, 0); for (const x of [-1.5, 1.5]) put(counter, cbox(0.12, 0.9, 0.7, 0.02), M.walnut(), x, 0.45, 0); put(counter, cbox(3.1, 0.06, 0.7, 0.02), M.walnut(), 0, 0.3, 0);
     const bottles = ['green', 'blue', 'wine', 'green', 'amber', 'blue']; bottles.forEach((c, i) => { const b = prop('bottle', { h: 0.24 + (i % 3) * 0.08, color: c }); b.position.set(-1.3 + i * 0.32, 0.97, (i % 2) * 0.18 - 0.1); counter.add(b); });
     { const a = makeDemo('flask', { motes: this.motes }); a.group.scale.setScalar(0.8); a.group.position.set(0.95, 0.97, 0); counter.add(a.group); this.decor = [a]; }
-    for (const [p, x, y, z, s] of [['globe', -5.6, 0, 2.2, 1.6], ['cauldron', 5.4, 0, 2.4, 1.2], ['candelabra', -4.6, 0.0, -3.7, 1], ['bookStack', 3.4, 0.97, -3.8, 1], ['scroll', 1.4, 0.98, -3.75, 1]]) { const o = prop(p); o.position.set(x, y, z); o.scale.setScalar(s); sc.add(o); }
+    for (const [p, x, y, z, s] of [['globe', -5.6, 0, 2.2, 1.6], ['cauldron', 5.4, 0, 2.4, 1.2], ['bookStack', 3.0, 0.97, -3.7, 1], ['scroll', 1.4, 0.98, -3.75, 1], ['bookStack', -1.2, 0, -3.0, 1.3], ['basket', 1.5, 0, -2.9, 1.2]]) { const o = prop(p); o.position.set(x, y, z); o.scale.setScalar(s); sc.add(o); }
+    { const g = LP.globe(); g.position.set(-5.4, 0, -1.0); g.scale.setScalar(1.1); sc.add(g); const a = LP.armillary(); a.position.set(1.0, 0.97, -3.75); a.scale.setScalar(0.7); sc.add(a); }
     const tel = prop('telescope', { L: 1.6 }); tel.position.set(-4.4, 0, -2.6); tel.rotation.y = 0.6; sc.add(tel);
-    const rug = prop('rug', { w: 3.6, d: 2.4, color: 'clothRed' }); rug.position.set(0, 0.005, 0.3); sc.add(rug);
+    const rug = labRug(3.8, 2.6); rug.position.set(0, 0.006, 0.3); sc.add(rug);
     // a standing orrery by the window
     { const o = makeDemo('orbit'); o.group.position.set(4.6, 0.95, -2.4); o.group.scale.setScalar(1.3); sc.add(o.group); const st = new THREE.Group(); st.position.set(4.6, 0, -2.4); sc.add(st); put(st, cbox(0.7, 0.92, 0.7, 0.04), M.walnut(), 0, 0.46, 0); this.decor.push(o); }
+  }
+  // ---------------------------------------------------------------- the BOOKWORMS who live here (models/bookworm.js): robed earthworm scholars
+  buildWorms(sc) {
+    this.worms = []; const W = (o, s = 1) => { const w = createBookworm(o); w.root.scale.setScalar(s); sc.add(w.root); this.worms.push(w); return w; };
+    sc.updateMatrixWorld(true);
+    // one inches along a shelf of the tall case behind the bench, another along a higher shelf
+    { const C = this.cases[0]; for (const [k, seed, o] of [[3, 3, { scarf: '#d8d0b8' }], [5, 8, { robe: '#3a4a6a', monocle: true }]]) { const sh = C.shelves[k]; const a = C.group.localToWorld(V(sh.x0 + 0.1, sh.y, 0.165)), b = C.group.localToWorld(V(sh.x1 - 0.1, sh.y, 0.165)); const w = W({ seed, ...o }, 0.85); w.setRoute({ a, b, up: V(0, 1, 0) }); w.st.speed = 0.04; } }
+    // one climbs the library ladder
+    { const L = this.ladder; const q = L.getWorldQuaternion(new THREE.Quaternion()); const up = V(0, -1, 0).applyQuaternion(q); const w = W({ seed: 5, robe: '#5a2a2a' }, 0.9); w.setRoute({ a: L.localToWorld(V(0, -0.07, 0.5)), b: L.localToWorld(V(0, -0.07, 2.5)), up }); w.st.speed = 0.05; }
+    // one reads at the lectern, turning its pages with its tail
+    { const T = this.lectern.userData.top; const w = W({ seed: 1, robe: '#2a4a3a', monocle: true, book: '#6a2a24' }, 0.9); T.add(w.root); w.root.position.set(0, 0.03, 0.14); w.root.rotation.y = Math.PI; w.setMode('read'); }
+    // one carries a book across the floor; one sleeps coiled on a stack on the counter
+    { const w = W({ seed: 4, scarf: '#b08a3a', book: '#7a4a1a' }); w.setRoute({ a: V(-1.0, 0.012, -3.0), b: V(1.2, 0.012, -2.6), up: V(0, 1, 0) }); w.setMode('carry'); }
+    { const w = W({ seed: 6, scarf: '#7a3a3a' }, 0.9); w.setMode('sleep'); w.root.position.set(3.0, 1.2, -3.7); w.root.rotation.y = 0.4; }
+    // and one peeks out of the worm-holed book on the bench, inching out, looking round, ducking back in
+    { const w = W({ seed: 9, robe: '#4a3a6a' }, 0.62); w.setMode('crawl'); this.hollow.updateMatrixWorld(true); this.peek = { w, base: this.hollow.localToWorld(V(0.03, 0.02, 0.02)), t: 0 }; }
+  }
+  updateWorms(dt, t) {
+    for (const w of this.worms) w.update(dt, t);
+    const K = this.peek; if (K) { K.t += dt; const ph = (K.t % 9) / 9; const out = ph < 0.15 ? ph / 0.15 : ph < 0.7 ? 1 : ph < 0.82 ? 1 - (ph - 0.7) / 0.12 : 0; const e = out * out * (3 - 2 * out);
+      K.w.root.position.copy(K.base).add(V(0, -0.11 + e * 0.19, 0)); K.w.root.quaternion.setFromEuler(new THREE.Euler(-Math.PI / 2 + Math.sin(K.t * 0.9) * 0.25 * e, Math.sin(K.t * 0.6) * 0.8 * e, 0, 'YXZ')); K.w.root.visible = e > 0.02; }
   }
   // ---------------------------------------------------------------- the bench where the study is demonstrated
   buildBench(sc) {
     const B = (this.bench = new THREE.Group()); sc.add(B);
-    put(B, cbox(2.2, 0.09, 1.15, 0.02), M.oak(), 0, BENCH_Y - 0.045, 0); for (const x of [-1, 1]) for (const z of [-0.48, 0.48]) put(B, cbox(0.1, BENCH_Y - 0.09, 0.1, 0.02), M.walnut(), x, (BENCH_Y - 0.09) / 2, z);
+    { const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.09, 1.15), plankMat()); top.position.set(0, BENCH_Y - 0.045, 0); top.castShadow = true; top.receiveShadow = true; B.add(top); } for (const x of [-1, 1]) for (const z of [-0.48, 0.48]) put(B, cbox(0.1, BENCH_Y - 0.09, 0.1, 0.02), M.walnut(), x, (BENCH_Y - 0.09) / 2, z);
     put(B, cbox(2.0, 0.06, 0.06, 0.01), M.walnut(), 0, 0.22, -0.48); put(B, cbox(2.0, 0.06, 0.06, 0.01), M.walnut(), 0, 0.22, 0.48); put(B, cbox(2.24, 0.03, 0.05, 0.008), M.brass(), 0, BENCH_Y - 0.03, 0.58);
-    for (const [p, x, z, s, ry] of [['candle', -0.95, -0.42, 1.2, 0], ['book', 0.86, 0.36, 1.3, 0.5], ['scroll', -0.82, 0.38, 1, 0.3]]) { const o = prop(p); o.position.set(x, BENCH_Y, z); o.scale.setScalar(s); o.rotation.y = ry; B.add(o); if (p === 'book') o.rotation.x = -Math.PI / 2; }
+    { const c = dripCandle(0.22, { light: true }); c.position.set(-0.96, BENCH_Y, -0.4); B.add(c); this.candles = [...(this.candles || []), c]; const c2 = dripCandle(0.13); c2.position.set(-0.82, BENCH_Y, -0.46); B.add(c2); this.candles.push(c2); }
+    { const ob = openBook(2); ob.position.set(0.78, BENCH_Y, 0.32); ob.rotation.y = -0.35; B.add(ob); const sk = skull(1.05); sk.position.set(0.92, BENCH_Y, -0.38); sk.rotation.y = -0.6; B.add(sk); const hb = hollowBook(); hb.position.set(-0.78, BENCH_Y, 0.3); hb.rotation.y = 0.4; B.add(hb); this.hollow = hb;
+      const iw = LP.inkwell(); iw.position.set(0.55, BENCH_Y, 0.42); B.add(iw); const q = LP.quill(); q.position.set(0.6, BENCH_Y + 0.07, 0.42); q.rotation.z = -0.5; B.add(q); const sc2 = LP.scroll(0.42); sc2.position.set(-0.55, BENCH_Y + 0.04, 0.44); sc2.rotation.y = 0.2; B.add(sc2); }
     this.slot = new THREE.Group(); this.slot.position.set(0, BENCH_Y, -0.05); B.add(this.slot);
     this.flare = new THREE.PointLight(0xffd070, 0, 4, 1.4); this.flare.position.set(0, BENCH_Y + 0.6, 0.4); B.add(this.flare);
     this.benchHit = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.4, 1.2), new THREE.MeshBasicMaterial({ visible: false })); this.benchHit.position.set(0, BENCH_Y + 0.6, 0); B.add(this.benchHit);
@@ -181,7 +219,7 @@ export class StudiesScene extends UIScreen {
   rc() { const r = new THREE.Raycaster(); r.setFromCamera(this.input.ndc, this.camera); return r; }
   overBench() { return this.rc().intersectObject(this.benchHit, false).length > 0; }
   onMove() { const o = this.overBench(); if (o !== this._ob) { this._ob = o; this.engine.renderer.domElement.style.cursor = o ? 'grab' : ''; } }
-  onClick() { if (this.leaving) return true; if (this.overBench()) { this.demo?.click?.(); return true; } }
+  onClick() { if (this.leaving) return true; const r = this.rc(); const wh = r.intersectObjects(this.worms.map((w) => w.hit), false)[0]; if (wh) { const w = this.worms.find((x) => x.hit === wh.object); w?.react(); audio.play('goblin_squeak', { vol: 0.25, rate: 1.4 }); audio.play('paper_rustle', { vol: 0.3 }); return true; } if (this.overBench()) { this.demo?.click?.(); return true; } }
   onDragStart(e) { this.dragX = e.x; this.dragY = e.y; this.dragging = this.overBench(); if (this.dragging) this.engine.renderer.domElement.style.cursor = 'grabbing'; return this.dragging; }
   onDrag(e) { if (!this.dragging || this.dragX == null) return; const dx = (e.x - this.dragX) / innerWidth, dy = (e.y - this.dragY) / innerHeight; this.dragX = e.x; this.dragY = e.y; this.demo?.drag?.(dx, dy); }
   onDragEnd() { if (this.dragging) this.demo?.release?.(); this.dragging = false; this.dragX = null; this.engine.renderer.domElement.style.cursor = this._ob ? 'grab' : ''; }
@@ -190,7 +228,7 @@ export class StudiesScene extends UIScreen {
   update(dt, t) {
     const cam = this.camera, nd = this.input.ndc;
     for (const L of this.lamps) { L.pl.intensity = L.base * (0.92 + Math.sin(t * 7 + L.ph) * 0.04 + Math.sin(t * 13 + L.ph * 2) * 0.03); L.L.rotation.z = Math.sin(t * 0.6 + L.ph) * 0.02; }
-    for (const d of this.decor) d.update(dt, t);
+    for (const d of this.decor) d.update(dt, t); this.updateWorms(dt, t); for (const c of this.candles || []) { const f = c.userData.flame; if (f) f.scale.set(1, 0.9 + Math.sin(t * 17 + c.position.x * 9) * 0.12 + Math.sin(t * 31) * 0.05, 1); if (c.userData.light) c.userData.light.intensity = 1.1 + Math.sin(t * 13 + c.position.x) * 0.12; }
     if (this.demo) { this.demoIn = Math.min(1, (this.demoIn || 0) + dt * 2.5); const s = ease5(this.demoIn); this.demo.group.scale.setScalar(Math.max(0.001, s * (this.demoS || 1))); this.demo.group.position.y = (1 - s) * 0.2; this.demo.update(dt, t); }
     this.flareT = Math.max(0, (this.flareT || 0) - dt); this.flare.intensity = this.flareT * 8;
     for (const g of this.trophies) g.rotation.y += dt * 0.5; if (this.popT) { this.popT.t += dt; const u = Math.min(1, this.popT.t / 0.5); this.popT.g.scale.setScalar(Math.max(0.01, ease5(u) * (1 + Math.sin(u * Math.PI) * 0.3))); if (u >= 1) this.popT = null; }

@@ -10,7 +10,8 @@
 //     one for its STAR CHART (a detailed 2D card: name, what it gives with its artifact or card, how hard it is);
 //     click: its stars ignite one by one, the others dim, the sky WARPS into it and the run opens through the galaxy
 //     transition centred on it (game.newRun({ start })). Esc, right-click or the moon-ward drag returns.
-//   - FOUR MENU OBJECTS bottom-left (ui3d/menuicons.js), alive under the pointer, naming themselves on hover:
+//   - FOUR MENU ICONS bottom-left, hand-pixelled shaded pixel art with a crisp outline (ui2d/menusprites.js), alive
+//     under the pointer (stepped animation, a pixel halo, sparkles, a squash), naming themselves on hover:
 //       STUDIES  (a brass alembic)        -> the EXPERIMENT HALL (scenes/studies.js): the camera dives at the glowing
 //                                           flask, steam billows over the view (cloud transition)
 //       STARS    (a constellation crystal) -> the STARS (scenes/stars.js): the camera tilts up into the night, star
@@ -30,8 +31,8 @@ import { createProfessor } from '../models/professor.js';
 import { clockTower } from '../models/tower.js';
 import { buildVista } from '../models/vista.js';
 import { buildTown, HOLE } from '../models/town.js';
-import { menuWord, FloatIcon } from '../ui3d/menuword.js';
-import { makeIcon } from '../ui3d/menuicons.js';
+import { menuWord } from '../ui3d/menuword.js';
+import { MenuSprites } from '../ui2d/menusprites.js';
 import { Astral, startCons, ASTRAL } from './astral.js';
 import { STARTS } from '../game/run.js';
 import { studyStarts, studiesReady } from '../game/studies.js';
@@ -74,18 +75,18 @@ export class MenuScene extends UIScreen {
     this.motes = new Motes(1100, { px: 2 }); sc.add(this.motes.points); this.rnd = mulberry32(31); this.acc = 0;
     this.hasRun = !!save.loadRun();
     this.astral = new Astral({ cons: startCons(STARTS, studyStarts()) }); this.astral.engine = this.engine; this.astral.frame(ASTRAL.dir, ASTRAL.fov, this.engine.aspect); sc.add(this.astral.group);
-    await this.buildMenu(sc); this.buildIcons(sc);
+    await this.buildMenu(sc);
     this.envMap(sc);
-    this.UI = new Scholar(); this.codex = new Codex(this.game, this.UI); this.settingsP = new SettingsPanel(this.game, this.UI);
+    this.UI = new Scholar(); this.codex = new Codex(this.game, this.UI); this.settingsP = new SettingsPanel(this.game, this.UI); this.buildIcons();
     this.engine.setWorld(sc, this.camera);
     this.engine.setFx({ bloom: [0.42, 0.5, 0.9], ao: 0.85, exposure: 1.0, rays: { pos: VZ.sunPos, strength: 0.32, tint: 0xffb46a, thresh: 0.82, decay: 0.958 }, // (visuals) painterly sunset: warm key, cool coloured shadows, gentle bloom only on the hottest lights
       grade: { sat: 1.1, vib: 0.26, sel: [0.08, 0.14, 0.16], contrast: 1.06, vignette: 0.4, warmth: 0.1, lift: [0.006, 0.008, 0.03], gain: [1.03, 0.99, 0.95], rolloff: 0.45, toe: 0.02, harmony: 0.04, hueLight: 0.09, hueShadow: 0.66 }, ink: { fade: [25, 160], strength: 0.75 } });
     this.engine.add(this); this.pushInput(); audio.setAmbSet(['wind']); audio.playMusic('menu');
     this.mode = 'hero'; this.skyT = 0; this.skyDir = 0;
     this.intro = from === 'loading' ? { t: 0, dur: 7.0 } : null;
-    if (this.intro) { this.mode = 'intro'; this.camera.position.copy(this.introPath()[0][0]); this.look.copy(this.introPath()[0][1]); }
+    if (this.intro) { this.mode = 'intro'; this.camera.position.copy(this.introPath()[0][0]); this.look.copy(this.introPath()[0][1]); this.sprites.show(false); }
     if (from === 'studies') { this.back = { t: 0, from: this.camPt(-0.5, -0.62, 3.2), look: this.camPt(-0.5, -0.66, 9) }; this.camera.position.copy(this.back.from); this.look.copy(this.back.look); }
-    if (from === 'stars' || from === 'hall') { audio.playMusic(audio.manifest?.music?.hall ? 'hall' : 'menu'); this.mode = 'skyback'; this.skyT = 1; this.skyDir = -1; this.astral.showFigures = false; for (const w of this.words) w.vis.value = w.vis.target = 0; for (const c of this.icons) c.vis.value = c.vis.target = 0; this.astral.trail = 0.6; }
+    if (from === 'stars' || from === 'hall') { audio.playMusic(audio.manifest?.music?.hall ? 'hall' : 'menu'); this.mode = 'skyback'; this.skyT = 1; this.skyDir = -1; this.astral.showFigures = false; for (const w of this.words) w.vis.value = w.vis.target = 0; this.sprites.show(false); this.astral.trail = 0.6; }
   }
   groundAt(nx, ny, hAt) { // where the hero view's ray through (nx, ny) meets the land (the town square goes there, in sight)
     const c = new THREE.PerspectiveCamera(HERO.fov, this.engine.aspect, 0.1, 1000); c.position.copy(HERO.pos); c.lookAt(HERO.look); c.updateMatrixWorld(); const d = V(nx, ny, 0.5).unproject(c).sub(c.position).normalize();
@@ -116,19 +117,21 @@ export class MenuScene extends UIScreen {
     else await add('New Adventure', 'new', nx, 0.32, 0.66, 5);
   }
   heroQuat() { const c = new THREE.PerspectiveCamera(); c.position.copy(HERO.pos); c.lookAt(HERO.look); return c.quaternion.clone(); }
-  buildIcons(sc) {
-    this.icons = []; const NX = -0.85, NY = -0.55, STEP = 0.2, D = 7.6;
-    [['studies', 'Studies', 1.0], ['stars', 'Stars', 1.0], ['journal', 'Journal', 0.92], ['settings', 'Settings', 0.92]].forEach(([k, label, s], i) => {
-      const I = makeIcon(k); const holder = new THREE.Group(); I.group.scale.setScalar(s * 1.22); holder.add(I.group);
-      const b = new FloatIcon(label, { seed: 21 + i * 10, icon: holder, labelH: 0.19, style: 'gold' }); b.setBase(this.camPt(NX + STEP * i, NY, D)); b.act = k; b.I = I; b.text.position.y = -0.55; sc.add(b.group); this.icons.push(b); });
-    const fill = new THREE.PointLight(0xffd0a0, 6, 6, 1.6); fill.position.copy(this.camPt(NX + STEP * 1.5, NY + 0.2, D - 2.2)); sc.add(fill); // a warm lamp on the instruments, so they read against the dusk
+  buildIcons() { // the four pixel-art instruments, bottom-left (DOM canvases at a whole number of screen pixels per art pixel)
+    const SND = { studies: 'bottle_clink', stars: 'glass_clink', journal: 'paper_rustle', settings: 'lever' };
+    this.sprites = new MenuSprites(this.UI, [['studies', 'Studies'], ['stars', 'Stars'], ['journal', 'Journal'], ['settings', 'Settings']].map(([key, label]) => ({ key, label,
+      onHover: (S, on) => { if (on && this.mode === 'hero') { audio.play(SND[key], { vol: 0.4 }); audio.play('ui_hover', { vol: 0.2 }); } this.hover = on ? { icon: S } : null; },
+      onClick: (S) => { if (this.mode === 'panel') { (this.panelKind === 'journal' ? this.codex : this.settingsP).close(); return; } if (this.busy()) return; if (key === 'studies') this.toStudies(S); else if (key === 'stars') this.toStars(S); else this.openPanel(key, S); } })));
+    this.icons = this.sprites.items;
   }
+  /** the world point behind a pixel icon (the camera dives at it) */
+  iconWorld(S) { const [x, y] = this.sprites.centerOf(S); return this.camPt((x / innerWidth) * 2 - 1, 1 - (y / innerHeight) * 2, 7.6, { pos: this.camera.position, look: this.look, fov: this.camera.fov }); }
   // ---------------------------------------------------------------- actions
   say(t) { if (!this.prof) return; try { fsay('newton', t, { anchor: this.prof, wait: false }); } catch (e) { /* */ } this.prof.talk(1.5); }
   glints(W, n) { const r = this.rnd; for (let i = 0; i < n; i++) { const q = W.sparkPoint(); this.motes.spawn({ pos: q, vel: [(r() - 0.5) * 0.08, 0.05 + r() * 0.1, 0], drag: 1.2, life: 0.5 + r() * 0.5, seq: r() < 0.6 ? 'glint' : 'twinkle', fps: 8, color: r() < 0.6 ? '#fff2c8' : '#ffd890', bright: 1.5, fadeIn: 0.03 }); } }
   burst(p, n, cols, sp = 0.6) { const r = this.rnd; for (let i = 0; i < n; i++) this.motes.spawn({ pos: [p.x, p.y, p.z], vel: [(r() - 0.5) * sp, (r() - 0.2) * sp, (r() - 0.5) * sp * 0.5], drag: 1.6, life: 0.5 + r() * 0.7, seq: r() < 0.5 ? 'glint' : 'twinkle', fps: 9, color: cols[(r() * cols.length) | 0], bright: 1.6, fadeIn: 0.02 }); }
   resume(W) { if (this.mode !== 'hero') return; this.mode = 'resume'; this.resumeT = 0; W.press(); this.glints(W, 24); audio.play('chime_soft', { vol: 0.5 }); audio.play('ui_click'); audio.play('magic_shimmer', { vol: 0.5 }); for (const w of this.words) if (w !== W) w.vis.target = 0; this.prof.act?.('cheer'); }
-  hideMenu() { for (const w of this.words) w.vis.target = 0; for (const c of this.icons) c.vis.target = 0; this.hover = null; this.hoverKey = null; this.engine.renderer.domElement.style.cursor = ''; }
+  hideMenu() { for (const w of this.words) w.vis.target = 0; this.sprites.show(false); this.hover = null; this.hoverKey = null; this.engine.renderer.domElement.style.cursor = ''; }
   toAstral(W) { if (this.mode !== 'hero') return; this.mode = 'astral'; this.skyDir = 1; this.astral.showFigures = true; this.astral.revealT = 0; this.chimed = new Set(); if (W) { W.press(); this.glints(W, 24); }
     audio.play('ui_click'); audio.play('chime_soft', { vol: 0.5 }); audio.play('whoosh_soft', { vol: 0.7 }); audio.play('magic_shimmer', { vol: 0.4, delay: 0.7 }); audio.playMusic(audio.manifest?.music?.hall ? 'hall' : 'menu', { fade: 2.4 }); audio.setAmbSet?.(['cosmos', 'wind']); // night falls: the sky's own music
     this.hideMenu(); this.prof.lookAt(-0.2, 0.9); }
@@ -140,12 +143,12 @@ export class MenuScene extends UIScreen {
     audio.play('whoosh_heavy', { vol: 0.55, delay: 1.0 }); audio.play('magic_shimmer', { vol: 0.6, delay: 1.1 }); audio.play('transition_whoosh', { vol: 0.6, delay: 1.75, minGap: 0 }); }
   camDir() { return this.look.clone().sub(this.camera.position).normalize(); }
   // the STUDIES: dive at the alembic, its liquor flares, steam rolls over the view
-  toStudies(b) { if (this.mode !== 'hero') return; this.mode = 'leave'; this.leave = { t: 0, kind: 'studies', from: this.camera.position.clone(), look: this.look.clone(), at: b.group.getWorldPosition(V()) }; b.press(); this.hideMenu(); b.vis.target = 1;
+  toStudies(b) { if (this.mode !== 'hero') return; this.mode = 'leave'; this.leave = { t: 0, kind: 'studies', from: this.camera.position.clone(), look: this.look.clone(), at: this.iconWorld(b) }; this.sprites.press(b); this.hideMenu();
     audio.play('liquid_slosh', { vol: 0.6 }); audio.play('steam_hiss', { vol: 0.4, delay: 0.35 }); audio.play('transition_whoosh', { vol: 0.5, delay: 0.55 }); this.burst(this.leave.at, 30, ['#c8fff0', '#5af0d0', '#fff6d0'], 0.9); }
   // the STARS: tilt up into the night (trails), then the galaxy transition
-  toStars(b) { if (this.mode !== 'hero') return; this.mode = 'leave'; this.leave = { t: 0, kind: 'stars' }; b.press(); this.hideMenu(); this.skyDir = 1; this.astral.showFigures = false;
-    audio.play('magic_sparkle', { vol: 0.6 }); audio.play('whoosh_soft', { vol: 0.7, delay: 0.1 }); audio.play('magic_shimmer', { vol: 0.5, delay: 0.8 }); this.burst(b.group.getWorldPosition(V()), 26, ['#c8b0ff', '#fff2c8', '#8aa8ff'], 0.8); this.prof.lookAt(-0.2, 0.9); }
-  openPanel(kind, b) { if (this.mode !== 'hero') return; b.press(); const P = kind === 'journal' ? this.codex : this.settingsP; if (kind === 'journal') { audio.play('page_turn', { vol: 0.5, delay: 0.2 }); } else { b.I.kick?.(); audio.play('clockwork', { vol: 0.6 }); } this.mode = 'panel'; this.panelKind = kind;
+  toStars(b) { if (this.mode !== 'hero') return; this.mode = 'leave'; this.leave = { t: 0, kind: 'stars' }; this.sprites.press(b); const at = this.iconWorld(b); this.hideMenu(); this.skyDir = 1; this.astral.showFigures = false;
+    audio.play('magic_sparkle', { vol: 0.6 }); audio.play('whoosh_soft', { vol: 0.7, delay: 0.1 }); audio.play('magic_shimmer', { vol: 0.5, delay: 0.8 }); this.burst(at, 26, ['#c8b0ff', '#fff2c8', '#8aa8ff'], 0.8); this.prof.lookAt(-0.2, 0.9); }
+  openPanel(kind, b) { if (this.mode !== 'hero') return; this.sprites.press(b); const P = kind === 'journal' ? this.codex : this.settingsP; if (kind === 'journal') { audio.play('page_turn', { vol: 0.5, delay: 0.2 }); } else { audio.play('clockwork', { vol: 0.6 }); } this.mode = 'panel'; this.panelKind = kind;
     P.onClose = () => { this.mode = 'hero'; this.panelKind = null; }; P.open(); this.hover = null; this.hoverKey = null; }
   async credits() {
     const lines = ['LERFOLESE. Code, models, cards & design: made for this game.', 'Fonts: Alagard, PixelSans, NanoPlus, RuneMono and others (OFL / free licences).', 'three.js (MIT). 3D assets: Poly Haven (CC0).'];
@@ -178,7 +181,7 @@ export class MenuScene extends UIScreen {
   busy() { return !!(this.mode !== 'hero' || this.back); }
   pick() {
     if (this.mode === 'astral') { if (this.chosen || this.skyT < 0.95) return null; const i = this.astral.pick(this.input.ndc, this.camera); return i >= 0 ? { star: i } : null; }
-    if (this.busy()) return null; const r = this.rc(); const objs = [...this.words.map((w) => w.hit), ...this.icons.map((c) => c.hit), this.profHit];
+    if (this.busy()) return null; const r = this.rc(); const objs = [...this.words.map((w) => w.hit), this.profHit];
     const h = r.intersectObjects(objs, true)[0]; if (!h) return null; const o = h.object; if (o.userData.word) return { word: o.userData.word }; if (o.userData.cloud) return { icon: o.userData.cloud }; if (o === this.profHit) return { isaac: true }; return null;
   }
   onMove() { const p = this.pick(); const key = p ? (p.word ? 'w:' + p.word.label : p.icon ? 'c:' + p.icon.label : p.star != null ? 's:' + p.star : 'isaac') : null;
@@ -211,7 +214,7 @@ export class MenuScene extends UIScreen {
     const T = this.tower, prof = this.prof, cam = this.camera; T.update(dt, t); this.vista.update(dt, t); this.town.update(dt, t); prof.update(dt);
     const nd = this.input.ndc;
     // the sky: night falls and the astral cosmos reveals as we look up (and lifts again on the way back)
-    if (this.skyDir) { this.skyT = Math.max(0, Math.min(1, this.skyT + this.skyDir * dt / (this.mode === 'skyback' ? 2.6 : 2.1))); if (this.skyT <= 0 && this.skyDir < 0) { if (this.mode === 'skyback') { audio.playMusic('menu', { fade: 2.0 }); audio.setAmbSet?.(['wind']); } this.skyDir = 0; this.mode = 'hero'; this.astral.showFigures = true; for (const w of this.words) w.vis.target = 1; for (const c of this.icons) c.vis.target = 1; } }
+    if (this.skyDir) { this.skyT = Math.max(0, Math.min(1, this.skyT + this.skyDir * dt / (this.mode === 'skyback' ? 2.6 : 2.1))); if (this.skyT <= 0 && this.skyDir < 0) { if (this.mode === 'skyback') { audio.playMusic('menu', { fade: 2.0 }); audio.setAmbSet?.(['wind']); } this.skyDir = 0; this.mode = 'hero'; this.astral.showFigures = true; for (const w of this.words) w.vis.target = 1; this.sprites.show(true); } }
     const sk = ease5(this.skyT);
     { const px = this.skyT > 0.6 ? 0.6 : 0; if (px !== this._pix) { this._pix = px; this.engine.setPixel?.(px); } } /* the astral sky alone gets the engine's slight pixel look; the tower menu stays full resolution */ this.vista.sky.material.uniforms.uNight.value = sk; this.astral.fade = ease(Math.max(0, (this.skyT - 0.2) / 0.8));
     // star trails while the camera tilts up or down through the sky
@@ -221,10 +224,10 @@ export class MenuScene extends UIScreen {
     // camera: establishing rise -> hero shot (breathing, parallax) | back from the studies | up into the stars | a chosen constellation's warp | leaving
     if (this.mode === 'intro') { this.intro.t += dt; const u = ease5(this.intro.t / this.intro.dur); const P = this.introPath();
       const curve = this._ic || (this._ic = new THREE.CatmullRomCurve3(P.map((q) => q[0]), false, 'centripetal')); const lcurve = this._il || (this._il = new THREE.CatmullRomCurve3(P.map((q) => q[1]), false, 'centripetal'));
-      cam.position.copy(curve.getPoint(u)); this.look.copy(lcurve.getPoint(u)); cam.fov = 34 + (HERO.fov - 34) * u; cam.updateProjectionMatrix(); if (this.intro.t >= this.intro.dur) { this.mode = 'hero'; this.intro = null; } }
+      cam.position.copy(curve.getPoint(u)); this.look.copy(lcurve.getPoint(u)); cam.fov = 34 + (HERO.fov - 34) * u; cam.updateProjectionMatrix(); if (this.intro.t >= this.intro.dur) { this.mode = 'hero'; this.intro = null; this.sprites.show(true); } }
     else if (this.mode === 'resume') { this.resumeT += dt; const u = ease(this.resumeT / 1.0); cam.position.lerp(HERO.pos.clone().add(V(0.6, 0.4, -1.2)), dt * 1.5 * u); this.look.lerp(this.words[0].group.position, dt * 0.8 * u); if (this.resumeT > 0.75 && !this.left) { this.left = true; audio.play('transition_whoosh'); this.game.continueRun(); } }
     else if (this.mode === 'leave' && this.leave.kind === 'studies') { const L = this.leave; L.t += dt; const u = ease5(L.t / 1.25); const tgt = L.at.clone().add(V(0, -0.12, 0)); cam.position.copy(L.from).lerp(tgt.clone().addScaledVector(L.from.clone().sub(tgt).normalize(), 1.6), u); this.look.copy(L.look).lerp(tgt, ease(L.t / 0.6)); cam.fov = HERO.fov - 10 * u; cam.updateProjectionMatrix();
-      const b = this.icons[0]; b.I.update(0, t, 1, { ready: true }); if (L.t > 0.3 && Math.random() < dt * 30) this.burst(L.at, 2, ['#e8fff8', '#c8fff0'], 1.2);
+      if (L.t > 0.3 && Math.random() < dt * 30) this.burst(L.at, 2, ['#e8fff8', '#c8fff0'], 1.2);
       if (L.t > 0.95 && !this.left) { this.left = true; this.game.toStudies(); } }
     else if (this.mode === 'astral' || this.mode === 'skyback' || (this.mode === 'leave' && this.leave.kind === 'stars') || (this.skyT > 0 && this.mode !== 'hero')) { const d0 = HERO.look.clone().sub(HERO.pos).normalize(); const d = d0.clone().lerp(ASTRAL.dir, sk).normalize();
       if (this.chosen) { const C = this.chosen; C.t += dt; const u1 = ease5(Math.max(0, (C.t - 0.25) / 1.6)); d.copy(ASTRAL.dir).lerp(C.dir, u1).normalize(); C.warp = Math.max(0, Math.min(1, (C.t - 0.9) / 0.8)); this.astral.warp(C.i, ease(C.warp)); cam.fov = ASTRAL.fov + (14 - ASTRAL.fov) * ease5(Math.max(0, (C.t - 0.8) / 1.1)); cam.updateProjectionMatrix();
@@ -241,15 +244,14 @@ export class MenuScene extends UIScreen {
     this.astral.update(dt, t, cam, this.engine.renderer);
     // the words and the four instruments
     const hov = this.hover; for (const w of this.words) { w.update(dt, t, hov?.word === w, cam, this.vista.sunDir, nd); w.group.position.set(w.base.x + Math.sin(t * 0.21 + w.base.y) * 0.08, w.base.y + Math.sin(t * 0.37 + w.base.x) * 0.06, w.base.z); }
-    for (const c of this.icons) { const h = hov?.icon === c; c.update(dt, t, cam, h); const hv = Math.max(0, c.hov.value); if (!(this.mode === 'leave' && c.act === 'studies')) c.I.update(dt, t, hv, { ready: c.act === 'studies' ? this.ready > 0 : c.act === 'stars' ? this.fresh > 0 : false, open: c.act === 'journal' && this.panelKind === 'journal' });
-      if (((c.act === 'studies' && this.ready) || (c.act === 'stars' && this.fresh)) && this.mode === 'hero' && Math.random() < dt * 3) { const p = c.group.getWorldPosition(V()); const r = this.rnd; this.motes.spawn({ pos: [p.x + (r() - 0.5) * 0.4, p.y + 0.1 + r() * 0.3, p.z], vel: [(r() - 0.5) * 0.1, 0.22, 0], drag: 0.5, life: 1.3, seq: 'glint', fps: 6, color: '#ffe08a', bright: 1.6, fadeIn: 0.1 }); } }
+    this.sprites.update(dt, t, { ready: this.ready > 0, fresh: this.fresh > 0, open: this.panelKind === 'journal' });
     // Isaac: gazes over the land, glances at what you point at, looks up with you into the stars
-    if (this.mode === 'astral' || this.skyT > 0.3) prof.lookAt(-0.3, 0.95); else { const tgt = hov?.word ? hov.word.group.position : hov?.icon ? hov.icon.group.position : null; if (tgt) { const p = tgt.clone().project(cam); prof.lookAt(p.x, p.y); } else prof.lookAt(-0.55 + nd.x * 0.3, 0.05 + nd.y * 0.2); }
+    if (this.mode === 'astral' || this.skyT > 0.3) prof.lookAt(-0.3, 0.95); else { const tgt = hov?.word ? hov.word.group.position : null; if (tgt) { const p = tgt.clone().project(cam); prof.lookAt(p.x, p.y); } else if (hov?.icon) prof.lookAt(-0.8, -0.6); else prof.lookAt(-0.55 + nd.x * 0.3, 0.05 + nd.y * 0.2); }
     // ambient: warm motes drifting in the low sunlight near the lens (stardust once we look up)
     this.acc += dt * 6; const r = this.rnd; while (this.acc > 1) { this.acc--; const z = -(1.2 + r() * 7); const p = cam.localToWorld(V((r() - 0.5) * -z * 1.6, (r() - 0.5) * -z * 0.9, z)); const night = this.skyT > 0.5;
       this.motes.spawn({ pos: p, vel: [0.25 + r() * 0.2, (r() - 0.5) * 0.05, 0.05], wobble: 0.3, drag: 0.3, life: 3 + r() * 3, sprite: r() < 0.7 ? 'm1' : 'dust', color: night ? (r() < 0.5 ? '#c8d0ff' : '#e8d8ff') : r() < 0.7 ? '#ffd8a0' : '#ffe8c8', bright: 0.9 + r() * 0.5, twinkle: 2 + r() * 3, fadeIn: 0.3 }); }
     this.motes.px = Math.max(2, Math.round(this.engine.renderer.getDrawingBufferSize(this._bs || (this._bs = new THREE.Vector2())).y / 320)); this.motes.update(dt, t, this.engine.renderer);
     this.updateUI(dt);
   }
-  dispose() { this.engine.renderer.domElement.style.cursor = ''; try { fstop(); } catch (e) { /* */ } this.UI?.dispose(); this._env?.dispose(); this.motes?.dispose(); for (const c of this.icons || []) c.dispose(); for (const w of this.words || []) w.dispose(); this.astral?.dispose(); super.dispose(); }
+  dispose() { this.engine.renderer.domElement.style.cursor = ''; try { fstop(); } catch (e) { /* */ } this.UI?.dispose(); this._env?.dispose(); this.motes?.dispose(); for (const w of this.words || []) w.dispose(); this.astral?.dispose(); super.dispose(); }
 }
