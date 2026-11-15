@@ -37,7 +37,7 @@ function bodyPoints(hero, n) { // points on the hero's real surface (skinned mes
 const RECON = [
   ['cosmic', 'You are not broken, Isaac. Only scattered.', 'master', 'Again? Gather yourself. The stars remember your shape, even when you forget it.'],
   ['cosmic', 'Every law you learned is still in you. Come back together.', 'master', 'Up you get. Falling is only gravity being honest with you.'],
-  ['cosmic', 'The story is not finished. Neither are you.', 'master', 'Welcome back. The Wilds have not moved. Neither has the dog.'],
+  ['cosmic', 'The story is not finished. Neither are you.', 'master', 'Welcome back. The Wilds have not moved. Neither has the apple's appetite.'],
 ];
 
 export class EndScene extends UIScreen {
