@@ -28,6 +28,8 @@
 - Combat dilemmas: full zoom-in interactive scenes showing Isaac doing the action. Bosses include the wizard FROG, the BOOKWORMS, and some events become optional boss fights (e.g. Prometheus' eagle, the Sphinx).
 - GAME NAME: LERFOLESE (renamed from Apple of Discord) in all user-visible text.
 - Combat like Slay the Spire: BLOCK is central, enemies hit hard with telegraphed intents, and it is a LOT HARDER. Map board figurines show exactly the enemies of each node's pre-rolled encounter.
+- CARD INFO (newest): cards show full clear info like Slay the Spire (type, exact live numbers green/red with modifiers, highlighted keywords + tooltips), big and high-res.
+- SPELLS (newest): NO 2D pixel-art 'Isaac doing the attack' vignette. Merging = mixing an EQUATION; the result is a complete SPELL CARD (distinct gilded arcane frame, name, equation, stats) whose art is an ANIMATED live 3D scene of Isaac performing that attack. Gameplay must be clear, deterministic and feel like a real experiment (set up, predict, run); many more enemies.
 - CARDS (newest): NO card rewards. You get new cards only by MERGING (discoveries) and from EVENTS.
 - The APPLE has a lot of FRICTION and builds HEAT (a core mechanic: heat glows/smokes on the apple and changes its moves).
 - Roguelike depth stays: synergies/anti-synergies, multipliers, odds, discovery picks, enemy loot only, hard difficulty.
