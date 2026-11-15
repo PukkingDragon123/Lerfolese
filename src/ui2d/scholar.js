@@ -54,6 +54,13 @@ function css() {
 .lf-tab:hover { opacity: .9; transform: translateY(calc(var(--k) * -1px)); } .lf-tab.lf-on { opacity: 1; border-bottom: calc(var(--k) * 2px) solid currentColor; }
 .lf-cv { image-rendering: pixelated; display: block; } .lf-cv.lf-smooth { image-rendering: auto; }
 .lf-grid { display: flex; flex-wrap: wrap; gap: calc(var(--k) * 4px); }
+@keyframes lf-starpop { 0% { transform: scale(0.2) rotate(-40deg); filter: brightness(3); } 60% { transform: scale(1.6) rotate(8deg); filter: brightness(1.8); } 100% { transform: scale(1) rotate(0); filter: none; } }
+.lf-pop { animation: lf-starpop .55s cubic-bezier(.2,1.6,.4,1) both; }
+.lf-slide { cursor: ew-resize; touch-action: none; } .lf-slide:hover { filter: brightness(1.12); }
+.lf-node { position: absolute; display: flex; flex-direction: column; align-items: center; transition: transform .15s, filter .15s; }
+.lf-node.lf-can { cursor: pointer; } .lf-node.lf-can:hover { transform: translateY(calc(var(--k) * -2px)) scale(1.1); }
+.lf-node.lf-got { filter: saturate(.7) brightness(.85); } .lf-node.lf-far { filter: grayscale(.9) brightness(.6); }
+.lf-mini { font-family: 'NanoPlus'; font-size: calc(var(--k) * 13px); line-height: calc(var(--k) * 11px); }
 `;
   document.head.appendChild(s);
 }
@@ -155,6 +162,7 @@ const ICONS = { // 11 x 11 hand-pixelled glyphs. k: outline; a..e: ramp dark -> 
   lock: ['...kkkkk...', '..kdddddk..', '.kdk...kck.', '.kdk...kck.', 'kkkkkkkkkkk', 'keeeeddddck', 'kedddkddcbk', 'kedddkddcbk', 'keddddddcbk', 'kdccccccbbk', 'kkkkkkkkkkk'],
 };
 export function icon(name, { ramp = BRASS, accent = '#c8302c', scale = 1 } = {}) {
+  if (name === 'gear') { const P = new Pix(11, 11); const M7 = ramp.length >= 7 ? ramp : BRASS; brassShape(P, 0, 0, 11, 11, (x, y) => { const dx = x - 5.5, dy = y - 5.5, r = Math.hypot(dx, dy), a = Math.atan2(dy, dx); const R = Math.cos(a * 8) > 0.15 ? 5.2 : 3.9; return Math.max(r - R, 1.3 - r); }, M7); const c = P.done(); c.className = 'lf-cv'; c.dataset.w = 11 * scale; c.dataset.h = 11 * scale; return c; }
   const m = ICONS[name] || ICONS.star; const w = m[0].length, h = m.length; const P = new Pix(w, h); const ac = parseInt(accent.slice(1), 16); const mix = (k) => '#' + [16, 8, 0].map((s) => Math.max(0, Math.min(255, Math.round(((ac >> s) & 255) * k + (k > 1 ? (k - 1) * 120 : 0))))).map((v) => v.toString(16).padStart(2, '0')).join('');
   const map = { k: '#140a06', a: ramp[1], b: ramp[2], c: ramp[3], d: ramp[4], e: ramp[6] || ramp[5], x: accent, y: mix(0.6), z: mix(1.3), g: '#7ab048', h: '#3a6a28' };
   m.forEach((row, y) => { for (let x = 0; x < w; x++) { const ch = row[x]; if (ch !== '.' && map[ch]) P.set(x, y, map[ch]); } }); const c = P.done(); c.className = 'lf-cv'; c.dataset.w = w * scale; c.dataset.h = h * scale; return c;
@@ -172,6 +180,16 @@ export function bar(w, frac, { night = false, done = false } = {}) {
     P.set(x, y, c);
   }
   const c = P.done(); c.className = 'lf-cv'; c.dataset.w = w; c.dataset.h = 9; return c;
+}
+/** a brass slider: a recessed groove with tick marks (every tenth) and a bevelled brass knob at frac, w x 11 art px */
+export function slider(w, frac, { night = false, off = false } = {}) {
+  const P = new Pix(w, 11); const M = off ? SILVER : night ? SILVER : BRASS; const kx = Math.round(4 + (w - 9) * Math.max(0, Math.min(1, frac)));
+  for (let x = 1; x < w - 1; x++) { P.set(x, 4, '#140a06'); P.set(x, 5, night ? NAVY[1] : '#2a160c'); P.set(x, 6, night ? NAVY[2] : '#3a2214'); P.set(x, 7, M[4]); }
+  P.set(0, 5, '#140a06'); P.set(0, 6, '#140a06'); P.set(w - 1, 5, '#140a06'); P.set(w - 1, 6, '#140a06');
+  for (let i = 0; i <= 10; i++) { const x = Math.round(2 + ((w - 5) * i) / 10); P.set(x, i % 5 ? 2 : 1, '#6a4428'); P.set(x, 3, '#6a4428'); if (i % 5 === 0) P.set(x, 2, '#6a4428'); }
+  for (let x = 2; x < kx - 3; x++) P.set(x, 5, night ? '#46c8c8' : '#eeb03a'); // the filled part of the groove glows a little
+  brassShape(P, kx - 4, 0, 9, 11, (x, y) => sdBox(x, y, 4.5, 5.5, 3.6, 4.6, 1.5), M, { face: (x, y) => (Math.abs(x + 0.5 - 4.5) < 0.6 && y > 2 && y < 9 ? 2 : y < 4 ? 6 : y < 7 ? 5 : 4) });
+  const c = P.done(); c.className = 'lf-cv'; c.dataset.w = w; c.dataset.h = 11; return c;
 }
 /** a scrolled divider: a hairline with a brass lozenge in the middle and tapering flourishes, w x 7 art px */
 export function divider(w, { night = false } = {}) {
@@ -198,7 +216,7 @@ export class Scholar {
     const P = { el, inner, w, h, anchor, mx, my, pad, theme }; this.panels.push(P); this.place(P); return P;
   }
   place(P) { const k = this.k, W = innerWidth, Hh = innerHeight; const w = P.w * k, h = P.h * k; let x = 0, y = 0;
-    if (P.anchor === 'left') { x = P.mx * k; y = (Hh - h) / 2 + P.my * k; } else if (P.anchor === 'right') { x = W - w - P.mx * k; y = (Hh - h) / 2 + P.my * k; } else if (P.anchor === 'bottom') { x = (W - w) / 2 + P.mx * k; y = Hh - h - P.my * k; } else if (P.anchor === 'top-left') { x = P.mx * k; y = P.my * k; } else if (P.anchor === 'top') { x = (W - w) / 2 + P.mx * k; y = P.my * k; } else if (P.anchor === 'top-right') { x = W - w - P.mx * k; y = P.my * k; } else if (P.anchor === 'bottom-right') { x = W - w - P.mx * k; y = Hh - h - P.my * k; } else { x = (W - w) / 2 + P.mx * k; y = (Hh - h) / 2 + P.my * k; }
+    if (P.anchor === 'left') { x = P.mx * k; y = (Hh - h) / 2 + P.my * k; } else if (P.anchor === 'right') { x = W - w - P.mx * k; y = (Hh - h) / 2 + P.my * k; } else if (P.anchor === 'bottom') { x = (W - w) / 2 + P.mx * k; y = Hh - h - P.my * k; } else if (P.anchor === 'top-left') { x = P.mx * k; y = P.my * k; } else if (P.anchor === 'top') { x = (W - w) / 2 + P.mx * k; y = P.my * k; } else if (P.anchor === 'top-right') { x = W - w - P.mx * k; y = P.my * k; } else if (P.anchor === 'bottom-right') { x = W - w - P.mx * k; y = Hh - h - P.my * k; } else if (P.anchor === 'bottom-left') { x = P.mx * k; y = Hh - h - P.my * k; } else { x = (W - w) / 2 + P.mx * k; y = (Hh - h) / 2 + P.my * k; }
     if (P.at) { x = P.at[0] - w / 2; y = P.at[1] - h; x = Math.max(4, Math.min(W - w - 4, x)); y = Math.max(4, Math.min(Hh - h - 4, y)); }
     Object.assign(P.el.style, { left: Math.round(x) + 'px', top: Math.round(y) + 'px', width: w + 'px', height: h + 'px' }); const pd = P.pad * k; Object.assign(P.inner.style, { left: pd + 'px', top: pd + 'px', right: pd + 'px', bottom: pd + 'px' }); }
   /** a brass push plaque that clicks, glints and runs fn */

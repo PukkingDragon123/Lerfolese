@@ -26,11 +26,11 @@ export function smat(kind, { metal = 0, rough = 0.9, color = 0xffffff, emissive 
 }
 export const M = { brass: () => smat('brass', { metal: 0.85, rough: 0.42 }), gold: () => smat('gold', { metal: 0.9, rough: 0.36 }), oak: () => smat('oak', { rough: 0.92 }), walnut: () => smat('walnut', { rough: 0.92 }), iron: () => smat('iron', { metal: 0.8, rough: 0.45 }), marble: () => smat('marble', { rough: 0.75 }), parch: () => smat('parch', { rough: 1 }), leather: () => smat('leather', { rough: 0.9 }) };
 export const glassM = (tint = 0xdcecff, op = 0.3) => new THREE.MeshStandardMaterial({ color: tint, metalness: 0.1, roughness: 0.06, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide, flatShading: true, envMapIntensity: 1.2 });
-const glowM = (c, k = 1.6, op = 1) => new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(k), toneMapped: false, transparent: op < 1, opacity: op, depthWrite: op >= 1 });
+export const glowM = (c, k = 1.6, op = 1) => new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(k), toneMapped: false, transparent: op < 1, opacity: op, depthWrite: op >= 1 });
 export function put(p, geo, m, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) { const o = new THREE.Mesh(geo.index ? facet(geo, 3) : geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = true; o.receiveShadow = true; p.add(o); return o; }
-const beam = (len, r = 0.006) => { const g = new THREE.BoxGeometry(r, r, len); g.translate(0, 0, len / 2); return g; };
+export const beam = (len, r = 0.006) => { const g = new THREE.BoxGeometry(r, r, len); g.translate(0, 0, len / 2); return g; };
 const Z = new THREE.Vector3(0, 0, 1);
-function aim(o, from, to) { o.position.copy(from); const d = to.clone().sub(from); const L = d.length(); if (L > 1e-6) o.quaternion.setFromUnitVectors(Z, d.multiplyScalar(1 / L)); o.scale.z = Math.max(0.001, L); } // in the parent's own space
+export function aim(o, from, to) { o.position.copy(from); const d = to.clone().sub(from); const L = d.length(); if (L > 1e-6) o.quaternion.setFromUnitVectors(Z, d.multiplyScalar(1 / L)); o.scale.z = Math.max(0.001, L); } // in the parent's own space
 
 // ---------------------------------------------------------------- pendulum
 function pendulum() {
@@ -68,7 +68,7 @@ function fall() {
 }
 
 // ---------------------------------------------------------------- the prism
-const SPECTRUM = ['#ff3a3a', '#ff8a2a', '#ffe23a', '#4ad84a', '#3a9aff', '#5a4aff', '#b04aff'];
+export const SPECTRUM = ['#ff3a3a', '#ff8a2a', '#ffe23a', '#4ad84a', '#3a9aff', '#5a4aff', '#b04aff'];
 function prism() {
   const g = new THREE.Group();
   put(g, cbox(1.1, 0.04, 0.4, 0.01), M.walnut(), 0, 0.02, 0);
