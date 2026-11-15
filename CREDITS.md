@@ -19,3 +19,14 @@ Real recordings only, nothing synthesised. Full per-file table: [`assets/audio/C
 
 ## 3D models, textures, HDRIs
 [Poly Haven](https://polyhaven.com) (CC0). Per-asset authors are in [`assets/models/CREDITS.md`](assets/models/CREDITS.md).
+
+### The Experiment Hall (studies lab): `assets/models/lab/`, `assets/textures/lab/`
+Furniture and dressing are CC0 models from [Poly Haven](https://polyhaven.com), converted to low-poly pixel art
+(`pixel-hd`) with the lowpix toolkit: WoodenTable_01, GothicCommode_01, GothicCabinet_01, vintage_cabinet_01,
+wooden_bookshelf_worn, vintage_wooden_drawer_01, WoodenChair_01, wooden_stool_02, vintage_grandfather_clock_01,
+ornate_mirror_01, fancy_picture_frame_01, treasure_chest, Barrel_01, wicker_basket_01, wooden_bucket_01, Lantern_01,
+wooden_candlestick, vintage_oil_lamp, brass_candleholders, mantel_clock_01, marble_bust_01, antique_ceramic_vase_01,
+vintage_microscope, book_encyclopedia_set_01, brass_pot_01, brass_vase_01, brass_goblets,
+magnifying_glass_01, pocket_watch, seadogs_compass, food_apple_01, round_spectacles (all CC0, Poly Haven).
+Wall stone texture: Poly Haven `medieval_blocks_03` (CC0), stylised to pixel
+art with lowpix; the plaster, floor and beam planks are drawn procedurally.

@@ -18,9 +18,11 @@ import { audio } from '../core/audio.js';
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const TAU = Math.PI * 2;
 const MATS = new Map();
+const WOOD = {}; // the hall's hand-pixelled plank textures (assets/textures/lab/oak.png, beam.png): fine grain at the bench's scale
+const labWood = (name) => { let t = WOOD[name]; if (t) return t; t = WOOD[name] = new THREE.TextureLoader().load(new URL(`../../assets/textures/lab/${name}.png`, import.meta.url).href); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 8; return t; };
 export function smat(kind, { metal = 0, rough = 0.6, color = 0xffffff, emissive = 0, ei = 1 } = {}) {
   const k = [kind, metal, rough, color, emissive, ei].join('|'); let m = MATS.get(k); if (m) return m;
-  m = new THREE.MeshStandardMaterial({ map: kind ? tex(kind) : null, color: new THREE.Color(color), metalness: metal, roughness: rough, flatShading: true, emissive: new THREE.Color(emissive), emissiveIntensity: ei }); MATS.set(k, m); return m;
+  m = new THREE.MeshStandardMaterial({ map: kind === 'walnut' ? labWood('beam') : kind === 'oak' ? labWood('oak') : kind ? tex(kind) : null, color: new THREE.Color(color), metalness: metal, roughness: rough, flatShading: true, emissive: new THREE.Color(emissive), emissiveIntensity: ei }); MATS.set(k, m); return m;
 }
 export const M = { brass: () => smat('brass', { metal: 0.9, rough: 0.32 }), gold: () => smat('gold', { metal: 0.95, rough: 0.25 }), oak: () => smat('oak', { rough: 0.7 }), walnut: () => smat('walnut', { rough: 0.7 }), iron: () => smat('iron', { metal: 0.8, rough: 0.45 }), marble: () => smat('marble', { rough: 0.4 }), parch: () => smat('parch', { rough: 0.9 }), leather: () => smat('leather', { rough: 0.8 }) };
 export const glassM = (tint = 0xdcecff, op = 0.3) => new THREE.MeshStandardMaterial({ color: tint, metalness: 0.1, roughness: 0.04, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide, flatShading: true, envMapIntensity: 2.4 });

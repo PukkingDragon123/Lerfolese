@@ -1,13 +1,13 @@
 // THE SCHOLAR'S 2D UI (menu agent): detailed, crisp, high-resolution 2D panels for the menu side (the Experiment Hall,
 // the star-chart of achievements, the astral select's chart card, the journal codex and the settings). Every surface
-// is HAND-PIXELLED ART painted at runtime (an ebony and brass frame with corner fittings and rivets around aged
-// parchment, or a lapis star-chart with silver fittings), drawn at a whole number of screen pixels per art pixel (--k)
+// is HAND-PIXELLED ART painted at runtime in a few hand-picked ramps (a carved walnut moulding, a brass fillet and cast
+// bevelled corner brackets around clean vellum; or navy and silver around a lapis star-chart; brass plaques, glass
+// gauges, a scrolled divider, 11 px icons), drawn at a whole number of screen pixels per art pixel (--k)
 // so it stays perfectly crisp; the text is set in Alagard (titles), PixelSans (body) and NanoPlus (numbers) at exact
 // multiples of their native sizes, so no letter is ever soft or low-res. Controls are alive: rows lift and warm under
 // the pointer, brass buttons press down with a click and a glint, bars fill with liquid light.
 //   const UI = new Scholar();  const p = UI.panel({ w: 220, h: 300, theme: 'parch' });  p.el (a DOM node in art-px layout)
 //   UI.k (screen px per art px); UI.dispose()
-import { RAMP, Surf, parchment } from '../ui3d/craft.js';
 import { audio } from '../core/audio.js';
 
 const H = (n) => { const x = Math.sin(n * 127.1) * 43758.5453; return x - Math.floor(x); };
@@ -59,60 +59,127 @@ function css() {
 }
 
 // ---------------------------------------------------------------- hand-pixelled surfaces
+// Every surface is painted pixel by pixel into a few hand-picked ramps: large clean value shapes (no noise mud),
+// soft value changes only as a checkerboard on the band edge, bevels lit from the top left, a 1 px dark outline.
 function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
-/** a framed folio: ebony + brass frame with corner fittings and rivets around parchment (theme 'parch') or a lapis
- *  star-chart with silver fittings (theme 'night'); w x h art px */
-export function folio(w, h, { theme = 'parch', seed = 1, frame = 'full' } = {}) {
-  const night = theme === 'night'; let c;
-  if (night) { c = canvas(w, h); const g = c.getContext('2d'); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const n = h2(x >> 2, y >> 2, seed) * 0.6 + h2(x >> 3, y >> 3, seed + 1) * 0.4; const t = n > 0.78 ? 3 : n < 0.25 ? 1 : 2; g.fillStyle = LAPIS[t]; g.fillRect(x, y, 1, 1); }
-    for (let i = 0; i < (w * h) / 90; i++) { const x = (h2(i, 1, seed) * w) | 0, y = (h2(i, 2, seed) * h) | 0; g.fillStyle = h2(i, 3, seed) > 0.8 ? '#c8d0ff' : '#5a6aa8'; g.fillRect(x, y, 1, 1); }
-    g.strokeStyle = 'rgba(160,180,255,0.10)'; g.lineWidth = 1; for (let x = 12.5; x < w; x += 24) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); } for (let y = 12.5; y < h; y += 24) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); } }
-  else { const S = new Surf(w, h); parchment(S, 0, 0, w, h, { seed, torn: 0, tone: 4, age: 1 }); c = S.toCanvas(null, 1); }
-  if (frame === 'none') return c;
-  const g = c.getContext('2d'); const M = night ? SILVER : BRASS; const F = night ? LAPIS : EBONY; const B = frame === 'thin' ? 0 : 4;
+const hex = (s) => { const n = parseInt(s.slice(1, 7), 16); return (0xff000000 | ((n & 255) << 16) | (n & 0xff00) | ((n >> 16) & 255)) >>> 0; };
+/** a 32-bit pixel buffer painted with hex colours, then put on a canvas */
+class Pix {
+  constructor(w, h, c = null) { this.w = w; this.h = h; this.c = c || canvas(w, h); this.g = this.c.getContext('2d'); this.img = c ? this.g.getImageData(0, 0, w, h) : this.g.createImageData(w, h); this.d = new Uint32Array(this.img.data.buffer); this.cache = new Map(); }
+  set(x, y, col) { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= this.w || y >= this.h) return; let v = this.cache.get(col); if (v == null) { v = hex(col); this.cache.set(col, v); } this.d[y * this.w + x] = v; }
+  clear(x, y) { if (x >= 0 && y >= 0 && x < this.w && y < this.h) this.d[y * this.w + x] = 0; }
+  done() { this.g.putImageData(this.img, 0, 0); return this.c; }
+}
+const smooth = (t) => t * t * (3 - 2 * t);
+/** smooth value noise in 0..1 at cell size s (big, clean shapes) */
+function vnoise(x, y, s, seed) { const X = x / s, Y = y / s, i = Math.floor(X), j = Math.floor(Y), u = smooth(X - i), v = smooth(Y - j); const a = h2(i, j, seed), b = h2(i + 1, j, seed), c = h2(i, j + 1, seed), d = h2(i + 1, j + 1, seed); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+/** a continuous tone (float) -> a ramp index; the band edges get a 1 px checkerboard so the value turns softly but stays crisp */
+const band = (t, x, y, lo = 0, hi = 99) => { const f = t - Math.floor(t); let k = Math.floor(t); if (f > 0.42 && f < 0.58 && (x + y) % 2) k++; return Math.max(lo, Math.min(hi, k)); };
+
+const VELLUM = ['#4e3018', '#7a5530', '#a37c4c', '#c49e68', '#dcbc84', '#ead09c', '#f4e2b8', '#fbf0d4'];
+const WALNUT = ['#0e0706', '#24130c', '#3a2014', '#53301c', '#6e4226', '#8c5a34'];
+const NAVY = ['#05060f', '#0a0e22', '#111838', '#1a2450', '#25336a', '#344686'];
+/** parchment: a sheet of vellum with broad light, a darkened deckle near the edges, a few fibres and foxing spots */
+function vellum(P, w, h, seed) {
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const d = Math.min(x, y, w - 1 - x, h - 1 - y); if (d > B + 3) continue; const top = Math.min(x, y) === d; let col = null;
-    if (d === 0) col = '#06030a';
-    else if (d <= B) { const gr = h2(x >> 1, y >> 3, seed + 9); col = F[Math.min(F.length - 1, (d === 1 ? 3 : 2) + (gr > 0.8 ? 1 : 0) - (gr < 0.15 ? 1 : 0))]; }
-    else if (d === B + 1) col = top ? M[5] : M[2]; else if (d === B + 2) col = top ? M[4] : M[3]; else if (d === B + 3) col = '#140a06';
-    if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); } }
-  // corner fittings: a brass leaf plate with a rivet in each corner, and rivets along the long edges
-  const plate = (cx, cy, fx, fy) => { for (let j = 0; j < 9; j++) for (let i = 0; i < 9; i++) { if (i + j > 11) continue; const x = cx + i * fx, y = cy + j * fy; const e = i + j === 11 || i === 8 || j === 8; g.fillStyle = e ? '#140a06' : i + j < 3 ? M[6] : (i < 2 || j < 2) ? M[5] : i + j > 9 ? M[2] : M[(i * 3 + j) % 7 === 0 ? 3 : 4]; g.fillRect(x, y, 1, 1); }
-    g.fillStyle = M[1]; g.fillRect(cx + 3 * fx, cy + 3 * fy, 1, 1); g.fillStyle = M[6]; g.fillRect(cx + 2 * fx, cy + 2 * fy, 1, 1); };
-  plate(1, 1, 1, 1); plate(w - 2, 1, -1, 1); plate(1, h - 2, 1, -1); plate(w - 2, h - 2, -1, -1);
-  if (B) { const riv = (x, y) => { g.fillStyle = M[2]; g.fillRect(x - 1, y - 1, 3, 3); g.fillStyle = M[5]; g.fillRect(x - 1, y - 1, 1, 1); g.fillStyle = M[1]; g.fillRect(x + 1, y + 1, 1, 1); };
-    for (let x = 24; x < w - 20; x += 32) { riv(x, 2); riv(x, h - 3); } for (let y = 24; y < h - 20; y += 32) { riv(2, y); riv(w - 3, y); } }
-  return c;
+    const n = vnoise(x, y, 96, seed) * 0.7 + vnoise(x, y, 34, seed + 3) * 0.3; const e = Math.min(x, y, w - 1 - x, h - 1 - y); const vig = Math.max(0, 1 - e / 30) ** 2;
+    const lift = (1 - y / h) * 0.5; // light falls from the top
+    P.set(x, y, VELLUM[band(4.55 + (n - 0.5) * 1.1 + lift - vig * 2.2, x, y, 2, 6)]);
+  }
+  for (let i = 0; i < (w * h) / 520; i++) { const x = (h2(i, 1, seed) * w) | 0, y = (h2(i, 2, seed) * h) | 0, L = 3 + ((h2(i, 3, seed) * 7) | 0); const up = h2(i, 4, seed) > 0.4; for (let k = 0; k < L; k++) { const X = x + k, Y = y + (k > L / 2 && h2(i, 5, seed) > 0.7 ? 1 : 0); const cur = P.d[Y * w + X]; if (cur == null) continue; const idx = VELLUM.findIndex((c) => hex(c) === cur); if (idx > 1) P.set(X, Y, VELLUM[Math.max(2, Math.min(7, idx + (up ? 1 : -1)))]); } } // fibres: short streaks one tone up or down
+  for (let i = 0; i < 2 + ((w * h) / 16000 | 0); i++) { const cx = (h2(i, 7, seed) < 0.5 ? 14 + h2(i, 8, seed) * w * 0.25 : w - 14 - h2(i, 8, seed) * w * 0.25), cy = 14 + h2(i, 9, seed) * (h - 28), r = 1.6 + h2(i, 10, seed) * 2.6; // foxing: a soft brown ring
+    for (let y = -6; y <= 6; y++) for (let x = -6; x <= 6; x++) { const d = Math.hypot(x, y * 1.15); const X = Math.round(cx + x), Y = Math.round(cy + y); if (d <= r - 1) P.set(X, Y, VELLUM[3]); else if (d <= r + 0.2) P.set(X, Y, VELLUM[2]); else if (d <= r + 1.2 && (X + Y) % 2) P.set(X, Y, VELLUM[3]); } }
 }
-/** a brass (or silver) push plaque, w x 20 art px */
+/** the lapis star chart: a deep night with a soft nebula, pixel stars (a few with crossed glints) and a dotted grid */
+function lapis(P, w, h, seed) {
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const n = vnoise(x, y, 70, seed) * 0.7 + vnoise(x, y, 26, seed + 5) * 0.3; const e = Math.min(x, y, w - 1 - x, h - 1 - y); const vig = Math.max(0, 1 - e / 30) ** 2; P.set(x, y, NAVY[band(2.2 + (n - 0.5) * 2.4 - vig * 1.6, x, y, 0, 5)]); }
+  for (let x = 12; x < w; x += 24) for (let y = 0; y < h; y += 2) P.set(x, y, NAVY[3]); for (let y = 12; y < h; y += 24) for (let x = 0; x < w; x += 2) P.set(x, y, NAVY[3]);
+  for (let i = 0; i < (w * h) / 110; i++) { const x = (h2(i, 1, seed) * w) | 0, y = (h2(i, 2, seed) * h) | 0, s = h2(i, 3, seed); P.set(x, y, s > 0.86 ? '#e8ecff' : s > 0.55 ? '#7c8cc8' : '#4a5a98'); if (s > 0.975) { for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) P.set(x + dx, y + dy, '#8a9ae0'); P.set(x, y, '#ffffff'); } }
+}
+/** a bevelled brass shape from a signed distance function (negative inside), lit from the top left; M = 7-tone ramp */
+function brassShape(P, x0, y0, w, h, sdf, M, { fx = 1, fy = 1, outline = '#140a06', face = null } = {}) {
+  const at = (x, y) => sdf(x + 0.5, y + 0.5);
+  for (let y = -1; y <= h; y++) for (let x = -1; x <= w; x++) {
+    const d = at(x, y); const X = fx > 0 ? x0 + x : x0 - x, Y = fy > 0 ? y0 + y : y0 - y;
+    if (d > 0) { if (at(x - 1, y) <= 0 || at(x + 1, y) <= 0 || at(x, y - 1) <= 0 || at(x, y + 1) <= 0) P.set(X, Y, outline); continue; }
+    const gx = (at(x + 1, y) - at(x - 1, y)) * fx, gy = (at(x, y + 1) - at(x, y - 1)) * fy; const L = Math.hypot(gx, gy) || 1; const lit = (-gx - gy) / (L * 1.414); // +1 faces the light
+    let t; if (d > -1.01) t = lit > 0.35 ? 6 : lit > -0.2 ? 4 : 2; else if (d > -2.01) t = lit > 0.35 ? 5 : lit > -0.2 ? 4 : 3; else t = face ? face(x, y, d) : (x + y < (w + h) * 0.32 ? 5 : 4);
+    P.set(X, Y, M[t]);
+  }
+}
+const sdBox = (x, y, cx, cy, hw, hh, r = 0) => { const qx = Math.abs(x - cx) - hw + r, qy = Math.abs(y - cy) - hh + r; return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r; };
+const sdCircle = (x, y, cx, cy, r) => Math.hypot(x - cx, y - cy) - r;
+function rivet(P, x, y, M) { P.set(x - 1, y - 1, M[6]); P.set(x, y - 1, M[5]); P.set(x + 1, y - 1, M[4]); P.set(x - 1, y, M[5]); P.set(x, y, M[4]); P.set(x + 1, y, M[2]); P.set(x - 1, y + 1, M[4]); P.set(x, y + 1, M[2]); P.set(x + 1, y + 1, M[1]); }
+/** an L-shaped cast corner bracket with a round boss and rivet (20 x 20 art px), mirrored into each corner */
+function cornerPiece(P, cx, cy, fx, fy, M) {
+  const sdf = (x, y) => { const tip = (u) => Math.max(0, u - 13) * 0.55; const a = sdBox(x, y, 11, 4.5, 10, 3.5 - tip(x), 1); const b = sdBox(x, y, 4.5, 11, 3.5 - tip(y), 10, 1); const c = sdCircle(x, y, 8.5, 8.5, 5.2); return Math.min(a, b, c); };
+  brassShape(P, cx, cy, 22, 22, sdf, M, { fx, fy, face: (x, y, d) => { const r = Math.hypot(x + 0.5 - 8.5, y + 0.5 - 8.5); if (Math.abs(r - 3.6) < 0.55) return 2; return x + y < 13 ? 5 : 4; } });
+  rivet(P, cx + fx * 8, cy + fy * 8, M);
+}
+/** a framed folio: a carved walnut moulding with a brass fillet and cast corner brackets around vellum (theme 'parch'),
+ *  or a navy moulding with silver fittings around a lapis star chart (theme 'night'); w x h art px */
+export function folio(w, h, { theme = 'parch', seed = 1, frame = 'full' } = {}) {
+  const night = theme === 'night'; const P = new Pix(w, h); if (night) lapis(P, w, h, seed); else vellum(P, w, h, seed);
+  if (frame === 'none') return P.done();
+  const M = night ? SILVER : BRASS; const Wd = night ? NAVY : WALNUT; const thin = frame === 'thin'; const B = thin ? 0 : 5;
+  const inner = B + 3; // frame width; the sheet starts at d = inner
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const d = Math.min(x, y, w - 1 - x, h - 1 - y); if (d > inner + 1) continue; const tl = Math.min(x, y) === d && !(x === d && h - 1 - y < d) && !(y === d && w - 1 - x < d); const u = (x === d || w - 1 - x === d) ? y : x;
+    let c = null;
+    if (d === 0) c = '#0a0507';
+    else if (d <= B) { const prof = tl ? [0, 4, 3, 1, 3, 2][d] : [0, 2, 2, 0, 3, 4][d]; const grain = h2(Math.floor(u / 7), d * 3 + (tl ? 0 : 1), seed + 9); c = Wd[Math.max(0, Math.min(5, prof + (grain > 0.84 ? -1 : grain < 0.08 ? 1 : 0)))]; }
+    else if (d === B + 1) c = tl ? M[6] : M[3]; else if (d === B + 2) c = tl ? M[4] : M[2]; else if (d === B + 3) c = '#140a06';
+    else if (d === inner + 1 && tl && !night) c = VELLUM[2]; // the sheet sits under the frame: a soft shadow on the lit side
+    if (c) P.set(x, y, c);
+  }
+  if (!thin) { for (let x = 30; x < w - 26; x += 36) { rivet(P, x, 3, M); rivet(P, x, h - 4, M); } for (let y = 30; y < h - 26; y += 36) { rivet(P, 3, y, M); rivet(P, w - 4, y, M); }
+    cornerPiece(P, 0, 0, 1, 1, M); cornerPiece(P, w - 1, 0, -1, 1, M); cornerPiece(P, 0, h - 1, 1, -1, M); cornerPiece(P, w - 1, h - 1, -1, -1, M); }
+  else { for (const [x, y] of [[3, 3], [w - 4, 3], [3, h - 4], [w - 4, h - 4]]) rivet(P, x, y, M); }
+  return P.done();
+}
+/** a cast brass (or silver, or red-enamel) push plaque, w x 20 art px: bevelled edge, an engraved inner line, two rivets */
 export function plaque(w, { night = false, red = false } = {}) {
-  const c = canvas(w, 20); const g = c.getContext('2d'); const M = red ? ['#1c040e', '#480a1a', '#821424', '#bc2a2c', '#e25a40', '#fca07a', '#ffd0b8'] : night ? SILVER : BRASS;
-  for (let y = 0; y < 20; y++) for (let x = 0; x < w; x++) { const d = Math.min(x, y, w - 1 - x, 19 - y); const corner = (x < 2 || x > w - 3) && (y < 2 || y > 17); if (corner && d === 0) continue;
-    let t = d === 0 ? -1 : d === 1 ? (Math.min(x, y) === 1 ? 6 : 1) : d === 2 ? (Math.min(x, y) === 2 ? 5 : 2) : y < 8 ? 4 : y < 14 ? 3 : 3; if (d > 2 && h2(x >> 1, y, 4) > 0.9) t = Math.min(6, t + 1); if (d > 2 && y === 9 && h2(x, 2, 5) > 0.6) t = 5;
-    g.fillStyle = t < 0 ? '#100604' : M[t]; g.fillRect(x, y, 1, 1); }
-  return c;
+  const M = red ? ['#1c040e', '#480a1a', '#821424', '#bc2a2c', '#e25a40', '#fca07a', '#ffd0b8'] : night ? SILVER : BRASS; const P = new Pix(w, 20);
+  const sdf = (x, y) => sdBox(x, y, w / 2, 10, w / 2 - 1, 9, 4);
+  brassShape(P, 0, 0, w, 20, sdf, M, { face: (x, y) => { const e = sdBox(x + 0.5, y + 0.5, w / 2, 10, w / 2 - 4.5, 5.5, 2); if (Math.abs(e) < 0.5) return y < 10 && x < w - 6 ? 1 : 1; if (e > 0.4 && e < 1.5 && (y >= 15 || x >= w - 5)) return 6; return y < 6 ? 6 : y < 9 ? 5 : y < 14 ? 4 : 3; } });
+  rivet(P, 6, 10, M); rivet(P, w - 7, 10, M);
+  return P.done();
 }
-const ICONS = { // tiny hand-pixelled glyphs (k: ink, a..e: ramp tones dark -> light, x: accent)
-  star: ['....k....', '...kek...', '...kek...', 'kkkkekkkk', 'kedddddek', '.kcdddck.', '..kcdck..', '.kcckcck.', '.kck.kck.', 'kk.....kk'],
-  coin: ['..kkkkk..', '.kddddek.', 'kdcccccdk', 'kdcbbbcdk', 'kdcbkbcdk', 'kdcbbbcdk', 'kdcccccdk', '.kbdddbk.', '..kkkkk..'],
-  card: ['kkkkkkk.', 'keeeeek.', 'kexxxek.', 'kexxxekk', 'keeeeekd', 'kecccekd', 'keeeeekd', 'kkkkkkkd', '.dddddd.'],
-  cup: ['kkkkkkkkk', 'kdeeeeedk', 'kkdeeedkk', '.kcdddck.', '..kcdck..', '...kck...', '...kck...', '..kcccck.', '.kkkkkkk.'],
-  apple: ['....kk...', '...kxk...', '.kkkkkkk.', 'kcceddcck', 'kceedcbck', 'kccdcccbk', 'kcccccbbk', '.kbbbbbk.', '..kk.kk..'],
-  flask: ['...kkk...', '...kek...', '...kek...', '..kdedk..', '.kdxxxdk.', 'kdxxexxdk', 'kxxxxxxxk', 'kxxxexxxk', '.kkkkkkk.'],
-  lock: ['..kkkkk..', '.kd...dk.', '.kd...dk.', 'kkkkkkkkk', 'kdeeeeedk', 'kdcckccdk', 'kdcckccdk', 'kdbbbbbdk', 'kkkkkkkkk'],
+const ICONS = { // 11 x 11 hand-pixelled glyphs. k: outline; a..e: ramp dark -> light (e = highlight); x/y/z: accent mid/dark/light; g/h: leaf
+  star: ['.....k.....', '....kek....', '....kedk...', 'kkkkkeddkkk', 'keeeedddcak', '.keeddddak.', '..kdddcak..', '..kddkcak..', '.kdck.kcak.', '.kck...kak.', '.kk.....kk.'],
+  coin: ['...kkkkk...', '.kkeeeddkk.', '.keddddddk.', 'kedcbbbbcdk', 'kedbcccbcck', 'kddbcecbcck', 'kddbcccbcbk', 'kcdcbbbbcbk', '.kccccccbk.', '.kkbbbbbkk.', '...kkkkk...'],
+  card: ['kkkkkkkk...', 'keeeeeedk..', 'kezzzzzdk..', 'kezxzxzdkk.', 'kezzxzzdkck', 'kezxzxzdkck', 'kezzzzzdkck', 'keddddddkck', 'kecdcdcdkck', 'kkkkkkkkkck', '..kccccccck'],
+  cup: ['kkkkkkkkkkk', 'kkeeeddcckk', 'k.keeddcbk.', 'kkkedddcbkk', '..keddcbk..', '...kedck...', '....kdk....', '....kck....', '...kdcck...', '..keddccbk.', '..kkkkkkkk.'],
+  apple: ['.....kk.kk.', '.....kbkghk', '..kkkkbkkk.', '.kzzxxkxxxk', 'kzezxxxxxyk', 'kzzxxxxxxyk', 'kxzxxxxxyyk', 'kxxxxxxxyyk', '.kxxxxxyyk.', '..kyyyyyk..', '...kk.kk...'],
+  flask: ['...kkkkk...', '...keddk...', '....kek....', '....kdk....', '...kedck...', '..kezzzck..', '.kzezzzzyk.', 'kzzzzzzzzyk', 'kzxzzzzzxyk', 'kyxxxxxxyyk', '.kkkkkkkkk.'],
+  lock: ['...kkkkk...', '..kdddddk..', '.kdk...kck.', '.kdk...kck.', 'kkkkkkkkkkk', 'keeeeddddck', 'kedddkddcbk', 'kedddkddcbk', 'keddddddcbk', 'kdccccccbbk', 'kkkkkkkkkkk'],
 };
 export function icon(name, { ramp = BRASS, accent = '#c8302c', scale = 1 } = {}) {
-  const m = ICONS[name] || ICONS.star; const w = m[0].length, h = m.length; const c = canvas(w, h); const g = c.getContext('2d'); const map = { k: '#140a06', a: ramp[1], b: ramp[2], c: ramp[3], d: ramp[4], e: ramp[6] || ramp[5], x: accent };
-  m.forEach((row, y) => { for (let x = 0; x < w; x++) { const ch = row[x]; if (ch === '.') continue; g.fillStyle = map[ch]; g.fillRect(x, y, 1, 1); } }); c.className = 'lf-cv'; c.dataset.w = w * scale; c.dataset.h = h * scale; return c;
+  const m = ICONS[name] || ICONS.star; const w = m[0].length, h = m.length; const P = new Pix(w, h); const ac = parseInt(accent.slice(1), 16); const mix = (k) => '#' + [16, 8, 0].map((s) => Math.max(0, Math.min(255, Math.round(((ac >> s) & 255) * k + (k > 1 ? (k - 1) * 120 : 0))))).map((v) => v.toString(16).padStart(2, '0')).join('');
+  const map = { k: '#140a06', a: ramp[1], b: ramp[2], c: ramp[3], d: ramp[4], e: ramp[6] || ramp[5], x: accent, y: mix(0.6), z: mix(1.3), g: '#7ab048', h: '#3a6a28' };
+  m.forEach((row, y) => { for (let x = 0; x < w; x++) { const ch = row[x]; if (ch !== '.' && map[ch]) P.set(x, y, map[ch]); } }); const c = P.done(); c.className = 'lf-cv'; c.dataset.w = w * scale; c.dataset.h = h * scale; return c;
 }
-/** a segmented pixel progress bar (liquid gold, or teal for night), w x 7 art px */
+/** a glass-and-brass gauge filled with liquid light (gold, or teal for night), w x 9 art px */
 export function bar(w, frac, { night = false, done = false } = {}) {
-  const c = canvas(w, 7); const g = c.getContext('2d'); const L = night ? ['#0a1a2a', '#14506a', '#1e8aa0', '#5ad8d0', '#c8fff0'] : ['#2a1004', '#7a3e0c', '#c47a1c', '#f0b83a', '#fff0a8']; const D = done ? ['#2a1004', '#8a5a10', '#e0a020', '#ffd84a', '#fffbe0'] : L;
-  g.fillStyle = '#140a06'; g.fillRect(0, 0, w, 7); g.fillStyle = night ? '#1a2240' : '#5a3a20'; g.fillRect(1, 1, w - 2, 5); const fw = Math.round((w - 2) * Math.max(0, Math.min(1, frac)));
-  for (let x = 0; x < fw; x++) for (let y = 1; y < 6; y++) { g.fillStyle = D[y === 1 ? 4 : y === 2 ? 3 : y === 5 ? 1 : 2]; g.fillRect(1 + x, y, 1, 1); }
-  for (let x = 6; x < w - 2; x += 6) { g.fillStyle = 'rgba(20,10,6,0.55)'; g.fillRect(x, 1, 1, 5); }
-  if (fw > 0 && fw < w - 2) { g.fillStyle = D[4]; g.fillRect(fw, 1, 1, 5); }
-  c.className = 'lf-cv'; c.dataset.w = w; c.dataset.h = 7; return c;
+  const P = new Pix(w, 9); const M = night ? SILVER : BRASS; const L = done ? ['#4a2a06', '#a06a10', '#e0a020', '#ffd84a', '#fff4b0', '#ffffff'] : night ? ['#06202c', '#0e4a5e', '#1a8296', '#46c8c8', '#a8f4e8', '#ffffff'] : ['#3a1606', '#8a420e', '#c87a1c', '#eeb03a', '#ffe08a', '#fff8d8'];
+  const fw = Math.round((w - 4) * Math.max(0, Math.min(1, frac)));
+  for (let y = 0; y < 9; y++) for (let x = 0; x < w; x++) {
+    const corner = (x === 0 || x === w - 1) && (y === 0 || y === 8); if (corner) continue; let c;
+    if (y === 0 || y === 8 || x === 0 || x === w - 1) c = '#140a06';
+    else if (y === 1) c = x === 1 ? M[5] : M[6]; else if (y === 7) c = x === w - 2 ? M[2] : M[3]; else if (x === 1) c = M[4]; else if (x === w - 2) c = M[2];
+    else { const i = x - 2; if (i < fw) { c = L[[4, 3, 3, 2, 1][y - 2]]; if (y === 3 && i % 7 < 4 && i > 1 && i < fw - 2) c = L[4]; if (i === fw - 1) c = L[y < 5 ? 4 : 3]; if (done && y === 4 && h2(i, 3, 7) > 0.86) c = L[5]; }
+      else { c = y === 2 ? (night ? '#05060f' : '#1c0e08') : night ? NAVY[2] : '#3a2214'; if (y === 2 && i % 10 === 9) c = night ? NAVY[4] : '#5e3a22'; } }
+    P.set(x, y, c);
+  }
+  const c = P.done(); c.className = 'lf-cv'; c.dataset.w = w; c.dataset.h = 9; return c;
+}
+/** a scrolled divider: a hairline with a brass lozenge in the middle and tapering flourishes, w x 7 art px */
+export function divider(w, { night = false } = {}) {
+  const P = new Pix(w, 7); const M = night ? SILVER : BRASS; const ink = night ? NAVY[4] : '#6a4428'; const m = w >> 1;
+  for (let x = 4; x < w - 4; x++) { const t = Math.abs(x - m) / (m - 4); P.set(x, 3, ink); if (t < 0.55) P.set(x, 4, night ? NAVY[2] : '#c49e68'); if (t < 0.3 && (x % 2)) P.set(x, 2, ink); }
+  for (const s of [-1, 1]) { const x = m + s * 10; P.set(x, 2, ink); P.set(x + s, 1, ink); P.set(x + 2 * s, 1, ink); P.set(x, 4, ink); P.set(x + s, 5, ink); P.set(x + 2 * s, 5, ink); }
+  brassShape(P, m - 4, 0, 9, 7, (x, y) => Math.abs(x - 4.5) / 4.5 + Math.abs(y - 3.5) / 3.5 - 1, M);
+  const c = P.done(); c.className = 'lf-cv'; c.dataset.w = w; c.dataset.h = 7; return c;
 }
 
 export class Scholar {
