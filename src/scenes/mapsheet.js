@@ -26,7 +26,7 @@ export class MapSheet {
   }
   constructor({ engine, run, map }) {
     this.engine = engine; this.run = run; this.map = map; const seed = run.seed || 1;
-    const sc = (this.scene = new THREE.Scene()); sc.background = new THREE.Color('#17121c'); sc.fog = new THREE.Fog('#17121c', 70, 150);
+    const sc = (this.scene = new THREE.Scene()); sc.background = new THREE.Color('#2e2840'); sc.fog = new THREE.Fog('#2e2840', 52, 112); // (visuals) beyond the board the land dissolves into the same violet mist as the fog of war, never a black void
     this.camera = new THREE.PerspectiveCamera(34, engine.aspect, 0.2, 400); sc.add(this.camera);
     this.world = new THREE.Group(); sc.add(this.world); this.bounds = { LEN: DIO.ZN - DIO.ZF, WID: DIO.X1 - DIO.X0, Z0: DIO.ZN };
     // lighting: a warm low lamp key raking across the board (long shadows), cool sky fill, lavender rim from behind

@@ -76,18 +76,18 @@ export class MapScene extends UIScreen {
   onDragStart(e) { if (this.journal?.isOpen || this.deckView?.isOpen) return; this.dragging = e?.button === 2 ? 'turn' : 'pan'; this._drag = null; audio.play('wood_creak', { vol: 0.3 }); return true; }
   onDrag() {
     if (!this.dragging) return; const x = this.input.x, y = this.input.y; const p = this._drag || { x, y }; const dx = x - p.x, dy = y - p.y; this._drag = { x, y };
-    if (this.dragging === 'turn') { this.yaw.target = clamp(this.yaw.target - dx * 0.006, -0.9, 0.9); this.dist.target = clamp(this.dist.target + dy * 0.05, 9, 46); return; }
+    if (this.dragging === 'turn') { this.yaw.target = clamp(this.yaw.target - dx * 0.006, -0.7, 0.7); this.dist.target = clamp(this.dist.target + dy * 0.05, 9, 38); return; }
     const k = this.dist.value * 0.0016; const c = Math.cos(this.yaw.value), sn = Math.sin(this.yaw.value);
     this.fx.target = clamp(this.fx.target - (dx * c + dy * sn) * k, DIO.X0 + 4, DIO.X1 - 4); this.fz.target = clamp(this.fz.target - (dy * c - dx * sn) * k * 1.3, DIO.ZF + 9, DIO.ZN - 4);
   }
   onDragEnd() { this.dragging = false; this._drag = null; }
   onWheel(e) { this.fz.target = clamp(this.fz.target + e.dy * 0.016, DIO.ZF + 9, DIO.ZN - 4); }
-  onPinch(e) { this.dist.target = clamp(this.dist.target / e.scale, 9, 46); }
+  onPinch(e) { this.dist.target = clamp(this.dist.target / e.scale, 9, 38); }
   onKey(e) {
     if (e.code === 'KeyJ') this.openJournal(); if (e.code === 'ArrowUp' || e.code === 'KeyW') this.fz.target = Math.max(DIO.ZF + 9, this.fz.target - 3); if (e.code === 'ArrowDown' || e.code === 'KeyS') this.fz.target = Math.min(DIO.ZN - 4, this.fz.target + 3);
     if (e.code === 'ArrowLeft' || e.code === 'KeyA') this.fx.target = Math.max(DIO.X0 + 4, this.fx.target - 3); if (e.code === 'ArrowRight' || e.code === 'KeyD') this.fx.target = Math.min(DIO.X1 - 4, this.fx.target + 3);
-    if (e.code === 'KeyQ') this.yaw.target = clamp(this.yaw.target + 0.25, -0.9, 0.9); if (e.code === 'KeyE') this.yaw.target = clamp(this.yaw.target - 0.25, -0.9, 0.9);
-    if (e.code === 'Equal' || e.code === 'NumpadAdd') this.dist.target = Math.max(9, this.dist.target - 3); if (e.code === 'Minus' || e.code === 'NumpadSubtract') this.dist.target = Math.min(46, this.dist.target + 3);
+    if (e.code === 'KeyQ') this.yaw.target = clamp(this.yaw.target + 0.25, -0.7, 0.7); if (e.code === 'KeyE') this.yaw.target = clamp(this.yaw.target - 0.25, -0.7, 0.7);
+    if (e.code === 'Equal' || e.code === 'NumpadAdd') this.dist.target = Math.max(9, this.dist.target - 3); if (e.code === 'Minus' || e.code === 'NumpadSubtract') this.dist.target = Math.min(38, this.dist.target + 3);
     if (e.code === 'KeyR') { this.yaw.target = 0; this.dist.target = 22; this.pitch.target = 0.72; }
   }
   rayNodes() { return this.sheet.pick(this.input.ndc); }
