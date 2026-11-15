@@ -202,7 +202,7 @@ export function animeClouds(theme = 'meadow', { seed = 1, n = 7, z = -150, sunDi
     const x = (i / (n - 1) - 0.5) * 300 + (r() - 0.5) * 30; if (Math.abs(x - sunX) < 22) continue;
     const w = 50 + r() * 55; const hgt = w * 0.5; const y = 16 + r() * 14; const zz = z - r() * 20;
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, hgt), new THREE.MeshBasicMaterial({ map: cloudTexture(S.cloud, seed * 31 + i), transparent: true, depthWrite: false, fog: false }));
-    m.position.set(x, y, zz); m.lookAt(cam.x, y * 0.6, cam.z); m.renderOrder = -8; m.userData.noInk = true; m.userData.noAO = true; g.add(m);
+    m.position.set(x, y, zz); m.lookAt(cam.x, y * 0.6, cam.z); m.onBeforeRender = (rr, sc, c) => { m.rotation.set(0, Math.atan2(c.position.x - m.position.x, c.position.z - m.position.z), 0); m.updateMatrixWorld(); }; m.renderOrder = -8; // faces whichever camera looks (crane, sweeps): never seen edge-on as a sheared white sheet m.userData.noInk = true; m.userData.noAO = true; g.add(m);
   }
   return g;
 }

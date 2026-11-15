@@ -391,11 +391,20 @@ export class Engine {
     const d = dur ?? (style === 'galaxy' ? 0.85 : 0.72); this.wipeActive = true; this.wipeStyle = style;
     u.uPhase.value = 0; await tweens.to(u.uT, { value: 1 }, Math.max(0.6, d), { ease: 'inOutQuad' });
     if (fn) await fn();
+    await this.warmup(); // never a loading frame: the transition stays closed (and keeps animating) until the new scene's shaders are compiled and it has drawn
     await tweens.wait(0.1);
     u.uPhase.value = 1; await tweens.to(u.uT, { value: 0 }, Math.max(0.65, d * 1.08), { ease: 'inOutQuad' });
     this.wipeActive = false;
   }
 
+  /** compile the current world + UI scenes' shaders in the background (parallel shader compile, the transition keeps
+   *  animating), then let a few real frames draw them, so a scene is never revealed half-built or with a compile hitch */
+  async warmup({ frames = 3, maxMs = 6000 } = {}) {
+    const r = this.renderer; const t0 = performance.now();
+    try { const jobs = [r.compileAsync?.(this.world.scene, this.world.camera), r.compileAsync?.(this.ui.scene, this.ui.camera)].filter(Boolean); if (jobs.length) await Promise.race([Promise.all(jobs), new Promise((res) => setTimeout(res, maxMs))]); } catch (e) { /* compile errors surface on render */ }
+    await new Promise((res) => { let n = 0; const f = () => (++n >= frames ? res() : requestAnimationFrame(f)); requestAnimationFrame(f); });
+    this.lastWarmMs = performance.now() - t0;
+  }
   start(update) {
     let last = performance.now();
     const loop = (now) => {

@@ -15,6 +15,7 @@ import { lowpolyGeometry } from '../gfx/lowpoly.js';
 import { plantField } from '../gfx/plants.js';
 import { groundTex, soilTex, gravelTex, earthTex, cobbleTex as pixelCobble, surfaceTex, dragonflyTex } from '../gfx/pixeltex.js';
 import * as F from './flora.js';
+import { bakeImpostors, impostorForest } from '../gfx/impostor.js';
 import { cottage, chimneySmoke } from './village.js';
 import { PLACES, SETS } from './places.js';
 
@@ -180,6 +181,19 @@ const ARENA_C = [0.3, 0.8], ARENA_R = [9.2, 3.0];
 const arenaD = (x, z) => Math.hypot((x - ARENA_C[0]) / ARENA_R[0], (z - ARENA_C[1]) / ARENA_R[1]);
 
 /** opts.event: an event id from game/data/events.js -> its set-piece is staged around the curiosity */
+const WOODS = { meadow: ['oak', 'olive', 'cypress', 'pine'], garden: ['olive', 'oak', 'cypress', 'laurel'], gully: ['pine', 'olive', 'cypress', 'fir'], labyrinth: ['cypress', 'olive', 'pine', 'oak'], marsh: ['oak', 'cypress', 'fir', 'oak'], guardian: ['pine', 'cypress', 'fir', 'olive'] };
+const IMP_CACHE = new Map();
+function outerWoods(renderer, theme, hAt, roadPts, seed) {
+  const kinds = WOODS[theme] || WOODS.meadow; const key = kinds.join(','); let IM = IMP_CACHE.get(key);
+  if (!IM) { IM = bakeImpostors(renderer, kinds.flatMap((kind) => [0, 1].map((v) => ({ kind, v, lod: 0, yaw: v * 1.9 }))), { cell: 256 }); IMP_CACHE.set(key, IM); }
+  const r = mulberry32(seed * 977 + 13); const n = makeNoise(seed + 41); const items = [];
+  for (let k = 0; k < 6000 && items.length < 1400; k++) { const a = r() * Math.PI * 2, d = 26 + Math.pow(r(), 0.7) * 82; const x = -4 + Math.cos(a) * d, z = Math.sin(a) * d;
+    if (z > -10 && z < 16 && Math.abs(x) < 24) continue; // the stage and the battle camera's foreground
+    if (n.fbm(x * 0.03 + 5, z * 0.03, 2) < 0.4 && r() < 0.7) continue; // woods and clearings, not an even carpet
+    if (roadPts && roadPts.some((p) => (p.x - x) ** 2 + (p.z - z) ** 2 < 49)) continue;
+    const ki = Math.floor(n(x * 0.02, z * 0.02) * kinds.length * 0.999 + r() * 1.2) % kinds.length; items.push({ x, y: hAt(x, z) - 0.1, z, s: 0.9 + r() * 0.7, cell: ki * 2 + (k & 1) }); }
+  const m = impostorForest(IM, items, { soft: [60, 140], softK: 1.0 }); m.name = 'outerWoods'; return m;
+}
 export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaClear = true, event = null } = {}) {
   const g = new THREE.Group(); g.name = 'stage:' + theme; const rnd = mulberry32(seed * 7919 + 13); const trees = []; const jobs = []; const L = LOOKS[theme] || LOOKS.meadow;
   const place = PLACES[theme] || PLACES.meadow; const set = event ? SETS[event] : null;
@@ -228,6 +242,10 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
 
   // ---- the living layer: woods, bushes, reeds, lilies, flowers and the cel grass
   g.add(ctx.grove.build()); for (const p of ctx.grove.perches(10)) { g.add(p); trees.push(p); }
+  // the world beyond the stage: a ring of woods (baked impostor cards of the real flora trees, one draw call) in every
+  // direction the cinematic cameras look (the intro crane, the tracking shots, the sweeps behind and to the sides), so
+  // no pan ever finds a bare plain; the battle camera's own view of the stage and its foreground stays clear
+  try { g.add(outerWoods(renderer, theme, hAt, rp, seed)); } catch (e) { console.warn('outer woods', e); }
   if (ctx.padSpots.length) g.add(F.lilyPads(ctx.padSpots));
   const plants = grassField(ctx, theme, L); // pixel-art tufts, flower drifts, reeds and cattails: one instanced billboard field
   for (const [kind, spots] of Object.entries(ctx.flowerSpots)) { const [a, b] = FLOWER_SIZE[kind] || [0.3, 0.5]; for (const [x, y, z, h] of spots) plants.push({ kind: FLOWER_SPRITE[kind] || kind, x, y, z, s: 0.8 + ((h - a) / (b - a || 1)) * 0.35 }); }

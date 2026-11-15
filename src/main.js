@@ -62,7 +62,7 @@ class Game {
     let done = 0, total = 1; const self = this;
     const promise = (async () => {
       const { preloadTasks } = await import('./models/realworld.js');
-      const tasks = [() => audio.init(), () => import('./scenes/tower.js'), () => import('./scenes/mapscene.js'), () => import('./scenes/event.js'), () => import('./scenes/journal.js'), () => import('./scenes/studies.js'), () => import('./scenes/stars.js'), ...preloadTasks(self.engine.renderer)];
+      const tasks = [() => audio.init(), () => import('./scenes/tower.js'), () => import('./scenes/mapscene.js'), () => import('./scenes/event.js'), () => import('./scenes/journal.js'), () => import('./scenes/studies.js'), () => import('./scenes/stars.js'), ...preloadTasks(self.engine.renderer), () => import('./models/vista.js').then((m) => m.buildVista({ groundY: -26 - 2.6, hole: 84 }))]; // the tower view's land is pre-built under the loading time-lapse (models/vista.js caches it)
       total = tasks.length; let i = 0;
       const worker = async () => { while (i < tasks.length) { const t = tasks[i++]; try { await t(); } catch (e) { console.warn('preload', e); } done++; } };
       await Promise.all([worker(), worker(), worker()]);
@@ -92,8 +92,8 @@ class Game {
   async playPrologue(opts = {}) { try { const { playPrologue } = await import('./scenes/prologue.js'); await playPrologue(this, opts); } catch (e) { console.warn('prologue skipped', e); await this.toMenu().catch(() => {}); } this.journal.seenPrologue = true; this.saveJournal(); }
   async continueRun() { const d = save.loadRun(); if (!d) return this.newRun(); this.run = restoreRun(d); await this.toMap(false, 'galaxy'); }
   async toMap(first = false, style = 'cloud', wipe = null) { // galaxy from the menu into a run; clouds between the nodes of a run
-    const { MapScene } = await import('./scenes/mapscene.js');
-    await this.swap(async () => { this.scene = new MapScene(this); await this.scene.enter(first); }, { style, ...(wipe || {}) });
+    const mod = import('./scenes/mapscene.js'); // (the transition starts at once; the module loads under it)
+    await this.swap(async () => { const { MapScene } = await mod; this.scene = new MapScene(this); await this.scene.enter(first); }, { style, ...(wipe || {}) });
   }
   async enterNode(nodeId) {
     const run = this.run; const node = run.map.nodes[nodeId]; run.pos = nodeId; run.floor = node.row; run.stats.floors++; this.saveRun();
@@ -105,14 +105,14 @@ class Game {
       if (!r.won) return this.gameOver(r);
       if (enc.kind === 'elite') { run.foughtElites.push(enc.enemies[0]); run.stats.elites++; }
       const rewards = battleRewards(run, enc.kind, enc.enemies); run.gold += rewards.gold; // only what the foes carried
-      const { RewardScene } = await import('./scenes/reward.js');
-      await this.swap(async () => { this.scene = new RewardScene(this); await this.scene.enter(rewards, enc); });
+      const rmod = import('./scenes/reward.js');
+      await this.swap(async () => { const { RewardScene } = await rmod; this.scene = new RewardScene(this); await this.scene.enter(rewards, enc); });
       return;
     }
     const mod = { event: './scenes/event.js', shop: './scenes/shop.js', lab: './scenes/lab.js' }[node.type];
     if (node.type === 'shop' || node.type === 'lab') await this.travel(node); // events stage their own walk-in
-    const { default: Scene } = await import(mod);
-    await this.swap(async () => { this.scene = new Scene(this); await this.scene.enter(node); });
+    const smod = import(mod);
+    await this.swap(async () => { const { default: Scene } = await smod; this.scene = new Scene(this); await this.scene.enter(node); });
   }
   // an optional boss fight chosen inside an event (the Sphinx, Prometheus' eagle): a battle, then the boss's loot
   async eventBattle(enc) {
@@ -120,7 +120,7 @@ class Game {
     await this.swap(async () => { const bs = new BattleScene(this); this.scene = bs; res = bs.run(run, enc); await new Promise((r) => { const w = () => (bs.ready ? bs.ready.then(r) : setTimeout(w, 30)); w(); }); }, { mode: 1 });
     const r = await res; if (!r.won) return this.gameOver(r); run.stats.elites++;
     const rewards = battleRewards(run, 'elite', enc.enemies); run.gold += rewards.gold;
-    const { RewardScene } = await import('./scenes/reward.js'); await this.swap(async () => { this.scene = new RewardScene(this); await this.scene.enter(rewards, enc); });
+    const rmod = import('./scenes/reward.js'); await this.swap(async () => { const { RewardScene } = await rmod; this.scene = new RewardScene(this); await this.scene.enter(rewards, enc); });
   }
   // the road between nodes: a short, skippable walk in the golden stage before the shop / laboratory
   async travel(node) {

@@ -32,7 +32,9 @@ function segD(x, z, pts) { let best = 1e9; for (let i = 0; i < pts.length - 1; i
 /** a smooth winding lane through control points (Catmull-Rom, sampled) */
 const lane = (ctrl, n = 60) => new THREE.CatmullRomCurve3(ctrl.map(([x, z]) => V(x, 0, z)), false, 'centripetal').getPoints(n);
 
-export function buildTown({ hAt, gate = V(0, 0, 8), riverX = () => -40, seed = 21, avoid = [], keepTree = null, square = null } = {}) { // keepTree(x, y, z): the menu thins the grove where it would hide the town from its camera
+const TOWN_CACHE = new Map(); // built once per layout and kept between menu visits
+export function buildTown(opts = {}) { const r2 = (v) => (v ? `${Math.round(v.x)},${Math.round(v.z)}` : '-'); const key = `${r2(opts.gate)}|${r2(opts.square)}|${opts.seed ?? 21}`; let t = TOWN_CACHE.get(key); if (!t) { t = buildTownNow(opts); TOWN_CACHE.set(key, t); } return t; }
+function buildTownNow({ hAt, gate = V(0, 0, 8), riverX = () => -40, seed = 21, avoid = [], keepTree = null, square = null } = {}) { // keepTree(x, y, z): the menu thins the grove where it would hide the town from its camera
   const G = new THREE.Group(); G.name = 'town'; const r = mulberry32(seed); const anim = [];
   // ---------------------------------------------------------------- lanes: the high street from the gate down to the bridge, the square, side lanes
   const sq = square ? V(square.x, 0, square.z) : V(-14, 0, -30); // the market square (the menu puts it where its camera looks down)

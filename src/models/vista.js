@@ -98,7 +98,11 @@ function sky(sunDir) {
 }
 
 // ---------------------------------------------------------------- the land
-export function buildVista(opts = {}) { const { groundY = -64, seed = 5, hole = 0 } = opts; const api_ = {}; // hole: radius left open round the tower for the town's finer ground (models/town.js)
+// built once and kept: the menu returns to the same land (and the loading screen can pre-build it while the apple's
+// time-lapse plays), so a menu visit never rebuilds the heightfield, the woods or the impostor atlas
+const VISTA_CACHE = new Map();
+export function buildVista(opts = {}) { const key = `${opts.groundY ?? -64}|${opts.seed ?? 5}|${opts.hole ?? 0}`; let v = VISTA_CACHE.get(key); if (!v) { v = buildVistaNow(opts); VISTA_CACHE.set(key, v); } return v; }
+function buildVistaNow(opts = {}) { const { groundY = -64, seed = 5, hole = 0 } = opts; const api_ = {}; // hole: radius left open round the tower for the town's finer ground (models/town.js)
   const G = new THREE.Group(); G.name = 'vista'; const n = makeNoise(seed), n2 = makeNoise(seed + 7), r = mulberry32(seed);
   const riverX = (z) => -38 + Math.sin(z * 0.0042 + 0.2) * 60 + Math.sin(z * 0.011) * 20 + Math.max(0, -z - 300) * 0.05;
   const lake = { x: 160, z: -330, r: 46 };
