@@ -7,7 +7,7 @@
 - Artifacts, items, furniture and props: sharp very-low-poly with detailed pixel-art textures (same as everything now).
 - LIGHTING (newest, supersedes 'moody'): MORE COLOURFUL, beautiful REALISTIC CEL SHADE (soft realistic light with clean cel-style shadow terminators, rich natural colour, not washed out, not cartoon).
 - UI must be COOL and INTERACTIVE (alive objects reacting to hover/press/drag with motion, sound and light), never 'a detailed block with text'.
-- Rendering (newest, user): the WHOLE GAME IS PIXELATED again: 3D rendered at a low art resolution and upscaled crisp (nearest, HD-2D pixel look), pixel-art transitions/particles OK. Text/UI fonts stay crisp. Subtle motion blur on fast motion. Grass is the same colour as the ground. No tilt-shift, no chromatic aberration.
+- Rendering (newest, user): NOT pixelated: full native resolution, crisp. Only the galaxy/astral scenes get a slight pixel-art look. Subtle motion blur on fast motion. Grass: WARM palette (golden/olive/ochre), same colour family as its ground. No tilt-shift, no chromatic aberration.
 - UI: detailed PHYSICAL 3D objects (hourglass health, gold jar, etc.), realistic and polished; text is crisp 3D floating text (no paper notes); never glowing DOM text or flat rectangles.
 - HERO: a real young Isaac Newton (20s, cool), built on the Limbo Phobia human engine (src/models/limbo). He WALKS (no levitation) and fights with the magic apple. Fluid, human-like procedural animation.
 - HUMANOIDS (Cyclops, Minotaur body, Centaur torso, Spartoi, Talos, Harpy, satyr, Medusa, Kobalos, all event NPCs) are built on the SAME Limbo human base as Newton, with consistent style; extra parts are attachments. The sculpted pipeline is only for non-humanoid beasts.
