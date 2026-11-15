@@ -88,7 +88,7 @@ export class StudiesScene extends UIScreen {
       const bk = new Books(); for (let i = 0; i < 6; i++) bk.add(new THREE.Matrix4().compose(new THREE.Vector3(-0.2 + i * 0.045 + (n ? 0.62 : -0.6), 0.02, 0), new THREE.Quaternion(), new THREE.Vector3(0.04, 0.2 + (i % 3) * 0.03, 0.2)), (i * 5 + n * 3) % 16, 0.95); sh.add(bk.build()); }
     for (const [kind, x, y, z, ry, w, h] of [['stars', -3.55, 2.6, -4.36, 0, 0.8, 0.62], ['worm', 3.15, 3.35, -4.36, 0, 0.9, 0.55], ['orbits', 1.35, 3.35, -4.36, 0, 0.75, 0.55], ['prism', -6.82, 2.2, 1.6, Math.PI / 2, 0.8, 0.6], ['stars', 6.82, 2.4, 1.0, -Math.PI / 2, 0.9, 0.7]]) { const c = wallChart(kind, w, h); c.position.set(x, y, z); c.rotation.y = ry; sc.add(c); }
     for (const [x, z, ry] of [[-6.85, -4.45, 0], [6.85, -4.45, Math.PI / 2], [-1.6, -4.45, 0]]) { const w = cobweb(0.9); w.position.set(x, 4.3, z); w.rotation.y = ry; sc.add(w); }
-    { const lec = lectern(); lec.position.set(-3.6, 0, -2.2); lec.rotation.y = 0.5; sc.add(lec); this.lectern = lec; }
+    { const lec = lectern(); lec.position.set(1.75, 0, -1.6); lec.rotation.y = -0.55; sc.add(lec); this.lectern = lec; }
     { const c = dripCandle(0.26, { light: true }); c.position.set(3.45, 0.97, -3.85); sc.add(c); this.candles = [c]; }
     const counter = new THREE.Group(); counter.position.set(2.2, 0, -3.9); sc.add(counter); put(counter, cbox(3.2, 0.1, 0.8, 0.02), M.oak(), 0, 0.92, 0); for (const x of [-1.5, 1.5]) put(counter, cbox(0.12, 0.9, 0.7, 0.02), M.walnut(), x, 0.45, 0); put(counter, cbox(3.1, 0.06, 0.7, 0.02), M.walnut(), 0, 0.3, 0);
     const bottles = ['green', 'blue', 'wine', 'green', 'amber', 'blue']; bottles.forEach((c, i) => { const b = prop('bottle', { h: 0.24 + (i % 3) * 0.08, color: c }); b.position.set(-1.3 + i * 0.32, 0.97, (i % 2) * 0.18 - 0.1); counter.add(b); });
@@ -104,22 +104,23 @@ export class StudiesScene extends UIScreen {
   buildWorms(sc) {
     this.worms = []; const W = (o, s = 1) => { const w = createBookworm(o); w.root.scale.setScalar(s); sc.add(w.root); this.worms.push(w); return w; };
     sc.updateMatrixWorld(true);
-    // one inches along a shelf of the tall case behind the bench, another along a higher shelf
-    { const C = this.cases[0]; for (const [k, seed, o] of [[3, 3, { scarf: '#d8d0b8' }], [5, 8, { robe: '#3a4a6a', monocle: true }]]) { const sh = C.shelves[k]; const a = C.group.localToWorld(V(sh.x0 + 0.1, sh.y, 0.165)), b = C.group.localToWorld(V(sh.x1 - 0.1, sh.y, 0.165)); const w = W({ seed, ...o }, 0.85); w.setRoute({ a, b, up: V(0, 1, 0) }); w.st.speed = 0.04; } }
+    // one inches along a shelf of the tall case behind the bench, one along the curio shelf over the counter
+    { const C = this.cases[0]; const sh = C.shelves[3]; const w = W({ seed: 3, scarf: '#d8d0b8' }, 1.25); w.setRoute({ a: C.group.localToWorld(V(sh.x0 + 0.2, sh.y, 0.17)), b: C.group.localToWorld(V(sh.x1 - 0.2, sh.y, 0.17)), up: V(0, 1, 0) }); w.st.speed = 0.04; }
+    { const w = W({ seed: 8, robe: '#3a4a6a', monocle: true }, 1.2); w.setRoute({ a: V(1.05, 2.37, -4.2), b: V(1.95, 2.37, -4.2), up: V(0, 1, 0) }); w.st.speed = 0.035; }
     // one climbs the library ladder
-    { const L = this.ladder; const q = L.getWorldQuaternion(new THREE.Quaternion()); const up = V(0, -1, 0).applyQuaternion(q); const w = W({ seed: 5, robe: '#5a2a2a' }, 0.9); w.setRoute({ a: L.localToWorld(V(0, -0.07, 0.5)), b: L.localToWorld(V(0, -0.07, 2.5)), up }); w.st.speed = 0.05; }
+    { const L = this.ladder; const q = L.getWorldQuaternion(new THREE.Quaternion()); const up = V(0, -1, 0).applyQuaternion(q); const w = W({ seed: 5, robe: '#5a2a2a' }, 1.3); w.setRoute({ a: L.localToWorld(V(0, -0.08, 0.6)), b: L.localToWorld(V(0, -0.08, 2.4)), up }); w.st.speed = 0.05; }
     // one reads at the lectern, turning its pages with its tail
-    { const T = this.lectern.userData.top; const w = W({ seed: 1, robe: '#2a4a3a', monocle: true, book: '#6a2a24' }, 0.9); T.add(w.root); w.root.position.set(0, 0.03, 0.14); w.root.rotation.y = Math.PI; w.setMode('read'); }
-    // one carries a book across the floor; one sleeps coiled on a stack on the counter
-    { const w = W({ seed: 4, scarf: '#b08a3a', book: '#7a4a1a' }); w.setRoute({ a: V(-1.0, 0.012, -3.0), b: V(1.2, 0.012, -2.6), up: V(0, 1, 0) }); w.setMode('carry'); }
-    { const w = W({ seed: 6, scarf: '#7a3a3a' }, 0.9); w.setMode('sleep'); w.root.position.set(3.0, 1.2, -3.7); w.root.rotation.y = 0.4; }
+    { const T = this.lectern.userData.top; const w = W({ seed: 1, robe: '#2a4a3a', monocle: true, book: '#6a2a24' }, 1.3); T.add(w.root); w.root.position.set(0.1, 0.03, 0.1); w.root.rotation.y = Math.PI * 0.85; w.setMode('read'); }
+    // one carries a book along the front of the bench; one sleeps coiled on the low case under the board
+    { const w = W({ seed: 4, scarf: '#e8d8a8', book: '#7a4a1a' }, 1.0); w.setRoute({ a: V(-0.2, BENCH_Y + 0.004, 0.47), b: V(0.3, BENCH_Y + 0.004, 0.47), up: V(0, 1, 0) }); w.setMode('carry'); w.st.speed = 0.03; }
+    { const w = W({ seed: 6, scarf: '#7a3a3a' }, 1.2); w.setMode('sleep'); w.root.position.set(0.62, 0.99, -4.12); w.root.rotation.y = 0.4; }
     // and one peeks out of the worm-holed book on the bench, inching out, looking round, ducking back in
-    { const w = W({ seed: 9, robe: '#4a3a6a' }, 0.62); w.setMode('crawl'); this.hollow.updateMatrixWorld(true); this.peek = { w, base: this.hollow.localToWorld(V(0.03, 0.02, 0.02)), t: 0 }; }
+    { const w = W({ seed: 9, scarf: '#e8c060' }, 1.0); w.setMode('crawl'); this.hollow.updateMatrixWorld(true); this.peek = { w, base: this.hollow.localToWorld(V(0.03, 0.02, 0.02)), t: 0 }; }
   }
   updateWorms(dt, t) {
     for (const w of this.worms) w.update(dt, t);
     const K = this.peek; if (K) { K.t += dt; const ph = (K.t % 9) / 9; const out = ph < 0.15 ? ph / 0.15 : ph < 0.7 ? 1 : ph < 0.82 ? 1 - (ph - 0.7) / 0.12 : 0; const e = out * out * (3 - 2 * out);
-      K.w.root.position.copy(K.base).add(V(0, -0.11 + e * 0.19, 0)); K.w.root.quaternion.setFromEuler(new THREE.Euler(-Math.PI / 2 + Math.sin(K.t * 0.9) * 0.25 * e, Math.sin(K.t * 0.6) * 0.8 * e, 0, 'YXZ')); K.w.root.visible = e > 0.02; }
+      K.w.root.position.copy(K.base).add(V(0, -0.16 + e * 0.3, 0)); K.w.root.quaternion.setFromEuler(new THREE.Euler(-Math.PI / 2 + Math.sin(K.t * 0.9) * 0.25 * e, Math.sin(K.t * 0.6) * 0.8 * e, 0, 'YXZ')); K.w.root.visible = e > 0.02; }
   }
   // ---------------------------------------------------------------- the bench where the study is demonstrated
   buildBench(sc) {
@@ -127,8 +128,8 @@ export class StudiesScene extends UIScreen {
     { const top = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.09, 1.15), plankMat()); top.position.set(0, BENCH_Y - 0.045, 0); top.castShadow = true; top.receiveShadow = true; B.add(top); } for (const x of [-1, 1]) for (const z of [-0.48, 0.48]) put(B, cbox(0.1, BENCH_Y - 0.09, 0.1, 0.02), M.walnut(), x, (BENCH_Y - 0.09) / 2, z);
     put(B, cbox(2.0, 0.06, 0.06, 0.01), M.walnut(), 0, 0.22, -0.48); put(B, cbox(2.0, 0.06, 0.06, 0.01), M.walnut(), 0, 0.22, 0.48); put(B, cbox(2.24, 0.03, 0.05, 0.008), M.brass(), 0, BENCH_Y - 0.03, 0.58);
     { const c = dripCandle(0.22, { light: true }); c.position.set(-0.96, BENCH_Y, -0.4); B.add(c); this.candles = [...(this.candles || []), c]; const c2 = dripCandle(0.13); c2.position.set(-0.82, BENCH_Y, -0.46); B.add(c2); this.candles.push(c2); }
-    { const ob = openBook(2); ob.position.set(0.78, BENCH_Y, 0.32); ob.rotation.y = -0.35; B.add(ob); const sk = skull(1.05); sk.position.set(0.92, BENCH_Y, -0.38); sk.rotation.y = -0.6; B.add(sk); const hb = hollowBook(); hb.position.set(-0.78, BENCH_Y, 0.3); hb.rotation.y = 0.4; B.add(hb); this.hollow = hb;
-      const iw = LP.inkwell(); iw.position.set(0.55, BENCH_Y, 0.42); B.add(iw); const q = LP.quill(); q.position.set(0.6, BENCH_Y + 0.07, 0.42); q.rotation.z = -0.5; B.add(q); const sc2 = LP.scroll(0.42); sc2.position.set(-0.55, BENCH_Y + 0.04, 0.44); sc2.rotation.y = 0.2; B.add(sc2); }
+    { const ob = openBook(2); ob.position.set(0.78, BENCH_Y, 0.32); ob.rotation.y = -0.35; B.add(ob); const sk = skull(1.05); sk.position.set(0.92, BENCH_Y, -0.38); sk.rotation.y = -0.6; B.add(sk); const hb = hollowBook(); hb.scale.setScalar(1.3); hb.position.set(-0.66, BENCH_Y, 0.2); hb.rotation.y = 0.4; B.add(hb); this.hollow = hb;
+      const iw = LP.inkwell(); iw.position.set(0.55, BENCH_Y, 0.42); B.add(iw); const q = LP.quill(); q.position.set(0.6, BENCH_Y + 0.07, 0.42); q.rotation.z = -0.5; B.add(q); const sc2 = LP.scroll(0.42); sc2.position.set(-0.75, BENCH_Y + 0.04, 0.47); sc2.rotation.y = 0.2; B.add(sc2); }
     this.slot = new THREE.Group(); this.slot.position.set(0, BENCH_Y, -0.05); B.add(this.slot);
     this.flare = new THREE.PointLight(0xffd070, 0, 4, 1.4); this.flare.position.set(0, BENCH_Y + 0.6, 0.4); B.add(this.flare);
     this.benchHit = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.4, 1.2), new THREE.MeshBasicMaterial({ visible: false })); this.benchHit.position.set(0, BENCH_Y + 0.6, 0); B.add(this.benchHit);

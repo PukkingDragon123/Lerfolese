@@ -120,7 +120,7 @@ export function openBook(seed = 1, w = 0.34) {
     if (diagram) { x.strokeStyle = '#7a2a22'; x.lineWidth = 1; x.beginPath(); x.arc(W / 2 + 0.5, 18.5, 6, 0, TAU); x.stroke(); x.fillStyle = '#7a2a22'; x.fillRect(W / 2 - 1, 17, 3, 3); x.beginPath(); x.moveTo(5.5, 24.5); x.quadraticCurveTo(W / 2, 4, W - 5.5, 24.5); x.stroke(); } x.fillStyle = '#c8a070'; x.fillRect(0, 0, W, 1); }, seed * 7 + (diagram ? 1 : 0));
   const cov = smat('leather', { color: [0xc06050, 0x5070b0, 0x60a060][seed % 3], roughness: 0.75 });
   for (const s of [-1, 1]) { const half = new THREE.Group(); half.rotation.z = s * 0.1; g.add(half); put(half, cbox(w / 2 + 0.01, 0.012, w * 0.68 + 0.02, 0.003), cov, s * (w / 4 + 0.004), 0.006, 0); put(half, cbox(w / 2 - 0.006, 0.02, w * 0.68 - 0.01, 0.003), LM.parch(), s * (w / 4), 0.02, 0);
-    const pg = put(half, new THREE.PlaneGeometry(w / 2 - 0.01, w * 0.68 - 0.014), stdM({ map: page(s > 0 && r0() < 0.7), roughness: 0.95 }), s * (w / 4), 0.0305, 0, -Math.PI / 2); pg.castShadow = false; }
+    const pg = put(half, new THREE.PlaneGeometry(w / 2 - 0.01, w * 0.68 - 0.014), stdM({ map: page(s > 0 && r0() < 0.7), roughness: 0.95 }), s * (w / 4), 0.0345, 0, -Math.PI / 2); pg.castShadow = false; }
   return g;
 }
 /** a thick old book with a worm-hole bored through it (a worm can peek out of it) */
