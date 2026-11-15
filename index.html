@@ -62,7 +62,7 @@
     a.globalAlpha = 1; var sx = Math.round(AW * 0.77), sy = Math.round(AH * 0.22), sp = Math.round((36 + Math.sin(t * 1.3) * 7) * AH / 540); // the near star: core and breathing spikes, one art pixel wide
     a.globalCompositeOperation = 'lighter'; for (var k = 0; k < 2; k++) { var gr = k ? a.createLinearGradient(sx, sy - sp, sx, sy + sp) : a.createLinearGradient(sx - sp, sy, sx + sp, sy); gr.addColorStop(0, 'rgba(255,200,120,0)'); gr.addColorStop(0.5, 'rgba(255,240,210,0.95)'); gr.addColorStop(1, 'rgba(255,200,120,0)'); a.fillStyle = gr; if (k) a.fillRect(sx, sy - sp, 1, sp * 2); else a.fillRect(sx - sp, sy, sp * 2, 1); }
     a.fillStyle = '#fff6e6'; a.fillRect(sx - 1, sy - 1, 3, 3); a.globalCompositeOperation = 'source-over';
-    apple(AW / 2, AH * 0.5 + Math.sin(t * 0.8) * 1.5, Math.min(AW, AH) * 0.045, t);
+    // (no 2D apple here: the real 3D apple appears in the loading scene) apple(AW / 2, AH * 0.5 + Math.sin(t * 0.8) * 1.5, Math.min(AW, AH) * 0.045, t);
     st.shown += (st.p - st.shown) * 0.08; var lw = Math.round(Math.min(AW, AH) * 0.22), lx = Math.round(AW / 2 - lw / 2), ly = Math.round(AH * 0.5 + Math.min(AW, AH) * 0.11); // progress: a thin line of golden light
     a.fillStyle = 'rgba(120,90,160,0.35)'; a.fillRect(lx, ly, lw, 1); var pw = Math.round(lw * st.shown); a.fillStyle = '#e6a43a'; a.fillRect(lx, ly, Math.max(0, pw - 3), 1); a.fillStyle = '#ffe096'; a.fillRect(lx + pw - 3, ly, 3, 1);
     a.globalCompositeOperation = 'lighter'; a.fillStyle = 'rgba(255,230,170,0.9)'; a.fillRect(lx + pw - 1, ly - 1, 1, 3); a.globalCompositeOperation = 'source-over';
