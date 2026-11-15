@@ -54,7 +54,7 @@ export class MenuScene extends UIScreen {
     const T = (this.tower = clockTower({ upgrades: this.upgrades, base: BASE, prowA: PROW_A, viewA })); sc.add(T.group);
     const VZ = (this.vista = buildVista({ groundY: -BASE - 2.6, hole: HOLE })); sc.add(VZ.group); sc.fog = VZ.fog;
     const gateA = viewA - 0.5; const gate = V(Math.sin(gateA) * 7.5, 0, Math.cos(gateA) * 7.5);
-    const TW = (this.town = buildTown({ hAt: VZ.hAt, riverX: VZ.riverX, gate })); sc.add(TW.group);
+    const TW = (this.town = buildTown({ hAt: VZ.hAt, riverX: VZ.riverX, gate, keepTree: this.keepTree() })); sc.add(TW.group);
     this.camera = new THREE.PerspectiveCamera(HERO.fov, this.engine.aspect, 0.1, 4000); this.camera.position.copy(HERO.pos); this.look = HERO.look.clone(); this.camera.lookAt(this.look);
     this.lights(sc);
     // Sir Isaac on the prow in his heroic stance, turned out over the land toward the low sun
@@ -73,6 +73,9 @@ export class MenuScene extends UIScreen {
     if (this.intro) { this.mode = 'intro'; this.camera.position.copy(this.introPath()[0][0]); this.look.copy(this.introPath()[0][1]); }
     if (this.back) { this.camera.position.copy(T.door).add(V(0, 0.3, 0)); this.look.copy(T.doorOut); }
   }
+  keepTree() { // thin the grove where it would stand in front of the town in the hero frame (left and lower middle, near)
+    const c = new THREE.PerspectiveCamera(HERO.fov, this.engine.aspect, 0.1, 1000); c.position.copy(HERO.pos); c.lookAt(HERO.look); c.updateMatrixWorld(); const r = mulberry32(5);
+    return (x, y, z) => { const p = V(x, y + 4, z); const d = p.distanceTo(HERO.pos); p.project(c); const inFrame = Math.abs(p.x) < 1.05 && p.y > -1.1 && p.y < 0.2; return !(inFrame && p.x < 0.32 && d < 85 && r() < 0.88); }; }
   introPath() { const B = -BASE; return this._ip || (this._ip = [[V(-34, B + 7, 44), V(0, B + 9, 0)], [V(-22, B + 15, 32), V(0, B + 13, 0)], [V(-13, -6, 24), V(0, -5, 0)], [HERO.pos.clone(), HERO.look.clone()]]); }
   envMap(sc) { // image-based light from the sunset sky itself, so brass, gold and stone pick up real reflections and sky fill
     try { const pm = new THREE.PMREMGenerator(this.engine.renderer); const es = new THREE.Scene(); const sky = new THREE.Mesh(new THREE.SphereGeometry(40, 32, 16), this.vista.sky.material); es.add(sky);

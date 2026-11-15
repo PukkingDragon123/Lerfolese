@@ -28,7 +28,7 @@ function segD(x, z, pts) { let best = 1e9; for (let i = 0; i < pts.length - 1; i
 /** a smooth winding lane through control points (Catmull-Rom, sampled) */
 const lane = (ctrl, n = 60) => new THREE.CatmullRomCurve3(ctrl.map(([x, z]) => V(x, 0, z)), false, 'centripetal').getPoints(n);
 
-export function buildTown({ hAt, gate = V(0, 0, 8), riverX = () => -40, seed = 21, avoid = [] } = {}) {
+export function buildTown({ hAt, gate = V(0, 0, 8), riverX = () => -40, seed = 21, avoid = [], keepTree = null } = {}) { // keepTree(x, y, z): the menu thins the grove where it would hide the town from its camera
   const G = new THREE.Group(); G.name = 'town'; const r = mulberry32(seed); const anim = [];
   // ---------------------------------------------------------------- lanes: the high street from the gate down to the bridge, the square, side lanes
   const sq = V(-14, 0, -30); // the market square
@@ -80,7 +80,8 @@ export function buildTown({ hAt, gate = V(0, 0, 8), riverX = () => -40, seed = 2
   // field walls on the slopes, and fields beyond
   { const wall = (pts) => { const g = stoneWall(pts.map(([x, z]) => V(x, hAt(x, z), z)), hAt, 9); G.add(g); }; try { wall([[30, -4], [44, -12], [58, -10]]); wall([[-30, -48], [-40, -64], [-36, -80]]); wall([[18, -70], [30, -86]]); } catch (e) { /* */ } }
   // trees: cypresses along the lanes and by the tower, olive and oak groves on the slopes, pines toward the edge
-  for (let k = 0; k < 340; k++) { const a = r() * Math.PI * 2, d = 10 + Math.pow(r(), 0.8) * (TOWN_R - 12); const x = Math.cos(a) * d, z = Math.sin(a) * d; const rr = 1.4; if (!free(x, z, rr)) continue;
+  const inView = (x, z) => keepTree && !keepTree(x, hAt(x, z), z);
+  for (let k = 0; k < 340; k++) { const a = r() * Math.PI * 2, d = 10 + Math.pow(r(), 0.8) * (TOWN_R - 12); const x = Math.cos(a) * d, z = Math.sin(a) * d; const rr = 1.4; if (!free(x, z, rr) || inView(x, z)) continue;
     const kind = d < 18 ? 'cypress' : laneD(x, z) < 5 ? (r() < 0.7 ? 'cypress' : 'olive') : d > 60 ? (r() < 0.6 ? 'pine' : 'oak') : ['olive', 'oak', 'olive', 'cypress', 'laurel'][Math.floor(r() * 5)];
     grove.add(kind, x, hAt(x, z) - 0.05, z, { s: (kind === 'cypress' ? 1.1 : 1.25) + r() * 0.5, lod: d > 45 ? 1 : 0 }); taken.push([x, z, rr]); }
   G.add(grove.build());

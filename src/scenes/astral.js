@@ -67,7 +67,7 @@ void main(){
     vec2 c2 = q - vec2(0.48, 0.3); float n2 = exp(-dot(c2, c2) * 9.0) * 0.85 * smoothstep(0.36, 0.86, fbm(g * 0.7 + w.yx * 2.3 + 5.0)); float l2 = lev(n2 * 1.3, P + 7.0, 5.0);
     if (l2 >= 1.0) col = mix(col, ramp(l2, col, vec3(0.1, 0.02, 0.08), vec3(0.2, 0.04, 0.16), vec3(0.36, 0.08, 0.28), vec3(0.6, 0.2, 0.42), vec3(0.95, 0.6, 0.7)), 0.7); }
   // the hovered constellation's halo: a warm stepped glow of its colour
-  { vec2 hc = q - uHov.xy; float hh = exp(-dot(hc, hc) / (uHov.z * uHov.z) * 1.4) * uHov.w * smoothstep(0.3, 0.75, fbm(g * 1.4 + w * 1.5 + 3.0 + uTime * 0.03)); float lh = lev(hh * 1.1, P + 5.0, 3.0); col += uHovCol * lh * 0.045; }
+  { vec2 hc = q - uHov.xy; float hh = exp(-dot(hc, hc) / (uHov.z * uHov.z) * 1.4) * uHov.w * smoothstep(0.3, 0.75, fbm(g * 1.4 + w * 1.5 + 3.0 + uTime * 0.03)); float lh = lev(hh * 1.1, P + 5.0, 3.0); col += col * uHovCol * lh * 0.25; } // only lifts the gas already there (no disc)
   // a small spiral galaxy
   { vec2 gc = (q - vec2(-0.66, 0.32)) * vec2(1.0, 2.1); float ca = cos(0.6), sa = sin(0.6); gc = vec2(ca * gc.x - sa * gc.y, sa * gc.x + ca * gc.y); float r = length(gc) / 0.06;
     if (r < 1.6) { float a = atan(gc.y, gc.x) + uTime * 0.02; float arm = pow(0.5 + 0.5 * cos(2.0 * (a - log(r + 0.05) * 2.4)), 3.0); float gd = arm * exp(-r * 2.2) + exp(-r * 8.0) * 1.4; float lg = lev(clamp(gd, 0.0, 1.0), P, 5.0);

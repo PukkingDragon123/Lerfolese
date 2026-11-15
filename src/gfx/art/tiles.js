@@ -24,7 +24,7 @@ const crack = (S, r, x, y, len, R, t = 0) => { for (let i = 0; i < len; i++) { S
 export const TR = {
   // grass-earth ramps are WARM (user): golden, olive and ochre greens, so the turf and the tufts that take its hue read
   // as sunlit late-summer grass on warm soil, never neon green
-  grass: ['#1a1610', '#34301a', '#545024', '#76722e', '#9c923a', '#cab85c'], lush: ['#141810', '#2a321a', '#465424', '#68742e', '#8e9438', '#c0bc5c'], marsh: ['#141812', '#2a321e', '#48522a', '#6a7034', '#929040', '#c6c070'],
+  grass: ['#1e1a12', '#3a361e', '#5e5a28', '#827c32', '#a89e3e', '#d2c260'], lush: ['#141810', '#2a321a', '#465424', '#68742e', '#8e9438', '#c0bc5c'], marsh: ['#141812', '#2a321e', '#48522a', '#6a7034', '#929040', '#c6c070'],
   dry: ['#2a1c18', '#563a22', '#866a30', '#b49a46', '#dcc66a', '#fbeeaa'], dusk: ['#1c1818', '#38321e', '#5a5428', '#827a32', '#b0a046', '#e0cc78'],
   night: ['#0a0e1c', '#132232', '#1c3a3a', '#2a5440', '#46764e', '#7aa470'],
   soil: GR.dirt, sand: ['#3a2820', '#6a4c34', '#9a7650', '#c4a272', '#e2c896', '#f8ecc4'], stone: GR.stone, warm: ['#24161c', '#4a3230', '#76584a', '#a08068', '#c8ac8c', '#eedcbc'],
