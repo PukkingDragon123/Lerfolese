@@ -71,14 +71,14 @@ export class HudTip {
 
 // ---------------------------------------------------------------- the instrument cluster
 export class BattleHUD {
-  constructor({ area = 'The Mythical Wilderness', floor = 1, kind = 'battle', foes = [], onEnd, onWell, mode = 'battle', sub = null, plain = false }) {
+  constructor({ area = 'The Mythical Wilderness', floor = 1, kind = 'battle', foes = [], onEnd, onWell, mode = 'battle', sub = null, plain: isPlain = false }) {
     const E = window.__game?.engine; hud.attach(E); this.engine = hud.engine; this.mode = mode; this.onEnd = onEnd; this.onWell = onWell;
     this.root = new THREE.Group(); this.root.name = 'battle-hud'; this.engine.ui.scene.add(this.root);
     this.area = area; this.floor = floor; this.kind = kind; this.sub = sub ? plain(sub) : null; this.turn = 1; this.objective = foes.length ? `Defeat ${foes.join(' & ')}` : '';
     this.gauge = new Hourglass(); this.pouch = new CoinJar(); this.root.add(this.gauge.group, this.pouch.group); // Integrity sand-glass (Block shield on its pillar), gold jar
     this.note = new FloatText(null, { font: 'body', align: 'right', anchor: 'right', anchorY: 'top' }); this.root.add(this.note.group); this.note.show(); // the chapter heading, in floating letters
     if (mode !== 'map') {
-      this.bell = plain ? new Bell() : new TimeApple(); this.root.add(this.bell.group); // End Turn: the golden apple that lets time go (plain, the prologue: a wooden bell stand, 'Throw!')
+      this.bell = isPlain ? new Bell() : new TimeApple(); this.root.add(this.bell.group); // End Turn: the golden apple that lets time go (plain, the prologue: a wooden bell stand, 'Throw!')
       this.laws = []; this.lawTip = new PlateTip({ maxW: 12 });
     }
     this.handler = window.__game.input.push({ move: () => this.move(), click: () => this.click() });
