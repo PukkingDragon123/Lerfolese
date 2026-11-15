@@ -12,9 +12,9 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const TAU = Math.PI * 2;
 function pix(w, h, draw, seed = 1) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h, mulberry32(seed)); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapLinearFilter; t.anisotropy = 8; return t; }
 const P = (g, x, y, c) => { g.fillStyle = c; g.fillRect(x, y, 1, 1); };
-const stdM = (o) => new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0, flatShading: true, ...o });
+const stdM = (o) => new THREE.MeshStandardMaterial({ roughness: 0.94, metalness: 0, flatShading: true, ...o });
 const MATS = new Map(); const smat = (kind, o = {}) => { const k = kind + JSON.stringify(o); if (!MATS.has(k)) MATS.set(k, stdM({ map: kind ? tex(kind) : null, ...o })); return MATS.get(k); };
-export const LM = { walnut: () => smat('walnut', { roughness: 0.7 }), oak: () => smat('oak', { roughness: 0.7 }), brass: () => smat('brass', { metalness: 0.85, roughness: 0.35 }), iron: () => smat('iron', { metalness: 0.7, roughness: 0.5 }), bone: () => smat('bone', { roughness: 0.6 }), wax: () => smat('wax', { roughness: 0.55 }), parch: () => smat('parch', { roughness: 0.9 }) };
+export const LM = { walnut: () => smat('walnut', { roughness: 0.92 }), oak: () => smat('oak', { roughness: 0.92 }), brass: () => smat('brass', { metalness: 0.85, roughness: 0.35 }), iron: () => smat('iron', { metalness: 0.7, roughness: 0.5 }), bone: () => smat('bone', { roughness: 0.6 }), wax: () => smat('wax', { roughness: 0.55 }), parch: () => smat('parch', { roughness: 0.9 }) };
 const put = (p, geo, m, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo.index ? facet(geo, 3) : geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); o.castShadow = true; o.receiveShadow = true; p.add(o); return o; };
 
 // ---------------------------------------------------------------- the book atlas: 16 spines x (spine 16 px | cover 4 px | pages 4 px), 96 px tall
@@ -53,7 +53,7 @@ export class Books {
   constructor() { this.list = []; }
   add(m4, v, tint = 1) { this.list.push([m4, v, tint]); }
   build() {
-    const mat = stdM({ map: bookAtlas(), roughness: 0.72 });
+    const mat = stdM({ map: bookAtlas(), roughness: 0.92 });
     mat.onBeforeCompile = (sh) => { sh.vertexShader = 'attribute float aVar;\n' + sh.vertexShader.replace('#include <uv_vertex>', '#include <uv_vertex>\n vMapUv.x += aVar * ' + (1 / NV).toFixed(6) + ';'); };
     mat.customProgramCacheKey = () => 'labBooks';
     const n = Math.max(1, this.list.length); const im = new THREE.InstancedMesh(bookGeometry(), mat, n); const vars = new Float32Array(n); const c = new THREE.Color();
@@ -91,7 +91,7 @@ export function openBook(seed = 1, w = 0.34) {
       for (let i = 0; i < 40; i += 2) { const a = (i / 40) * TAU; x.fillRect(Math.round(cx + Math.cos(a) * 9), Math.round(cy + Math.sin(a) * 6), 1, 1); }
       x.fillStyle = '#c8901c'; x.fillRect(cx - 1, cy - 1, 3, 3); x.fillStyle = '#8a1a1c'; x.fillRect(cx + 17, cy - 1, 3, 3); x.fillStyle = '#3a2416'; for (let k = 0; k < 6; k++) x.fillRect(cx + 1 + k * 3, cy, 2, 1); }
   }, seed * 7 + (diagram ? 1 : 0) + (left ? 3 : 0));
-  const cov = smat('leather', { color: [0xc06050, 0x5070b0, 0x60a060][seed % 3], roughness: 0.75 });
+  const cov = smat('leather', { color: [0xc06050, 0x5070b0, 0x60a060][seed % 3], roughness: 0.9 });
   for (const s of [-1, 1]) { const half = new THREE.Group(); half.rotation.z = s * 0.1; g.add(half); put(half, cbox(w / 2 + 0.01, 0.012, w * 0.68 + 0.02, 0.003), cov, s * (w / 4 + 0.004), 0.006, 0); put(half, cbox(w / 2 - 0.006, 0.02, w * 0.68 - 0.01, 0.003), LM.parch(), s * (w / 4), 0.02, 0);
     const pg = put(half, new THREE.PlaneGeometry(w / 2 - 0.01, w * 0.68 - 0.014), stdM({ map: page(s > 0 && r0() < 0.8, s < 0), roughness: 0.95 }), s * (w / 4), 0.0345, 0, -Math.PI / 2); pg.castShadow = false; }
   return g;

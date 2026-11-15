@@ -48,7 +48,7 @@ export class StudiesScene extends UIScreen {
     this.rnd = mulberry32(9); this.motes = new Motes(900, { px: 2 }); sc.add(this.motes.points); this.acc = 0;
     await preloadLab(LAB_IDS); this.buildRoom(sc); this.buildBench(sc); this.buildBoard(sc); this.buildCabinet(sc); this.envMap(sc);
     this.engine.setWorld(sc, this.camera);
-    this.engine.setFx({ bloom: [0.6, 0.5, 0.82], ao: 0.9, exposure: 1.0, grade: { sat: 1.04, vib: 0.2, contrast: 1.08, vignette: 0.5, warmth: 0.02, lift: [0.008, 0.008, 0.016], gain: [1.02, 1.0, 0.97], toe: 0.04 }, ink: { fade: [10, 30], strength: 0.7 } });
+    this.engine.setFx({ bloom: [0.14, 0.3, 0.97], ao: 1.0, exposure: 1.12, grade: { sat: 0.96, vib: 0.04, contrast: 1.06, vignette: 0.42, warmth: 0, lift: [0.006, 0.007, 0.012], gain: [1.0, 1.0, 0.98], toe: 0.05 }, ink: { fade: [10, 30], strength: 0.7 } }); // matte and natural: bloom only on the flames and the window glass
     this.engine.add(this); this.pushInput(); audio.setAmbSet(['campfire']); audio.playMusic(audio.manifest?.music?.hall ? 'hall' : 'journal');
     this.UI = new Scholar(); this.studies = studyList(); this.buildUI(); this.select(this.studies[0] || null);
     this.intro = { t: 0 }; this.push = new Spring(0, 4, 0.8); this.reveals = []; this.debris = [];
@@ -59,14 +59,14 @@ export class StudiesScene extends UIScreen {
     add('apple+gravity', 'Falling Apple', 5, { special: true }); add('pendulum+stone', 'Wrecking Ball', 2, { special: true }); add('force+inertia+motion', 'First Law of Motion', 3, { special: true, law: true }); add('lens+spark', 'Death Ray', 1, { special: true }); add('apple+spin', 'Spinning Apple', 4, { special: true }); add('force+mass', 'F = ma', 3, { special: true }); add('heat+water', 'Steam', 1, { special: true }); add('gravity+inertia+rotation', 'Orbit', 0, { special: true }); }
   envMap(sc) { try { const pm = new THREE.PMREMGenerator(this.engine.renderer); const es = new THREE.Scene(); es.background = new THREE.Color(0x1a100a);
       const glow = (c, w, h, p, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: c, side: THREE.DoubleSide })); m.position.copy(p); m.rotation.y = ry; es.add(m); };
-      glow(new THREE.Color(3.2, 2.0, 0.9), 4, 2, V(0, 4, 0), 0); glow(new THREE.Color(0.4, 0.5, 1.0), 6, 4, V(0, 2, -6), 0); glow(new THREE.Color(1.6, 0.9, 0.4), 8, 2, V(0, -2, 0), 0); glow(new THREE.Color(0.9, 0.55, 0.3), 2, 6, V(6, 2, 0), -Math.PI / 2);
-      this._env = pm.fromScene(es, 0.04, 0.1, 50); sc.environment = this._env.texture; sc.environmentIntensity = 0.55; pm.dispose(); } catch (e) { console.warn('env map', e); } }
+      glow(new THREE.Color(0.55, 0.65, 0.95), 3, 5, V(0, 2, -6), 0); glow(new THREE.Color(1.1, 0.8, 0.5), 0.8, 0.8, V(0, 3, 0), 0); glow(new THREE.Color(0.22, 0.17, 0.12), 8, 8, V(0, -2, 0), 0);
+      this._env = pm.fromScene(es, 0.04, 0.1, 50); sc.environment = this._env.texture; sc.environmentIntensity = 0.22; pm.dispose(); } catch (e) { console.warn('env map', e); } }
   // ---------------------------------------------------------------- the room
   // The furniture and the dressing are real CC0 Poly Haven models converted to pixel art (labassets.js); the shell is
   // timber, stone and lime plaster in tileable pixel textures at one texel density (about 170 texels a metre).
   roomMat(name, tile, { rough = 0.85, color = 0xffffff } = {}) {
     const t = new THREE.TextureLoader().load(new URL(`../../assets/textures/lab/${name}.png`, import.meta.url).href); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 8;
-    const m = new THREE.MeshStandardMaterial({ map: t, roughness: rough, color, flatShading: true }); m.userData.tile = tile; return m;
+    const m = new THREE.MeshStandardMaterial({ map: t, roughness: rough, metalness: 0, color, flatShading: true, envMapIntensity: 0.4 }); m.userData.tile = tile; return m;
   }
   slab(sc, mat, w, h, d, x, y, z, { cast = false } = {}) { // a box whose UVs tile at the material's real-world size
     const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv; const T = mat.userData.tile || 1; const dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
@@ -78,12 +78,12 @@ export class StudiesScene extends UIScreen {
     const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g);
     const fl = new THREE.Mesh(lathe([[0.0005, 0], [0.007, 0.008], [0.0085, 0.02], [0.005, 0.034], [0.0005, 0.046]], 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 1.6, 0.6), toneMapped: false })); fl.userData.noInk = true; g.add(fl);
     const core = new THREE.Mesh(lathe([[0.0005, 0], [0.004, 0.006], [0.004, 0.014], [0.0005, 0.022]], 5), new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, 2.9, 2.2), toneMapped: false })); core.userData.noInk = true; core.position.y = 0.002; g.add(core);
-    g.userData.flame = fl; if (light) { const L = new THREE.PointLight(color, light, dist, 1.7); L.position.y = 0.06; g.add(L); g.userData.light = L; g.userData.base = light; }
+    g.userData.flame = fl; if (light) { const L = new THREE.PointLight(color, light, dist, 2); L.position.y = 0.06; g.add(L); g.userData.light = L; g.userData.base = light; }
     (this.candles ||= []).push(g); return g;
   }
   buildRoom(sc) {
     const W = 7, D = 4.6, H = 4.4; const r = this.rnd;
-    const floorM = this.roomMat('floor', 1.5, { rough: 0.72 }), stoneM = this.roomMat('stone', 1.13, { rough: 0.9 }), plasterM = this.roomMat('plaster', 2.4, { rough: 0.95, color: 0xe6e2dc }), beamM = (this.beamM = this.roomMat('beam', 0.75, { rough: 0.8 }));
+    const floorM = this.roomMat('floor', 1.5, { rough: 0.9 }), stoneM = this.roomMat('stone', 1.13, { rough: 1 }), plasterM = this.roomMat('plaster', 2.4, { rough: 1, color: 0xe6e2dc }), beamM = (this.beamM = this.roomMat('beam', 0.75, { rough: 0.95 }));
     this.slab(sc, floorM, W * 2 + 1, 0.3, D + 8, 0, -0.15, 2); // oak boards
     this.slab(sc, plasterM, W * 2 + 1, H, 0.3, 0, H / 2, -D); for (const s of [-1, 1]) this.slab(sc, plasterM, 0.3, H, D + 8, s * W, H / 2, 2); // lime plaster
     this.slab(sc, stoneM, W * 2 + 1, 0.9, 0.36, 0, 0.45, -D + 0.02); for (const s of [-1, 1]) this.slab(sc, stoneM, 0.36, 0.9, D + 8, s * (W - 0.02), 0.45, 2); // a dressed-stone dado
@@ -97,11 +97,11 @@ export class StudiesScene extends UIScreen {
       put(fr, extrude(shape(Array.from({ length: 11 }, (_, k) => { const t = (k / 10) * Math.PI; return [Math.cos(t) * 0.72, 1.36 + Math.sin(t) * 0.45]; })), 0.12, 0.02), M.walnut());
       put(fr, cbox(1.6, 0.08, 0.34, 0.02), stoneM, 0, -1.42, 0.1); } // a stone sill
     // the evening through the windows: a cool key from the back, raking long shadows forward, and a soft sky fill
-    const dusk = new THREE.DirectionalLight(0xa8c0ff, 1.7); dusk.position.set(-2.5, 6, -10); dusk.target.position.set(0, 0, 1); sc.add(dusk, dusk.target); dusk.castShadow = true; dusk.shadow.mapSize.set(2048, 2048); Object.assign(dusk.shadow.camera, { left: -7, right: 7, top: 6, bottom: -6, near: 1, far: 30 }); dusk.shadow.bias = -0.0006; dusk.shadow.normalBias = 0.02;
-    const dusk2 = new THREE.DirectionalLight(0x8aa4f0, 0.45); dusk2.position.set(5, 4, -8); sc.add(dusk2); sc.add(new THREE.HemisphereLight(0x8090c0, 0x3a2a1e, 0.7));
+    const dusk = new THREE.DirectionalLight(0xb4c6ec, 2.3); dusk.position.set(-2.5, 6, -10); dusk.target.position.set(0, 0, 1); sc.add(dusk, dusk.target); dusk.castShadow = true; dusk.shadow.mapSize.set(2048, 2048); Object.assign(dusk.shadow.camera, { left: -7, right: 7, top: 6, bottom: -6, near: 1, far: 30 }); dusk.shadow.bias = -0.0006; dusk.shadow.normalBias = 0.02;
+    sc.add(new THREE.HemisphereLight(0x98a2ba, 0x4a3a2a, 0.5)); // a faint sky bounce only: the shadows stay dark and the room reads from its two keys
     // hanging lanterns on chains: the warm key
-    this.lamps = []; for (const [x, z, k] of [[-0.3, 0.3, 1], [-3.4, -1.6, 0], [3.0, -1.4, 0], [-1.6, 2.4, 0]]) { const L = this.place(sc, 'Lantern_01', x, H - 1.85, z, r() * 3, { h: 0.6 }); put(sc, cbox(0.016, 1.3, 0.016, 0.003), M.iron(), x, H - 0.64, z);
-      this.flame(L, 0, 0.17, 0, {}); const pl = new THREE.PointLight(0xffc890, k ? 9 : 5, k ? 9 : 7, 1.5); pl.position.set(x, H - 1.56, z); if (k) { pl.castShadow = true; pl.shadow.mapSize.set(1024, 1024); pl.shadow.bias = -0.002; } sc.add(pl); this.lamps.push({ pl, base: pl.intensity, ph: r() * 10, L }); }
+    this.lamps = []; for (const [x, z, k] of [[-0.3, 0.3, 1], [-3.4, -1.6, 0], [3.0, -1.4, 0], [-1.6, 2.4, 0]]) { const L = this.place(sc, 'Lantern_01', x, H - 1.85, z, r() * 3, { h: 0.6, shadow: false, tint: 0xc8b8a0 }); // (the lamp inside must not shadow the room with its own cage) put(sc, cbox(0.016, 1.3, 0.016, 0.003), M.iron(), x, H - 0.64, z);
+      this.flame(L, 0, 0.17, 0, {}); const pl = new THREE.PointLight(0xffd2a0, k ? 12 : 3, k ? 9 : 4.5, 2); pl.position.set(x, H - 1.56, z); if (k) { pl.castShadow = true; pl.shadow.mapSize.set(1024, 1024); pl.shadow.bias = -0.002; } sc.add(pl); this.lamps.push({ pl, base: pl.intensity, ph: r() * 10, L }); }
     // the back wall: a carved commode under the chalkboard, a tall gothic cabinet and a bookcase to the left, a chest of drawers with wall shelves to the right
     const cm = this.place(sc, 'GothicCommode_01', 0, 0, -4.12, 0, { h: 1.05 }); const cTop = cm.userData.size?.y || 1.05;
     this.place(sc, 'mantel_clock_01', -0.3, cTop, -4.1, 0.15, { h: 0.3 }); this.place(sc, 'marble_bust_01', 0.32, cTop, -4.12, -0.3, { h: 0.42 });
@@ -109,9 +109,9 @@ export class StudiesScene extends UIScreen {
     { const B = this.place(sc, 'wooden_bookshelf_worn', -6.5, 0, -1.6, Math.PI / 2, { h: 2.6, tint: 0x9a7a62 }); this.fillShelf(B, 2.6, 7); }
     { const B = this.place(sc, 'wooden_bookshelf_worn', -6.5, 0, 0.6, Math.PI / 2, { h: 2.6, tint: 0x9a7a62 }); this.fillShelf(B, 2.6, 8); }
     const dr = this.place(sc, 'vintage_wooden_drawer_01', 2.35, 0, -3.95, 0, { h: 0.98 }); const dTop = 0.98; void dr;
-    this.place(sc, 'book_encyclopedia_set_01', 1.6, dTop, -4.1, 0.05, { h: 0.24 }); { this.place(sc, 'vintage_oil_lamp', 2.0, 2.82, -3.72, 0, { h: 1.3 }); const L = new THREE.PointLight(0xffc888, 3, 4.5, 1.6); L.position.set(2.0, 3.12, -3.6); sc.add(L); } this.place(sc, 'antique_ceramic_vase_01', 3.4, dTop, -4.05, 0, { h: 0.4 }); this.place(sc, 'wooden_bucket_01', 3.9, 0, -3.6, 0.5, { h: 0.36 });
+    this.place(sc, 'book_encyclopedia_set_01', 1.6, dTop, -4.1, 0.05, { h: 0.24 }); { this.place(sc, 'vintage_oil_lamp', 2.0, 2.82, -3.72, 0, { h: 1.3 }); const L = new THREE.PointLight(0xffd2a0, 1.6, 3.2, 2); L.position.set(2.0, 3.12, -3.6); sc.add(L); } this.place(sc, 'antique_ceramic_vase_01', 3.4, dTop, -4.05, 0, { h: 0.4 }); this.place(sc, 'wooden_bucket_01', 3.9, 0, -3.6, 0.5, { h: 0.36 });
     this.place(sc, 'vintage_microscope', 2.7, dTop, -3.75, -0.5, { h: 0.36 });
-    { const a = makeDemo('flask', { motes: this.motes }); a.group.scale.setScalar(0.62); a.group.position.set(2.2, dTop, -3.72); sc.add(a.group); this.decor = [a]; }
+    { const a = makeDemo('flask', { motes: this.motes }); a.group.scale.setScalar(0.62); a.group.position.set(2.2, dTop, -3.72); sc.add(a.group); this.decor = [a]; a.group.traverse((o) => { if (o.isPointLight) o.intensity *= 0.25; }); } // a background piece: its glow stays local
     for (const [y, items] of [[1.78, [['book_encyclopedia_set_01', -0.6, { h: 0.24 }], ['brass_pot_01', 0.25, { h: 0.2 }], ['brass_vase_01', 0.75, { h: 0.34 }]]], [2.42, [['brass_goblets', -0.55, { h: 0.2 }], ['book_encyclopedia_set_01', 0.2, { h: 0.22 }], ['brass_vase_01', 0.9, { h: 0.26 }]]]]) {
       this.slab(sc, beamM, 2.4, 0.05, 0.32, 2.35, y, -4.27, { cast: true }); for (const x of [-1.0, 1.0]) put(sc, cbox(0.04, 0.16, 0.26, 0.006), M.walnut(), 2.35 + x, y - 0.1, -4.3);
       for (const [id, dx, o] of items) this.place(sc, id, 2.35 + dx, y + 0.025, -4.27, (r() - 0.5) * 0.5, o); }
@@ -128,7 +128,7 @@ export class StudiesScene extends UIScreen {
     const rug = labRug(3.8, 2.6); rug.position.set(0, 0.006, 0.3); sc.add(rug);
     for (const [kind, x, y, z, ry, w, h] of [['stars', -2.65, 3.2, -4.36, 0, 0.9, 0.62], ['orbits', 6.82, 2.9, 2.4, -Math.PI / 2, 0.8, 0.6], ['prism', -6.82, 3.1, 2.3, Math.PI / 2, 0.8, 0.6]]) { if (!w) continue; const c = wallChart(kind, w, h); c.position.set(x, y, z); c.rotation.y = ry; sc.add(c); }
     // the standing orrery by the right window and the trophy cabinet beside it
-    { const o = makeDemo('orbit'); o.group.position.set(4.6, 0.95, -2.4); o.group.scale.setScalar(1.3); sc.add(o.group); this.place(sc, 'GothicCommode_01', 4.6, 0, -2.4, -0.5, { h: 0.95, w: undefined }); this.decor.push(o); }
+    { const o = makeDemo('orbit'); o.group.position.set(4.6, 0.95, -2.4); o.group.scale.setScalar(1.3); sc.add(o.group); o.group.traverse((q) => { if (q.isPointLight) q.intensity *= 0.35; }); this.place(sc, 'GothicCommode_01', 4.6, 0, -2.4, -0.5, { h: 0.95, w: undefined }); this.decor.push(o); }
   }
   /** fill a converted bookcase's shelves with books (the instanced, hand-pixelled spines of labprops.js) */
   fillShelf(B, h, seed) {
@@ -144,8 +144,8 @@ export class StudiesScene extends UIScreen {
     const B = (this.bench = new THREE.Group()); sc.add(B);
     this.place(sc, 'WoodenTable_01', 0, 0, 0, 0, { size: [2.3, BENCH_Y, 1.16], tint: 0xc09a78, parent: B });
     // its dressing, kept to the edges so the experiment reads: a candlestick and an oil lamp at the back, books and a lens at the left, the instruments at the front right
-    { const c = this.place(sc, 'wooden_candlestick', -0.92, BENCH_Y, -0.38, 0, { h: 0.3, parent: B }); this.flame(c, 0, 0.3, 0, { light: 1.3 }); }
-    { this.place(sc, 'brass_candleholders', 0.86, BENCH_Y, -0.4, -0.25, { h: 0.36, parent: B }); const L = new THREE.PointLight(0xffc080, 1.2, 2.6, 1.7); L.position.set(0.86, BENCH_Y + 0.45, -0.35); B.add(L); }
+    { const c = this.place(sc, 'wooden_candlestick', -0.92, BENCH_Y, -0.38, 0, { h: 0.3, parent: B }); this.flame(c, 0, 0.3, 0, { light: 0.6, dist: 1.8 }); }
+    { this.place(sc, 'brass_candleholders', 0.86, BENCH_Y, -0.4, -0.25, { h: 0.36, parent: B }); const L = new THREE.PointLight(0xffc890, 0.5, 1.6, 2); L.position.set(0.86, BENCH_Y + 0.45, -0.35); B.add(L); }
     { const bk = new Books(); let y = 0; for (const [w, d, t, v, a] of [[0.3, 0.22, 0.05, 3, 0.1], [0.27, 0.2, 0.045, 9, -0.12], [0.24, 0.17, 0.04, 1, 0.25]]) { bk.add(new THREE.Matrix4().compose(V(0, y + t / 2, 0), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, a, Math.PI / 2)), V(t, w, d)), v, 1); y += t; }
       const m = bk.build(); m.position.set(-0.8, BENCH_Y, 0.2); m.rotation.y = 0.3; B.add(m); }
     { const ob = openBook(2); ob.position.set(0.74, BENCH_Y, 0.3); ob.rotation.y = -0.35; B.add(ob); }
@@ -161,11 +161,11 @@ export class StudiesScene extends UIScreen {
   buildBoard(sc) {
     const g = new THREE.Group(); g.position.set(0, 2.55, -4.42); sc.add(g); put(g, cbox(3.0, 1.7, 0.08, 0.02), M.walnut(), 0, 0, 0); put(g, cbox(2.9, 0.07, 0.16, 0.01), M.oak(), 0, -0.88, 0.06);
     this.boardC = document.createElement('canvas'); this.boardC.width = 560; this.boardC.height = 300; this.boardT = new THREE.CanvasTexture(this.boardC); this.boardT.colorSpace = THREE.SRGBColorSpace; this.boardT.magFilter = THREE.NearestFilter; this.boardT.minFilter = THREE.LinearMipmapLinearFilter; this.boardT.anisotropy = 8;
-    const slate = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 1.5), new THREE.MeshStandardMaterial({ map: this.boardT, roughness: 0.95, emissive: 0xffffff, emissiveMap: this.boardT, emissiveIntensity: 0.12 })); slate.position.z = 0.045; slate.userData.noInk = true; g.add(slate);
+    const slate = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 1.5), new THREE.MeshStandardMaterial({ map: this.boardT, roughness: 1, emissive: 0xffffff, emissiveMap: this.boardT, emissiveIntensity: 0.04, envMapIntensity: 0.2 })); slate.position.z = 0.045; slate.userData.noInk = true; g.add(slate);
     for (let i = 0; i < 3; i++) put(g, cbox(0.07, 0.022, 0.022, 0.004), smat(null, { color: 0xf0f0e8, rough: 0.9 }), -1.2 + i * 0.12, -0.83, 0.1);
   }
   chalk(S) { // the study's law in chalk on slate: clean pixel art at one texel per art pixel, a chalk diagram of the experiment
-    const c = this.boardC, g = c.getContext('2d'); const W = c.width, H = c.height; g.imageSmoothingEnabled = false;
+    const c = this.boardC, g = c.getContext('2d', { willReadFrequently: true }); const W = c.width, H = c.height; g.imageSmoothingEnabled = false;
     const hh = (x, y, s = 0) => { const v = Math.sin(x * 127.1 + y * 311.7 + s * 74.7) * 43758.5453; return v - Math.floor(v); };
     const vn = (x, y, s, seed) => { const X = x / s, Y = y / s, i = Math.floor(X), j = Math.floor(Y), sm = (t) => t * t * (3 - 2 * t), u = sm(X - i), v = sm(Y - j); const a = hh(i, j, seed), b = hh(i + 1, j, seed), cc = hh(i, j + 1, seed), d = hh(i + 1, j + 1, seed); return a + (b - a) * u + (cc - a) * v + (a - b - cc + d) * u * v; };
     const SL = ['#141d1a', '#19241f', '#1d2a25', '#22302a', '#283731', '#2f3f38']; const img = g.createImageData(W, H); const D = new Uint32Array(img.data.buffer);
@@ -208,7 +208,7 @@ export class StudiesScene extends UIScreen {
     const C = (this.cabinet = new THREE.Group()); C.position.set(5.98, 0, -4.27); sc.add(C); const beamM = this.beamM;
     for (const y of [1.5, 2.08, 2.66]) { this.slab(C, beamM, 1.52, 0.05, 0.3, 0, y - 0.025, 0, { cast: true }); for (const x of [-0.66, 0.66]) put(C, cbox(0.04, 0.16, 0.24, 0.006), M.walnut(), x, y - 0.13, -0.02); }
     this.place(C, 'book_encyclopedia_set_01', -0.3, 2.66, 0, 0, { h: 0.22 }); this.place(C, 'brass_pot_01', 0.42, 2.66, 0, 0.4, { h: 0.18 });
-    const L = new THREE.PointLight(0xffd8a0, 2.2, 2.4, 1.6); L.position.set(0, 2.4, 0.5); C.add(L); this.trophies = [];
+    const L = new THREE.PointLight(0xffd8a0, 0.9, 1.8, 2); L.position.set(0, 2.4, 0.5); C.add(L); this.trophies = [];
     const have = Object.values(save.meta.studies || {}).filter((s) => s.claimed && s.reward?.kind === 'cosmetic').map((s) => s.reward.trophy); have.forEach((k) => this.addTrophy(k, false));
   }
   addTrophy(kind, pop = true) {

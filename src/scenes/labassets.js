@@ -12,12 +12,11 @@ const BASE = new URL('../../assets/models/lab/', import.meta.url).href;
 const loader = new GLTFLoader();
 const CACHE = new Map(); // id -> { geo, map, size: Vector3 }
 // per-asset surface: metal = brass / pewter response, rough = gloss, tint = a multiply on the atlas
-const SURF = {
-  brass_candleholders: { metal: 0.75, rough: 0.38, tint: 0xe6c48a }, brass_goblets: { metal: 0.8, rough: 0.34, tint: 0xe2bc7c }, brass_vase_01: { metal: 0.8, rough: 0.34, tint: 0xe2bc7c },
-  brass_pot_01: { metal: 0.75, rough: 0.4, tint: 0xd8b07a }, brass_pan_01: { metal: 0.7, rough: 0.42, tint: 0xd8a870 }, Lantern_01: { metal: 0.55, rough: 0.45 }, seadogs_compass: { metal: 0.6, rough: 0.35 },
-  pocket_watch: { metal: 0.75, rough: 0.3 }, magnifying_glass_01: { metal: 0.5, rough: 0.3 }, vintage_microscope: { metal: 0.6, rough: 0.35 }, mantel_clock_01: { metal: 0.2, rough: 0.45 },
-  wine_bottles_01: { metal: 0.1, rough: 0.12 }, antique_ceramic_vase_01: { rough: 0.35 }, jug_01: { rough: 0.4 }, tea_set_01: { rough: 0.3 }, marble_bust_01: { rough: 0.45 },
-  ornate_mirror_01: { metal: 0.35, rough: 0.3 }, round_spectacles: { metal: 0.6, rough: 0.3 },
+const SURF = { // only true metal and glass get a (small, crisp) highlight; wood, paper, cloth, stone and ceramic glaze stay matte
+  brass_candleholders: { metal: 0.6, rough: 0.5, tint: 0xe6c48a }, brass_goblets: { metal: 0.6, rough: 0.48, tint: 0xe2bc7c }, brass_vase_01: { metal: 0.6, rough: 0.48, tint: 0xe2bc7c },
+  brass_pot_01: { metal: 0.55, rough: 0.52, tint: 0xd8b07a }, Lantern_01: { metal: 0.45, rough: 0.6 }, seadogs_compass: { metal: 0.5, rough: 0.5 },
+  pocket_watch: { metal: 0.55, rough: 0.45 }, magnifying_glass_01: { metal: 0.4, rough: 0.45 }, vintage_microscope: { metal: 0.5, rough: 0.5 },
+  ornate_mirror_01: { metal: 0.35, rough: 0.4 }, round_spectacles: { metal: 0.45, rough: 0.45 }, antique_ceramic_vase_01: { rough: 0.75 }, marble_bust_01: { rough: 0.85 },
 };
 
 /** fetch and prepare lab models (once); resolves when all have loaded (missing ones are skipped with a warning) */
@@ -36,8 +35,8 @@ export function preloadLab(ids) {
 }
 const MATS = new Map();
 function matFor(id, { tint, metal, rough, emissive = 0, ei = 1, side, alpha = false } = {}) {
-  const s = SURF[id] || {}; const t = tint ?? s.tint ?? 0xffffff, m = metal ?? s.metal ?? 0, r = rough ?? s.rough ?? 0.78; const key = [id, t, m, r, emissive, ei, side, alpha].join('|'); let mat = MATS.get(key); if (mat) return mat;
-  const e = CACHE.get(id); mat = new THREE.MeshStandardMaterial({ map: e?.map || null, color: t, metalness: m, roughness: r, flatShading: true, alphaTest: alpha ? 0.5 : 0, // (alpha-tested meshes get no ink outline, so only foliage uses it)
+  const s = SURF[id] || {}; const t = tint ?? s.tint ?? 0xffffff, m = metal ?? s.metal ?? 0, r = rough ?? s.rough ?? 0.95; const key = [id, t, m, r, emissive, ei, side, alpha].join('|'); let mat = MATS.get(key); if (mat) return mat;
+  const e = CACHE.get(id); mat = new THREE.MeshStandardMaterial({ map: e?.map || null, color: t, metalness: m, roughness: r, flatShading: true, envMapIntensity: m > 0.2 ? 1 : 0.35, alphaTest: alpha ? 0.5 : 0, // (alpha-tested meshes get no ink outline, so only foliage uses it)
      side: side ?? THREE.DoubleSide, emissive: new THREE.Color(emissive), emissiveIntensity: ei, emissiveMap: emissive ? e?.map || null : null });
   MATS.set(key, mat); return mat;
 }
