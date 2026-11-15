@@ -6,7 +6,10 @@
 // hurt, cycles with the draw / discard cards (Notebook, Hypothesis, Scratchpad, Recycle), uses the combinators
 // (Echo clones, Looking-Glass twins), and answers each fight's story dilemma at random (riddles 70% right).
 // Event bosses (the Sphinx, Prometheus' eagle) count as elites; guardians are the act bosses.
-//   node tools/sim.mjs [battles=200] [--quiet] [--picks]
+// Card economy: no card rewards and no shop cards; the extra cards a deck has by each tier come from Discoveries
+// (first-time merges) and events. APPLE HEAT: the player vents before it would overheat, keeps merges that would
+// overheat out unless they pay, and quenches / vents into Block with Quench and Bellows when the apple is hot.
+//   node tools/sim.mjs [battles=200] [--quiet] [--picks] [--noheat] [--start=<id>] [--diff=<json>]
 import { newRun, battleRewards, discoveryChoices, mkCard, unlocked } from '../src/game/run.js';
 import { Battle, DIFF } from '../src/game/battle.js';
 import { RNG } from '../src/core/util.js';
@@ -16,6 +19,7 @@ import { ENCOUNTERS } from '../src/game/data/enemies.js';
 import { flatten } from '../src/game/combos.js';
 
 const N = +(process.argv[2] || 200); const quiet = process.argv.includes('--quiet');
+const START = process.argv.find((x) => x.startsWith('--start='))?.slice(8) || null; // a constellation start (run.js STARTS)
 const tune = process.argv.find((x) => x.startsWith('--diff=')); if (tune) Object.assign(DIFF, JSON.parse(tune.slice(7))); // e.g. --diff='{"hp":{"normal":2,"elite":2,"guardian":2}}'
 const E = ENCOUNTERS.wilderness;
 const TIER = {
@@ -25,12 +29,12 @@ const TIER = {
 };
 const list = [...E.easy.map((g) => ['normal', g]), ...E.hard.map((g) => ['normal', g]), ...E.elite.map((g) => ['elite', g]), ...Object.values(E.event || {}).map((g) => ['elite', g]), ...E.guardian.map((g) => ['guardian', g])];
 const ARTS = Object.keys(ITEMS).filter((id) => ITEMS[id].math || ['talaria', 'aegis', 'greaves', 'ram', 'lever', 'horn_shard', 'plumb_bob', 'gorgon_scale', 'wine_flask'].includes(id)).filter(unlocked);
-const stats = {}; const tiers = {}; let blockedTot = 0, takenTot = 0, discards = 0; let errors = 0, placed = 0, laws = 0, fizzles = 0, best = 0, dilemmas = 0, twins = 0, clones = 0; const picks = {};
+const stats = {}; const tiers = {}; let blockedTot = 0, takenTot = 0, discards = 0; let overheats = 0, vents = 0, heatSum = 0, heatN = 0; const tierN = {}; let errors = 0, placed = 0, laws = 0, fizzles = 0, best = 0, dilemmas = 0, twins = 0, clones = 0; const picks = {};
 
 for (let i = 0; i < N; i++) {
   const [tier, enemies] = list[i % list.length]; const T = TIER[tier]; const key = enemies.join('+');
-  const run = newRun(1000 + i); const r = new RNG(i * 13 + 5);
-  run.floor = r.int(T.floor[0], T.floor[1]);
+  const run = newRun(1000 + i, { start: START }); const r = new RNG(i * 13 + 5);
+  run.floor = r.int(T.floor[0], T.floor[1]); if (process.argv.includes('--noheat')) run.flags.noHeat = true; // compare: the same fights without apple Heat
   // a deck and curios found by this point of a run
   for (let k = r.int(T.extra[0], T.extra[1]); k > 0; k--) { const opts = discoveryChoices(run, 3); run.deck.push(mkCard(r.pick(opts))); }
   for (let k = r.int(T.arts[0], T.arts[1]); k > 0; k--) { const a = r.pick(ARTS); if (!run.items.includes(a)) run.items.push(a); }
@@ -44,6 +48,8 @@ for (let i = 0; i < N; i++) {
     async mirrored() { twins++; },
     async cloned() { clones++; },
   };
+  fx.vented = async () => { vents++; };
+  fx.release = async (o, mv) => { if (mv.attack.heatTier) { tierN[mv.attack.heatTier] = (tierN[mv.attack.heatTier] || 0) + 1; heatSum += b.heat; heatN++; } };
   const b = new Battle({ run, enemies, rng: new RNG(i * 7 + 1), fx, kind: tier });
   try {
     await b.start(); let guard = 0;
@@ -54,7 +60,7 @@ for (let i = 0; i < N; i++) {
     b.finish();
     const s = (stats[key] ||= { tier, n: 0, won: 0, turns: 0, hpLeft: 0 }); s.n++; if (b.phase === 'won') s.won++; s.turns += b.turn; s.hpLeft += b.player.hp;
     const t = (tiers[tier] ||= { n: 0, won: 0 }); t.n++; if (b.phase === 'won') t.won++;
-    blockedTot += b.stats.blocked; takenTot += b.stats.taken;
+    blockedTot += b.stats.blocked; takenTot += b.stats.taken; overheats += b.flags.overheats || 0;
     best = Math.max(best, run.stats.bestHit || 0);
     battleRewards(run, tier, enemies);
   } catch (e) { errors++; if (errors < 4) console.error(key, e.stack); }
@@ -70,6 +76,9 @@ async function playTurn(b, r) {
   for (const s of [...b.hand]) if (s.cards[0].type === 'power') await b.play(s.uid, { type: 'self' });
   // cycle first: draw cards, Scratchpad / Recycle (more options before committing)
   for (const s of [...b.hand]) if (['notebook', 'hypothesis', 'scratchpad', 'recycle'].includes(id(s)) && s.cards.length === 1 && r.chance(0.85)) { if (b.over) return; await b.play(s.uid, { type: 'self' }); }
+  // APPLE HEAT: let it out before it would overheat (all foes Burn half); a hot apple feeds Quench / Bellows
+  if (b.heat >= 8 && b.canVent() && r.chance(0.85)) await b.vent();
+  for (const s of [...b.hand]) if (['quench', 'bellows'].includes(id(s)) && s.cards.length === 1 && b.heat >= 6 && r.chance(0.8)) { if (b.over) return; await b.play(s.uid, { type: 'self' }); }
   // eat when hurt; then BLOCK what the bubbles promise (the most Block per card first, keep one Matter to throw)
   for (const s of [...b.hand]) if (/apple/.test(id(s)) && P.hp < P.maxHp * 0.45 && r.chance(0.8)) await b.play(s.uid, { type: 'self' });
   let need = threat - P.block - (P.hp > P.maxHp * 0.7 ? 6 : 2);
@@ -89,7 +98,8 @@ async function playTurn(b, r) {
       if (s.cards[0].type === 'power' || kindOf(s) === 'matter') continue;
       for (const o of b.held) {
         const cur = b.heldPreview(o).est?.ev || 0; const pv = b.preview(s.uid, { type: 'held', uid: o.uid }); const nxt = pv.est?.ev || 0;
-        const gain = pv.kind === 'mirror' ? (pv.ok && b.heldMove(o).attack.launched ? cur * 0.9 : 0) : nxt - cur + (pv.move?.attack.launched && !b.heldMove(o).attack.launched ? 3 : 0); // a twin doubles a launched object
+        const burn = pv.heat?.over ? 25 : 0; // an overheat scorches you and burns a card: only if it really pays
+        const gain = -burn + (pv.kind === 'mirror' ? (pv.ok && b.heldMove(o).attack.launched ? cur * 0.9 : 0) : nxt - cur + (pv.move?.attack.launched && !b.heldMove(o).attack.launched ? 3 : 0)); // a twin doubles a launched object
         if (gain > bestGain) { bestGain = gain; move = [s, o]; }
       }
     }
@@ -97,7 +107,7 @@ async function playTurn(b, r) {
     await b.play(move[0].uid, { type: 'held', uid: move[1].uid });
   }
   // leftovers: anything useful on Newton
-  for (const s of [...b.hand]) { const mv = b.moveOf(s); if (mv?.self.valid && kindOf(s) !== 'matter' && r.chance(0.7)) await b.play(s.uid, { type: 'self' }); }
+  for (const s of [...b.hand]) { const mv = b.moveOf(s); if (mv?.self.valid && kindOf(s) !== 'matter' && !((mv.self.quench || mv.self.vent) && b.heat < 4) && !(b.preview(s.uid, { type: 'self' }).heat?.over) && r.chance(0.7)) await b.play(s.uid, { type: 'self' }); }
 }
 
 const pct = (a, b) => `${(100 * a / Math.max(1, b)).toFixed(0)}%`;
@@ -106,4 +116,5 @@ for (const t of ['normal', 'elite', 'guardian']) if (tiers[t]) console.log(`TIER
 console.log(`dilemmas ${dilemmas} (${(dilemmas / Math.max(1, N)).toFixed(2)} per fight) · twins ${twins} · clones ${clones}`);
 if (process.argv.includes('--picks')) for (const [k, n] of Object.entries(picks).sort()) console.log('  ', k, n);
 console.log(`objects placed ${placed} · laws discovered ${laws} · fizzles ${fizzles} · best hit ${best} · discards ${discards} · damage blocked ${pct(blockedTot, blockedTot + takenTot)} of blows`);
+console.log(`apple heat: avg ${(heatSum / Math.max(1, heatN)).toFixed(1)} at release · apple strikes ${Object.entries(tierN).map(([k, v]) => `${k} ${v}`).join(', ')} · overheats ${overheats} (${(overheats / Math.max(1, N)).toFixed(2)}/fight) · vents ${vents}`);
 console.log('errors', errors);

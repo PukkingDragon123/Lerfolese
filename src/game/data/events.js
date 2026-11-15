@@ -34,7 +34,7 @@ export const EVENTS = [
       { label: 'Help him push', sub: 'Lose 6 Integrity', run: (x) => { x.hurt(6); const n = x.upgrade((c) => any('force', 'mass')(c)); return n ? `Together you get it to the top. It rolls down. But your ${n} got stronger. Upgraded.` : 'You push. It rolls. You learn nothing, which is educational.'; } },
       { label: 'Offer a card', sub: 'Rotation · Spring · Mass', slot: { prompt: 'Offer Rotation, Spring or Mass', filter: any('rotation', 'spring', 'mass') },
         run: (x, c) => { const b = B(c); if (b.includes('rotation')) { x.addCard('stone', 1); x.gold(40); return 'You invent the wheel. He rolls the pebble up in seconds, weeps, and quits. He gives you his Stone+ and his severance (40 gold).'; } if (b.includes('spring')) { x.remove(c); x.addItem('event'); return 'You build a spring catapult. The pebble achieves orbit. The intern achieves enlightenment. Lose the card, gain a curio.'; } x.maxhp(5); return 'You explain inertia. He explains burnout. You both feel heavier. +5 max Integrity.'; } },
-      { label: 'Explain thermodynamics', sub: 'Crush his hopes', run: (x) => { x.addCard('heat'); return '"So it is pointless?" Entirely. He thanks you and gives you his last spark of motivation: gain Heat.'; } },
+      { label: 'Explain thermodynamics', sub: 'Crush his hopes', run: (x) => { x.addCard('heat'); x.addCard('friction'); return '"So it is pointless?" Entirely. Friction turns all his work into heat. He gives you both: gain Heat and Friction.'; } },
     ],
   },
   {
@@ -78,7 +78,7 @@ export const EVENTS = [
     id: 'prometheus', title: 'Prometheus, Fire Salesman', theme: 'gully', prop: 'brazier',
     text: '"FIRE! Get your fire here! Gods HATE it!" A chained titan has a little stall. His liver is regenerating at an alarming rate. "Cash only. The eagle takes cards."',
     choices: [
-      { label: 'Buy fire (35 gold)', sub: 'Gain Heat+', if: (r) => r.gold >= 35, run: (x) => { x.gold(-35); x.addCard('heat', 1); return '"Pleasure doing business. Tell Zeus nothing." Gain Heat+.'; } },
+      { label: 'Buy fire (35 gold)', sub: 'Gain Heat+ and Bellows', if: (r) => r.gold >= 35, run: (x) => { x.gold(-35); x.addCard('heat', 1); x.addCard('bellows'); return '"Pleasure doing business. Tell Zeus nothing. The bellows are free: stoke it, or let it breathe." Gain Heat+ and Bellows.'; } },
       { label: 'Offer a card', sub: 'Spark', slot: { prompt: 'Offer Spark', filter: any('spark') }, run: (x, c) => { x.remove(c); x.addCard('thermo', 0, 'power'); return '"Electric fire? Visionary." He trades you his trade secret: the Thermodynamics Power. Lose the Spark.'; } },
       { label: 'Free him', sub: 'Lose 10, gain a friend', run: (x) => { x.hurt(10); x.maxhp(8); return 'You pick the lock with a theorem. The eagle is furious (10 damage). Prometheus hugs you. +8 max Integrity.'; } },
       { label: 'Fight the eagle', sub: 'BOSS FIGHT: the Eagle of Zeus', fight: 'prometheus', run: () => '"Finally, someone with a SPINE!" The eagle screams down from the dead tree, talons first.' },
@@ -99,7 +99,7 @@ export const EVENTS = [
     choices: [
       { label: 'Measure displacement', sub: 'Upgrade all Mass cards', run: (x) => { const n = x.upgradeAll((c) => any('mass')(c)); return n ? `Brilliant. Your ${n} Mass card${n > 1 ? 's are' : ' is'} upgraded. He shouts Eureka again. You both do. It is nice.` : 'You have no Mass. He calls you insubstantial. Accurate.'; } },
       { label: 'Borrow his lever', sub: 'Lose a random card', run: (x) => { const n = x.removeRandom(); x.addItem('lever'); return `"Give me a place to stand!" he says, handing you his Lever. You leave ${n} as a deposit.`; } },
-      { label: 'Offer a card', sub: 'Lens (heat ray) · Water', slot: { prompt: 'Offer Lens or Water', filter: any('lens', 'water') }, run: (x, c) => (B(c).includes('lens') ? (x.addMove(['heat', 'lens'], "Archimedes' Heat Ray"), "He shows you his burning-mirror trick. You learn Archimedes' Heat Ray (Move).") : (x.heal(20), 'You share the bath. It is weirdly relaxing. Heal 20.')) },
+      { label: 'Offer a card', sub: 'Lens (heat ray) · Water', slot: { prompt: 'Offer Lens or Water', filter: any('lens', 'water') }, run: (x, c) => (B(c).includes('lens') ? (x.addMove(['heat', 'lens'], "Archimedes' Heat Ray"), "He shows you his burning-mirror trick. You learn Archimedes' Heat Ray (Move).") : (x.heal(12), x.addCard('quench'), 'You share the bath. He plunges your hot apple in: HISS. "Quenching! The smiths taught me." Heal 12 and gain Quench.')) },
     ],
   },
   {

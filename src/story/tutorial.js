@@ -18,6 +18,24 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const wait = (s) => new Promise((r) => setTimeout(r, s * 1000 / Math.max(1, Math.min(2, window.__storyFast || 1))));
 const card = (id, i) => ({ uid: 'tut-' + id + i, id, type: 'basic', up: 0 });
 
+// ---------------------------------------------------------------- the tutorial's camera: framings computed from where
+// the actors really stand (never hard-coded spots that leave the speaker out of frame), always from the audience side
+const headOf = (o, h) => o.root.position.clone().add(V(0, h, 0));
+const halfH = (S, fov) => Math.atan(Math.tan((fov * Math.PI) / 360) * (S.engine.aspect || 16 / 9)); // half horizontal fov
+/** a two-shot of A and B (world points at head height): both inside the frame with air round them, seen from in front */
+function twoShot(S, A, B, { fov = 28, pad = 0.9, lift = 0.3, bias = 0.5 } = {}) {
+  const mid = A.clone().lerp(B, 0.5); const ab = B.clone().sub(A).setY(0); const len = ab.length() || 1;
+  const n = V(-ab.z, 0, ab.x).normalize(); if (n.z < 0) n.negate(); n.lerp(V(0, 0, 1), bias).normalize(); // the audience side, turned toward the battle axis
+  const across = Math.abs(ab.clone().normalize().dot(V(n.z, 0, -n.x))) * len; // the pair's width as the camera sees it
+  const d = Math.max(3.4, (across / 2 + pad) / Math.tan(halfH(S, fov) * 0.9));
+  return { pos: mid.clone().addScaledVector(n, d).add(V(0, lift, 0)), look: mid.clone().add(V(0, -0.08, 0)), fov };
+}
+/** over the shoulder of `from` (a world point at head height) toward `to`, from the audience side */
+function overShoulder(S, from, to, { back = 1.9, side = 0.95, lift = 0.04, fov = 30 } = {}) { // at head level: never looking down onto a scalp
+  const d = to.clone().sub(from).setY(0).normalize(); const sd = V(-d.z, 0, d.x); if (sd.z < 0) sd.negate();
+  return { pos: from.clone().addScaledVector(d, -back).addScaledVector(sd, side).add(V(0, lift, 0)), look: to.clone().lerp(from, 0.18), fov };
+}
+
 /** kid Isaac wearing the hero API the battle expects (root, headWorld, act('throw'|'eat'|'cast'|'hurt'|'die'|'dodge'|'cheer'), lookAt(x, y), ...) */
 export function kidHero() {
   const k = createKidIsaac(); const look = V(); const EX = { smug: 'smile', delight: 'happy', annoyed: 'angry', hurt: 'pain', shock: 'surprised', think: 'think' };
@@ -40,11 +58,15 @@ export function kidHero() {
   return api;
 }
 
+export const tutorialFraming = { twoShot, overShoulder, headOf }; // (also used by the camera review tooling)
+
 /** the run and the encounter for the tutorial battle; lines: the teacher's script (voiced) */
 export function tutorialBattle(game) {
   const run = newRun(4242); run.deck = ['apple', 'force', 'rotation'].map(card); run.items = []; run.player = { hp: 30, maxHp: 30 }; run.tutorial = true;
   let teacher = null, upd = null; const said = new Set();
-  const two = (S, pos, look, fov = 26) => S.shotCam?.shot?.(pos, look, { speed: 2.2, fov }); // a cinematic two-shot (the battle releases it on its own turn changes)
+  const frame = (S, f) => S.shotCam?.shot?.(f.pos, f.look, { speed: 2.0, fov: f.fov }); // eases in, glides between framings (the battle releases it on its own turn changes)
+  const foe = (S) => { const v = S.enemyViews?.values().next().value; return v ? headOf(v.api, Math.max(0.5, (v.h || 1) * 0.6)) : V(3.5, 0.6, 0); };
+  const pair = (S, o = {}) => twoShot(S, headOf(teacher, 1.5), S.prof.headWorld ? S.prof.headWorld(V()) : headOf(S.prof, 1.0), o); // the teacher and the boy
   const rel = (S) => S.shotCam?.release?.(1.6);
   const say = async (S, text, o = {}) => { teacher?.act(o.act || 'explain'); await fsay('teacher', text, { anchor: teacher, ...o }); };
   const once = (k) => (said.has(k) ? false : (said.add(k), true));
@@ -57,24 +79,24 @@ export function tutorialBattle(game) {
         teacher.lookAtWorld(() => S.enemyViews?.values().next().value?.api.root.position.clone().add(V(0, 0.5, 0)) || V(3, 0.5, 0));
         upd = { update: (dt) => { if (S.done && !teacher) return; teacher?.update(dt); } }; S.engine.add(upd); S.tutUpd = upd;
         const kid = S.prof; kid.root.rotation.y = 0.75;
-        two(S, V(-1.2, 1.1, 5.4), V(1.6, 0.6, 0), 30); await wait(0.6);
+        frame(S, overShoulder(S, S.prof.headWorld(V()), foe(S))); await wait(0.6); // over the boy's shoulder: the raccoon
         await say(S, 'A bandit. A very round one.', { act: 'point' });
-        two(S, V(-6.4, 1.5, 2.6), V(-4.2, 1.1, -0.2), 24);
+        frame(S, pair(S));
         await say(S, 'Your cards, Isaac. Show me forces.', { show: false });
         rel(S); return;
       }
       if (ev === 'battleStart') return;
       if (ev === 'playerTurn') {
         const t = B.turn; const mv = (ids) => { try { return computeMove(flatten(ids.map(card))).attack; } catch (e) { return null; } };
-        if (t === 1 && once('t1')) { const a = mv(['apple', 'force']); two(S, V(-5.6, 1.3, 3.0), V(-3.8, 1.0, 0.2), 26); await say(S, `Merge FORCE into APPLE: ${a ? `${a.m} × ${a.v}` : 'mass × velocity'}.`); await say(S, 'Aim. Time waits while you think.', { act: 'present' }); rel(S); }
-        else if (t === 2 && once('t2')) { const a = mv(['apple', 'force', 'rotation']); two(S, V(-5.6, 1.3, 3.0), V(-3.8, 1.0, 0.2), 26); await say(S, `Add SPIN: ${a ? `${a.hits} × ${a.perHit}` : 'two strikes'}. Laws multiply.`); rel(S); }
+        if (t === 1 && once('t1')) { const a = mv(['apple', 'force']); frame(S, pair(S)); await say(S, `Merge FORCE into APPLE: ${a ? `${a.m} × ${a.v}` : 'mass × velocity'}.`); await say(S, 'Aim. Time waits while you think.', { act: 'present' }); rel(S); }
+        else if (t === 2 && once('t2')) { const a = mv(['apple', 'force', 'rotation']); frame(S, pair(S)); await say(S, `Add SPIN: ${a ? `${a.hits} × ${a.perHit}` : 'two strikes'}. Laws multiply.`); rel(S); }
         else if (t === 3 && once('t3')) await say(S, 'Every push is pushed back, child. Remember that.', { show: false });
         return;
       }
       if (ev === 'steal' && once('steal')) { await say(S, 'He stole a card! Hit him!', { act: 'alarm', wait: false }); return; }
       if (ev === 'finish') {
         const won = a[0]; fstop();
-        if (teacher) { two(S, V(-5.2, 1.2, 3.4), V(-3.9, 1.0, 0.0), 26); await say(S, won ? 'Well thrown, my boy.' : 'The raccoon wins. Never mind.', { act: won ? 'nod' : 'shrug' }); rel(S); }
+        if (teacher) { frame(S, pair(S, { fov: 26 })); await say(S, won ? 'Well thrown, my boy.' : 'The raccoon wins. Never mind.', { act: won ? 'nod' : 'shrug' }); rel(S); }
         audio.play('page_turn');
         S.engine.remove(upd); return;
       }

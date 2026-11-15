@@ -4,7 +4,8 @@
 // by one with a clink, slosh and settle, fly out when spent, and rattle when you shake it. Both are faceted low-poly
 // (8 - 12 sided turnings), pixel-art textured (nearest), lit by the UI rig, tilt toward the pointer, squash when pressed.
 import * as THREE from 'three';
-import { Surf, SurfTex, RAMP, pxTex, wood, brass, leather, inscribe, measure, Body, inkHull, uiPos } from './craft.js';
+import { Surf, SurfTex, RAMP, pxTex, wood, brass, leather, inscribe, measure, Body, inkHull, uiPos, PX, slab, frontMat, sideMat, plainMat, TACK, rivet, groove } from './craft.js';
+import { hash2 } from '../gfx/art/core.js';
 import { WardShield } from './hudparts.js';
 import { Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
@@ -183,8 +184,8 @@ export class Cloud3D extends Body {
   resize(w, h) { if (Math.abs(w - this.w) < 0.05 && Math.abs(h - this.h) < 0.05) return; this.w = w; this.h = h; this.mesh.geometry.dispose(); this.mesh.geometry = cloudGeo(w, h, this.seed); }
   update(dt, p) { this.updateBody(dt, p); this.breath += dt; this.swell.target = this.hover ? 1.07 : 1; this.swell.update(dt); const b = 1 + Math.sin(this.breath * 1.3) * 0.012; this.mesh.scale.set(this.swell.value * b, this.swell.value / b, 1); }
 }
-/** a cloud button with the Plaque / Button3D api (label, onClick, { w, h, sub, disabled, color }) */
-export class CloudButton extends Cloud3D {
+/** a cloud button with the Plaque / Button3D api (label, onClick, { w, h, sub, disabled, color }); the battle side uses PlateButton */
+export class CloudButtonSoft extends Cloud3D {
   constructor(label, onClick, { w = 5, h = 1.3, sub = null, disabled = false, color = 'wood' } = {}) {
     super(w, h); this.onClick = onClick; this.label = label; this.sub = sub; this.accent = color === 'purple' ? '#5a2a7a' : color === 'teal' ? '#1e5a5a' : '#3a2410';
     this.text = new FloatText(null, { font: 'head', align: 'center', lighten: false, depth: 0.03 }); this.text.group.position.z = h * 0.48; this.pivot.add(this.text.group); this.paint();
@@ -248,7 +249,7 @@ export class CloudTip {
 function wrapLines(t, maxW) { const ws = String(t).split(' '); const out = []; let cur = ''; for (const w of ws) { const n = cur ? cur + ' ' + w : w; if (measure(n, 'body') > maxW && cur) { out.push(cur); cur = w; } else cur = n; } if (cur) out.push(cur); return out; }
 
 /** a reading panel on a cloud (the Panel api: set(title, lines, titleColor), update(dt, p), group, scroll.h / scroll.open / scroll.kick) */
-export class CloudPanel {
+export class CloudPanelSoft {
   constructor(title, lines, { w = 12, h = 6, titleColor = '#3a2410' } = {}) {
     this.w = w; this.C = new Cloud3D(w, h); this.C.hoverLift = 0.15; this.group = this.C.group; this.T = new FloatText(null, { font: 'body', align: 'left', lighten: false, depth: 0.03 }); this.C.pivot.add(this.T.group);
     this.scroll = { h, open: new Spring(1, 9, 0.6), kick: (k) => this.C.kick(k) }; this.set(title, lines, titleColor);
@@ -261,3 +262,101 @@ export class CloudPanel {
   }
   update(dt, p) { this.scroll.open.update(dt); this.C.update(dt, p); this.T.update(dt); }
 }
+
+// ================================================================ PLATES: the battle-side physical UI (no clouds in battle)
+// Battle, map, reward, shop and event UI sit on instrument-maker's PLATES that match the hourglass and the jar: an ivory
+// label plate set in a brass bezel on a bevelled walnut back, held by four brass pins (a slate face for dark panels).
+// Pixel-art textures (nearest, painted per size), cel-lit by the UI rig, thin ink hull. Alive: they tilt toward the
+// pointer, lift and catch a warm glint along the brass on hover, squash with a wooden knock when pressed, and tooltips
+// swing down into view like a hinged sign. Text stays crisp floating 3D text, short.
+const PL_TEX = new Map();
+function plateTex(kind, W, H, seed) {
+  const key = `${kind}|${W}|${H}|${seed & 3}`; if (PL_TEX.has(key)) { const t = PL_TEX.get(key); PL_TEX.delete(key); PL_TEX.set(key, t); return t; }
+  const S = new Surf(W, H);
+  if (kind === 'back') { wood(S, 0, 0, W, H, RAMP.walnut, { seed, base: 2, knots: 1 }); S.bevel(null, { lit: 2, dark: -2 }); }
+  else if (kind === 'bezel' || kind === 'verd') { brass(S, 0, 0, W, H, { seed, patina: kind === 'verd' ? 0.6 : 0.25 }); S.bevel(null, { lit: 2, dark: -2 }); groove(S, 0, 0, W, H, 1, { cut: 1, deep: 0, lip: 4 }); }
+  else if (kind === 'slate') { S.rect(0, 0, W, H, RAMP.slate, (x, y) => 2 + (hash2(x >> 1, y, seed) > 0.9 ? 1 : 0) - (hash2(x, y >> 1, seed + 3) > 0.95 ? 1 : 0)); for (let i = 0; i < W; i += 9) S.line(i, 0, i + 5, H - 1, (x, y) => { if (hash2(x, y, 4) > 0.75) S.shift(x, y, 1); }); S.bevel(null, { lit: 1, dark: -1 }); }
+  else { // ivory label: warm bone with a faint cross grain and a few age flecks
+    S.rect(0, 0, W, H, RAMP.ivory, (x, y) => 4 + (((y + Math.round(Math.sin(x * 0.21 + seed) * 1.5)) % 7 === 0 && hash2(x >> 2, y, seed) > 0.4) ? -1 : 0) + (hash2(x, y, seed + 9) > 0.985 ? -1 : 0) + (hash2(x >> 3, y >> 2, seed) > 0.93 ? 1 : 0));
+    S.bevel(null, { lit: 1, dark: -1 }); }
+  const t = pxTex(S.toCanvas()); PL_TEX.set(key, t);
+  if (PL_TEX.size > 96) { const k0 = PL_TEX.keys().next().value; PL_TEX.get(k0)?.dispose(); PL_TEX.delete(k0); }
+  return t;
+}
+const q16 = (v) => Math.max(0.5, Math.round(v * 16) / 16);
+let pinGeo = null;
+export class Plate3D extends Body {
+  constructor(w = 4, h = 1.4, { seed = (Math.random() * 97) | 0, face = 'ivory', bezel = 'bezel' } = {}) {
+    super(); this.tiltK = 0.06; this.hoverLift = 0.35; this.seed = seed; this.faceKind = face; this.bezelKind = bezel; this.w = 0; this.h = 0;
+    this.body = new THREE.Group(); this.pivot.add(this.body);
+    this.backM = frontMat(null); this.bezelM = frontMat(null, { metal: 0.5 }); this.faceM = frontMat(null);
+    for (const m of [this.backM, this.bezelM, this.faceM]) m.userData.own = true;
+    this.bezelM.emissive = new THREE.Color(0xffa040); this.bezelM.emissiveIntensity = 0;
+    this.back = new THREE.Mesh(undefined, [this.backM, sideMat('walnut')]); this.bezel = new THREE.Mesh(undefined, [this.bezelM, sideMat('brass')]); this.face = new THREE.Mesh(undefined, [this.faceM, sideMat(face === 'slate' ? 'walnut' : 'ivory')]);
+    this.body.add(this.back, this.bezel, this.face); this.mesh = this.back; this.pins = [];
+    pinGeo ||= TACK(); const pm = plainMat('brass'); for (let i = 0; i < 4; i++) { const p = new THREE.Mesh(pinGeo, pm); p.rotation.x = Math.PI / 2; p.scale.setScalar(0.55); this.body.add(p); this.pins.push(p); p.raycast = () => {}; }
+    inkHull(this.back, 0.035);
+    this.glow = new Spring(0, 10, 0.6); this.glint = 0; this.resize(w, h);
+  }
+  get faceZ() { return 0.215; }
+  resize(w, h) {
+    w = q16(w); h = q16(h); if (w === this.w && h === this.h) return; this.w = w; this.h = h; const b = 0.13, bz = 0.08;
+    this.back.geometry = slab(w, h, 0.2, { shape: 'rect', cut: 0.12, bevel: 0.06 });
+    this.bezel.geometry = slab(w - 2 * b, h - 2 * b, 0.08, { shape: 'rect', cut: 0.06, bevel: 0.03 }); this.bezel.position.z = 0.13;
+    this.face.geometry = slab(w - 2 * (b + bz), h - 2 * (b + bz), 0.05, { shape: 'rect', cut: 0.04, bevel: 0.02 }); this.face.position.z = 0.175;
+    const T = (kind, ww, hh) => plateTex(kind, Math.max(8, Math.round(ww * PX)), Math.max(8, Math.round(hh * PX)), this.seed);
+    this.backM.map = T('back', w, h); this.bezelM.map = T(this.bezelKind, w - 2 * b, h - 2 * b); this.faceM.map = T(this.faceKind, w - 2 * (b + bz), h - 2 * (b + bz));
+    for (const m of [this.backM, this.bezelM, this.faceM]) m.needsUpdate = true;
+    const px = w / 2 - b / 2, py = h / 2 - b / 2; this.pins.forEach((p, i) => p.position.set(i & 1 ? px : -px, i & 2 ? py : -py, 0.1));
+  }
+  update(dt, p) {
+    this.updateBody(dt, p); this.glow.target = this.hover ? 1 : 0; this.glow.update(dt);
+    // the hover glint: warm light runs along the brass (emissive pulse) and the pins catch it
+    this.glint = this.hover ? this.glint + dt : 0; this.bezelM.emissiveIntensity = Math.max(0, this.glow.value) * (0.22 + 0.12 * Math.sin(this.glint * 5));
+  }
+}
+/** a plate button with the Plaque / Button3D api (label, onClick, { w, h, sub, disabled, color }) */
+export class PlateButton extends Plate3D {
+  constructor(label, onClick, { w = 5, h = 1.3, sub = null, disabled = false, color = 'wood' } = {}) {
+    super(w, h, { bezel: color === 'teal' ? 'verd' : 'bezel' }); this.onClick = onClick; this.label = label; this.sub = sub; this.accent = color === 'purple' ? '#4a1e6a' : color === 'teal' ? '#164a4a' : '#3a2410';
+    this.text = new FloatText(null, { font: 'head', align: 'center', lighten: false, depth: 0.03 }); this.pivot.add(this.text.group); this.paint();
+    this.back.userData.button = this; this.face.userData.button = this; this.text.faceM.userData.button = this; this.hit = this.back; this.hitFace = this.text.faceM; this.disabled = false; this.setDisabled(disabled);
+  }
+  paint() { const subs = this.sub ? wrapSub(this.sub) : []; this.text.set([[[this.label, this.accent]], ...subs.map((l) => [[l, '#4a3a30']])], { fonts: ['head', ...subs.map(() => 'tiny')] }); this.text.show(); this.text.place(0, 0, 0); this.text.group.scale.setScalar(1);
+    const need = this.text.w + 0.75; if (need > this.w || this.text.h + 0.46 > this.h) this.resize(Math.max(this.w, need), Math.max(this.h, this.text.h + 0.46)); this.text.group.position.set(0, 0, this.faceZ + 0.04); if (this.text.faceM) { this.text.faceM.userData.button = this; this.hitFace = this.text.faceM; } }
+  setLabel(label, sub = this.sub) { if (label === this.label && sub === this.sub) return; this.label = label; this.sub = sub; this.paint(); }
+  setDisabled(d) { d = !!d; this.disabled = d; this.faceM.color.setScalar(d ? 0.5 : 0.8); this.backM.color.setScalar(d ? 0.6 : 0.8); this.restRz = d ? 0.25 : 0; }
+  update(dt, p) { super.update(dt, this.disabled ? null : p); this.text.update(dt); }
+  press() { if (this.disabled) { audio.play('ui_error'); this.rz.kick(5); return; } this.squash(1.2); this.glow.kick(6); audio.play('ui_click'); audio.play('wood_knock', { vol: 0.35, rate: 1.3 }); this.onClick?.(); }
+}
+/** tooltip on a small plate (the HudTip api: show(lines, x, y, z, { maxW }) / hide() / update() / dispose()); it swings down like a hinged sign */
+export class PlateTip {
+  constructor(opts = {}) { const E = window.__game?.engine; this.E = E; this.opts = opts; this.C = new Plate3D(4, 1.5); this.C.hoverLift = 0; this.T = new FloatText(null, { font: 'body', lighten: false, align: 'left', depth: 0.03 }); this.C.pivot.add(this.T.group); this.C.group.visible = false; E?.ui.scene.add(this.C.group); E?.add(this); this.on = false; this.st = new Spring(0, 13, 0.5); }
+  get group() { return this.C.group; }
+  show(lines, x, y, z = 9, o = {}) {
+    const maxW = Math.round((o.maxW || this.opts.maxW || 13) * 20); const out = [];
+    for (const l of (Array.isArray(lines) ? lines : [lines])) { const runs = typeof l === 'string' ? [[l, '#2a160c']] : l; const txt = runs.map((r) => String(r[0] ?? '')).join(''); if (measure(txt, 'body') <= maxW) { out.push(runs); continue; } for (const w of wrapLines(txt, maxW)) out.push([[w, runs[runs.length - 1][1]]]); }
+    this.T.set(out.slice(0, 9), { fonts: out.slice(0, 9).map((_, i) => (i === 0 ? 'head' : 'body')) }); this.T.show(); this.T.group.scale.setScalar(1);
+    this.C.resize(this.T.w + 1.0, this.T.h + 0.75); this.T.group.position.set(0, 0, this.C.faceZ + 0.04); const W = this.E?.uiW ?? 20, H = this.E?.uiH ?? 11; const cx = Math.max(-W + this.C.w / 2 + 0.4, Math.min(W - this.C.w / 2 - 0.4, x)), cy = Math.max(-H + this.C.h / 2 + 0.4, Math.min(H - this.C.h / 2 - 0.4, y));
+    uiPos(this.C.group, cx, cy, z); this.C.group.scale.setScalar((40 - z) / 40); if (!this.on) { this.st.value = 0.05; audio.play('wood_creak', { vol: 0.08, minGap: 160, rate: 1.6 }); } this.on = true; this.st.target = 1; this.C.group.visible = true;
+  }
+  hide() { this.on = false; this.st.target = 0; this.T.hide(); }
+  update(dt) { this.st.update(dt); this.C.update(dt, null); this.T.update(dt); const s = Math.max(0.001, this.st.value); this.C.body.scale.setScalar(Math.min(1.04, 0.6 + 0.4 * s)); this.C.body.rotation.x = (1 - Math.min(1, s)) * -1.3; this.C.body.position.y = (1 - Math.min(1, s)) * 0.4 * this.C.h; this.T.group.scale.setScalar(Math.min(1, s * 1.1)); if (!this.on && s < 0.05) this.C.group.visible = false; }
+  dispose() { this.E?.remove(this); this.T.dispose(); this.C.group.parent?.remove(this.C.group); for (const m of [this.C.backM, this.C.bezelM, this.C.faceM]) m.dispose(); }
+}
+/** a reading panel on a plate (the Panel api: set(title, lines, titleColor), update(dt, p), group, scroll.h / scroll.open / scroll.kick) */
+export class PlatePanel {
+  constructor(title, lines, { w = 12, h = 6, titleColor = '#3a2410' } = {}) {
+    this.w = w; this.C = new Plate3D(w, h); this.C.hoverLift = 0.15; this.group = this.C.group; this.T = new FloatText(null, { font: 'body', align: 'left', lighten: false, depth: 0.03 }); this.C.pivot.add(this.T.group);
+    this.scroll = { h, open: new Spring(1, 9, 0.6), kick: (k) => this.C.kick(k) }; this.set(title, lines, titleColor);
+  }
+  set(title, lines, titleColor = '#5a1a22') {
+    const maxW = Math.round((this.w - 1.6) / Math.max(0.02, this.T.k || 0.06) * 0.98) || 220; const out = [[[title, titleColor]]];
+    for (const l of lines) { const runs = typeof l === 'string' ? [[l, '#2a160c']] : l; const txt = runs.map((r) => r[0]).join(''); for (const w of wrapLines(txt, Math.min(maxW, 260))) out.push([[w, runs[0][1] || '#2a160c']]); }
+    this.T.set(out, { fonts: out.map((_, i) => (i ? 'body' : 'head')) }); this.T.show(); this.T.group.scale.setScalar(1);
+    this.C.resize(Math.max(this.w * 0.6, this.T.w + 1.6), this.T.h + 1.2); this.scroll.h = this.C.h; this.T.group.position.set(0, 0, this.C.faceZ + 0.04);
+  }
+  update(dt, p) { this.scroll.open.update(dt); this.C.update(dt, p); this.T.update(dt); }
+}
+// the battle / map / reward / event / shop scenes import these legacy names: they are plates now (no clouds in battle)
+export { PlateButton as CloudButton, PlatePanel as CloudPanel };

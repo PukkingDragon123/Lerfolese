@@ -15,7 +15,7 @@ import { mulberry32 } from '../core/util.js';
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
 const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-export const SUN_DIR = new THREE.Vector3(0.32, 0.045, -1).normalize();
+export const SUN_DIR = new THREE.Vector3(-0.86, 0.05, -0.52).normalize(); // low in the west, off the left of the menu's frame (it rims the cloud words and side-lights the tower)
 
 // ---------------------------------------------------------------- the pixel grain used on clouds and land (one texel = one art pixel)
 let GRAIN = null;
@@ -46,9 +46,9 @@ export function cloudGeo(seed = 1, { n = 7, w = 3, h = 1.2, d = 1.6, detail = 1,
 
 // ---------------------------------------------------------------- sky: sunset gradient, sun, cirrus
 function sky(sunDir) {
-  const m = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { uSun: { value: sunDir.clone() }, uTime: { value: 0 } },
+  const m = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { uSun: { value: sunDir.clone() }, uTime: { value: 0 }, uNight: { value: 0 } },
     vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; gl_Position.z = gl_Position.w; }',
-    fragmentShader: `uniform vec3 uSun; uniform float uTime; varying vec3 vW;
+    fragmentShader: `uniform vec3 uSun; uniform float uTime; uniform float uNight; varying vec3 vW;
       float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
       float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y); }
       float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++){ s += a * vn(p); p = p * 2.07 + vec2(3.1, 1.7); a *= 0.5; } return s; }
@@ -64,6 +64,8 @@ function sky(sunDir) {
         c += vec3(1.0, 0.7, 0.4) * (pow(s, 600.0) * 3.0 + pow(s, 60.0) * 0.45 + pow(s, 8.0) * 0.18); c = mix(c, vec3(1.6, 1.32, 0.95), smoothstep(0.99955, 0.99975, s));
         // a few early stars high up away from the sun
         vec2 sp = floor(d.xz / max(0.2, d.y) * 260.0); float st = step(0.9975, h21(sp)) * smoothstep(0.45, 0.8, e) * (1.0 - az * 0.7); c += vec3(0.7, 0.75, 1.0) * st * 0.5;
+        // night falls over the upper sky as the menu looks up into the astral select (scenes/astral.js paints the stars)
+        c = mix(c, mix(vec3(0.03, 0.025, 0.07), vec3(0.012, 0.01, 0.03), smoothstep(0.1, 0.7, e)), uNight * smoothstep(-0.05, 0.35, e));
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -72,19 +74,22 @@ function sky(sunDir) {
 }
 
 // ---------------------------------------------------------------- the land
-export function buildVista({ groundY = -64, seed = 5 } = {}) {
+export function buildVista({ groundY = -64, seed = 5, hole = 0 } = {}) { // hole: radius left open round the tower for the town's finer ground (models/town.js)
   const G = new THREE.Group(); G.name = 'vista'; const n = makeNoise(seed), n2 = makeNoise(seed + 7), r = mulberry32(seed);
-  const riverX = (z) => -30 + Math.sin(z * 0.0042 + 0.6) * 70 + Math.sin(z * 0.011) * 24 + Math.max(0, -z - 300) * 0.05;
+  const riverX = (z) => -38 + Math.sin(z * 0.0042 + 0.2) * 60 + Math.sin(z * 0.011) * 20 + Math.max(0, -z - 300) * 0.05;
   const lake = { x: 160, z: -330, r: 46 };
   const villages = [[-95, -170], [120, -420], [-180, -520], [40, -760], [260, -240], [-320, -300]];
   const ridged = (x, z) => { let s = 0, a = 1, f = 1; for (let i = 0; i < 5; i++) { s += a * (1 - Math.abs(n2(x * f, z * f) * 2 - 1)); a *= 0.5; f *= 2.1; } return s / 1.9; };
   const hAt = (x, z) => {
     const d = Math.hypot(x, z); const dx = x - riverX(z); const valley = Math.exp(-(dx * dx) / (90 * 90)); const bed = Math.exp(-(dx * dx) / (14 * 14));
     let h = (n.fbm(x * 0.006 + 3, z * 0.006, 5) - 0.5) * 46 + (n.fbm(x * 0.02, z * 0.02, 3) - 0.5) * 8;
-    h -= valley * 14 + bed * 5; h += sm(30, 0, d) * 16 + sm(60, 10, d) * 6; // the crag the tower stands on
+    h -= valley * 14 + bed * 5;
     const far = sm(900, 1700, d) * (z < 200 ? 1 : 0.6); h += far * (ridged(x * 0.0028, z * 0.0028) * 170 + 20) * (1 - valley * 0.5) + sm(1700, 2300, d) * 60;
     const ld = Math.hypot(x - lake.x, z - lake.z); h = h - sm(lake.r * 1.4, lake.r * 0.6, ld) * Math.max(0, h + 6) ;
     for (const [vx, vz] of villages) { const vd = Math.hypot(x - vx, z - vz); const k = sm(70, 25, vd); h = h * (1 - k * 0.7) + (n.fbm(vx * 0.006 + 3, vz * 0.006, 5) - 0.5) * 46 * k * 0.7; }
+    // the hill town round the tower: a knoll under the tower, gentle slopes down to the river, blended into the wild land
+    const kT = sm(130, 70, d); const ht = sm(34, 6, d) * 2.6 + (n.fbm(x * 0.04 + 9, z * 0.04, 2) - 0.5) * 2.2 - bed * 3.4 - valley * 2.2 - sm(40, 120, d) * 2;
+    h = h * (1 - kT) + ht * kT;
     return h; };
   // grid: denser near the tower (quadratic spacing in z, and in |x|)
   const NX = 200, NZ = 160, X = 2400, Z0 = 260, Z1 = -2500;
@@ -100,8 +105,9 @@ export function buildVista({ groundY = -64, seed = 5 } = {}) {
     else { const f = fieldAt(mx, mz); if (f) cc.copy(f === 1 ? cField : cField2); else if (fm > 0.52) cc.copy(cForest); else cc.copy(cMeadow).lerp(cMeadow2, n.fbm(mx * 0.03, mz * 0.03, 2)); }
     cc.offsetHSL(0, 0, jit * 0.25); for (const [x, y, z] of [[ax, ay, az], [cx, cy, cz], [bx, by, bz]]) { pos[o] = x; pos[o + 1] = y + groundY; pos[o + 2] = z; col[o] = cc.r; col[o + 1] = cc.g; col[o + 2] = cc.b; o += 3; } };
   for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) { const x0 = xs[i], x1 = xs[i + 1], z0 = zs[j], z1 = zs[j + 1]; const a = H[j][i], b = H[j][i + 1], c = H[j + 1][i], d = H[j + 1][i + 1];
+    if (hole && Math.max(Math.hypot(x0, z0), Math.hypot(x1, z1), Math.hypot(x0, z1), Math.hypot(x1, z0)) < hole) continue; // the town's own ground covers this
     if ((i + j) & 1) { tri(x0, a, z0, x0, c, z1, x1, b, z0); tri(x1, b, z0, x0, c, z1, x1, d, z1); } else { tri(x0, a, z0, x0, c, z1, x1, d, z1); tri(x0, a, z0, x1, d, z1, x1, b, z0); } }
-  const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); tg.setAttribute('color', new THREE.BufferAttribute(col, 3)); tg.computeVertexNormals(); boxUV(tg, 0.5);
+  const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.BufferAttribute(pos.slice(0, o), 3)); tg.setAttribute('color', new THREE.BufferAttribute(col.slice(0, o), 3)); tg.computeVertexNormals(); boxUV(tg, 0.5);
   const land = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ vertexColors: true, map: grainTex(), roughness: 0.95, metalness: 0, flatShading: true })); land.receiveShadow = true; land.name = 'land'; land.userData.noInk = true; G.add(land);
   // the river ribbon (a mirror of the sunset: hot gold toward the sun, violet near) and the lake
   { const pts = []; for (let z = 240; z > -1500; z -= 12) pts.push(V(riverX(z), 0, z)); const P = [], Cc = [], I = []; const warm = C('#ffb46a'), cool = C('#2a2a50'), mid = C('#a86a6a');
@@ -132,13 +138,13 @@ export function buildVista({ groundY = -64, seed = 5 } = {}) {
     const broad = (() => { const parts = []; const tr = new THREE.CylinderGeometry(0.3, 0.45, 3, 5).toNonIndexed(); tr.translate(0, 1.5, 0); parts.push(paintC(tr, '#3e2e20')); const j = mulberry32(9);
       for (let k = 0; k < 4; k++) { const g = new THREE.IcosahedronGeometry(1.7 + j() * 0.8, 0).toNonIndexed(); g.translate((j() - 0.5) * 2.2, 4.2 + j() * 1.6, (j() - 0.5) * 2.2); parts.push(paintC(g, ['#36501e', '#40602a', '#2c4418', '#4a6a2a'][k])); } const g = mergeGeometries(parts); g.computeVertexNormals(); return g; })();
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, flatShading: true }); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(); const spots = [[], []];
-    for (let k = 0; k < 9000 && spots[0].length + spots[1].length < 3600; k++) { const x = (r() - 0.5) * 1500, z = 200 - r() * 1150; const d = Math.hypot(x, z); if (d < 26) continue; const fm = n.fbm(x * 0.012 + 40, z * 0.012, 3); if (fm < 0.5) continue; if (Math.abs(x - riverX(z)) < 22) continue; if (Math.hypot(x - lake.x, z - lake.z) < lake.r + 6) continue;
+    for (let k = 0; k < 9000 && spots[0].length + spots[1].length < 3600; k++) { const x = (r() - 0.5) * 1500, z = 200 - r() * 1150; const d = Math.hypot(x, z); if (d < Math.max(26, hole + 6)) continue; const fm = n.fbm(x * 0.012 + 40, z * 0.012, 3); if (fm < 0.5) continue; if (Math.abs(x - riverX(z)) < 22) continue; if (Math.hypot(x - lake.x, z - lake.z) < lake.r + 6) continue;
       if (villages.some(([vx, vz]) => Math.hypot(x - vx, z - vz) < 40)) continue; const y = hAt(x, z); if (y > 110) continue; spots[r() < 0.6 ? 0 : 1].push([x, y + groundY - 0.3, z, 0.8 + r() * 0.7, r() * 6.3]); }
     [pine, broad].forEach((geo, gi) => { const im = new THREE.InstancedMesh(geo, mat, spots[gi].length); spots[gi].forEach(([x, y, z, s, a], i) => { q.setFromEuler(e.set(0, a, 0)); m4.compose(V(x, y, z), q, V(s, s * (0.9 + (i % 5) * 0.06), s)); im.setMatrixAt(i, m4); }); im.receiveShadow = true; im.userData.noInk = true; im.computeBoundingSphere(); G.add(im); }); }
   // clouds BELOW the tower top: a scattered deck of faceted cumulus, lit by the low sun (hot rims toward it, violet bellies)
   const clouds = []; const cmat = new THREE.MeshStandardMaterial({ vertexColors: true, map: grainTex(), color: C('#fff0ea'), roughness: 1, metalness: 0, flatShading: true, emissive: C('#6a4a6a'), emissiveIntensity: 0.45, fog: true });
-  for (let k = 0; k < 30; k++) { const a = r() * Math.PI * 2, d = 35 + Math.pow(r(), 0.7) * 520; const x = Math.cos(a) * d * 1.3, z = -Math.abs(Math.sin(a)) * d * 1.1 - 10 + (r() < 0.25 ? d * 0.7 : 0); const s = 6 + r() * 14 + d * 0.025;
-    const m = new THREE.Mesh(cloudGeo(100 + k, { n: 5 + Math.floor(r() * 5), w: s * 2.4, h: s * 0.75, d: s * 1.4, detail: 1 }), cmat); m.position.set(x, -24 - r() * 22 - d * 0.02, z); m.rotation.y = r() * Math.PI; m.userData.noInk = true; m.castShadow = false; m.receiveShadow = false; G.add(m); clouds.push({ m, v: 0.4 + r() * 0.6 }); }
+  for (let k = 0; k < 30; k++) { const a = r() * Math.PI * 2, d = 170 + Math.pow(r(), 0.7) * 520; const x = Math.cos(a) * d * 1.3, z = -Math.abs(Math.sin(a)) * d * 1.1 - 10 + (r() < 0.25 ? d * 0.7 : 0); const s = 6 + r() * 14 + d * 0.025;
+    const m = new THREE.Mesh(cloudGeo(100 + k, { n: 5 + Math.floor(r() * 5), w: s * 2.4, h: s * 0.75, d: s * 1.4, detail: 1 }), cmat); m.position.set(x, 20 + r() * 40 + d * 0.12, z); m.rotation.y = r() * Math.PI; m.userData.noInk = true; m.castShadow = false; m.receiveShadow = false; G.add(m); clouds.push({ m, v: 0.4 + r() * 0.6 }); }
   // birds: a loose flock wheeling round the tower (dark silhouettes against the sunset)
   const birds = []; { const bm = new THREE.MeshStandardMaterial({ color: 0x1a1418, roughness: 0.9, side: THREE.DoubleSide, flatShading: true });
     for (let k = 0; k < 14; k++) { const b = new THREE.Group(); const body = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.42, 4), bm); body.rotation.x = Math.PI / 2; b.add(body);
@@ -148,7 +154,7 @@ export function buildVista({ groundY = -64, seed = 5 } = {}) {
   const fog = new THREE.FogExp2(C('#8a5a5c'), 0.00085);
   const sunPos = SUN_DIR.clone().multiplyScalar(1800);
   const api = {
-    group: G, fog, hAt: (x, z) => hAt(x, z) + groundY, sunDir: SUN_DIR, sunPos, sky: sk, clouds, birds,
+    group: G, fog, hAt: (x, z) => hAt(x, z) + groundY, riverX, sunDir: SUN_DIR, sunPos, sky: sk, clouds, birds,
     update(dt, t) { sk.material.uniforms.uTime.value = t;
       for (const c of clouds) { c.m.position.x += c.v * dt * 0.8; if (c.m.position.x > 900) c.m.position.x = -900; }
       for (const b of birds) { const u = b.userData; const a = u.off + t * u.sp; b.position.set(Math.cos(a) * u.rad, u.h + Math.sin(t * 0.4 + u.bob) * 1.5, Math.sin(a) * u.rad * 0.8 - 6); b.rotation.set(0, -a + (u.sp > 0 ? 0 : Math.PI), Math.sin(t * 0.5 + u.bob) * 0.3 * Math.sign(u.sp));

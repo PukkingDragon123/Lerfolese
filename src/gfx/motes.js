@@ -5,6 +5,7 @@
 //   const m = new Motes(600); scene.add(m.points); m.spawn({ pos, vel, life, seq: 'twinkle', color, k: 1 });
 //   m.update(dt, t, renderer)   (call every frame; point size follows the drawing-buffer height)
 import * as THREE from 'three';
+import { ART } from '../core/art.js';
 
 // sprite names (their old pixel maps document each shape's silhouette; the shader draws them smoothly)
 const SPR = {
@@ -100,7 +101,7 @@ export class Motes {
     const s = o.seq ? (Array.isArray(o.seq) ? o.seq : SEQ[o.seq]) : [o.sprite || 'm1']; this.seq[i] = s.map(idx); this.fps[i] = o.fps ?? (s.length > 1 ? s.length / (o.life ?? 1) : 0); return i;
   }
   update(dt, t, renderer = null) {
-    if (renderer) { const sz = renderer.getDrawingBufferSize(this._v || (this._v = new THREE.Vector2())); this.mat.uniforms.uBase.value = sz.y / 1080 * 40; } // px is kept for old callers (ignored)
+    if (renderer) { const sz = renderer.getDrawingBufferSize(this._v || (this._v = new THREE.Vector2())); this.mat.uniforms.uBase.value = sz.y * ART.k / 1080 * 40; } // px is kept for old callers (ignored)
     let n = this.n;
     for (let i = 0; i < n; i++) {
       this.life[i] -= dt; if (this.life[i] <= 0) { this._mv(i, --n); i--; continue; }

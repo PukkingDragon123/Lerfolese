@@ -1,16 +1,26 @@
-// Each foe's intent floats above its head as a living THOUGHT: a small cloud of faceted 3D puffs (no paper) with a mini
+// Each foe's intent hangs above its head on a small SLATE TABLET in a brass bezel (no clouds in battle), with a mini
 // preview of the move playing inside it (a sword that swings once per hit, a shield that braces, an arrow that climbs,
 // a curse that shudders), the number in big floating NanoPlus digits (red: at you; blue: its Block; gold: its buffs), and
 // a short counter line beneath in floating letters ("BLOCK 18 or take it"). Re-read whenever the battle refreshes a foe.
 import * as THREE from 'three';
 import { intentScene } from '../ui3d/thought.js';
 import { FloatText } from '../ui3d/floatlabel.js';
-import { Surf, pxTex } from '../ui3d/craft.js';
+import { Surf, pxTex, slab, frontMat, sideMat, plainMat, RAMP, PX, brass, inkHull } from '../ui3d/craft.js';
+import { hash2 } from '../gfx/art/core.js';
 import { sprite } from '../gfx/sprites.js';
 import { Spring } from '../core/tween.js';
 
 const _v = new THREE.Vector3();
-const PUFF = new THREE.MeshStandardMaterial({ color: 0xd8d4e4, roughness: 0.95, flatShading: true, transparent: true, opacity: 0.86, toneMapped: false, depthWrite: false });
+// the tablet: a slate face (chalky blue-black, faint streaks) in a brass bezel, with a brass tab pointing at the foe
+let TAB = null;
+function tablet() {
+  if (TAB) return TAB; const tx = (w, h, fn) => { const S = new Surf(w, h); fn(S); return pxTex(S.toCanvas()); };
+  const slate = tx(Math.round(2.6 * PX), Math.round(1.25 * PX), (S) => { S.rect(0, 0, S.w, S.h, RAMP.slate, (x, y) => 2 + (hash2(x >> 1, y, 3) > 0.9 ? 1 : 0) - (hash2(x, y >> 1, 7) > 0.95 ? 1 : 0)); for (let i = 0; i < S.w; i += 7) S.line(i, 0, i + 4, S.h - 1, (x, y) => { if (hash2(x, y, 4) > 0.72) S.shift(x, y, 1); }); S.bevel(null, { lit: 1, dark: -1 }); });
+  const rim = tx(Math.round(2.9 * PX), Math.round(1.55 * PX), (S) => { brass(S, 0, 0, S.w, S.h, { seed: 5, patina: 0.3 }); S.bevel(null, { lit: 2, dark: -2 }); });
+  const tab = new THREE.Shape(); tab.moveTo(-0.22, 0); tab.lineTo(0.22, 0); tab.lineTo(-0.08, -0.42); tab.closePath();
+  TAB = { slate: [frontMat(slate), sideMat('walnut')], rim: [frontMat(rim, { metal: 0.5 }), sideMat('brass')], slateG: slab(2.6, 1.25, 0.08, { shape: 'rect', cut: 0.05, bevel: 0.03 }), rimG: slab(2.9, 1.55, 0.12, { shape: 'rect', cut: 0.1, bevel: 0.04 }), tabG: new THREE.ExtrudeGeometry(tab, { depth: 0.08, bevelEnabled: false }), pin: plainMat('brass') };
+  return TAB;
+}
 const iconTex = new Map();
 function iconOf(name) { if (iconTex.has(name)) return iconTex.get(name); const S = new Surf(16, 16); try { S.blit(sprite(name), 0, 0); } catch { try { S.blit(sprite('question'), 0, 0); } catch { /* */ } } const t = pxTex(S.toCanvas()); iconTex.set(name, t); return t; }
 const HINTS = { gaze: 'Petrifies 2 cards', steal: 'Steals a card!', acid: 'Corrodes your Block', hex: 'Hexes 2 cards to rot', devour: 'Eats your draw pile', nibble: 'Nibbles a card away', riddle: 'Weak + Vulnerable', bolt: 'Frail + Vulnerable', brood: 'Lays a brood', flee: 'Stop it before it runs!', spill: 'Wine! Heat ignites it', sprout: 'Grows heads', ward: 'A crystal ward' };
@@ -18,14 +28,14 @@ const HINTS = { gaze: 'Petrifies 2 cards', steal: 'Steals a card!', acid: 'Corro
 class IntentView {
   constructor() {
     this.group = new THREE.Group(); this.pivot = new THREE.Group(); this.group.add(this.pivot); this.st = new Spring(0, 12, 0.5); this.seed = Math.random() * 9; this.t = 0; this.key = ''; this.small = false;
-    // the cloud: overlapping faceted puffs (dodecahedra flattened toward the camera) and two trailing puffs to the head
-    this.cloud = new THREE.Group(); this.pivot.add(this.cloud);
-    for (const [x, y, r] of [[-0.75, 0.15, 0.55], [-0.15, 0.42, 0.62], [0.55, 0.32, 0.58], [0.95, 0.0, 0.45], [0.2, -0.12, 0.6], [-0.55, -0.2, 0.48], [-1.25, 0.0, 0.36]]) { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), PUFF); m.position.set(x, y + 0.75, -0.25); m.scale.z = 0.35; m.rotation.set(Math.random(), Math.random(), Math.random()); this.cloud.add(m); }
-    for (const [x, y, r] of [[-0.95, -0.12, 0.17], [-1.2, -0.45, 0.1]]) { const m = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), PUFF); m.position.set(x, y, -0.2); m.scale.z = 0.4; this.cloud.add(m); }
+    // the tablet: brass bezel, slate face, a brass tab pointing down-left at the foe's head; it hangs and sways a little
+    const TB = tablet(); this.cloud = new THREE.Group(); this.cloud.position.set(0, 0.78, -0.18); this.pivot.add(this.cloud);
+    const rimM = new THREE.Mesh(TB.rimG, TB.rim); rimM.position.z = -0.06; inkHull(rimM, 0.03); const sl = new THREE.Mesh(TB.slateG, TB.slate); sl.position.z = 0.03; const tabM = new THREE.Mesh(TB.tabG, TB.rim); tabM.position.set(-0.95, -0.72, -0.1);
+    this.cloud.add(rimM, sl, tabM); for (const x of [-1.27, 1.27]) { const pn = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.06), TB.pin); pn.position.set(x, 0.6, 0.02); this.cloud.add(pn); }
     this.icon = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.95), new THREE.MeshBasicMaterial({ transparent: true, alphaTest: 0.5, toneMapped: false })); this.icon.position.set(-0.45, 0.78, 0.05); this.pivot.add(this.icon);
     this.num = new FloatText(null, { font: 'big', align: 'center', lighten: false, depth: 0.1 }); this.num.group.position.set(0.48, 0.78, 0.1); this.pivot.add(this.num.group);
     this.hint = new FloatText(null, { font: 'body', align: 'center', lighten: false }); this.hint.group.position.set(0, -0.15, 0.1); this.pivot.add(this.hint.group);
-    this.label = new FloatText(null, { font: 'tiny', align: 'center', lighten: false }); this.label.group.position.set(0.05, 1.62, 0.1); this.pivot.add(this.label.group);
+    this.label = new FloatText(null, { font: 'tiny', align: 'center', lighten: false }); this.label.group.position.set(0.05, 1.86, 0.1); this.pivot.add(this.label.group);
     this.group.visible = false;
   }
   set(sc) {
@@ -39,7 +49,7 @@ class IntentView {
   }
   update(dt, t) {
     this.t += dt; this.st.update(dt); const s = Math.max(0.001, this.st.value); this.pivot.scale.setScalar(s); if (this.st.target === 0 && s < 0.03) this.group.visible = false;
-    this.pivot.position.y = Math.sin(t * 1.7 + this.seed) * 0.06; this.cloud.rotation.z = Math.sin(t * 0.9 + this.seed) * 0.03; this.cloud.children.forEach((m, i) => { m.rotation.y += dt * (0.1 + i * 0.02); });
+    this.pivot.position.y = Math.sin(t * 1.7 + this.seed) * 0.06; this.cloud.rotation.z = Math.sin(t * 0.9 + this.seed) * 0.025; this.cloud.rotation.x = Math.sin(t * 0.7 + this.seed * 2) * 0.04;
     // the mini preview of the move
     const sc = this.sc; const I = this.icon; I.rotation.set(0, 0, 0); I.position.set(-0.45, 0.78, 0.05); I.scale.setScalar(1);
     if (sc) {

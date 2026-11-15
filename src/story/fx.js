@@ -95,7 +95,7 @@ const PaintShader = {
 };
 export function paintPass(engine) {
   const pass = new ShaderPass(PaintShader); const rm = insertBeforeGrade(engine, pass); const u = pass.uniforms;
-  const res = () => engine.renderer.getDrawingBufferSize(u.uRes.value);
+  const res = () => (engine.artSize ? u.uRes.value.copy(engine.artSize) : engine.renderer.getDrawingBufferSize(u.uRes.value)); // the art resolution (pixel look)
   return { pass, u, set(k) { u.uK.value = k; res(); u.uTime.value = performance.now() / 1000; }, dispose() { rm(); pass.dispose?.(); } };
 }
 

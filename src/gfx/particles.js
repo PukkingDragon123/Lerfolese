@@ -2,12 +2,13 @@
 import * as THREE from 'three';
 import { buildAtlas } from './sprites.js';
 import { toTexture } from './textures.js';
+import { ART } from '../core/art.js'; // pixel look: point sizes follow the art resolution
 
 let ATLAS = null;
 function atlas() { if (!ATLAS) { const a = buildAtlas(); ATLAS = { ...a, tex: toTexture(a.pc, { wrap: false }) }; ATLAS.tex.minFilter = THREE.NearestFilter; ATLAS.tex.generateMipmaps = false; } return ATLAS; }
 
 const VS = `attribute float aSize; attribute float aFrame; attribute vec4 aColor; attribute float aRot; varying vec4 vColor; varying float vFrame; varying float vRot;
-uniform float uScale; void main(){ vColor = aColor; vFrame = aFrame; vRot = aRot; vec4 mv = modelViewMatrix * vec4(position,1.0); gl_Position = projectionMatrix * mv; gl_PointSize = aSize * uScale / max(0.1, -mv.z); }`;
+uniform float uScale, uPointK; void main(){ vColor = aColor; vFrame = aFrame; vRot = aRot; vec4 mv = modelViewMatrix * vec4(position,1.0); gl_Position = projectionMatrix * mv; gl_PointSize = aSize * uScale * uPointK / max(0.1, -mv.z); }`;
 const FS = `uniform sampler2D uAtlas; varying vec4 vColor; varying float vFrame; varying float vRot;
 void main(){ vec2 p = gl_PointCoord - 0.5; float c = cos(vRot), s = sin(vRot); p = vec2(c*p.x - s*p.y, s*p.x + c*p.y) + 0.5;
  if (p.x < 0.0 || p.y < 0.0 || p.x > 1.0 || p.y > 1.0) discard;
@@ -30,7 +31,7 @@ export class Particles {
     this.aRot = new THREE.BufferAttribute(new Float32Array(max), 1).setUsage(THREE.DynamicDrawUsage);
     g.setAttribute('position', this.aPos); g.setAttribute('aSize', this.aSize); g.setAttribute('aFrame', this.aFrame); g.setAttribute('aColor', this.aColor); g.setAttribute('aRot', this.aRot);
     g.setDrawRange(0, 0);
-    this.mat = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, uniforms: { uAtlas: { value: A.tex }, uScale: { value: scale } }, transparent: true, depthWrite, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending });
+    this.mat = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, uniforms: { uAtlas: { value: A.tex }, uScale: { value: scale }, uPointK: ART.pointK }, transparent: true, depthWrite, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending });
     this.points = new THREE.Points(g, this.mat); this.points.frustumCulled = false; this.points.renderOrder = 5;
     this.frameOf = new Float32Array(max);
   }

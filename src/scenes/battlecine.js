@@ -27,18 +27,26 @@ export function attackStyle(mv) {
 }
 
 // ================================================================ cinematic camera layered over the battle framing
+// w blends the battle framing into the shot (eased); the shot's own framing (cp / cl / cf) GLIDES toward each new shot
+// (critically damped) instead of jumping, so back-to-back shots read as one smooth camera move. snap = a deliberate cut.
 export class ShotCam {
-  constructor(S) { this.S = S; this.w = 0; this.target = 0; this.pos = V(); this.look = V(); this.speed = 4; this.fov = null; this._f = V(); this._l = V(); }
+  constructor(S) { this.S = S; this.w = 0; this.target = 0; this.pos = V(); this.look = V(); this.speed = 4; this.fov = null; this._f = V(); this._l = V(); this.cp = V(); this.cl = V(); this.cf = null; this.t = 0; }
   /** frame pos -> look; snap = a hard cut; speed = how fast the camera eases in (1/s) */
-  shot(pos, look, { snap = false, speed = 4, fov = null } = {}) { this.pos.copy(pos); this.look.copy(look); this.target = 1; this.speed = speed; this.fov = fov; if (snap) this.w = 1; }
+  shot(pos, look, { snap = false, speed = 4, fov = null } = {}) {
+    const live = this.w > 0.03 && this.target > 0; this.pos.copy(pos); this.look.copy(look); this.target = 1; this.speed = speed; this.fov = fov;
+    if (snap || !live) { this.cp.copy(pos); this.cl.copy(look); this.cf = fov; } if (snap) this.w = 1;
+  }
   release(speed = 2.5) { this.target = 0; this.speed = speed; }
   get on() { return this.w > 0.001 || this.target > 0; }
   apply(dt, cam, baseFov) {
-    this.w += (this.target - this.w) * Math.min(1, dt * this.speed); if (this.target === 0 && this.w < 0.002) this.w = 0;
+    this.t += dt; this.w += (this.target - this.w) * Math.min(1, dt * this.speed); if (this.target === 0 && this.w < 0.002) this.w = 0;
     if (this.w <= 0) { if (cam.fov !== baseFov) { cam.fov = baseFov; cam.updateProjectionMatrix(); } return; }
+    const g = 1 - Math.exp(-dt * Math.max(1.6, this.speed * 0.9)); this.cp.lerp(this.pos, g); this.cl.lerp(this.look, g); const tf = this.fov ?? baseFov; this.cf = (this.cf ?? tf) + (tf - (this.cf ?? tf)) * g;
     const k = sm(this.w); cam.getWorldDirection(this._f); this._l.copy(cam.position).addScaledVector(this._f, 8);
-    cam.position.lerp(this.pos, k); this._l.lerp(this.look, k); cam.lookAt(this._l);
-    const f = baseFov + ((this.fov ?? baseFov) - baseFov) * k; if (Math.abs(cam.fov - f) > 0.01) { cam.fov = f; cam.updateProjectionMatrix(); }
+    // a faint hand-held breath keeps a held shot alive (centimetres, slow)
+    cam.position.lerp(this.cp, k); cam.position.x += Math.sin(this.t * 0.37) * 0.025 * k; cam.position.y += Math.sin(this.t * 0.29 + 1.3) * 0.018 * k;
+    this._l.lerp(this.cl, k); cam.lookAt(this._l);
+    const f = baseFov + (this.cf - baseFov) * k; if (Math.abs(cam.fov - f) > 0.01) { cam.fov = f; cam.updateProjectionMatrix(); }
   }
 }
 
@@ -148,7 +156,7 @@ export async function dilemmaScene(S, d, e) {
   // 3. back on Newton; the options float beside him as 3D letters (hover tilts them, click to choose, or 1-3)
   cam.shot(V(pp.x + 1.4, 2.0, pp.z + 4.2), V(pp.x + 0.9, 1.55, pp.z), { speed: 3, fov: 30 }); prof.act('think'); prof.lookAt(0.4, 0.1);
   const W = S.ui.W, H = S.ui.H;
-  // the options: soft clouds beside Newton (hover swells and tilts them; click, or press 1-3)
+  // the options: brass-and-ivory plates beside Newton (hover lifts, tilts and lights them; click, or press 1-3)
   d.options.forEach((o, i) => { const B = new CloudButton(`${i + 1}  ${o.label}`, null, { w: 8, h: 1.25, sub: o.sub, color: i === 0 ? 'teal' : i === 1 ? 'purple' : 'wood' }); S.ui.scene.add(B.group); const y = H * 0.52 - i * 3.9, x = W * 0.3 + (i % 2) * 1.2; uiPos(B.group, x, y, 9); B.group.scale.setScalar((40 - 9) / 40); B.pop.value = 0.05; setTimeout(() => { B.pop.target = 1; B.pop.kick(4); audio.play('whoosh_soft', { vol: 0.25 }); }, 130 * i); opts.push({ B, o, i }); });
   S.dlgOpts = opts; // (exposed for tests)
   const pick = await new Promise((resolve) => {

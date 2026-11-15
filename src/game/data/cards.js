@@ -189,6 +189,35 @@ Object.assign(BASICS.motion, { art: 'momentum' }); Object.assign(BASICS.friction
 Object.assign(BASICS.lever, { art: 'force' }); Object.assign(BASICS.magnet, { art: 'antigravity' }); Object.assign(BASICS.buoyancy, { art: 'water' });
 Object.assign(BASICS.pressure, { art: 'dark_matter' }); Object.assign(BASICS.sound, { art: 'rotation' });
 
+// ------------------------------------------------------------------ APPLE HEAT (friction; rules in combos.js HEAT)
+// fric: the Heat a card adds when it is merged into an APPLE object (grab, throw, spin, rub, fire; water cools).
+// selfHeat: the Heat it adds (or removes) dropped on Newton. The card face shows it as "+2 {heat}".
+const FRIC = { apple: 1, golden_apple: 1, rotten_apple: 1, superposition: 1, force: 1, motion: 1, brute_force: 2, spring: 1, slinky: 1, paper_plane: 1, impulse: 1, pendulum: 1,
+  spin: 2, rotation: 2, torque: 3, friction: 3, heat: 2, plasma: 2, catalyst: 1, water: -3, ice: -5 };
+for (const [id, n] of Object.entries(FRIC)) {
+  const d = BASICS[id]; d.fric = n; const apple = d.mutantOf === 'apple' || id === 'apple';
+  const why = apple ? `Grabbing the apple: +${n} Heat (friction).` : n < 0 ? `It cools the apple: ${n} Heat.` : `Into an apple: +${n} Heat (friction).`; if (d.desc) d.desc.merge += ' ' + why;
+  for (const k of ['text', 'upText']) if (d[k]) d[k] = [...d[k], apple ? `GRAB: +${n} HEAT` : `${n > 0 ? '+' : ''}${n} HEAT (apple)`];
+}
+Object.assign(BASICS.friction, { selfHeat: 2 }); Object.assign(BASICS.water, { selfHeat: -3 }); Object.assign(BASICS.ice, { selfHeat: -5 });
+BASICS.friction.desc.use = 'Merge it into an object. On Newton: Block 4, and rub the apple: +2 Heat.';
+BASICS.friction.desc.skill = 'Rub: the roughest card for the apple, +3 Heat. Brakes too: the best counter to a big thought bubble.';
+BASICS.water.desc.use += ' It also cools the apple: -3 Heat.'; BASICS.ice.desc.use += ' It cools the apple: -5 Heat.';
+BASICS.spin.rules = ['+1 {hit} +1 {v} +2 {heat}', '{launch} LAUNCHES', 'SELF: {thorn} Thorns 2']; BASICS.spin.upRules = ['+1 {hit} +2 {v} +2 {heat}', '{launch} LAUNCHES', 'SELF: {thorn} Thorns 3'];
+BASICS.paper_plane.rules = ['+2 {v} +1 {heat}', '{launch} LAUNCHES', 'DISCARDED: {hit} 6']; BASICS.paper_plane.upRules = ['+3 {v} +1 {heat}', '{launch} LAUNCHES', 'DISCARDED: {hit} 9'];
+BASICS.impulse.rules = ['+1 {v} per 4 {blk}', '{launch} LAUNCH +1 {heat}', 'SELF: {blk} BLOCK 4']; BASICS.impulse.upRules = ['+2 {v} per 4 {blk}', '{launch} LAUNCH +1 {heat}', 'SELF: {blk} BLOCK 6'];
+Object.assign(BASICS, {
+  bellows: card({ name: 'Bellows', kind: 'tool', num: 45, dv: 2, fric: 2, vent: true, adj: 'Stoked', noun: 'Blast', art: 'heat', up: { dv: 3, fric: 3 },
+    rules: ['+2 {v} +2 {heat}', 'SELF: VENT all {heat}', '{blk} BLOCK = Heat'], upRules: ['+3 {v} +3 {heat}', 'SELF: VENT all {heat}', '{blk} BLOCK = Heat'],
+    text: ['MERGE: +2 v, +2 Heat', 'SELF: vent all Heat', 'into Block'], desc: { use: 'On Newton: vent ALL of the apple\'s Heat and gain that much Block.', merge: '+2 m/s and it stokes the apple: +2 Heat.', skill: 'Stoke or vent: the apple\'s Heat becomes your shield.' }, flavor: 'Hephaestus\' second-best pair. He kept the best.' }),
+  crucible: card({ name: 'Crucible', kind: 'tool', num: 46, crucible: 0.08, fric: 1, block: 3, adj: 'Molten', noun: 'Melt', art: 'lava', up: { crucible: 0.12, block: 5 },
+    rules: ['x1 +8% per {heat}', '+1 {heat}', 'SELF: {blk} BLOCK 3'], upRules: ['x1 +12% per {heat}', '+1 {heat}', 'SELF: {blk} BLOCK 5'],
+    text: ['x1 +8% per Heat', 'MERGE: +1 Heat', 'SELF: Block 3'], desc: { use: 'Merge it into any object. On Newton: Block 3.', merge: 'The object hits 8% harder for every point of apple Heat (×1.8 when it is at 10).', skill: 'Alchemy: Heat is a multiplier, if you dare.' }, flavor: 'Lead in, gold out. Results may vary.' }),
+  quench: card({ name: 'Quench', kind: 'tool', num: 47, quench: true, fric: -4, wet: 1, adj: 'Quenched', noun: 'Hiss', art: 'water', up: { wet: 2 },
+    rules: ['SELF: QUENCH all {heat}', '{hit} Heat x2 to ALL', 'MERGE: -4 {heat}'], upRules: ['SELF: QUENCH all {heat}', '{hit} Heat x2 to ALL', 'MERGE: -4 {heat}, WET 2'],
+    text: ['SELF: quench all Heat:', 'Heat x2 to ALL foes', 'MERGE: -4 Heat'], desc: { use: 'On Newton: plunge the apple into water. ALL its Heat bursts out as steam: every foe takes twice the Heat, then the apple is cold.', merge: 'It cools the apple: -4 Heat, and leaves the foe Wet.', skill: 'Steam burst: the safest way down from scorching.' }, flavor: 'Hiss. The blacksmith\'s favourite word.' }),
+});
+
 export const MUTATIONS = {
   apple: ['golden_apple', 'rotten_apple'], stone: ['pumice', 'lodestone'], gravity: ['antigravity'], mass: ['dark_matter'],
   force: ['brute_force'], rotation: ['torque'], inertia: ['momentum'], heat: ['plasma'], water: ['ice'], lens: ['prism'], spring: ['slinky'], spark: ['plasma'], motion: ['momentum'],
@@ -230,7 +259,7 @@ export const CARD_POOL = {
   basic: ['apple', 'notebook', 'equilibrium', 'bulwark', 'stone', 'water', 'spark', 'gravity', 'mass', 'force', 'motion', 'rotation', 'inertia', 'heat', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound'],
   uncommonBasics: ['hypothesis', 'recycle', 'scratchpad', 'paper_plane', 'impulse', 'third_reaction', 'stone', 'water', 'spark', 'heat', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound'],
   // what a discovery may offer: the science cards, a few copies of the core, the occasional mutant or Law of nature
-  discover: ['notebook', 'hypothesis', 'recycle', 'scratchpad', 'paper_plane', 'equilibrium', 'impulse', 'bulwark', 'third_reaction', 'motion', 'spin', 'echo', 'looking_glass', 'resonance', 'catalyst', 'amplifier', 'keystone', 'domino', 'earth', 'stone', 'water', 'spark', 'heat', 'gravity', 'rotation', 'inertia', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound', 'apple', 'apple', 'force', 'motion', 'mass'],
+  discover: ['notebook', 'hypothesis', 'recycle', 'scratchpad', 'paper_plane', 'equilibrium', 'impulse', 'bulwark', 'third_reaction', 'motion', 'spin', 'echo', 'looking_glass', 'resonance', 'catalyst', 'amplifier', 'keystone', 'domino', 'earth', 'stone', 'water', 'spark', 'heat', 'gravity', 'rotation', 'inertia', 'lens', 'spring', 'friction', 'pendulum', 'lever', 'magnet', 'buoyancy', 'pressure', 'sound', 'apple', 'apple', 'force', 'motion', 'mass', 'bellows', 'crucible', 'quench', 'friction'],
   rare: ['golden_apple', 'ice', 'lodestone', 'antigravity', 'dark_matter', 'torque', 'momentum', 'plasma', 'prism', 'slinky', 'brute_force'],
   powers: Object.keys(POWERS),
 };

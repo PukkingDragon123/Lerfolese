@@ -1,7 +1,10 @@
 // Shared physical UI for non-battle screens: carved / brass / lacquer plaque buttons, parchment scroll panels, card rows,
 // a tabletop backdrop world, and a base class wiring raycast hover/click/drag.
 import * as THREE from 'three';
-import { CloudTip } from './instruments.js';
+import { CloudTip, PlateTip } from './instruments.js';
+// tooltips: the menu side (tower, hall, loading, sky, gallery) keeps its soft clouds; everything on the battle side
+// (map, reward, shop, event, lab, end, prologue) uses physical brass-and-ivory plates
+const CLOUD_TIP_SCENES = new Set(['MenuScene', 'HallScene', 'LoadingScene', 'SkyScene', 'GalleryScene']);
 import { Plaque, Scroll } from './objects.js';
 import { HudTip, hud } from './hud.js';
 import { uiRig, disposeTree } from './craft.js';
@@ -40,7 +43,7 @@ export function tabletopWorld(kind = 'study') {
 
 // Base for menu-like screens: buttons, cards, notes in the UI layer; hover/click/drag via raycast.
 export class UIScreen {
-  constructor(game) { this.game = game; this.engine = game.engine; this.input = game.input; this.buttons = []; this.cards = []; this.root = new THREE.Group(); this.engine.ui.scene.add(this.root); uiRig(this.engine); hud.attach(this.engine, this.input); this.tip = new CloudTip(); this.t = 0; } // tooltips float on soft clouds
+  constructor(game) { this.game = game; this.engine = game.engine; this.input = game.input; this.buttons = []; this.cards = []; this.root = new THREE.Group(); this.engine.ui.scene.add(this.root); uiRig(this.engine); hud.attach(this.engine, this.input); this.tip = CLOUD_TIP_SCENES.has(this.constructor.name) ? new CloudTip() : new PlateTip(); this.t = 0; }
   get W() { return this.engine.uiW; } get H() { return this.engine.uiH; }
   addButton(b, x, y, z = 1) { b.group.position.set(x, y, z); this.root.add(b.group); this.buttons.push(b); return b; }
   addCard(card, x, y, { onClick, scale = 1, tip } = {}) { const v = new Card3D(card); v.pos.snap(x, -this.H - 6, 2); v.target = { x, y, z: 2, rz: 0, s: scale }; v.flip.set(1); v.flip.target = 0; v.onClick = onClick; v.tipLines = tip; v.home = { x, y, s: scale }; this.root.add(v.group); this.cards.push(v); return v; }

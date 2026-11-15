@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { uiRig, uiPos, disposeTree } from './craft.js';
 import { Paper, NoteTip, Pennant, ChapterCard } from './objects.js';
 import { Bell, LawTag, EnemyBoard, roman } from './hudparts.js';
-import { Hourglass, CoinJar, TimeApple, CloudTip } from './instruments.js';
+import { Hourglass, CoinJar, TimeApple, PlateTip } from './instruments.js';
 import { FloatTip, FloatText } from './floatlabel.js';
 import { audio } from '../core/audio.js';
 
@@ -79,7 +79,7 @@ export class BattleHUD {
     this.note = new FloatText(null, { font: 'body', align: 'right', anchor: 'right', anchorY: 'top' }); this.root.add(this.note.group); this.note.show(); // the chapter heading, in floating letters
     if (mode !== 'map') {
       this.bell = new TimeApple(); this.root.add(this.bell.group); // End Turn: the golden apple that lets time go
-      this.laws = []; this.lawTip = new CloudTip({ maxW: 12 });
+      this.laws = []; this.lawTip = new PlateTip({ maxW: 12 });
     }
     this.handler = window.__game.input.push({ move: () => this.move(), click: () => this.click() });
     this.plates = new Set(); this.v = {}; this.writeNote(); this.layout(); this.engine.add(this);

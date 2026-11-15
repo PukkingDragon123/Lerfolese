@@ -15,6 +15,7 @@ import { Signboard } from '../ui3d/objects.js';
 import { Particles } from '../gfx/particles.js';
 import { makeNoise } from '../gfx/pixel.js';
 import { mulberry32 } from '../core/util.js';
+import { ART } from '../core/art.js';
 import { plantField } from '../gfx/plants.js';
 import { groundTex, soilTex } from '../gfx/pixeltex.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -183,9 +184,9 @@ function fireflies(n, spots) {
     vertexShader: `attribute vec4 aSeed; uniform float uTime, uScale, uNight; varying float vB; void main(){ vec3 p = position; float t = uTime;
       p += vec3(sin(t * (0.25 + aSeed.x * 0.2) + aSeed.y * 9.0) * 0.9, sin(t * (0.4 + aSeed.z * 0.3) + aSeed.x * 7.0) * 0.35, cos(t * (0.22 + aSeed.w * 0.2) + aSeed.z * 8.0) * 0.9);
       vB = smoothstep(0.55, 0.95, 0.5 + 0.5 * sin(t * (0.9 + aSeed.w * 1.4) + aSeed.x * 30.0)) * smoothstep(0.2, 0.7, uNight);
-      vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv; vB *= smoothstep(2.0, 4.0, -mv.z); gl_PointSize = clamp((0.05 + 0.07 * vB) * uScale / -mv.z, 1.5, 7.0); }`,
+      vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv; vB *= smoothstep(2.0, 4.0, -mv.z); gl_PointSize = clamp((0.05 + 0.07 * vB) * uScale / -mv.z, 1.0, 7.0); }`,
     fragmentShader: 'varying float vB; void main(){ vec2 p = gl_PointCoord - 0.5; float d = length(p); float core = step(d, 0.18); float glow = smoothstep(0.5, 0.1, d) * 0.45; float a = (core + glow) * (0.15 + vB); if (a < 0.02) discard; gl_FragColor = vec4(vec3(0.85, 1.0, 0.45) * a, 1.0); }' });
-  const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.onBeforeRender = (rd) => { T.tickWind(); m.uniforms.uScale.value = rd.domElement.height * 0.7; }; pts.userData.noInk = true; return pts;
+  const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.onBeforeRender = (rd) => { T.tickWind(); m.uniforms.uScale.value = rd.domElement.height * ART.k * 0.7; }; pts.userData.noInk = true; return pts;
 }
 
 // ---------------------------------------------------------------- the orchard

@@ -4,7 +4,7 @@ import { STARTER_DECK, POWERS, BASICS, CARD_POOL, MUTATIONS } from './data/cards
 import { ITEMS, ITEM_POOLS } from './data/items.js';
 import { ENCOUNTERS, ENEMIES } from './data/enemies.js';
 import { LOOT, EXTRA_LOOT } from './data/items.js';
-import { SPECIALS, computeMove, baseOf } from './combos.js';
+import { computeMove, baseOf } from './combos.js';
 import { save } from '../core/save.js';
 
 // content unlocked by the wizard frog (save.meta, from the star gallery). Anything not flagged `unlock` is base content.
@@ -23,13 +23,35 @@ export const AREAS = {
   wilderness: { name: 'Mythical Wilderness', act: 1, rows: 13, enc: ENCOUNTERS.wilderness },
 };
 
-export function newRun(seed = (Math.random() * 2 ** 31) | 0) {
+// ---- MENU AGENT EDIT (constellation start select, scenes/tower.js + scenes/astral.js): a run can begin under one
+// of these constellations, newRun(seed, { start: 'prism' }). Each is a small starting artifact / deck twist; the
+// numbers are a first pass for the RULES agent to rebalance (keep the ids; the menu reads name / blurb from here).
+export const STARTS = {
+  apple: { name: 'The Apple', blurb: 'The classic start, and one more Apple.', add: ['apple'] },
+  pendulum: { name: 'The Pendulum', blurb: "Foucault's Pendulum. 8 less max health.", items: ['pendulum'], maxHp: -8 },
+  prism: { name: 'The Prism', blurb: "Newton's Prism. A Spark replaces Mass.", items: ['prism'], swap: { mass: 'spark' } },
+  comet: { name: 'The Comet', blurb: 'Winged Talaria and 60 more gold.', items: ['talaria'], gold: 60 },
+  owl: { name: 'The Owl', blurb: 'Owl of Athena and a Notebook.', items: ['owl'], add: ['notebook'] },
+};
+export function applyStart(run, id) {
+  const S = STARTS[id]; if (!S) return run; run.start = id;
+  if (S.swap) run.deck = run.deck.map((c) => (S.swap[c.id] ? mkCard(S.swap[c.id]) : c));
+  for (const c of S.add || []) run.deck.push(mkCard(c));
+  for (const it of S.items || []) if (ITEMS[it] && !run.items.includes(it)) run.items.push(it);
+  if (S.maxHp) { run.player.maxHp += S.maxHp; run.player.hp = run.player.maxHp; }
+  if (S.gold) run.gold += S.gold;
+  return run;
+}
+// ---- END MENU AGENT EDIT (newRun below takes the optional { start } and calls applyStart)
+
+export function newRun(seed = (Math.random() * 2 ** 31) | 0, { start = null } = {}) {
   const rng = new RNG(seed);
   const run = {
     seed, area: 'wilderness', floor: -1, pos: null, player: { hp: 56, maxHp: 56 }, gold: 99,
     deck: STARTER_DECK.map((id) => mkCard(id)), items: ['spirit_cross'], stats: { kills: 0, moves: 0, bestHit: 0, floors: 0, elites: 0, combos: 0 },
     flags: {}, foughtElites: [], seenEvents: [], loop: save.journal.loops + 1,
   };
+  applyStart(run, start); // MENU AGENT EDIT: the constellation start
   run.rng = rng; run.map = genMap(rng.fork('map'), 'wilderness');
   for (const n of Object.values(run.map.nodes)) nodeEncounter(run, n); // every fight is rolled now, so the map's figurines show exactly who waits there
   attachRun(run);
@@ -135,18 +157,6 @@ export function encounterFor(run, node) { const e = nodeEncounter(run, node); re
 export function eventBoss(eventId) { const e = AREAS.wilderness.enc.event?.[eventId]; return e ? { enemies: [...e], kind: 'elite', boss: true, event: eventId } : null; }
 
 // ---------------------------------------------------------------- rewards
-export function cardChoices(run, n = 3, rare = 0) {
-  const r = run.rng; const out = []; const seen = new Set();
-  while (out.length < n) {
-    const roll = r.next();
-    let c;
-    if (roll < 0.1 + rare * 0.1) c = mkCard(r.pick(CARD_POOL.powers));
-    else if (roll < 0.32 + rare * 0.1) { const s = r.pick(SPECIALS.filter((x) => x.exact && x.key.split('+').length <= 3)); c = mkMove(s.key.split('+'), s.name); }
-    else c = mkCard(r.pick(r.chance(0.55) ? CARD_POOL.uncommonBasics : CARD_POOL.basic), r.chance(0.12 + rare * 0.2) ? 1 : 0);
-    const k = c.type === 'move' ? c.name : c.id; if (seen.has(k)) continue; seen.add(k); out.push(c);
-  }
-  return out;
-}
 // a discovery's offer: three different new cards (science cards mostly, now and then a rare one or a Law of nature)
 export function discoveryChoices(run, n = 3, rare = 0) {
   const r = run.rng; const out = []; let guard = 0;
@@ -157,10 +167,8 @@ export function itemChoices(run, pool, n = 1) {
   const avail = ITEM_POOLS[pool].filter((i) => !run.items.includes(i) && unlocked(i));
   return run.rng.shuffle([...avail]).slice(0, n);
 }
-// a won battle pays only what the foes carried: gold, and their own drops (cards come from discoveries)
-// the card a foe may carry (added straight to the deck with the rest of the loot)
-export const CARD_LOOT = { frog_wizard: 'hypothesis', bookworm_queen: 'scratchpad', bookworm: 'recycle', sphinx: 'notebook', eagle: 'paper_plane', satyr: 'catalyst', kobalos: 'echo', medusa: 'looking_glass', harpy: 'amplifier', wolf: 'resonance', spartoi: 'keystone', centaur: 'domino',
-  minotaur: 'keystone', minotaur_king: 'domino', hydra: 'echo', hydra_elder: 'resonance', cyclops: 'amplifier', chimera: 'catalyst', talos: 'looking_glass' };
+// a won battle pays only what the foes carried: gold and their curios. NO CARDS: new cards come only from MERGING
+// (a first-time combination is a Discovery: pick one of three new cards) and from events.
 export function battleRewards(run, kind, enemies = []) {
   const r = run.rng; const gm = run.items.includes('sack') ? 1.25 : 1; const loot = [];
   let gold = 0;
@@ -172,11 +180,7 @@ export function battleRewards(run, kind, enemies = []) {
     if (drop.length && r.chance(chance)) loot.push(r.pick(drop)); else gold += Math.round(r.int(4, 9) * gm);
   }
   if (kind === 'guardian') for (const x of itemChoices(run, 'guardian', 2)) if (!loot.includes(x)) loot.push(x);
-  // a foe sometimes carries a card of its own nature (the combinators: clone, boost, position)
-  const lootCards = [];
-  for (const id of new Set(enemies)) { const c = CARD_LOOT[id]; if (c && unlocked(c) && !lootCards.includes(c) && r.chance(ENEMIES[id]?.guardian || ENEMIES[id]?.elite ? 0.8 : 0.3)) lootCards.push(c); }
-  const cards = lootCards.slice(0, 2).map((id) => mkCard(id)); for (const c of cards) run.deck.push(c);
-  return { gold, cards: [], lootCards: cards, items: loot, loot: true };
+  return { gold, cards: [], lootCards: [], items: loot, loot: true };
 }
 
 export function upgradeCard(c) { if (c.type === 'move') c.up = 1; else c.up = 1; }

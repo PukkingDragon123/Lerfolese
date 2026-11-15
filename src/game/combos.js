@@ -130,7 +130,31 @@ export function moveName(comps, special) {
   return `${adjs.slice(0, 2).join(' ')} ${noun}, ${suffix}`;
 }
 
-// mods: { gravityDv, firstMove:{dm,dv}, leverForce, hornForce, thermo, firstLaw, momentum, charged, kindle, bonusMul }
+// ---------------------------------------------------------------- APPLE HEAT (friction)
+// The magic apple has a LOT of friction: grabbing it, rubbing, spinning and throwing it heats it up. Heat is one gauge
+// per battle (0..10). Cards merged into an APPLE object add their `fric` (Force +1, Spin +2, Friction +3, Heat +2;
+// Water and Ice cool it). Every apple Move reads the gauge when it strikes:
+//   WARM 3+  Burn +2     HOT 6+  ×1.3, Burn +3     SCORCHING 9+  ×1.6, Burn +5, ignites ALL foes (Burn 2)
+// Push it past 10 and it OVERHEATS: it scorches Newton (5, ignores Block), burns a card in his hand for the battle,
+// and drops back to 5. When time flows it cools by 2. The thermometer's valve VENTS it once a turn (all foes Burn
+// half the Heat). Bellows, Crucible, Quench and three curios play with it.
+export const HEAT = { max: 10, warm: 3, hot: 6, scorch: 9, cool: 2, overTo: 5, scorchDmg: 5 };
+export const HEAT_TIERS = [
+  { id: 'cold', at: 0, name: 'Cool', mul: 1, burn: 0 },
+  { id: 'warm', at: HEAT.warm, name: 'Warm', mul: 1, burn: 2 },
+  { id: 'hot', at: HEAT.hot, name: 'Hot', mul: 1.3, burn: 3 },
+  { id: 'scorch', at: HEAT.scorch, name: 'Scorching', mul: 1.6, burn: 5, ignite: 2 },
+];
+export function heatTier(h = 0) { let t = HEAT_TIERS[0]; for (const x of HEAT_TIERS) if (h >= x.at) t = x; return t; }
+export const isAppleId = (id) => baseOf(id) === 'apple';
+export const hasApple = (comps) => (comps || []).some((c) => isAppleId(c.id));
+// the Heat a merge adds: the cards' friction, counted only when the object is (or becomes) an apple
+export function heatGain(added, objComps = []) {
+  if (!hasApple(added) && !hasApple(objComps)) return 0;
+  return added.reduce((k, c) => k + (stat(c.id, c.up, 'fric') || 0), 0);
+}
+
+// mods: { gravityDv, firstMove:{dm,dv}, leverForce, hornForce, thermo, firstLaw, momentum, charged, kindle, bonusMul, heat }
 // The combinators read the merge ORDER (left = merged earlier): an Echo becomes a copy of its left neighbour, an
 // Amplifier doubles its right neighbour. effective() resolves that into the cards that actually count, each with a k.
 export function effective(comps) {
@@ -152,7 +176,7 @@ export function computeMove(comps, mods = {}) {
   let m = 0, baseV = 0, dv = 0, hits = 1, charge = 0, burn = 0, wet = 0, persist = 0, bounce = 0, venom = 0, disarm = 0, chill = 0, weakOnHit = 0, goldOnKill = 0, recoil = 0;
   let focus = 1, spread = false, prism = false, fall = false, hard = false, pierce = false, grow = false, bounceFalloff = 0;
   let hasMatter = false, lensCount = 0, forceCount = 0, gravityCount = 0, launched = false, shove = 0, carry = false, float = false, dizzyOnHit = 0, seek = null, lever = false, swing = 0, press = 0, waveMul = 1;
-  const self = { heal: 0, block: 0, cleanse: false, charged: 0, momentum: 0, thorns: 0, retain: false, kindle: 0, draw: 0, recycle: null, scratch: 0, hypo: 0, keepBlock: false };
+  const self = { heal: 0, block: 0, cleanse: false, charged: 0, momentum: 0, thorns: 0, retain: false, kindle: 0, draw: 0, recycle: null, scratch: 0, hypo: 0, keepBlock: false, heat: 0, vent: false, quench: false };
   let impulse = 0;
   const rockN = ec.filter((c) => ROCK.includes(baseOf(c.id))).length; let ksKg = 0;
   for (const { c, k, dead } of eff) {
@@ -176,6 +200,7 @@ export function computeMove(comps, mods = {}) {
     self.heal += S(c, 'heal'); self.block += S(c, 'block'); self.charged += S(c, 'charged'); self.momentum += S(c, 'momentum');
     self.thorns += S(c, 'thorns'); self.kindle += S(c, 'kindle'); self.draw += S(c, 'draw');
     if (d.cleanse) self.cleanse = true; if (d.retain) self.retain = true; if (d.keepBlock) self.keepBlock = true;
+    self.heat += S(c, 'selfHeat'); if (d.vent) self.vent = true; if (d.quench) self.quench = true; // apple Heat on Newton: rub (+), cool (-), vent, quench
     if (d.recycle !== undefined) self.recycle = Math.max(self.recycle ?? 0, S0(c, 'recycle')); if (d.scratch) self.scratch += d.scratch; self.hypo += S0(c, 'hypo');
   }
   K = 1;
@@ -228,6 +253,11 @@ export function computeMove(comps, mods = {}) {
   for (const r of syn) lines.push({ text: r.text, mul: r.mul, kind: r.anti ? 'anti' : 'syn', id: r.id });
   lines.push(...combo);
   if (mods.bonusMul && mods.bonusMul !== 1) lines.push({ text: 'Bonus', mul: mods.bonusMul, kind: 'syn' });
+  // APPLE HEAT: an apple Move reads the gauge (warm / hot / scorching); a Crucible scales any Move with it
+  const heatNow = Math.max(0, mods.heat || 0); const apple = hasApple(ec); const tier = apple ? heatTier(heatNow) : HEAT_TIERS[0]; let ignite = 0;
+  if (apple && tier.id !== 'cold') { lines.push({ text: `${tier.name} apple (${heatNow} Heat)${tier.burn ? `: Burn +${tier.burn}` : ''}`, mul: tier.mul, kind: 'heat' }); burn += tier.burn; ignite = tier.ignite || 0; }
+  const cruc = ec.reduce((k, c) => k + (stat(c.id, c.up, 'crucible') || 0), 0);
+  if (cruc) lines.push(heatNow ? { text: `Crucible: +${Math.round(cruc * 100)}% per Heat (${heatNow})`, mul: +(1 + cruc * heatNow).toFixed(2), kind: 'heat' } : { text: 'Crucible: the apple is cold', mul: 1, kind: 'anti' });
   const compMul = lines.reduce((k, l) => k * (l.mul ?? 1), 1); const fizzle = syn.find((r) => r.fizzle)?.fizzle || null;
   const perHit = fizzle ? 0 : Math.round(m * v * compMul);
   const n = comps.length;
@@ -243,7 +273,7 @@ export function computeMove(comps, mods = {}) {
     m, v, hits, perHit, focus, spread: spread || allFoes, fall, hard, pierce, charge: charge + (mods.charged || 0), burn: burn + (burn > 0 || perHit > 0 ? (mods.kindle || 0) : 0), wet, persist: persist ? persist + (mods.firstLaw || 0) : 0, grow,
     bounce, bounceFalloff, venom, disarm, chill, weakOnHit, goldOnKill, recoil, steam, fist, launched, shove, carry, float, dizzyOnHit, seek,
     base: m * v, compMul, lines, fizzle, chainWet: has('chain'), floatK: special?.float ? 2 : 1,
-    weak: 0, vulnerable: 0, dizzy: 0, valid: false,
+    weak: 0, vulnerable: 0, dizzy: 0, valid: false, ignite, heat: apple ? heatNow : 0, heatTier: tier.id,
   };
   if (alone === 'gravity' || (n === 1 && comps[0].id === 'antigravity')) attack.weak = 2;
   if (alone === 'rotation') attack.dizzy = 1;
@@ -260,7 +290,7 @@ export function computeMove(comps, mods = {}) {
   self.block = Math.round((self.block + (special?.selfBlock || 0)) * stackMul * (special?.selfBlockMul || 1));
   self.charged += special?.selfCharged || 0;
   self.moon = moon;
-  self.valid = self.heal > 0 || self.block > 0 || self.charged > 0 || self.momentum > 0 || self.thorns > 0 || self.retain || self.kindle > 0 || self.draw > 0 || self.cleanse || moon || !!self.clone || self.recycle != null || self.scratch > 0 || self.keepBlock;
+  self.valid = self.heal > 0 || self.block > 0 || self.charged > 0 || self.momentum > 0 || self.thorns > 0 || self.retain || self.kindle > 0 || self.draw > 0 || self.heat !== 0 || self.vent || self.quench || self.cleanse || moon || !!self.clone || self.recycle != null || self.scratch > 0 || self.keepBlock;
 
   const field = fieldFor(ec, cm, special, { m, v, burn, charge, wet, persist, mods });
   const name = moveName(comps, special);
@@ -331,12 +361,13 @@ export function describeAttack(a) {
   if (a.carry) out.push('Carry: overkill flies on');
   if (a.dizzyOnHit) out.push(`Dizzy ${a.dizzyOnHit}`);
   if (a.float) out.push('You gain Block = its mass');
+  if (a.ignite) out.push(`Ignites ALL foes: Burn ${a.ignite}`);
   return out;
 }
 export function describeSelf(s) {
   const out = [];
   if (s.block) out.push(`Block ${s.block}`); if (s.heal) out.push(`Heal ${s.heal}`); if (s.cleanse) out.push('Cleanse Burn/Wet/Venom');
   if (s.charged) out.push(`Next hit +${s.charged} zap`); if (s.momentum) out.push(`Next Move +${s.momentum} v`); if (s.thorns) out.push(`Thorns ${s.thorns}`);
-  if (s.kindle) out.push(`Hits Burn +${s.kindle}`); if (s.draw) out.push(`Draw ${s.draw}`); if (s.scratch) out.push(`Discard ${s.scratch}`); if (s.recycle != null) out.push(`Discard any, draw that many${s.recycle ? ' +' + s.recycle : ''}`); if (s.hypo) out.push(`Matter drawn +${s.hypo} kg`); if (s.keepBlock) out.push('Block is kept'); if (s.retain) out.push('Keep hand & Block'); if (s.moon) out.push('Summon a little moon'); if (s.clone) out.push('Clone your leftmost card');
+  if (s.kindle) out.push(`Hits Burn +${s.kindle}`); if (s.draw) out.push(`Draw ${s.draw}`); if (s.scratch) out.push(`Discard ${s.scratch}`); if (s.recycle != null) out.push(`Discard any, draw that many${s.recycle ? ' +' + s.recycle : ''}`); if (s.hypo) out.push(`Matter drawn +${s.hypo} kg`); if (s.keepBlock) out.push('Block is kept'); if (s.retain) out.push('Keep hand & Block'); if (s.moon) out.push('Summon a little moon'); if (s.heat) out.push(`${s.heat > 0 ? '+' : ''}${s.heat} apple Heat`); if (s.vent) out.push('Vent Heat into Block'); if (s.quench) out.push('Quench: Heat hits ALL foes'); if (s.clone) out.push('Clone your leftmost card');
   return out;
 }

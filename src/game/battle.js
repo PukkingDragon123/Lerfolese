@@ -1,7 +1,7 @@
 // Battle rules. Presentation is injected via `fx` (all hooks async & optional), so this runs headless too.
 import { ENEMIES } from './data/enemies.js';
 import { BASICS } from './data/cards.js';
-import { computeMove, flatten, baseOf } from './combos.js';
+import { computeMove, flatten, baseOf, HEAT, heatGain, hasApple } from './combos.js';
 import { uid } from '../core/util.js';
 import { mkCard, discoveryChoices } from './run.js';
 import { foeLines, artifactLines, immuneTo } from './data/synergy.js';
@@ -13,7 +13,7 @@ export const HELD_MAX = 3; // things manifested in mid-air at once
 // VERY HARD difficulty, tuned with tools/sim.mjs against a synergy-hunting player that blocks the telegraphed blows
 // (no dodging any more): normals ~55-65% won, elites ~12-20%, bosses ~5-10%. Foes' HP and blows scale by tier and grow
 // every floor; several foes also ramp (Strength each round) or swing harder every cycle (enemies.js).
-export const DIFF = { hp: { normal: 2.4, elite: 3.0, guardian: 3.1 }, dmg: { normal: 2.9, elite: 1.97, guardian: 1.42 }, hpFloor: 0.03, dmgFloor: 0.025, per: { hydra: 0.9, hydra_elder: 0.75, hydra_head: 0.8, bookworm: 0.4, bookworm_queen: 0.9 }, dmgPer: { hydra_head: 0.7, bookworm: 0.8 } };
+export const DIFF = { hp: { normal: 2.4, elite: 3.1, guardian: 3.1 }, dmg: { normal: 3.1, elite: 2.3, guardian: 1.45 }, hpFloor: 0.03, dmgFloor: 0.025, per: { hydra: 0.9, hydra_elder: 0.75, hydra_head: 0.8, bookworm: 0.4, bookworm_queen: 0.9 }, dmgPer: { hydra_head: 0.7, bookworm: 0.8 } };
 
 export class Battle {
   constructor({ run, enemies, rng, fx, kind = 'normal', deck = null, ordered = false }) {
@@ -28,6 +28,7 @@ export class Battle {
     this.flags = { wingsUsed: false, heatCount: 0, sparkCharge: 0, firstMoveDone: false, movesThisTurn: [], wineskinUsed: false, lensOn: new Set() };
     for (const id of enemies) this.spawnEnemy(id);
     this.log = []; this.stats = { blocked: 0, taken: 0 };
+    this.heat = 0; // APPLE HEAT (friction): 0..HEAT.max, see combos.js HEAT
   }
   has(item) { return this.run.items.includes(item); }
 
@@ -51,6 +52,7 @@ export class Battle {
     for (const e of this.alive()) if (e.def.minion && !e.minionOf) e.minionOf = this.enemies.find((x) => x.def.brood && x.alive)?.uid || null;
     if (this.has('schrodinger')) this.hand.push(this.slotOf([{ uid: uid('c'), id: 'superposition', up: 0, temp: true }]));
     for (const e of this.alive()) this.pickIntent(e);
+    if (this.heatOn() && this.has('ember')) this.heat = 3; // Prometheus' Ember Jar: the apple starts warm
     await this.fx.battleStart?.(this);
     await this.startPlayerTurn();
   }
@@ -58,7 +60,7 @@ export class Battle {
   // ------------------------------------------------------------------ player turn
   async startPlayerTurn() {
     if (this.over) return;
-    this.turn++; this.phase = 'player'; this.flags.movesThisTurn = []; this.flags.lensOn = new Set(); this.flags.pickedThisTurn = false;
+    this.turn++; this.phase = 'player'; this.flags.movesThisTurn = []; this.flags.lensOn = new Set(); this.flags.pickedThisTurn = false; this.flags.vented = false;
     const P = this.player;
     if (!P.keepBlock) P.block = this.has('aegis') ? Math.floor(P.block / 2) : 0; P.keepBlock = false; // Block fades at the start of your turn (the Aegis keeps half)
     this.flags.talaria = false; this.flags.ramUsed = false;
@@ -194,6 +196,7 @@ export class Battle {
     if (this.has('plumb_bob')) m.plumb = true;
     if (this.has('lead_boots')) m.massMul = 2;
     if (this.hand.some((sl) => flatten(sl.cards).some((c) => baseOf(c.id) === 'water'))) m.waterInHand = true; // Catalyst
+    m.heat = this.heatOn() ? this.heat : 0;
     const P = this.player; m.block = P.block; if (P.st.momentum) m.momentum = P.st.momentum; if (P.st.charged) m.charged = P.st.charged; if (P.st.kindle) m.kindle = P.st.kindle;
     return m;
   }
@@ -205,11 +208,11 @@ export class Battle {
     const power = s.cards.find((c) => c.type === 'power');
     if (power) return { ok: s.cards.length === 1, kind: 'power', text: s.cards.length === 1 ? 'Enact this Law' : 'Laws cannot be mixed' };
     const mv = this.moveOf(s); if (!mv) return { ok: false };
-    if (target.type === 'air') { const why = this.manifestBlock(s); return { ok: !why, move: mv, kind: 'manifest', text: why || `Manifest: ${mv.name}` }; }
+    if (target.type === 'air') { const why = this.manifestBlock(s); return { ok: !why, move: mv, kind: 'manifest', text: why || `Manifest: ${mv.name}`, heat: this.heatPreview(heatGain(flatten(s.cards))) }; }
     if (target.type === 'held' && s.cards.length === 1 && BASICS[s.cards[0].id]?.twin) { const o = this.held.find((x) => x.uid === target.uid); if (!o) return { ok: false }; const room = this.held.length < HELD_MAX; const hp = this.heldPreview(o); return { ok: room, kind: 'mirror', held: o, move: hp.mv, target: hp.target, est: hp.est, text: room ? `Looking-Glass: a twin ${hp.mv.name}` : `No room for a twin (${HELD_MAX} things already hang in the air)` }; }
-    if (target.type === 'held') { const o = this.held.find((x) => x.uid === target.uid); if (!o) return { ok: false }; const nm = this.heldMove(o, flatten(s.cards)); const t = this.heldTarget(o, target.aim, nm); const obj = { ...o, golden: this.nextMergeGolden() }; return { ok: true, move: nm, kind: 'manipulate', held: o, target: t, est: t && nm.attack.valid ? this.calc(nm, t, { obj }) : null, text: nm.name }; }
+    if (target.type === 'held') { const o = this.held.find((x) => x.uid === target.uid); if (!o) return { ok: false }; const nm = this.heldMove(o, flatten(s.cards)); const t = this.heldTarget(o, target.aim, nm); const obj = { ...o, golden: this.nextMergeGolden() }; return { ok: true, move: nm, kind: 'manipulate', held: o, target: t, est: t && nm.attack.valid ? this.calc(nm, t, { obj }) : null, text: nm.name, heat: this.heatPreview(heatGain(flatten(s.cards), o.comps)) }; }
     if (target.type === 'enemy') { const e = this.enemies.find((x) => x.uid === target.uid && x.alive); if (!e || !mv.attack.valid) return { ok: false, move: mv, kind: 'attack', text: 'Nothing to throw' }; return { ok: true, move: mv, kind: 'attack', est: this.estimate(mv, e) }; }
-    if (target.type === 'self') return { ok: mv.self.valid, move: mv, kind: 'self' };
+    if (target.type === 'self') return { ok: mv.self.valid, move: mv, kind: 'self', heat: this.heatPreview(mv.self.vent || mv.self.quench ? -this.heat : mv.self.heat) };
     if (target.type === 'field') return { ok: mv.field.valid, move: mv, kind: 'field', text: mv.field.valid ? `Place: ${mv.field.name}` : 'Nothing to place' };
     if (target.type === 'object') { const f = this.field.find((x) => x.uid === target.uid); const r = f && this.objectReaction(f, mv, true); return { ok: !!r, move: mv, kind: 'object', text: r ? r.text : 'No reaction' }; }
     return { ok: false };
@@ -257,7 +260,7 @@ export class Battle {
     if (pv.kind === 'attack' || (pv.kind === 'object')) { delete P.st.momentum; delete P.st.charged; }
     const wine = this.has('wineskin') && !this.flags.wineskinUsed && pv.kind === 'attack';
     if (wine) { this.flags.wineskinUsed = true; const al = this.alive(); target = { type: 'enemy', uid: this.rng.pick(al).uid }; }
-    if (pv.kind === 'attack') await this.attack(mv, this.enemies.find((e) => e.uid === target.uid), slotId);
+    if (pv.kind === 'attack') { await this.attack(mv, this.enemies.find((e) => e.uid === target.uid), slotId); await this.addHeat(heatGain(mv.comps), 'throw'); }
     else if (pv.kind === 'self') await this.applySelf(mv);
     else if (pv.kind === 'field') await this.placeField(mv);
     else if (pv.kind === 'object') await this.objectReaction(this.field.find((x) => x.uid === target.uid), mv, false);
@@ -289,7 +292,7 @@ export class Battle {
   // the Move a held object will strike with (extra cards / wind-up may be previewed)
   heldMove(o, extra = []) {
     const comps = [...o.comps, ...extra]; const wind = o.wind + extra.filter((c) => BASICS[c.id]?.kind !== 'matter').length;
-    const m = this.mods(); m.momentum = (m.momentum || 0) + wind; return computeMove(comps, m);
+    const m = this.mods(); m.momentum = (m.momentum || 0) + wind; if (extra.length && this.heatOn()) m.heat = Math.max(0, Math.min(HEAT.max, this.heat + heatGain(extra, o.comps))); return computeMove(comps, m);
   }
   heldTarget(o, aim, mv = null) {
     const al = this.alive(); const fixed = aim || (o.aimed ? o.target : null);
@@ -318,6 +321,7 @@ export class Battle {
     o.target = o.target || this.heldTarget(o)?.uid || null;
     this.held.push(o); for (const c of s.cards) if (!c.temp) this.discard.push(c);
     await this.fx.manifested?.(o, s);
+    await this.addHeat(heatGain(o.comps), 'grab'); // grabbing the apple out of the air: friction
     if (this.has('greaves')) await this.gainBlock(3, 'greaves');
     if (this.tutorial) this.tutorial.did?.('place');
     return o;
@@ -330,6 +334,7 @@ export class Battle {
     if (this.nextMergeGolden()) o.golden = true; this.run.flags.merges = (this.run.flags.merges || 0) + 1;
     for (const c of s.cards) if (!c.temp) this.discard.push(c);
     await this.fx.manipulated?.(o, s);
+    await this.addHeat(heatGain(add, o.comps.slice(0, o.comps.length - add.length)), 'merge'); // rubbing, spinning, throwing it: friction
     const dm = add.reduce((k, c) => k + (BASICS[c.id]?.drawOnMerge || 0), 0); if (dm) await this.drawCards(dm); // Hypothesis: merging it draws
     if (this.tutorial) this.tutorial.did?.('merge');
     await this.checkDiscovery(this.heldMove(o));
@@ -400,6 +405,7 @@ export class Battle {
     if (a.carry && !a.spread && !target.alive) { const over = planned - hp0; const next = this.alive().find((e) => !e.def.isHead) || this.alive()[0]; if (over > 0 && next) { await this.fx.ricochet?.(next); await this.damageEnemy(next, over, { kind: 'kinetic', move: mv }); } }
     if (a.bounce) { let pool = this.alive().filter((e) => !targets.includes(e)); let mul = 1; for (let i = 0; i < a.bounce && pool.length; i++) { const t = this.rng.pick(pool); pool = pool.filter((x) => x !== t); mul *= 1 - (a.bounceFalloff || 0); await this.fx.bounce?.(t); await this.strike(mv, t, mul, opts); } }
     if (zap) { for (const e of this.alive()) if (!targets.includes(e) && e.st.wet) { await this.fx.chain?.(e); await this.damageEnemy(e, zap * 2, { kind: 'zap', pierce: true }); } }
+    if (a.ignite) for (const t of this.alive()) if (!immuneTo(t, 'hot')) this.addSt(t, 'burn', a.ignite); // a scorching apple sets the whole field alight
     if (a.persist && a.perHit > 0) this.addField('momentum', { turns: a.persist, target: target.uid, m: a.m, v: a.v, hits: a.hits, grow: a.grow, fall: a.fall, name: mv.name, art: mv.art });
     if (planned > (this.run.stats.bestHit || 0)) this.run.stats.bestHit = planned;
     if (mv.n >= 2 && planned > 0) this.run.onRecord?.(mv, planned);
@@ -476,6 +482,9 @@ export class Battle {
       else await this.fx.bark?.('player', src ? 'No room in my hand for an echo.' : 'An echo of... nothing. Profound.');
     }
     if (s.moon && !this.field.some((f) => f.type === 'moon')) this.addField('moon', {});
+    if (s.vent && this.heat > 0) { const v = this.heat; await this.setHeat(0, 'bellows'); await this.gainBlock(v, 'bellows'); } // Bellows: the Heat becomes a shield
+    else if (s.quench && this.heat > 0) { const v = this.heat; await this.setHeat(0, 'quench'); await this.fx.quench?.(v); for (const e of this.alive()) { this.addSt(e, 'wet', 1); await this.damageEnemy(e, v * 2, { kind: 'steam', pierce: true }); } } // Quench: a steam burst
+    if (s.heat) await this.addHeat(s.heat, s.heat > 0 ? 'rub' : 'cool');
     if (s.draw) { const got = await this.drawCards(s.draw + (this.has('owl') && mv.comps.some((c) => ['lens', 'notebook'].includes(baseOf(c.id))) ? 1 : 0));
       if (s.hypo) for (const sl of got.slice(0, 1)) for (const c of sl.cards) if (BASICS[c.id]?.kind === 'matter') { c.bm = (c.bm || 0) + s.hypo; await this.fx.hypothesis?.(sl, true); } }
     if (s.scratch) { const pick = await this.chooseSlots({ min: s.scratch, max: s.scratch, title: `Discard ${s.scratch}` }); await this.discardSlots(pick, 'scratch'); }
@@ -548,10 +557,44 @@ export class Battle {
     }
   }
 
+  // ------------------------------------------------------------------ APPLE HEAT (friction): gain, overheat, vent
+  heatOn() { return !this.tutorial && !this.run.flags?.noHeat; }
+  heatPreview(gain = 0) { if (!this.heatOn() || !gain) return null; const to = this.heat + gain; return { from: this.heat, to: Math.max(0, Math.min(HEAT.max, to)), gain, over: to > HEAT.max }; }
+  async setHeat(h, why = '') { const h0 = this.heat; this.heat = Math.max(0, Math.min(HEAT.max, h)); if (this.heat !== h0) await this.fx.heat?.(this.heat, this.heat - h0, why); }
+  async addHeat(n, why = '') {
+    if (!n || !this.heatOn() || this.over) return 0; const h0 = this.heat; const to = h0 + n;
+    if (to > HEAT.max) { await this.setHeat(HEAT.max, why); await this.overheat(); return this.heat - h0; }
+    await this.setHeat(to, why); return this.heat - h0;
+  }
+  // past the top of the gauge: the apple flares. It scorches Newton and burns a card in his hand (this battle only),
+  // then settles back to HEAT.overTo. Salamander Scale: no harm. Phoenix Feather: the flare sets every foe alight.
+  async overheat() {
+    this.flags.overheats = (this.flags.overheats || 0) + 1; const safe = this.has('salamander');
+    await this.fx.overheat?.(safe); if (safe) this.fx.artifact?.('salamander');
+    this.heat = HEAT.overTo;
+    if (!safe) {
+      await this.hurtPlayer(HEAT.scorchDmg, { pure: true, kind: 'scorch' }); if (this.over) return;
+      const pool = this.hand.filter((sl) => !sl.cards.some((c) => c.type === 'power'));
+      if (pool.length) { const sl = this.rng.pick(pool); this.hand = this.hand.filter((x) => x !== sl); for (const c of sl.cards) if (!c.temp) this.exhaust.push(c); await this.fx.burnt?.(sl); }
+      else if (this.draw.length) { const c = this.draw.pop(); this.exhaust.push(c); await this.fx.burnt?.(this.slotOf([c])); }
+    }
+    if (this.has('phoenix')) { this.fx.artifact?.('phoenix'); for (const e of this.alive()) if (!immuneTo(e, 'hot')) this.addSt(e, 'burn', 4); await this.healPlayer(4); }
+    await this.fx.heat?.(this.heat, 0, 'overheat');
+  }
+  // the thermometer's valve: once a turn, let ALL the Heat out; every foe Burns half of it
+  canVent() { return this.phase === 'player' && this.heatOn() && this.heat > 0 && !this.flags.vented && !this.over; }
+  async vent() {
+    if (!this.canVent()) return 0; const v = this.heat; this.flags.vented = true;
+    await this.fx.vented?.(v); await this.setHeat(0, 'vent');
+    const b = Math.ceil(v / 2); for (const e of this.alive()) if (!immuneTo(e, 'hot')) this.addSt(e, 'burn', b);
+    return v;
+  }
+
   // ------------------------------------------------------------------ enemy turn
   async endTurn() {
     if (this.phase !== 'player') return; if (this.tutorial) this.tutorial.did?.('end');
     if (this.held.length) { await this.release(); if (this.checkEnd()) return; } // the bell lets go of everything held in the air
+    if (this.heat > 0) await this.addHeat(-(this.has('ember') ? 1 : HEAT.cool), 'cool'); // time flows: the apple cools
     this.phase = 'enemy';
     const P = this.player;
     if (!P.retain) { for (const s of this.hand) for (const c of s.cards) if (!c.temp) this.discard.push(c); this.hand = []; }

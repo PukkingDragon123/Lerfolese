@@ -39,6 +39,10 @@ export const ITEMS = {
   amphora: { name: 'The Leaky Amphora', icon: 'amphora', math: true, text: 'Water objects ×2. Heat objects ×0.5.', flavor: 'It leaks on purpose. Probably.' },
   icarus_feather: { name: "Icarus' Feather", icon: 'icarus_feather', math: true, text: 'Falling objects ×2. Each one costs you 2 HP (the wax drips).', flavor: 'The last one he lost.' },
   talaria: { name: 'Talaria', icon: 'talaria', text: 'Winged sandals: the first blow each enemy turn is sidestepped for half damage.', flavor: 'Hermes lent them. Hermes wants them back.' },
+  // ---- apple Heat (friction) curios (combos.js HEAT)
+  ember: { name: "Prometheus' Ember Jar", icon: 'jar', text: 'Your apple starts each battle Warm (3 Heat). It cools only 1 a turn.', flavor: 'Stolen fire, kept in a jar. The eagle is still looking.' },
+  salamander: { name: 'Salamander Scale', icon: 'mirror', text: 'Overheating no longer scorches you or burns a card.', flavor: 'Salamanders bathe in fire. This one shed in it.' },
+  phoenix: { name: 'Phoenix Feather', icon: 'icarus_feather', text: 'When your apple Overheats, every foe Burns 4 and you heal 4.', flavor: 'It burns, it falls, it grows back. Show-off.' },
   plumb_bob: { name: 'Plumb Bob', icon: 'plumb', text: 'Gravity gives +1 v for every Mass in the same Move.', flavor: 'The truest vertical. My namesake. Ish.' },
 };
 
@@ -54,10 +58,10 @@ export const LOOT = {
 };
 
 // extra drops for foes whose loot lives on their own definition (enemies.js), keyed by enemy id
-export const EXTRA_LOOT = { harpy: ['icarus_feather', 'talaria'], centaur: ['lyre'], wolf: ['achilles'], spartoi: ['anvil'], cyclops: ['lead_boots', 'anvil'], chimera: ['pandora', 'amphora'], talos: ['talaria', 'nemesis'], hydra_elder: ['amphora'], minotaur_king: ['golden_ratio'] };
+export const EXTRA_LOOT = { satyr: ['ember'], harpy: ['icarus_feather', 'talaria', 'phoenix'], centaur: ['lyre'], wolf: ['achilles'], spartoi: ['anvil'], cyclops: ['lead_boots', 'anvil'], chimera: ['pandora', 'amphora', 'salamander', 'phoenix'], talos: ['talaria', 'nemesis'], hydra_elder: ['amphora'], minotaur_king: ['golden_ratio'] };
 
 export const ITEM_POOLS = {
-  elite: ['aegis', 'ram', 'lever', 'pendulum', 'leyden', 'antikythera', 'horn', 'fang', 'prism', 'plumb_bob', 'thread', 'tyche', 'horseshoe', 'lyre', 'nemesis', 'anvil', 'amphora', 'pandora', 'golden_ratio', 'lead_boots', 'achilles'],
-  event: ['greaves', 'golden_apple', 'wings', 'schrodinger', 'owl', 'pan_flute', 'mirror', 'sack', 'wineskin', 'lever', 'thread', 'tyche', 'horseshoe', 'talaria', 'icarus_feather'],
+  elite: ['ember', 'phoenix', 'aegis', 'ram', 'lever', 'pendulum', 'leyden', 'antikythera', 'horn', 'fang', 'prism', 'plumb_bob', 'thread', 'tyche', 'horseshoe', 'lyre', 'nemesis', 'anvil', 'amphora', 'pandora', 'golden_ratio', 'lead_boots', 'achilles'],
+  event: ['salamander', 'ember', 'greaves', 'golden_apple', 'wings', 'schrodinger', 'owl', 'pan_flute', 'mirror', 'sack', 'wineskin', 'lever', 'thread', 'tyche', 'horseshoe', 'talaria', 'icarus_feather'],
   guardian: ['aegis', 'golden_apple', 'thread', 'pendulum', 'leyden', 'antikythera', 'prism', 'statues', 'nemesis', 'pandora', 'golden_ratio'],
 };

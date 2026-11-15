@@ -1,4 +1,11 @@
 // Renderer + post FX (bloom, tilt-shift diorama blur, film grade) + UI overlay layer + transition overlay + main loop.
+// WHOLE-GAME PIXEL LOOK (HD-2D): the 3D world and its whole post chain (AO, ink, motion blur, bloom, grade) render into
+// a low ART-resolution buffer (about 320 rows: each art pixel is an integer block of screen pixels), which is upscaled
+// with crisp nearest sampling. The camera is snapped to the art-pixel grid (at its focus depth) and the sub-pixel
+// remainder is applied as a smooth offset of the upscale, so still and slowly drifting views keep rock-stable pixels
+// (no crawl, no shimmer). The UI scene is drawn afterwards at full resolution (crisp text and 3D UI); the scene
+// transition is drawn into its own art-resolution layer on top, so clouds and galaxy read as pixel art too.
+// ?px=<rows> overrides the art rows, ?px=0 turns the pixel look off, ?snap=0 turns the camera snap off.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -7,6 +14,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { InkPass } from './ink.js';
+import { ART } from './art.js';
 import '../gfx/lowpoly.js'; // realistic Lambert light on every toon material (no cel bands)
 import { tweens } from './tween.js';
 import { clamp, damp } from './util.js';
@@ -206,8 +214,18 @@ const WipeShader = {
   }`,
 };
 
-// render resolution: supersample on 1x screens, full device resolution (capped at 2x) on hi-dpi ones. Never below the
-// screen's own resolution (user: no low-res look) - auto quality drops shadows/AO samples instead of pixels.
+// the art-resolution world -> screen: integer blocks (block = device px per art px), offset by the camera snap remainder
+const UpscaleShader = {
+  uniforms: { tArt: { value: null }, uArt: { value: new THREE.Vector2(1, 1) }, uBlock: { value: 1 }, uOff: { value: new THREE.Vector2() }, uPad: { value: new THREE.Vector2() } },
+  vertexShader: `void main(){ gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+  fragmentShader: `uniform sampler2D tArt; uniform vec2 uArt, uOff, uPad; uniform float uBlock;
+  void main(){ vec2 a = floor((gl_FragCoord.xy + uPad) / uBlock - uOff); a = clamp(a, vec2(0.0), uArt - 1.0); gl_FragColor = texture2D(tArt, (a + 0.5) / uArt); }`,
+};
+const art = (q) => { const v = new URLSearchParams(location.search).get(q); return v === null ? null : Number(v); };
+
+// canvas resolution: supersample on 1x screens, full device resolution (capped at 2x) on hi-dpi ones. This is the UI's
+// (and the upscale's) resolution: the 3D world itself is drawn at the art resolution (see the header), so text and the
+// 3D UI stay crisp while the world reads as pixel art. Auto quality drops shadows / AO samples, never the art rows.
 const hiRes = (q) => { const d = window.devicePixelRatio || 1; return q === 'low' ? Math.min(2, Math.max(1, d)) : q === 'medium' ? Math.min(2, Math.max(1.25, d)) : Math.min(2, Math.max(1.5, d)); };
 
 export class Engine {
@@ -230,9 +248,14 @@ export class Engine {
     this.ui.camera.position.set(0, 0, 40);
     import('three/addons/environments/RoomEnvironment.js').then(({ RoomEnvironment }) => { const pm = new THREE.PMREMGenerator(r); this.ui.scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; this.ui.scene.environmentIntensity = 0.8; });
 
+    // the pixel look: art rows (see the header); MSAA inside the art buffer keeps edges stable while things move
+    const pxq = art('px'); this.artRows = pxq === null ? 320 : Math.max(0, pxq); this.pixelOn = this.artRows > 0; this.snapOn = art('snap') !== 0;
     const size = r.getDrawingBufferSize(new THREE.Vector2());
-    const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: this.testMode ? 0 : 4 });
-    this.composer = new EffectComposer(r, rt);
+    const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: this.testMode && !this.pixelOn ? 0 : 4 });
+    this.composer = new EffectComposer(r, rt); this.composer.renderToScreen = !this.pixelOn;
+    this.upMat = new THREE.ShaderMaterial({ ...UpscaleShader, uniforms: THREE.UniformsUtils.clone(UpscaleShader.uniforms), depthTest: false, depthWrite: false });
+    this.upScene = new THREE.Scene(); { const m = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.upMat); m.frustumCulled = false; this.upScene.add(m); }
+    this.upCam = new THREE.Camera(); this._snapOff = new THREE.Vector2(); this._snapD = new THREE.Vector3();
     this.renderPass = new RenderPass(this.world.scene, this.world.camera);
     this.composer.addPass(this.renderPass);
     // ground-truth AO (as in R.O.O.M.): contact shadows under feet, in roots, folds and ruins
@@ -243,7 +266,7 @@ export class Engine {
     this.gtao.enabled = this.aoForced || this.fullFx || !this.testMode;
     // anime/cartoon black ink lines on the 3D world
     this.inkForced = new URLSearchParams(location.search).get('ink') === '1';
-    this.ink = new InkPass(this.world.scene, this.world.camera, size.x, size.y); this.ink.u.uThick.value = Math.max(0.75, this.pixelRatio * 0.55); this.composer.addPass(this.ink); // thin: about 1 screen px
+    this.ink = new InkPass(this.world.scene, this.world.camera, size.x, size.y); this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.75, this.pixelRatio * 0.55); this.composer.addPass(this.ink); // thin: one art pixel
     this.mblur = new ShaderPass(MotionBlurShader); this.composer.addPass(this.mblur); this._prevVP = new THREE.Matrix4(); this._vp = new THREE.Matrix4(); this._mbPos = new THREE.Vector3(); this._mbInit = false; this.motionBlur = 0.32; // subtle camera motion blur
     this.rays = new ShaderPass(RaysShader); this.rays.enabled = false; this.composer.addPass(this.rays);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.55, 0.55, 0.82);
@@ -258,6 +281,10 @@ export class Engine {
     this.wipeScene = new THREE.Scene(); this.wipeCam = new THREE.Camera();
     this.wipeMat = new THREE.ShaderMaterial({ ...WipeShader, uniforms: THREE.UniformsUtils.clone(WipeShader.uniforms), depthTest: false, depthWrite: false, transparent: true });
     const wq = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.wipeMat); wq.frustumCulled = false; this.wipeScene.add(wq);
+    // pixel look: the transition paints into its own art-resolution layer (premultiplied), upscaled on top of the UI
+    this.wipeRT = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType });
+    this.wipeUpMat = new THREE.ShaderMaterial({ ...UpscaleShader, uniforms: THREE.UniformsUtils.clone(UpscaleShader.uniforms), depthTest: false, depthWrite: false, transparent: true, blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneMinusSrcAlphaFactor });
+    this.wipeUpScene = new THREE.Scene(); { const m = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.wipeUpMat); m.frustumCulled = false; this.wipeUpScene.add(m); }
 
     this.updaters = new Set(); this.time = 0; this.dt = 0; this.frame = 0;
     this.trauma = 0; this.shakeOffset = new THREE.Vector3(); this.hitStopT = 0; this.timeScale = 1;
@@ -269,7 +296,7 @@ export class Engine {
 
   setQuality(q) {
     this.quality = q;
-    this.pixelRatio = hiRes(q); if (this.ink) this.ink.u.uThick.value = Math.max(0.75, this.pixelRatio * 0.55);
+    this.pixelRatio = hiRes(q); if (this.ink) this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.75, this.pixelRatio * 0.55);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.shadowMap.enabled = q !== 'low'; // low quality: no shadow maps / GTAO; contact shadows and vertex AO still ground everything
     if (this.gtao) { this.gtao.enabled = this.aoForced || (q !== 'low' && this.fx?.ao !== false); this.gtao.updateGtaoMaterial({ samples: q === 'high' ? 16 : 8 }); this.gtao.updatePdMaterial({ samples: q === 'high' ? 12 : 6 }); }
@@ -279,11 +306,22 @@ export class Engine {
   resize() {
     const w = innerWidth, h = innerHeight;
     this.renderer.setSize(w, h, false);
-    this.composer.setPixelRatio(this.pixelRatio);
-    this.composer.setSize(w, h);
     const db = this.renderer.getDrawingBufferSize(new THREE.Vector2());
-    this.tiltH.uniforms.uRes.value.copy(db); this.tiltV.uniforms.uRes.value.copy(db);
-    this.grade.uniforms.uRes.value.copy(db);
+    if (this.pixelOn) {
+      // one art pixel = an integer block of SCREEN pixels (so every block is the same size); in drawing-buffer pixels
+      // that block is block * (buffer px per screen px). The art frame is centred, cropping under one block per side.
+      const dpr = window.devicePixelRatio || 1, bpp = db.y / Math.max(1, h * dpr); const blockS = Math.max(1, Math.round((h * dpr) / this.artRows)); const block = blockS * bpp;
+      const aw = Math.ceil(db.x / block), ah = Math.ceil(db.y / block);
+      Object.assign(ART, { on: true, rows: ah, w: aw, h: ah, k: ah / db.y, block }); ART.pointK.value = ah / db.y;
+      this.composer.setPixelRatio(1); this.composer.setSize(aw, ah); this.wipeRT.setSize(aw, ah);
+      for (const m of [this.upMat, this.wipeUpMat]) { const u = m.uniforms; u.uArt.value.set(aw, ah); u.uBlock.value = block; u.uPad.value.set((aw * block - db.x) / 2, (ah * block - db.y) / 2); }
+      this.artSize = new THREE.Vector2(aw, ah);
+    } else {
+      Object.assign(ART, { on: false, rows: db.y, w: db.x, h: db.y, k: 1, block: 1 }); ART.pointK.value = 1;
+      this.composer.setPixelRatio(this.pixelRatio); this.composer.setSize(w, h); this.artSize = db.clone();
+    }
+    this.tiltH.uniforms.uRes.value.copy(this.artSize); this.tiltV.uniforms.uRes.value.copy(this.artSize);
+    this.grade.uniforms.uRes.value.copy(this.artSize);
     this.wipeMat.uniforms.uAspect.value = w / h;
     this.aspect = w / h;
     if (this.world.camera.isPerspectiveCamera) { this.world.camera.aspect = this.aspect; this.world.camera.updateProjectionMatrix(); }
@@ -381,18 +419,39 @@ export class Engine {
     this.shakeOffset.set(Math.sin(t * 1.1) * 0.35 * s, Math.sin(t * 1.7 + 2) * 0.28 * s, 0);
     cam.position.add(this.shakeOffset);
     const rz = cam.rotation.z; cam.rotation.z += Math.sin(t * 0.9 + 4) * 0.02 * s;
-    this.grade.uniforms.uTime.value = this.time;
+    this.grade.uniforms.uTime.value = this.pixelOn ? 0 : this.time; // pixel look: the faint grain holds still (no crawling pixels)
     if (this.rays.enabled && this.raysPos) { const p = this._sunP || (this._sunP = new THREE.Vector3()); p.copy(this.raysPos).project(cam); const u = this.rays.uniforms; u.uSun.value.set(p.x * 0.5 + 0.5, p.y * 0.5 + 0.5); u.uAspect.value = this.aspect; u.uFade.value = p.z > 1 ? 0 : 1 - Math.min(1, Math.max(0, Math.max(Math.abs(p.x), Math.abs(p.y)) - 1.1) / 0.8); }
     // motion blur: this frame's inverse view-projection against last frame's (the shake is part of the motion)
     if (this.mblur) { const mu = this.mblur.uniforms; cam.updateMatrixWorld(); this._vp.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); if (!this._mbInit || this._mbCam !== cam || cam.position.distanceTo(this._mbPos) > 1.2) { this._prevVP.copy(this._vp); this._mbInit = true; this._mbCam = cam; } this._mbPos.copy(cam.position); // (a hard cut is not motion)
       mu.uInvVP.value.copy(this._vp).invert(); mu.uPrevVP.value.copy(this._prevVP); const dep = this.ink?.enabled ? this.ink.rt?.depthTexture : null; mu.tDepth.value = dep; mu.uHasDepth.value = dep ? 1 : 0; mu.uStrength.value = (this.motionBlur ?? 0.32) * Math.min(1, (1 / 60) / Math.max(1 / 240, rdt)); this.mblur.enabled = this.motionBlur > 0; }
+    const snapped = this.pixelOn ? this._snap(cam) : null;
     this.renderer.setRenderTarget(null);
     this.renderer.clear();
     this.composer.render(rdt);
+    if (this.pixelOn) { const u = this.upMat.uniforms; u.tArt.value = this.composer.readBuffer.texture; u.uOff.value.copy(this._snapOff); this.renderer.setRenderTarget(null); this.renderer.render(this.upScene, this.upCam); }
     if (this.mblur) this._prevVP.copy(this._vp);
+    if (snapped) cam.position.sub(this._snapD);
     cam.position.sub(this.shakeOffset); cam.rotation.z = rz;
     if (this.uiVisible) { this.renderer.clearDepth(); this.renderer.render(this.ui.scene, this.ui.camera); }
-    if (this.wipeActive) { const wu = this.wipeMat.uniforms; wu.uTime.value = this.time; this.renderer.getDrawingBufferSize(wu.uRes.value); this.renderer.clearDepth(); this.renderer.render(this.wipeScene, this.wipeCam); }
+    if (this.wipeActive) {
+      const wu = this.wipeMat.uniforms; wu.uTime.value = this.time;
+      if (this.pixelOn) { wu.uRes.value.copy(this.artSize); const cc = this.renderer.getClearAlpha(); this._cc ??= new THREE.Color(); this.renderer.getClearColor(this._cc); this.renderer.setRenderTarget(this.wipeRT); this.renderer.setClearColor(0x000000, 0); this.renderer.clear(); this.renderer.render(this.wipeScene, this.wipeCam); this.renderer.setClearColor(this._cc, cc);
+        this.renderer.setRenderTarget(null); const u = this.wipeUpMat.uniforms; u.tArt.value = this.wipeRT.texture; u.uOff.value.set(0, 0); this.renderer.render(this.wipeUpScene, this.upCam); }
+      else { this.renderer.getDrawingBufferSize(wu.uRes.value); this.renderer.clearDepth(); this.renderer.render(this.wipeScene, this.wipeCam); }
+    }
+  }
+
+  /** pixel look: snap the camera to the art-pixel grid at its focus depth (where its view meets the ground, or 14 m);
+   *  the sub-pixel remainder becomes the upscale's smooth offset, so the world never crawls under a drifting camera */
+  _snap(cam) {
+    this._snapOff.set(0, 0); if (!this.snapOn || !cam.isPerspectiveCamera) return false;
+    cam.updateMatrixWorld(); const e = cam.matrixWorld.elements; const fy = -e[9]; const pos = cam.position;
+    const D = fy < -0.04 ? Math.min(60, Math.max(4, -(pos.y) / fy)) : 14;
+    const wpp = (2 * D * Math.tan((cam.fov * Math.PI) / 360)) / (cam.zoom || 1) / Math.max(1, ART.h); if (!(wpp > 1e-5)) return false;
+    const px = (pos.x * e[0] + pos.y * e[1] + pos.z * e[2]) / wpp, py = (pos.x * e[4] + pos.y * e[5] + pos.z * e[6]) / wpp;
+    const dx = Math.round(px) - px, dy = Math.round(py) - py;
+    this._snapD.set(e[0] * dx + e[4] * dy, e[1] * dx + e[5] * dy, e[2] * dx + e[6] * dy).multiplyScalar(wpp); pos.add(this._snapD); cam.updateMatrixWorld();
+    this._snapOff.set(dx, dy); return true;
   }
 
   // project a world position to UI plane coordinates (z=0)

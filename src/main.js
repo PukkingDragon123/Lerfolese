@@ -79,9 +79,9 @@ class Game {
     if (this.scene) return this.swap(async () => { this.scene = new MenuScene(this); await this.scene.enter(opts); }, { style: 'galaxy', ...(opts.wipe || {}) });
     this.scene = new MenuScene(this); await this.scene.enter(opts);
   }
-  async newRun() {
+  async newRun(opts = {}) { // opts.start: the constellation chosen in the tower menu's astral select (game/run.js STARTS)
     if (!this.journal.seenPrologue) { await this.playPrologue(); return; } // story agent: the prologue plays once, on the first New Run, and ends in the tower-top menu (New Adventure then starts the run)
-    save.clearRun(); this.run = newRun(); this.journal.loops++; this.saveJournal();
+    save.clearRun(); this.run = newRun(undefined, { start: opts.start || null }); this.journal.loops++; this.saveJournal();
     await this.toMap(true, 'galaxy');
   }
   /** the prologue (src/scenes/prologue.js); { replay: true } from the gallery */

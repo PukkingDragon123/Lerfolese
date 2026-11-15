@@ -13,6 +13,7 @@ import { Kit } from './village.js';
 import { telescope } from './orchard.js';
 import { toonModel } from './realworld.js';
 import { mulberry32 } from '../core/util.js';
+import { ART } from '../core/art.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const C = (h) => new THREE.Color(h);
@@ -172,7 +173,7 @@ export function buildLibrary({ seed = 7 } = {}) {
   const motes = (() => { const P = [], S = []; for (let i = 0; i < 360; i++) { const s = shafts[i % shafts.length]; const k = r(); const p = s.from.clone().lerp(s.to, k).add(V((r() - 0.5) * 0.9, (r() - 0.5) * 0.4, (r() - 0.5) * 0.9)); P.push(p.x, p.y, p.z); S.push(r() * 10); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('aS', new THREE.Float32BufferAttribute(S, 1));
     const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uTime: T.WIND.time, uPx: { value: 1 } }, vertexShader: 'attribute float aS; uniform float uTime, uPx; varying float vA; void main(){ vec3 p = position + vec3(sin(uTime * 0.3 + aS) * 0.25, sin(uTime * 0.2 + aS * 2.0) * 0.15, cos(uTime * 0.25 + aS) * 0.25); vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv; vA = 0.5 + 0.5 * sin(uTime * 1.3 + aS * 7.0); gl_PointSize = max(1.0, 0.03 * uPx / -mv.z); }', fragmentShader: 'varying float vA; void main(){ vec2 q = gl_PointCoord - 0.5; if (length(q) > 0.5) discard; gl_FragColor = vec4(vec3(1.0, 0.92, 0.75) * vA * 0.7, 1.0); }' });
-    const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.onBeforeRender = (rd) => { T.tickWind(); m.uniforms.uPx.value = rd.domElement.height * 0.9; }; return pts; })(); G.add(motes);
+    const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.onBeforeRender = (rd) => { T.tickWind(); m.uniforms.uPx.value = rd.domElement.height * ART.k * 0.9; }; return pts; })(); G.add(motes);
   K.build(G); G.add(books.build()); G.add(LP.fuse(CASE.wood, LP.TEXM.walnut, 2.2)); G.add(LP.fuse(CASE.back, LP.stdM({ color: C('#24160e'), roughness: 0.9 })));
   // light: warm and bright; fire and lamps as keys, a soft sky fill, moonlight through the windows
   G.add(new THREE.HemisphereLight(0xfff0e0, 0x5a4a40, 1.6)); G.add(new THREE.AmbientLight(0xfff0e0, 0.55));

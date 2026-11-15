@@ -24,7 +24,16 @@ const InkShader = {
       if (d1 > d0) eD = max(eD, smoothstep(uDepthK, uDepthK * 2.2, (d1 - d0) / max(near, 0.5)));
       if (d0 < 1e3 && d1 < 1e3) eN = max(eN, smoothstep(uNormalK, uNormalK + 0.25, 1.0 - dot(n0, nrm(vUv + o[i]))));
     }
-    float e = max(eD, eN * 0.85) * (1.0 - smoothstep(uFade.x, uFade.y, d0)) * uStrength;
+    // thin features (twigs, rope, a wand: one or two pixels across at the art resolution) would be inked solid black by
+    // the nearer-side rule; when the far side is reached within two pixels on both sides, keep the feature's colour
+    float k0 = max(d0, 0.5); float th = 0.0;
+    { bool l1 = vz(vUv - vec2(px.x, 0.0)) - d0 > uDepthK * 2.2 * k0, r1 = vz(vUv + vec2(px.x, 0.0)) - d0 > uDepthK * 2.2 * k0;
+      bool l2 = vz(vUv - vec2(px.x * 2.0, 0.0)) - d0 > uDepthK * 2.2 * k0, r2 = vz(vUv + vec2(px.x * 2.0, 0.0)) - d0 > uDepthK * 2.2 * k0;
+      bool u1 = vz(vUv + vec2(0.0, px.y)) - d0 > uDepthK * 2.2 * k0, b1 = vz(vUv - vec2(0.0, px.y)) - d0 > uDepthK * 2.2 * k0;
+      bool u2 = vz(vUv + vec2(0.0, px.y * 2.0)) - d0 > uDepthK * 2.2 * k0, b2 = vz(vUv - vec2(0.0, px.y * 2.0)) - d0 > uDepthK * 2.2 * k0;
+      if ((l1 && (r1 || r2)) || (r1 && l2) || (u1 && (b1 || b2)) || (b1 && u2)) th = 1.0; }
+    eD *= 1.0 - th * 0.75;
+    float e = max(eD, eN * 0.85 * (1.0 - th)) * (1.0 - smoothstep(uFade.x, uFade.y, d0)) * uStrength;
     gl_FragColor = vec4(mix(col.rgb, uInk, clamp(e, 0.0, 1.0)), col.a);
   }`,
 };

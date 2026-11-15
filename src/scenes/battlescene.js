@@ -18,7 +18,7 @@ import { HandView, cardBackTex } from '../ui3d/cards3d.js';
 import { Pile } from '../ui3d/kit.js';
 import { hud, BattleHUD, chapterTitle } from '../ui3d/hud.js';
 import { FloatNumbers, FloatSpeech, FloatText } from '../ui3d/floatlabel.js';
-import { CloudTip } from '../ui3d/instruments.js';
+import { PlateTip } from '../ui3d/instruments.js'; // battle tooltips sit on brass-and-ivory plates (no clouds in battle)
 import { Flex } from '../gfx/ragdoll.js';
 import { ShotCam, Prepare, dilemmaScene, dilemmaReply, chooseCards, Tutorial } from './battlecine.js';
 import { uiRig } from '../ui3d/craft.js';
@@ -35,6 +35,7 @@ import { ITEMS } from '../game/data/items.js';
 import { foeNature } from '../game/data/synergy.js';
 import { IntentLayer } from './intents.js';
 import { battleIntro } from './cinematic.js';
+import { HeatLayer, heatFx, heatPreviewLine } from '../ui3d/heat.js'; // APPLE HEAT gauge + glowing apples (rules agent)
 
 const THEME = { satyr: 'meadow', medusa: 'garden', kobalos: 'gully', minotaur: 'labyrinth', minotaur_king: 'labyrinth', hydra: 'marsh', hydra_elder: 'marsh' };
 const PLAYER_BARKS = {
@@ -62,6 +63,7 @@ export class BattleScene {
     this.engine.setWorld(this.scene, this.camera);
     this.engine.setFx({ rays: this.stage?.sunPos ? { pos: this.stage.sunPos, strength: 0.22, thresh: 0.86, decay: 0.955, density: 0.85, tint: 0xffc890 } : null, exposure: EXPOSURE.battle, bloom: [0.22, 0.5, 0.9], tilt: false, ao: 1.15, grade: GRADE_BATTLE });
     this.handler = this.input.push(this.makeInput());
+    this.heatUI = new HeatLayer(this); // APPLE HEAT (rules agent): the thermometer (click = vent) and the apples' glow
     this.engine.add(this);
     const kind = encounter.kind; audio.playMusic(kind === 'guardian' || encounter.boss ? 'boss' : kind === 'elite' ? 'elite' : vpick(['battle', 'battle2']));
     audio.setAmbSet(this.theme === 'marsh' ? ['wilderness', 'stream'] : ['wilderness']);
@@ -153,7 +155,7 @@ export class BattleScene {
     this.drawPile = new Pile('DRAW', cardBackTex()); this.discardPile = new Pile('USED', cardBackTex()); ui.root.add(this.drawPile.group, this.discardPile.group);
     hud.attach(this.engine, this.input); hud.clear();
     const enc = this.encounter; this.hudB = new BattleHUD({ floor: (this.runData.stats.floors || 0) + 1, kind: enc.kind, onEnd: () => this.endTurn() });
-    this.tooltip = new CloudTip({ maxW: 13 }); this.preview = new CloudTip({ maxW: 12 });
+    this.tooltip = new PlateTip({ maxW: 13 }); this.preview = new PlateTip({ maxW: 12 });
     this.barks = []; this.numbers = new FloatNumbers(ui.scene);
     this.layoutUI(); this.onResize = () => this.layoutUI();
   }
@@ -299,12 +301,14 @@ export class BattleScene {
     const lines = this.previewLines(d.slot, tgt);
     if (lines) this.preview.show(lines, clamp(p.x + 5.2, -this.ui.W + 4, this.ui.W - 4), clamp(p.y + 2.2, -this.ui.H + 2, this.ui.H - 1.5), 10); else this.preview.hide();
   }
-  previewLines(slotV, tgt) {
+  // APPLE HEAT (rules agent): the drop preview gains a line when the drop would heat / cool the apple (or overheat it)
+  previewLines(slotV, tgt) { this._heatPv = null; const L = this.previewLinesBase(slotV, tgt); if (L && this._heatPv) L.push(heatPreviewLine(this._heatPv)); return L; }
+  previewLinesBase(slotV, tgt) {
     const B = this.battle; const s = slotV.slot;
     if (!tgt) { const mv = B.moveOf(s); if (!mv) return null; return [[[mv.name, '#3a2410']], [[!B.manifestBlock(s) ? 'Drop it on the field to PLACE it, or on Newton' : B.held.length ? 'Drop it on an object to MERGE it, or on Newton' : 'Place Matter first, or drop it on Newton', '#8a6a44']]]; }
     tgt = this.resolveDrop(slotV, tgt); if (tgt?.type === 'none') return [[[tgt.text, '#8f2a2e']]];
     if (tgt.type === 'combine') { const tmp = { uid: 'x', cards: [...tgt.slot.slot.cards, ...s.cards] }; if (tmp.cards.some((c) => c.type === 'power')) return [[['Laws do not combine', '#8f2a2e']]]; const mv = B.moveOf(tmp); const a = mv.attack; return [[['COMBINE → ', '#8f2a2e'], [mv.name, '#3a2410']], [[a.perHit ? `${a.m}kg × ${a.v}m/s = ${a.perHit}${a.hits > 1 ? ' ×' + a.hits : ''}` : describeSelf(mv.self).slice(0, 2).join(', '), '#2a160c']]]; }
-    const pv = B.preview(s.uid, tgt);
+    const pv = B.preview(s.uid, tgt); if (pv.ok) this._heatPv = pv.heat || null;
     if (pv.kind === 'power') return [[[pv.text, pv.ok ? '#2a160c' : '#8f2a2e']]];
     if (!pv.ok) return [[[pv.text || 'No effect', '#8f2a2e']]];
     const mv = pv.move;
@@ -414,7 +418,9 @@ export class BattleScene {
       magic: () => G.burst(n, () => ({ pos: [x, y, z], vel: [vrange(-3, 3), vrange(-1, 4), vrange(-1, 1)], life: vrange(0.6, 1.2), size: vrange(26, 48), color: vpick(['#b48cff', '#8fe3ff', '#e8fbff']), sprite: vpick(['star4', 'spark2']), drag: 1.5 })),
       heal: () => G.burst(n, () => ({ pos: [x + vrange(-0.6, 0.6), y - 0.5, z], vel: [0, vrange(1.5, 3), 0], life: vrange(0.8, 1.4), size: vrange(30, 46), color: vpick(['#9cb84a', '#cfe07a', '#ffffff']), sprite: vpick(['heart', 'star4']) })),
       block: () => G.burst(n, () => ({ pos: [x, y, z], vel: [vrange(-2, 2), vrange(0, 3), vrange(-1, 1)], life: vrange(0.5, 0.9), size: vrange(26, 40), color: vpick(['#6fb7d6', '#e3f6fb']), sprite: 'spark2', drag: 2 })),
-      smoke: () => P.burst(n, () => ({ pos: [x, y, z], vel: [vrange(-1.5, 1.5), vrange(0.5, 2), vrange(-1, 1)], life: vrange(0.6, 1.1), size: vrange(14, 24), size1: 34, color: '#cfc4bc', alpha: 0.7, sprite: 'smoke', drag: 2 })),
+      // (no cloud puffs in battle) a physical burst: real 3D grit thrown out and a low skirt of earthy dust that settles
+      smoke: () => { this.fx3d?.debris?.burst('stone', new THREE.Vector3(x, y, z), Math.ceil(n * 0.45), Math.random() < 0.5 ? 1 : -1, 0.55);
+        P.burst(n, () => ({ pos: [x + vrange(-0.3, 0.3), Math.max(0.08, y - 0.4), z + vrange(-0.2, 0.2)], vel: [vrange(-1.8, 1.8), vrange(0.1, 0.7), vrange(-0.8, 0.8)], life: vrange(0.45, 0.8), size: vrange(8, 14), size1: 16, color: vpick(['#9a8466', '#7e6a52', '#b49c7c']), alpha: 0.55, sprite: 'chip', drag: 3.2, grav: 1.4, floor: 0.04 })); },
     };
     (sets[kind] || sets.magic)();
   }
@@ -423,6 +429,7 @@ export class BattleScene {
     const S = this; const W = () => S.ui.W, H = () => S.ui.H;
     return {
       ...heldFx(S),
+      ...heatFx(S), // APPLE HEAT hooks (rules agent): heat, overheat, vented, burnt, quench
       // a blow lands: the foe lunges (the camera has already cut to it in enemyAct)
       async blow(e, h, it, dmg) {
         const v = S.enemyViews.get(e.uid); if (!v) return; if (h > 0) { v.api.act('attack'); if (!it?.charge) await S.fx3d.lunge(v.api.root, S.enemySlotPos(e), S.prof.root.position.x); else await tweens.wait(0.15); }
@@ -597,7 +604,7 @@ export class BattleScene {
 
   dispose() {
     this.input.remove(this.handler); this.engine.remove(this); this.prepT?.dispose(); this.tut?.dispose(); for (const b of this.barks || []) b.note.dispose(); this.camera.fov = this.baseFov;
-    this.ui.scene.remove(this.ui.root); this.hudB.dispose(); this.tooltip.dispose(); this.preview.dispose(); hud.clear(); for (const [, v] of this.hand.views) this.ui.scene.remove(v.group);
+    this.ui.scene.remove(this.ui.root); this.heatUI?.dispose(); this.heatUI = null; this.hudB.dispose(); this.tooltip.dispose(); this.preview.dispose(); hud.clear(); for (const [, v] of this.hand.views) this.ui.scene.remove(v.group);
     this.numbers.clear(); this.battle = null;
   }
 }

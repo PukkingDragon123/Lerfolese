@@ -280,7 +280,7 @@ export function discoveryPick(S, mv, opts, calc = null) {
 // ---- the arithmetic, as ink: base m×v, every multiplier on its own line (green synergy, red anti-synergy, gold
 // artifact, purple Law, blue odds), then the result. Shared by the card view, the hover note and the drop preview.
 export const fmtMul = (k) => { const r = Math.round(k * 100) / 100; return Number.isInteger(r) ? String(r) : String(r).replace(/^0\./, '.').replace(/(\.\d\d)\d+$/, '$1'); };
-const KCOL = { base: '#2a160c', syn: '#2e6a1e', anti: '#9e2218', art: '#7a4a14', law: '#6a1a6a', named: '#3e2a6a', foe: '#1e4a6a', odds: '#1e3a7a', note: '#5a3622', total: '#2a160c' };
+const KCOL = { base: '#2a160c', syn: '#2e6a1e', anti: '#9e2218', art: '#7a4a14', law: '#6a1a6a', named: '#3e2a6a', heat: '#b8401a', foe: '#1e4a6a', odds: '#1e3a7a', note: '#5a3622', total: '#2a160c' };
 export function mathLines(lines, maxW = 15, max = 9) {
   const out = []; const maxT = Math.round(maxW * PXP) - 30; let n = 0;
   for (const l of lines || []) {

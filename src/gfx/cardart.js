@@ -154,13 +154,14 @@ const ICONS = {
   zap: ['....kkk..', '...kyyk..', '..kyyk...', '.kyyykk..', '.kkkyyk..', '...kyk...', '..kyk....', '..kk.....', '.........'],
   burn: ['....k....', '...kok...', '..kook.k.', '..koookok', '.kooyook.', '.koyyyok.', '.koyyyok.', '..kooook.', '...kkkk..'],
   launch: ['....kkkkk', '.....kwwk', '....kwwwk', '...kwwkwk', '..kwwk.kk', '.kwwk....', 'kwwk.....', 'kkk......', '.........'],
+  heat: ['...kkk...', '...kwk...', '...kok...', '...krk...', '...krk...', '..kkrkk..', '.krrorrk.', '.krohork.', '..kkkkk..'], // apple Heat: a little thermometer (rules agent)
   thorn: ['....k....', '...kgk...', 'k..kgk..k', 'kk.kgk.kk', '.kkgggkk.', '..kgggk..', '.kkgggkk.', 'kk.kgk.kk', 'k...k...k'],
 };
 const IPAL = { k: '#1a0c14', w: '#d8d4dc', h: '#ffffff', d: '#8a8690', b: '#5aa8e8', y: '#ffd848', r: '#d8283a', p: '#f2e6c8', g: '#58a838', o: '#ff8a2a' };
 function drawIcon(g, name, x, y, k) { const I = ICONS[name]; if (!I) return 0; for (let j = 0; j < 9; j++) for (let i = 0; i < 9; i++) { const c = IPAL[I[j][i]]; if (c) { g.fillStyle = c; g.fillRect(x + i * k, y + j * k, k, k); } } return 10 * k; }
 const tokens = (l) => String(l).split(/(\{[a-z]+\})/).filter(Boolean);
 function lineW(l, k) { return tokens(l).reduce((w, t) => w + (/^\{[a-z]+\}$/.test(t) && ICONS[t.slice(1, -1)] ? 10 * k : measure(t, 'body') * k), 0); }
-const KEY = /^(LAUNCH(ES)?|SELF:|EAT:|MERGE:|ZAP|BURN|HIT|BLOCK|DRAW|DISCARD|DISCARDED:|THORNS|WEAK|VENOM|WET|KEPT|ALL|CARRY:|SHOVE:|FALLS:|PLACE:|DOUBLE|x\d.*)$/;
+const KEY = /^(LAUNCH(ES)?|SELF:|EAT:|MERGE:|ZAP|BURN|HIT|BLOCK|DRAW|DISCARD|DISCARDED:|THORNS|WEAK|VENOM|WET|KEPT|ALL|CARRY:|SHOVE:|FALLS:|PLACE:|DOUBLE|HEAT|VENT|QUENCH|GRAB:|x\d.*)$/;
 function drawRuleLine(g, l, cx, y, k, T) {
   const parts = tokens(l); const W = lineW(l, k); let x = Math.round(cx - W / 2);
   for (const t of parts) {
@@ -173,11 +174,14 @@ export function cardRules(def, up) {
   if (def.rules) return (up && def.upRules) || def.rules;
   const S = (k) => (up && def.up?.[k] !== undefined ? def.up[k] : def[k]); const L = [];
   if (def.kind === 'matter') L.push(`{kg} ${S('m')} kg MATTER`);
-  const md = []; if (S('dm')) md.push(`${S('dm') > 0 ? '+' : ''}${S('dm')}{kg}`); if (S('dv')) md.push(`${S('dv') > 0 ? '+' : ''}${S('dv')}{v}`); if (S('hits')) md.push(`+${S('hits')}{hit}`); if (md.length) L.push(md.join('  '));
+  const md = []; if (S('dm')) md.push(`${S('dm') > 0 ? '+' : ''}${S('dm')}{kg}`); if (S('dv')) md.push(`${S('dv') > 0 ? '+' : ''}${S('dv')}{v}`); if (S('hits')) md.push(`+${S('hits')}{hit}`);
+  const fr = S('fric'); if (fr && md.length) md.push(`${fr > 0 ? '+' : ''}${fr}{heat}`); if (md.length) L.push(md.join('  ')); // apple Heat (friction)
+  if (fr > 0 && !md.length) L.push(def.kind === 'matter' ? `GRAB: +${fr} {heat} HEAT` : `+${fr} {heat} HEAT`);
   if (def.launch) L.push('{launch} LAUNCHES');
   if (S('charge')) L.push(`{zap} ZAP ${S('charge')}`); if (S('burn')) L.push(`{burn} BURN ${S('burn')}`); if (S('focus')) L.push(`x${S('focus')} damage`); if (def.prism || def.spread) L.push('Hits ALL foes'); if (S('bounce')) L.push(`Bounces +${S('bounce')}`);
   if (S('persist')) L.push(`Again +${S('persist')} turn${S('persist') > 1 ? 's' : ''}`); if (S('weakOnHit') || S('chill')) L.push(`Foe WEAK ${S('weakOnHit') || S('chill')}`); if (S('venom')) L.push(`VENOM ${S('venom')}`); if (S('wet')) L.push(`WET ${S('wet')}`); if (S('disarm')) L.push(`Foe -${S('disarm')} STR`);
   if (def.echo) L.push('Repeats its left card'); if (def.twin) L.push('CLONES the object'); if (def.amplify) L.push('DOUBLE the next card'); if (def.resonance) L.push('x1.5 per repeat'); if (def.catalyst) L.push('Heat x2 (Water held)'); if (def.keystone) L.push(`+${def.keystone}{kg} per Stone`); if (def.domino) L.push('+20% per kind change'); if (def.lever) L.push('x2 FORCE damage'); if (S('pressure')) L.push(`+${S('pressure')}{kg} per card`); if (S('swing')) L.push(`+${S('swing')}{v} per card`); if (def.pierce) L.push('Ignores Block'); if (def.hard) L.push('Cracks Block');
   const self = []; if (S('heal')) self.push(`{heal}${S('heal')}`); if (S('block')) self.push(`{blk}${S('block')}`); if (S('draw')) self.push(`{draw}${S('draw')}`); if (S('thorns')) self.push(`{thorn}${S('thorns')}`); if (S('charged')) self.push(`{zap}+${S('charged')}`); if (S('kindle')) self.push(`{burn}+${S('kindle')}`); if (S('momentum')) self.push(`+${S('momentum')}{v} next`); if (def.retain) self.push('KEEP hand'); if (def.cleanse) self.push('cleanse');
+  if (S('selfHeat')) self.splice(1, 0, `${S('selfHeat') > 0 ? '+' : ''}${S('selfHeat')}{heat}`); // rub / cool the apple on Newton
   const head = L.slice(0, self.length ? 2 : 3); if (self.length) head.push(`${def.kind === 'matter' && S('heal') ? 'EAT:' : 'SELF:'} ${self.slice(0, 2).join(' ')}`); return head;
 }

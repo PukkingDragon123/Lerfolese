@@ -10,6 +10,7 @@ import * as T from '../models/toon.js';
 import { Note } from '../ui3d/kit.js';
 import { audio } from '../core/audio.js';
 import { mulberry32 } from '../core/util.js';
+import { ART } from '../core/art.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
@@ -37,7 +38,7 @@ function starPoints(list, { k = 1, px = 1 } = {}) { // list: [x, y, z, r, g, b, 
   const P = [], Cc = [], S = []; for (const s of list) { P.push(s[0], s[1], s[2]); Cc.push(s[3], s[4], s[5]); S.push(s[6], s[7]); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('aC', new THREE.Float32BufferAttribute(Cc, 3)); g.setAttribute('aS', new THREE.Float32BufferAttribute(S, 2));
   const m = new THREE.ShaderMaterial({ uniforms: { uTime: T.WIND.time, uK: { value: k }, uPx: { value: px } }, vertexShader: STAR_VS, fragmentShader: STAR_FS, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
-  const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.onBeforeRender = (rd) => { T.tickWind(); m.uniforms.uPx.value = rd.domElement.height / 720 * 1.4; }; return pts;
+  const pts = new THREE.Points(g, m); pts.frustumCulled = false; pts.onBeforeRender = (rd) => { T.tickWind(); m.uniforms.uPx.value = Math.max(1, rd.domElement.height * ART.k / 720 * 1.4); }; return pts;
 }
 // Isaac Newton in stars: a figure with flowing hair raising an apple; key stars, chart lines, and a silhouette of fine stars
 const ISAAC = { // head loop, flowing hair, shoulders, an arm raised to an apple (a little loop of stars), the coat, the legs

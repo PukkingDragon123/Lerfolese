@@ -9,7 +9,7 @@
 // shaded flank. Door faces local +z.
 //   const T = starTower(); scene.add(T.group); T.setOpen(0..1); T.doorFront / T.doorIn (local points); T.update(dt, t)
 import * as THREE from 'three';
-import { Kit } from './village.js';
+import { Kit, mat } from './village.js';
 import { lmat, glowMat, extrude, shape, cbox, prop, jitter } from './lowprops.js';
 import { leafTex } from '../gfx/pixeltex.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -119,79 +119,173 @@ export const gearGeo = (R, teeth, th, hub = 0.18) => { const pts = []; const n =
     const hh = []; for (let j = 0; j < 8; j++) { const a = (j / 8) * TAU; hh.push([Math.cos(a) * R * hub * 0.5, Math.sin(a) * R * hub * 0.5]); } holes.push(hh.reverse());
     return extrude(shape(pts, holes), th, 0.03); };
 
-// ================================================================ THE CLOCKWORK TOWER (the menu's hero tower, LERFOLESE)
-// A tall fantasy tower rising far above a sunset land: an octagonal shaft of pixel-textured masonry with BRASS GEARS
-// turning half-sunk in its faces (interlocking pairs counter-rotate), string courses and lamplit slit windows; four
-// FLYING BUTTRESSES leaping from outer piers to the shaft, each pier crowned with a cluster of violet CRYSTALS; a
-// corbelled crown flaring out to a crenellated terrace with a jutting PROW where Isaac stands; an ORRERY crown behind
-// him (armillary rings and faceted brass planets on arms round a gold sun gem); BANNERS hanging from the parapet that
-// ripple in the wind; CHAINS sagging from the orrery to the parapet posts; an arched stair door down into the
-// Achievement Hall. Terrace floor at y = 0, door/prow along -z (the view), tower body down to y = -BASE.
-//   const T = clockTower({ upgrades }); T.group, T.update(dt, t), T.prow (stand point), T.door (stair door, world-local)
+// ================================================================ THE SPIRAL OBSERVATORY (the menu's hero tower, LERFOLESE)
+// A tall fantasy observatory whose whole body SPIRALS: a twelve-sided shaft of pixel-textured ashlar whose faces TWIST
+// as it rises (the stone courses wind round it), a HELICAL STAIR RAMP climbing the outside on stepped corbels (treads,
+// a crenellated parapet with a marble coping, lanterns on the merlons), a raised marble STRING COURSE winding between
+// the turns, arched windows lit warm from within climbing with the stair, brass GEARS half-sunk in the masonry and a
+// great CLOCK DIAL; a corbelled, machicolated crown flaring to a crenellated terrace with a jutting balustraded PROW
+// (where Sir Isaac stands), three corbelled BARTIZANS with bell-cast tiled roofs, gold finials and pennants; on the
+// terrace an open OBSERVATORY PAVILION (eight marble columns, pointed arches) under a verdigris dome with SPIRAL gilt
+// ribs, a lamplit lantern drum, a TWISTED copper spire and an ORRERY CROWN (armillary rings and planets on arms round
+// it); BANNERS ripple from the parapet, IVY climbs the shaded flank, a lamplit gate opens at the foot.
+// Terrace floor at y = 0; the shaft goes down to y = -BASE (the town's ground). Angles: dirOf(a) = (sin a, 0, cos a).
+//   const T = clockTower({ upgrades, base, prowA, viewA }); T.group, T.update(dt, t), T.prow / T.door (local points)
+//   prowA: the side the prow juts toward; viewA: the side the camera sees (the clock and the gate face it)
 //   upgrades (Set of 'tower:*' ids from the hall): banners_royal, crystals_lit, orrery_gold, gears_gilded, lanterns
-export function clockTower({ seed = 11, upgrades = new Set(), base = 62 } = {}) {
-  const G = new THREE.Group(); G.name = 'clockTower'; const K = new Kit(); const r = mulberry32(seed); const BASE = base;
-  const AP0 = 3.5, AP1 = 2.9, YT = -3.2; const apS = (y) => AP0 + (AP1 - AP0) * Math.max(0, Math.min(1, (y + BASE) / (BASE + YT)));
-  const gears = []; const spinners = [];
-  // ---------------------------------------------------------------- shaft, plinth, string courses, slit windows
-  K.add('stone', oct([[0.001, -BASE - 2], [AP0 + 1.2, -BASE - 2], [AP0 + 1.2, -BASE + 0.6], [AP0 + 0.8, -BASE + 1.2], [AP0, -BASE + 1.6]]), V());
-  K.add('stone', oct([[AP0, -BASE + 1.6], [AP1, YT]]), V());
-  for (let y = -BASE + 9; y < YT - 2; y += 8.5) { const a = apS(y); K.add('marble', oct([[a - 0.02, y], [a + 0.18, y + 0.08], [a + 0.18, y + 0.3], [a - 0.02, y + 0.38]]), V()); }
-  const lit = [], darkW = []; const glass = new THREE.ShapeGeometry(shape(archPts(0.42, 1.1)), 1); const fr = extrude(shape(archPts(0.7, 1.36), [archPts(0.42, 1.1).map(([x, y]) => [x, y + 0.08])]), 0.16, 0.02);
-  for (let k = 0; k < 18; k++) { const i = k % N, y = -BASE + 5 + k * 3.1 + r() * 1.2; if (y > YT - 2.5) break; const o = apS(y + 0.5); const a = face(i) + (i % 2 ? 0 : 0.0); const E = new THREE.Euler(0, a, 0); const p = dirOf(a).multiplyScalar(o + 0.06); p.y = y;
-    K.add('marble', fr, p.clone().add(V(0, -0.08, 0)), E); const gp = dirOf(a).multiplyScalar(o + 0.03); gp.y = y; (r() < 0.7 ? lit : darkW).push(glass.clone().applyMatrix4(new THREE.Matrix4().compose(gp, new THREE.Quaternion().setFromEuler(E), V(1, 1, 1)))); }
-  { const gl = new THREE.Mesh(mergeGeometries(lit), glowMat(upgrades.has('tower:lanterns') ? '#ffc86a' : '#ff9a3a', upgrades.has('tower:lanterns') ? 1.6 : 1.1)); gl.userData.noAO = true; G.add(gl); const dk = new THREE.Mesh(mergeGeometries(darkW), lmat('glass', { color: 0x262c3c })); G.add(dk); }
-  // ---------------------------------------------------------------- brass gears half-sunk in the masonry (pairs mesh and counter-rotate)
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const lat = (pts, sides, phi0 = 0, phiLen = TAU) => new THREE.LatheGeometry(pts.map(([a, b]) => new THREE.Vector2(Math.max(0.001, a), b)), sides, phi0, phiLen);
 
+/** a twisted n-gon prism: its faces turn by `tw` radians per unit of height; apothem ap(y); UVs run along the faces */
+function twistPrism(n, y0, y1, ap, tw, seg = 0.55, uvs = 0.9) {
+  const rows = Math.max(2, Math.ceil((y1 - y0) / seg)); const pos = [], uv = []; const k = 1 / Math.cos(Math.PI / n);
+  const P = (i, y) => { const a = (i / n) * TAU + tw * (y - y0); const R = ap(y) * k; return [Math.sin(a) * R, y, Math.cos(a) * R]; };
+  for (let j = 0; j < rows; j++) { const ya = y0 + (y1 - y0) * (j / rows), yb = y0 + (y1 - y0) * ((j + 1) / rows);
+    for (let i = 0; i < n; i++) { const A = P(i, ya), B = P(i + 1, ya), C = P(i + 1, yb), D = P(i, yb); const w = 2 * ap(ya) * Math.tan(Math.PI / n);
+      pos.push(...A, ...B, ...C, ...A, ...C, ...D); const u0 = i * w * uvs, u1 = (i + 1) * w * uvs, v0 = ya * uvs, v1 = yb * uvs; uv.push(u0, v0, u1, v0, u1, v1, u0, v0, u1, v1, u0, v1); } }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); return g;
+}
+/** sweep a closed (out, up) profile (counter-clockwise) along a helix: angle phi0 + t * turns * TAU, height y0..y1, radius rr(y) + out */
+function helixSweep({ phi0 = 0, turns = 1, y0, y1, rr, prof, n = 200, uvs = 0.9, cx = 0, cz = 0 }) {
+  const pos = [], uv = []; const L = prof.length; const dir = Math.sign(turns) || 1;
+  const P = (t, [px, py]) => { const a = phi0 + t * turns * TAU, y = y0 + (y1 - y0) * t, R = rr(y) + px; return [cx + Math.sin(a) * R, y + py, cz + Math.cos(a) * R]; };
+  const pl = [0]; for (let k = 0; k < L; k++) { const a = prof[k], b = prof[(k + 1) % L]; pl.push(pl[k] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
+  const arcs = [0]; for (let i = 0; i < n; i++) { const p0 = P(i / n, [0, 0]), p1 = P((i + 1) / n, [0, 0]); arcs.push(arcs[i] + Math.hypot(p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])); }
+  for (let i = 0; i < n; i++) { const t0 = i / n, t1 = (i + 1) / n;
+    for (let k = 0; k < L; k++) { const a = prof[k], b = prof[(k + 1) % L]; const A = P(t0, a), B = P(t0, b), C = P(t1, b), D = P(t1, a);
+      const u0 = arcs[i] * uvs, u1 = arcs[i + 1] * uvs, v0 = pl[k] * uvs, v1 = pl[k + 1] * uvs;
+      if (dir > 0) { pos.push(...A, ...C, ...B, ...A, ...D, ...C); uv.push(u0, v0, u1, v1, u0, v1, u0, v0, u1, v0, u1, v1); }
+      else { pos.push(...A, ...B, ...C, ...A, ...C, ...D); uv.push(u0, v0, u0, v1, u1, v1, u0, v0, u1, v1, u1, v0); } } }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); return g;
+}
+/** a pointed (lancet) arch outline, base at y = 0, half-width w, springing at h1, apex at h2 */
+const lancetPts = (w, h1, h2, seg = 7) => { const pts = [[-w, 0], [w, 0], [w, h1]]; for (let i = 1; i < seg; i++) { const s = i / seg; pts.push([w * Math.pow(Math.cos(s * Math.PI / 2), 0.75), h1 + (h2 - h1) * Math.sin(s * Math.PI / 2)]); } pts.push([0, h2]);
+  for (let i = seg - 1; i >= 1; i--) { const s = i / seg; pts.push([-w * Math.pow(Math.cos(s * Math.PI / 2), 0.75), h1 + (h2 - h1) * Math.sin(s * Math.PI / 2)]); } pts.push([-w, h1]); return pts; };
+const at = (a, R, y) => { const p = dirOf(a).multiplyScalar(R); p.y = y; return p; };
+const tq = (a) => new THREE.Euler(0, a, 0); // local x = tangent, local z = radial out
+
+export function clockTower({ seed = 11, upgrades = new Set(), base = 26, prowA = Math.PI, viewA = 0 } = {}) {
+  const G = new THREE.Group(); G.name = 'spiralTower'; const K = new Kit(); const r = mulberry32(seed); const BASE = base;
+  const YT = -2.8, RB = 3.35, RT = 2.25, y0 = -BASE + 1.4; const NS = 12, TW = 0.075;
+  const rad = (y) => RT + (RB - RT) * Math.pow(1 - clamp01((y - y0) / (YT - y0)), 1.5);
+  const STEP = TAU / NS; const faceAng = (y, a) => { const off = TW * (y - y0) + STEP / 2; return Math.round((a - off) / STEP) * STEP + off; }; // centre of the face nearest angle a at height y
+  const gears = [], spinners = [], lamps = [], crystals = [];
+  const near = (a, b, w) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))) < w;
+  // ---------------------------------------------------------------- plinth and the twisting shaft
+  K.add('stone', oct([[0.001, -BASE - 4], [RB + 1.7, -BASE - 4], [RB + 1.7, -BASE + 0.5], [RB + 1.35, -BASE + 0.62], [RB + 1.2, -BASE + 1.0], [RB + 0.5, -BASE + 1.1], [RB + 0.4, y0 + 0.2]], NS), V());
+  K.add('stone|keepuv', twistPrism(NS, y0, YT + 0.3, rad, TW), V());
+  // ---------------------------------------------------------------- the helical stair ramp: slab, fascia, parapet, coping, merlons, treads, corbels
+  const RW = 1.3, RY0 = -BASE + 1.15, RY1 = YT - 1.0, TURNS = 2.75, PH0 = viewA + 0.6;
+  const rampY = (t) => RY0 + (RY1 - RY0) * t, rampA = (t) => PH0 + t * TURNS * TAU, rr = (y) => rad(y) - 0.08;
+  const sw = (prof, m, o = {}) => K.add(m + '|keepuv', helixSweep({ phi0: PH0, turns: TURNS, y0: RY0, y1: RY1, rr, prof, n: 330, ...o }), V());
+  sw([[0, -0.42], [RW, -0.42], [RW, 0], [0, 0]], 'stone');
+  sw([[RW - 0.12, -0.66], [RW + 0.1, -0.52], [RW + 0.1, -0.4], [RW - 0.12, -0.4]], 'marble');
+  sw([[RW - 0.26, 0], [RW, 0], [RW, 0.6], [RW - 0.26, 0.6]], 'rubble');
+  sw([[RW - 0.32, 0.6], [RW + 0.06, 0.6], [RW + 0.06, 0.71], [RW - 0.32, 0.71]], 'marble');
+  const nT = Math.round(TURNS * 74); const merl = cbox(0.46, 0.36, 0.34, 0.03), tread = cbox(0.32, 0.14, RW - 0.36, 0.02), corb = cbox(0.3, 0.42, 0.85, 0.03), corb2 = cbox(0.24, 0.3, 0.5, 0.03);
+  for (let k = 0; k < nT; k++) { const t = (k + 0.5) / nT, a = rampA(t), y = rampY(t), R = rr(y);
+    K.add('stone', tread, at(a, R + (RW - 0.3) / 2 + 0.02, y + 0.07), tq(a));
+    if (k % 4 === 0) K.add('stone', merl, at(a, R + RW - 0.13, y + 0.89), tq(a));
+    if (k % 6 === 3) { K.add('stone', corb, at(a, R + 0.55, y - 0.62), new THREE.Euler(-0.35, a, 0, 'YXZ')); K.add('stone', corb2, at(a, R + 0.35, y - 1.0), new THREE.Euler(-0.2, a, 0, 'YXZ')); } }
+  // the end caps: a landing at the foot, a door at the top into the crown
+  { const a = rampA(0), R = rr(RY0); K.add('stone', cbox(1.2, 1.2, RW + 0.3, 0.04), at(a, R + RW / 2, RY0 - 0.6), tq(a)); }
+  // ---------------------------------------------------------------- the twisting string course between the turns, and the clock band
+  { const tEnd = Math.min(1, (YT - 0.6 - (RY0 + 5.55)) / (RY1 - RY0)); K.add('marble|keepuv', helixSweep({ phi0: PH0, turns: TURNS * tEnd, y0: RY0 + 5.55, y1: RY0 + 5.55 + (RY1 - RY0) * tEnd, rr: (y) => rad(y) - 0.05, prof: [[0, 0], [0.16, 0.06], [0.16, 0.24], [0, 0.3]], n: 300 }), V()); }
+  // ---------------------------------------------------------------- windows climbing with the stair (lit or dark), lancets between the turns
+  const lit = [], dark = []; const glass = new THREE.ShapeGeometry(shape(archPts(0.46, 1.15)), 1), fr = extrude(shape(archPts(0.78, 1.42), [archPts(0.46, 1.15).map(([x, y]) => [x, y + 0.08])]), 0.16, 0.02);
+  const lg = new THREE.ShapeGeometry(shape(lancetPts(0.2, 0.9, 1.35)), 1), lfr = extrude(shape(lancetPts(0.36, 1.0, 1.6), [lancetPts(0.2, 0.9, 1.35).map(([x, y]) => [x, y + 0.1])]), 0.14, 0.02);
+  const CLOCK_Y = -14.2, clockA = viewA;
+  const win = (a, y, frame, g, litP) => { const R = rad(y); const E = tq(a); K.add('marble', frame, at(a, R + 0.05, y - 0.08), E); (r() < litP ? lit : dark).push(g.clone().applyMatrix4(new THREE.Matrix4().compose(at(a, R + 0.04, y), new THREE.Quaternion().setFromEuler(E), V(1, 1, 1)))); K.add('marble', cbox(0.7, 0.08, 0.22, 0.02), at(a, R + 0.12, y - 0.1), E); };
+  for (let k = 0; k < TURNS * 7; k++) { const t = (k + 0.35) / (TURNS * 7); const y = rampY(t) + 1.75; if (y > YT - 1.6) continue; const a = faceAng(y, rampA(t) + 0.12); if (near(a, clockA, 0.55) && Math.abs(y - CLOCK_Y) < 3) continue; win(a, y, fr, glass, 0.72); }
+  for (let k = 0; k < TURNS * 3; k++) { const t = (k + 0.8) / (TURNS * 3); const y = rampY(t) + 3.4; if (y > YT - 1.8) continue; const a = faceAng(y, rampA(t) + 0.5); if (near(a, clockA, 0.7) && Math.abs(y - CLOCK_Y) < 3) continue; win(a, y, lfr, lg, 0.55); }
+  // ---------------------------------------------------------------- brass gears half-sunk in the masonry (pairs mesh and counter-rotate)
   const gearMat = lmat(upgrades.has('tower:gears_gilded') ? 'gold' : 'brass');
-  const addGear = (faceI, y, R, teeth, dir, out = 0.05, slide = 0) => { const a = face(faceI); const g = new THREE.Group(); const p = dirOf(a).multiplyScalar(apS(y) + out); p.addScaledVector(V(Math.cos(a), 0, -Math.sin(a)), slide); p.y = y; g.position.copy(p); g.rotation.y = a; G.add(g);
+  const addGear = (a, y, R, teeth, dir, out = 0.05) => { const g = new THREE.Group(); g.position.copy(at(a, rad(y) + out, y)); g.rotation.y = a; G.add(g);
     const w = new THREE.Mesh(gearGeo(R, teeth, 0.22), gearMat); w.castShadow = true; w.receiveShadow = true; g.add(w); const hub = new THREE.Mesh(oct([[0.001, 0], [R * 0.2, 0], [R * 0.2, 0.3], [R * 0.12, 0.38], [0.001, 0.38]], 8), lmat('iron')); hub.rotation.x = Math.PI / 2; g.add(hub);
-    K.add('rubble', oct([[R * 1.08, -0.05], [R * 1.12, 0.12], [0.001, 0.12]], 12), p.clone().addScaledVector(dirOf(a), -0.1), new THREE.Euler(Math.PI / 2, 0, -a, 'ZXY')); // the recess ring
-    gears.push({ w, speed: dir * (0.9 / R) }); return g; };
-  for (const [fi, y] of [[0, -9], [2, -16], [5, -24], [3, -34], [6, -12], [1, -44]]) { const R1 = 1.15 + r() * 0.35, n1 = 14 + Math.floor(r() * 6); addGear(fi, y, R1, n1, 1, 0.05, -0.55); addGear(fi, y - 1.6, R1 * 0.62, Math.round(n1 * 0.62), -n1 / Math.round(n1 * 0.62) * 0.62, 0.08, R1 * 0.4 + 0.45); }
-  addGear(0, YT + 0.6, 1.0, 16, -1, 0.85, 0); // under the prow, big and close to the hero shot
-  // ---------------------------------------------------------------- flying buttresses: piers, leaping arches, crystal pinnacles
-  const crystals = []; const crysMat = new THREE.MeshStandardMaterial({ color: 0x6a4ab0, emissive: new THREE.Color(upgrades.has('tower:crystals_lit') ? 0x9a6aff : 0x4a2a9a), emissiveIntensity: upgrades.has('tower:crystals_lit') ? 1.4 : 0.55, roughness: 0.18, metalness: 0.1, flatShading: true });
-  const crystal = (h, rr) => { const g = new THREE.LatheGeometry([[0.001, 0], [rr, 0.05], [rr * 1.05, h * 0.72], [0.001, h]].map(([x, y]) => new THREE.Vector2(x, y)), 5); return jitter(g, rr * 0.18, Math.floor(r() * 99)); };
-  const cluster = (p, s) => { const g = new THREE.Group(); g.position.copy(p); for (let i = 0; i < 7; i++) { const c = new THREE.Mesh(crystal(s * (0.6 + r() * 0.9), s * (0.1 + r() * 0.06)), crysMat); c.rotation.set((r() - 0.5) * 1.1, r() * TAU, (r() - 0.5) * 1.1); c.castShadow = true; g.add(c); } crystals.push(g); G.add(g); return g; };
-  for (let i = 0; i < 4; i++) { const a = face(i * 2 + 1) + Math.PI / N; const d = dirOf(a); const PR = 10.5, PT = -BASE * 0.48; // the pier
-    K.add('stone', oct([[1.3, -BASE - 1], [1.0, PT], [1.15, PT + 0.2], [1.15, PT + 0.6], [0.001, PT + 0.6]], 8), d.clone().multiplyScalar(PR));
-    for (let k = 0; k < 2; k++) { const y0 = PT - 4 - k * 12; const p0 = d.clone().multiplyScalar(PR - 0.6); p0.y = y0; const p1 = d.clone().multiplyScalar(apS(y0 + 6) + 0.1); p1.y = y0 + 6 - k * 1.5; // the flyer: an arched beam
-      const pts = []; for (let j = 0; j <= 10; j++) { const u = j / 10; const q = p0.clone().lerp(p1, u); q.y += Math.sin(u * Math.PI) * 1.1 - u * 0.4; pts.push(q); } const curve = new THREE.CatmullRomCurve3(pts);
-      for (let j = 0; j < 10; j++) { const q = curve.getPoint((j + 0.5) / 10), tn = curve.getTangent((j + 0.5) / 10); const blk = cbox(0.62, 0.55, curve.getLength() / 10 + 0.04, 0.04); const m4 = new THREE.Matrix4().lookAt(V(), tn, V(0, 1, 0)); const e = new THREE.Euler().setFromRotationMatrix(m4); K.add(j % 2 ? 'stone' : 'rubble', blk, q, e); } }
-    cluster(d.clone().multiplyScalar(PR).setY(PT + 0.55), 1.6); const ch = cbox(0.5, 1.4, 0.5, 0.04); K.add('marble', ch, d.clone().multiplyScalar(PR).setY(PT + 1.2)); }
-  // ---------------------------------------------------------------- the crown: corbels flaring to the terrace, parapet with merlons, the prow
-  const TA = 4.6; K.add('stone', oct([[AP1, YT], [AP1 + 0.25, YT + 1.1], [TA - 0.2, -0.75], [TA, -0.45], [TA, 0], [0.001, 0]]), V());
-  for (let i = 0; i < N; i++) for (const o of [-0.9, 0, 0.9]) { const a = face(i); const d = dirOf(a), sd = V(d.z, 0, -d.x); const p = d.clone().multiplyScalar(AP1 + 0.5).addScaledVector(sd, o); p.y = YT + 0.7; K.add('stone', cbox(0.26, 1.3, 0.8, 0.03), p, new THREE.Euler(0.55, a, 0, 'YXZ')); }
-  const PH = 0.85; const merl = []; for (let i = 0; i < N; i++) { const a = face(i); if (i === 4) continue; // face 4 = -z: the prow opening
-    const d = dirOf(a); const p = d.clone().multiplyScalar(TA - 0.22);
-    if (i === 3 || i === 5) { // the front diagonals: an open balustrade (turned stone balusters under a rail) so the land shows through
-      const sd = V(d.z, 0, -d.x); for (let k = -5; k <= 5; k++) { const q = p.clone().addScaledVector(sd, k * 0.33); K.add('marble', oct([[0.08, 0], [0.11, 0.06], [0.06, 0.18], [0.1, 0.32], [0.06, 0.44], [0.09, 0.5]], 6), q); }
-      K.add('marble', cbox(TA * 0.83 * 0.98, 0.1, 0.32, 0.03), p.clone().setY(0.55), new THREE.Euler(0, a, 0)); K.add('stone', cbox(TA * 0.83 * 0.98, 0.08, 0.36, 0.02), p.clone().setY(0.04), new THREE.Euler(0, a, 0)); continue; }
-    K.add('stone', cbox(TA * 0.83 * 0.98, PH, 0.42, 0.04), p.clone().setY(PH / 2), new THREE.Euler(0, a, 0));
-    for (const o of [-1.25, 0, 1.25]) { const sd = V(d.z, 0, -d.x); const q = p.clone().addScaledVector(sd, o); q.y = PH + 0.26; K.add('stone', cbox(0.62, 0.52, 0.46, 0.05), q, new THREE.Euler(0, a, 0)); merl.push(q); }
-    K.add('marble', cbox(TA * 0.83, 0.08, 0.5, 0.02), p.clone().setY(PH + 0.01), new THREE.Euler(0, a, 0)); }
-  // the prow: a jutting stone balcony toward -z on a great corbel, flagged, open at its tip
-  const PZ = -TA - 1.7; { K.add('stone', extrude(shape([[-1.9, 0], [1.9, 0], [0.9, 2.1], [-0.9, 2.1]]), 0.45, 0.04), V(0, -0.45, -TA + 0.5), new THREE.Euler(Math.PI / 2, 0, 0));
-    K.add('stone', extrude(shape([[-1.6, 0], [1.6, 0], [0, -3.4]]), 1.6, 0.05), V(0, -0.45, -TA + 0.2), new THREE.Euler(0, 0, 0), V(1, 1, 1)); // the great corbel under it
-    for (const s of [-1, 1]) { const p = V(s * 1.45, 0.25, -TA - 0.4); K.add('stone', cbox(0.4, 0.5, 1.6, 0.04), p, new THREE.Euler(0, s * 0.45, 0)); K.add('marble', cbox(0.48, 0.1, 1.7, 0.02), p.clone().setY(0.53), new THREE.Euler(0, s * 0.45, 0)); } }
-  // flagstones (a darker inset disc with a brass compass rose)
-  { const rose = new THREE.Group(); rose.position.y = 0.012; G.add(rose); for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; const L = i % 2 ? 0.9 : 1.6; const sh = shape([[0, 0], [0.16, 0.16], [0, L], [-0.16, 0.16]]); const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), lmat(i % 2 ? 'bronze' : 'brass')); m.rotation.set(-Math.PI / 2, 0, a); m.receiveShadow = true; rose.add(m); } rose.position.z = 0.6; }
-  // ---------------------------------------------------------------- the stair door into the tower (Achievement Hall): an arched hood on the +z side
-  const DZ = 2.6; { K.add('stone', extrude(shape([[-1.0, 0], [1.0, 0], [1.0, 2.6], [-1.0, 2.6]], [archPts(1.2, 2.25, 10)]), 0.5, 0.03), V(0, 0, DZ));
-    K.add('stone', cbox(2.2, 0.3, 1.6, 0.04), V(0, 2.75, DZ + 0.45)); for (const s of [-1, 1]) K.add('stone', cbox(0.3, 2.6, 1.3, 0.04), V(s * 0.95, 1.3, DZ + 0.6));
-    const dg = new THREE.Mesh(new THREE.ShapeGeometry(shape(archPts(1.2, 2.25, 10)), 1), glowMat('#e8823a', 0.7)); dg.position.set(0, 0.01, DZ + 0.52); dg.userData.noAO = true; G.add(dg); G.userData.doorGlow = dg;
-    for (let k = 0; k < 3; k++) K.add('stone', cbox(1.15, 0.14, 0.3, 0.02), V(0, -0.07 - k * 0.14, DZ + 0.75 + k * 0.28)); }
-  // ---------------------------------------------------------------- the orrery crown behind Isaac: column, armillary rings, planets on arms
-  const ORZ = 1.2, ORY = 2.1; const orr = new THREE.Group(); orr.position.set(1.9, 0, ORZ); G.add(orr);
-  { const col = new THREE.Mesh(oct([[0.001, 0], [0.5, 0], [0.5, 0.18], [0.3, 0.3], [0.22, 0.5], [0.16, ORY - 0.2], [0.26, ORY - 0.1], [0.001, ORY]], 8), lmat('bronze')); col.castShadow = true; orr.add(col);
-    const sunGem = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), new THREE.MeshStandardMaterial({ color: 0xffc040, emissive: 0xff9a20, emissiveIntensity: 1.6, roughness: 0.3, flatShading: true })); sunGem.position.y = ORY + 0.25; orr.add(sunGem); spinners.push({ o: sunGem, ax: 'y', s: 0.6 });
-    const sl = new THREE.PointLight(0xffa040, 1.6, 4.5, 1.8); sl.position.y = ORY + 0.25; orr.add(sl); G.userData.orreryLight = sl;
-    const ringM = lmat(upgrades.has('tower:orrery_gold') ? 'gold' : 'brass'); for (const [rr, tx, tz, sp] of [[0.62, 0.4, 0.1, 0.35], [0.82, -0.3, 0.5, -0.25], [1.02, 0.15, -0.6, 0.18]]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.022, 4, 28), ringM); const piv = new THREE.Group(); piv.position.y = ORY + 0.25; piv.rotation.set(tx, 0, tz); piv.add(ring); orr.add(piv); ring.rotation.x = Math.PI / 2; spinners.push({ o: piv, ax: 'y', s: sp }); }
-    const PL = [['#c87850', 0.08, 0.5, 1.1], ['#5a8ac8', 0.11, 0.78, 0.7], ['#d8b070', 0.15, 1.1, 0.45], ['#a84838', 0.07, 1.34, 0.32]]; if (upgrades.has('tower:orrery_gold')) PL.push(['#ffd060', 0.12, 1.55, 0.25]);
-    PL.forEach(([c, s, R, sp], i) => { const arm = new THREE.Group(); arm.position.y = ORY + 0.25 - 0.08 * i; arm.rotation.y = i * 1.7; orr.add(arm); const rod = new THREE.Mesh(new THREE.BoxGeometry(R, 0.018, 0.018), lmat('brass')); rod.position.x = R / 2; arm.add(rod);
-      const pl = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 1), new THREE.MeshStandardMaterial({ color: new THREE.Color(c), roughness: 0.6, flatShading: true })); pl.position.x = R; pl.castShadow = true; arm.add(pl); spinners.push({ o: arm, ax: 'y', s: sp });
-      if (i === 2) { const ring = new THREE.Mesh(new THREE.RingGeometry(s * 1.4, s * 2.1, 14), new THREE.MeshStandardMaterial({ color: 0xd8c090, side: THREE.DoubleSide, roughness: 0.7, flatShading: true })); ring.rotation.x = -1.2; pl.add(ring); } }); }
+    K.add('rubble', oct([[R * 1.08, -0.05], [R * 1.12, 0.12], [0.001, 0.12]], 12), at(a, rad(y) - 0.05, y), new THREE.Euler(Math.PI / 2, 0, -a, 'ZXY')); gears.push({ w, speed: dir * (0.9 / R) }); return g; };
+  for (const tg of [0.12, 0.47, 0.83]) { const t = tg; const y = rampY(t) + 3.9; const a = faceAng(y, rampA(t) + 2.6); if (near(a, clockA, 0.8)) continue; const R1 = 0.95 + r() * 0.3, n1 = 14 + Math.floor(r() * 5); addGear(a, y, R1, n1, 1); const n2 = Math.round(n1 * 0.6); addGear(a + (R1 * 1.25) / rad(y), y - R1 * 0.75, R1 * 0.6, n2, -n1 / n2 * 0.6, 0.09); }
+  // ---------------------------------------------------------------- the great clock dial on the camera side: marble surround, brass bezel, pixel dial, hands
+  const clock = (() => { const g = new THREE.Group(); g.position.copy(at(clockA, rad(CLOCK_Y) + 0.12, CLOCK_Y)); g.rotation.y = clockA; G.add(g);
+    const sur = new THREE.Mesh(oct([[0.001, 0], [1.75, 0], [1.75, 0.18], [1.58, 0.3], [0.001, 0.3]], 16), lmat('marble')); sur.rotation.x = Math.PI / 2; g.add(sur);
+    const bez = new THREE.Mesh(new THREE.TorusGeometry(1.48, 0.09, 4, 24), lmat('brass')); bez.position.z = 0.32; g.add(bez);
+    const S = document.createElement('canvas'); S.width = S.height = 48; const c = S.getContext('2d'); c.fillStyle = '#1a1424'; c.fillRect(0, 0, 48, 48);
+    for (let y = 0; y < 48; y++) for (let x = 0; x < 48; x++) { const d = Math.hypot(x - 23.5, y - 23.5); if (d > 23.5) continue; const an = Math.atan2(y - 23.5, x - 23.5); const tick = d > 19 && d < 22.5 && Math.abs(((an / TAU) * 12 + 24) % 1 - 0.5) > 0.42; const ring = Math.abs(d - 17) < 0.7;
+      c.fillStyle = tick ? '#ffd27a' : ring ? '#b48a3a' : d > 22.5 ? '#6a4a1e' : (x + y) % 7 === 0 ? '#2c2440' : d < 10 ? '#26203a' : '#221c34'; c.fillRect(x, y, 1, 1); }
+    for (let i = 0; i < 12; i++) { const an = (i / 12) * TAU; c.fillStyle = '#e8d8a8'; c.fillRect(Math.round(23.5 + Math.cos(an) * 14) - 1, Math.round(23.5 + Math.sin(an) * 14) - 1, 2, 2); }
+    const tx = new THREE.CanvasTexture(S); tx.magFilter = THREE.NearestFilter; tx.minFilter = THREE.NearestFilter; tx.generateMipmaps = false; tx.colorSpace = THREE.SRGBColorSpace;
+    const face = new THREE.Mesh(new THREE.CircleGeometry(1.46, 24), new THREE.MeshStandardMaterial({ map: tx, roughness: 0.6, metalness: 0.3, emissive: 0xffb060, emissiveIntensity: 0.06, emissiveMap: tx })); face.position.z = 0.31; g.add(face);
+    const hand = (L, w, m) => { const p = new THREE.Group(); p.position.z = 0.38; g.add(p); const h = new THREE.Mesh(extrude(shape([[-w, -0.15], [w, -0.15], [w * 0.6, L * 0.8], [0, L], [-w * 0.6, L * 0.8]]), 0.03, 0.005), lmat(m)); p.add(h); return p; };
+    const hh = hand(0.85, 0.07, 'gold'), mm = hand(1.25, 0.05, 'brass'); const cap = new THREE.Mesh(new THREE.OctahedronGeometry(0.11, 0), lmat('gold')); cap.position.z = 0.45; g.add(cap);
+    g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); return { hh, mm }; })();
+  // ---------------------------------------------------------------- the gate at the foot (lamplit), steps down to the town
+  { const a = faceAng(-BASE + 2.4, viewA - 0.5); const R = rad(-BASE + 2) + 0.1; const tg = V(Math.cos(a), 0, -Math.sin(a)); const Y = -BASE + 1.15;
+    for (const s of [-1, 1]) K.add('marble', cbox(0.42, 1.95, 0.55, 0.03), at(a, R + 0.2, Y + 0.97).addScaledVector(tg, s * 0.92), tq(a));
+    for (let i = 0; i <= 8; i++) { const b = (i / 8) * Math.PI; K.add('marble', cbox(i === 4 ? 0.36 : 0.3, 0.46, 0.6, 0.03), at(a, R + 0.22, Y + 1.95 + Math.sin(b) * 0.92).addScaledVector(tg, Math.cos(b) * 0.92), new THREE.Euler(0, a, b - Math.PI / 2, 'YXZ')); }
+    const dg = new THREE.Mesh(new THREE.ShapeGeometry(shape(archPts(1.4, 2.6)), 1), glowMat('#ff9a48', 0.85)); dg.position.copy(at(a, R + 0.02, -BASE + 1.15)); dg.rotation.y = a; dg.userData.noAO = true; G.add(dg);
+    for (let k = 0; k < 4; k++) K.add('stone', cbox(2.4 - k * 0.1, 0.22, 0.42, 0.02), at(a, R + 0.75 + k * 0.4, -BASE + 1.0 - k * 0.22), tq(a));
+    for (const s of [-1, 1]) { const lan = prop('lantern', { h: 0.42 }); lan.position.copy(at(a + s * 0.36, R + 0.5, -BASE + 3.1)); G.add(lan); } }
+  // ---------------------------------------------------------------- the crown: corbelled flare, machicolations, terrace, parapet with merlons
+  const TA = 3.85; K.add('stone', oct([[RT - 0.02, YT], [RT + 0.25, YT + 0.9], [TA - 0.3, -0.72], [TA, -0.6], [TA, 0], [0.001, 0]], 16), V());
+  for (let i = 0; i < 28; i++) { const a = (i / 28) * TAU; K.add('stone', cbox(0.26, 1.05, 0.75, 0.03), at(a, TA - 0.45, -1.2), new THREE.Euler(-0.5, a, 0, 'YXZ')); }
+  K.add('marble', oct([[TA - 0.05, -0.62], [TA + 0.08, -0.55], [TA + 0.08, -0.4], [TA - 0.05, -0.36]], 16), V());
+  const PW = 0.5; // the prow opening half-angle
+  K.add('stone|keepuv', helixSweep({ phi0: prowA + PW, turns: (TAU - 2 * PW) / TAU, y0: 0, y1: 0, rr: () => TA - 0.32, prof: [[0, 0], [0.32, 0], [0.32, 0.85], [0, 0.85]], n: 64 }), V());
+  K.add('marble|keepuv', helixSweep({ phi0: prowA + PW, turns: (TAU - 2 * PW) / TAU, y0: 0, y1: 0, rr: () => TA - 0.38, prof: [[0, 0.85], [0.46, 0.85], [0.46, 0.95], [0, 0.95]], n: 64 }), V());
+  for (let i = 0; i < 26; i++) { const a = prowA + PW + 0.12 + (i / 25.5) * (TAU - 2 * PW - 0.24); K.add('stone', cbox(0.5, 0.44, 0.4, 0.04), at(a, TA - 0.16, 1.17), tq(a)); }
+  // the prow: a jutting half-round balcony on a stepped corbel, a turned-baluster balustrade, a brass compass rose in its floor
+  const PR = TA + 0.55; const prowP = at(prowA, PR, 0);
+  { const half = (pts, s = 10) => lat(pts, s, prowA - Math.PI / 2, Math.PI);
+    K.add('stone', half([[0.001, -0.5], [1.55, -0.5], [1.55, 0], [0.001, 0]]), prowP.clone().setY(0)); K.add('marble', half([[1.5, -0.62], [1.64, -0.55], [1.64, -0.42], [1.5, -0.38]]), prowP.clone().setY(0));
+    K.add('stone', half([[0.001, -2.8], [0.3, -2.8], [0.6, -2.2], [1.1, -1.4], [1.45, -0.6], [0.001, -0.6]], 8), prowP.clone().setY(0));
+    for (let k = 0; k <= 9; k++) { const a = prowA - Math.PI / 2 + 0.12 + (k / 9) * (Math.PI - 0.24); const q = dirOf(a).multiplyScalar(1.4).add(prowP); K.add('marble', oct([[0.07, 0], [0.1, 0.06], [0.055, 0.2], [0.095, 0.38], [0.055, 0.56], [0.08, 0.62]], 6), q); }
+    K.add('marble|keepuv', helixSweep({ phi0: prowA - Math.PI / 2 + 0.05, turns: (Math.PI - 0.1) / TAU, y0: 0, y1: 0, rr: () => 1.24, prof: [[0, 0.62], [0.32, 0.62], [0.32, 0.74], [0, 0.74]], n: 16, cx: prowP.x, cz: prowP.z }), V());
+    const rose = new THREE.Group(); rose.position.copy(prowP).setY(0.012); G.add(rose); for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; const L = i % 2 ? 0.55 : 0.95; const m = new THREE.Mesh(new THREE.ShapeGeometry(shape([[0, 0], [0.11, 0.11], [0, L], [-0.11, 0.11]])), lmat(i % 2 ? 'bronze' : 'brass')); m.rotation.set(-Math.PI / 2, 0, a); m.receiveShadow = true; rose.add(m); } }
+  // a great gear in the crown corbels, close under Isaac's feet
+  addGear(prowA + 0.9, YT + 0.8, 1.1, 18, -1, 0.75);
+  // ---------------------------------------------------------------- bartizans: corbelled turrets with slits, a lit window, bell-cast tiled roofs, finials, pennants
+  const crysMat = new THREE.MeshStandardMaterial({ color: 0x6a4ab0, emissive: new THREE.Color(upgrades.has('tower:crystals_lit') ? 0x9a6aff : 0x4a2a9a), emissiveIntensity: upgrades.has('tower:crystals_lit') ? 1.4 : 0.55, roughness: 0.18, metalness: 0.1, flatShading: true });
+  const pennants = [];
+  for (const [da, s] of [[1.75, 1.0], [-1.6, 0.9], [3.3, 1.1]]) { const a = prowA + da; const BK = new Kit(); const bg = new THREE.Group(); bg.position.copy(at(a, TA + 0.05, 0)); bg.scale.setScalar(0.74); G.add(bg); const c = V(); const o = () => V();
+    BK.add('stone', oct([[0.001, -3.2], [0.25, -3.2], [0.45, -2.7], [0.75, -1.8], [0.98, -0.9], [1.0, -0.6], [0.001, -0.6]], 8), o());
+    BK.add('rubble', oct([[0.95, -0.6], [0.95, 2.2], [0.001, 2.2]], 8), o()); BK.add('marble', oct([[0.93, 2.15], [1.08, 2.22], [1.08, 2.38], [0.001, 2.38]], 8), o());
+    for (let k = 0; k < 8; k++) { const b = (k / 8) * TAU; if (k % 2) BK.add('plain:#1a1418', cbox(0.08, 0.5, 0.06, 0.01), dirOf(b).multiplyScalar(0.94).setY(0.9), tq(b)); }
+    { const b = a; const p = dirOf(b).multiplyScalar(0.95).setY(1.1); const gw = new THREE.Mesh(new THREE.ShapeGeometry(shape(archPts(0.3, 0.62)), 1), glowMat('#ff9a3a', 1.15)); gw.position.copy(p); gw.rotation.y = b; gw.userData.noAO = true; bg.add(gw); BK.add('marble', extrude(shape(archPts(0.48, 0.76), [archPts(0.3, 0.62).map(([x, y]) => [x, y + 0.06])]), 0.1, 0.01), p.clone().add(V(0, -0.06, 0)), tq(b)); }
+    BK.build(bg, { uvScale: { stone: 0.9, rubble: 0.8, marble: 0.6 } });
+    const roof = new THREE.Mesh(lat([[0.001, 2.25 + 2.9 * s], [0.18, 2.25 + 2.5 * s], [0.55, 2.25 + 1.5 * s], [0.95, 2.25 + 0.55 * s], [1.25, 2.3], [1.22, 2.22], [0.001, 2.22]], 8, Math.PI / 8), mat('tile')); roof.castShadow = roof.receiveShadow = true; worldUVLocal(roof.geometry, 1.4); bg.add(roof);
+    const fin = new THREE.Mesh(lat([[0.001, 0], [0.09, 0.05], [0.12, 0.2], [0.05, 0.32], [0.03, 0.9], [0.001, 1.0]], 6), lmat('gold')); fin.position.y = 2.25 + 2.85 * s; bg.add(fin);
+    const cl = new THREE.Group(); cl.position.y = 2.25 + 2.85 * s + 0.22; for (let i = 0; i < 4; i++) { const g = jitter(new THREE.LatheGeometry([[0.001, 0], [0.06, 0.03], [0.065, 0.2], [0.001, 0.3]].map(([x, y]) => new THREE.Vector2(x, y)), 5), 0.01, i + 3); const m = new THREE.Mesh(g, crysMat); m.rotation.set((r() - 0.5) * 1.2, r() * TAU, (r() - 0.5) * 1.2); cl.add(m); } bg.add(cl); crystals.push(cl);
+    pennants.push({ p: bg.position.clone().setY((2.25 + 2.85 * s + 0.75) * 0.74), s: s * 0.74 }); void c; }
+  const PCR = 1.75, CH = 2.6; K.add('marble', oct([[0.001, 0], [PCR + 0.45, 0], [PCR + 0.45, 0.12], [PCR + 0.3, 0.2], [0.001, 0.2]], 16), V());
+  for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU + Math.PI / 8; K.add('marble', lat([[0.001, 0.2], [0.27, 0.2], [0.27, 0.34], [0.19, 0.42], [0.16, CH - 0.25], [0.22, CH - 0.12], [0.3, CH], [0.001, CH]], 8), at(a, PCR, 0)); }
+  { const ch = 2 * PCR * Math.sin(Math.PI / 8) + 0.05, ap = PCR * Math.cos(Math.PI / 8); const w = ch / 2 - 0.2;
+    const arc = lancetPts(w, 0.25, 1.05).slice(2).reverse(); const panel = extrude(shape([[-ch / 2, 0], [-w, 0], ...arc, [w, 0], [ch / 2, 0], [ch / 2, 1.25], [-ch / 2, 1.25]]), 0.28, 0.02);
+    for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; K.add('stone', panel, at(a, ap - 0.14, CH - 1.0), tq(a)); } }
+  K.add('marble', oct([[PCR + 0.2, CH + 0.25], [PCR + 0.42, CH + 0.35], [PCR + 0.42, CH + 0.55], [PCR + 0.25, CH + 0.62], [0.001, CH + 0.62]], 16), V());
+  const DY = CH + 0.6; const dprof = [[1.95, 0], [1.9, 0.45], [1.7, 1.1], [1.32, 1.68], [0.84, 2.1], [0.38, 2.34], [0.001, 2.4]];
+  { const dome = new THREE.Mesh(lat(dprof, 16), lmat('verd', { color: 0x9fb2a6 })); dome.position.y = DY; dome.castShadow = dome.receiveShadow = true; G.add(dome);
+    const rib = (s0) => { const pts = []; for (let k = 0; k <= 12; k++) { const u = k / 12; const f = u * (dprof.length - 1); const i = Math.min(dprof.length - 2, Math.floor(f)), q = f - i; const R = dprof[i][0] + (dprof[i + 1][0] - dprof[i][0]) * q + 0.04, y = dprof[i][1] + (dprof[i + 1][1] - dprof[i][1]) * q + 0.02; const a = s0 + u * 1.5; pts.push(V(Math.sin(a) * R, y + DY, Math.cos(a) * R)); } return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 18, 0.05, 4).toNonIndexed(); };
+    const rm = new THREE.Mesh(mergeGeometries(Array.from({ length: 12 }, (_, i) => rib((i / 12) * TAU))), lmat(upgrades.has('tower:orrery_gold') ? 'gold' : 'brass')); rm.castShadow = true; G.add(rm); }
+  const LY = DY + 2.3; K.add('marble', oct([[0.6, LY], [0.6, LY + 0.1], [0.5, LY + 0.14], [0.001, LY + 0.14]], 6), V());
+  for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; K.add('marble', cbox(0.12, 0.7, 0.12, 0.02), at(a + Math.PI / 6, 0.48, LY + 0.48), tq(a)); }
+  { const lg2 = new THREE.Mesh(lat([[0.001, 0], [0.38, 0], [0.38, 0.7], [0.001, 0.7]], 6), glowMat(upgrades.has('tower:lanterns') ? '#ffd27a' : '#ffb04a', 1.3)); lg2.position.y = LY + 0.14; lg2.userData.noAO = true; G.add(lg2); }
+  K.add('marble', oct([[0.001, LY + 0.84], [0.62, LY + 0.84], [0.62, LY + 0.98], [0.4, LY + 1.06], [0.001, LY + 1.06]], 6), V());
+  const SY = LY + 1.05, SH = 3.6; { const sp = new THREE.Mesh(twistPrism(6, SY, SY + SH, (y) => 0.001 + 0.36 * Math.pow(Math.max(0, 1 - (y - SY) / SH), 1.15), 0.9, 0.3, 1.2), lmat('copper')); sp.castShadow = true; G.add(sp);
+    const st = new THREE.Shape(); for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU, q = i % 2 ? 0.07 : 0.26; st[i ? 'lineTo' : 'moveTo'](Math.sin(a) * q, Math.cos(a) * q); } const vane = new THREE.Mesh(extrude(st, 0.04, 0.01), lmat('gold')); vane.position.y = SY + SH + 0.15; G.add(vane); G.userData.vane = vane; }
+  // the orrery crown: armillary rings round the spire and planets on arms circling the lantern
+  { const OY = SY + 1.25; const ringM = lmat(upgrades.has('tower:orrery_gold') ? 'gold' : 'brass');
+    for (const [rr2, tx, tz, sp] of [[0.95, 0.42, 0.1, 0.32], [1.22, -0.3, 0.55, -0.22], [1.5, 0.18, -0.62, 0.16]]) { const piv = new THREE.Group(); piv.position.y = OY; piv.rotation.set(tx, 0, tz); const ring = new THREE.Mesh(new THREE.TorusGeometry(rr2, 0.035, 4, 32), ringM); ring.rotation.x = Math.PI / 2; ring.castShadow = true; piv.add(ring);
+      for (let k = 0; k < 4; k++) { const b = new THREE.Mesh(new THREE.OctahedronGeometry(0.05, 0), ringM); b.position.set(Math.cos(k * Math.PI / 2) * rr2, 0, Math.sin(k * Math.PI / 2) * rr2); piv.add(b); } G.add(piv); spinners.push({ o: piv, ax: 'y', s: sp }); }
+    const sun = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 0), new THREE.MeshStandardMaterial({ color: 0xffc040, emissive: 0xff9a20, emissiveIntensity: 1.5, roughness: 0.3, flatShading: true })); sun.position.y = OY; G.add(sun); spinners.push({ o: sun, ax: 'y', s: 0.6 });
+    const PL = [['#c87850', 0.1, 1.9, 0.5], ['#5a8ac8', 0.13, 2.35, 0.34], ['#d8b070', 0.17, 2.85, 0.22], ['#a84838', 0.09, 3.25, 0.15]]; if (upgrades.has('tower:orrery_gold')) PL.push(['#ffd060', 0.12, 3.6, 0.12]);
+    PL.forEach(([c, s2, R, sp], i) => { const arm = new THREE.Group(); arm.position.y = DY + 2.35 + i * 0.22; arm.rotation.y = i * 1.9; G.add(arm); const rod = new THREE.Mesh(cbox(R, 0.03, 0.03, 0.005), lmat('brass')); rod.position.x = R / 2; arm.add(rod);
+      const drop = new THREE.Mesh(cbox(0.025, 0.3, 0.025, 0.005), lmat('brass')); drop.position.set(R, -0.15, 0); arm.add(drop);
+      const pl = new THREE.Mesh(new THREE.IcosahedronGeometry(s2, 1), new THREE.MeshStandardMaterial({ color: new THREE.Color(c), roughness: 0.6, flatShading: true })); pl.position.set(R, -0.32, 0); pl.castShadow = true; arm.add(pl); spinners.push({ o: arm, ax: 'y', s: sp });
+      if (i === 2) { const ring = new THREE.Mesh(new THREE.RingGeometry(s2 * 1.4, s2 * 2.1, 12), new THREE.MeshStandardMaterial({ color: 0xd8c090, side: THREE.DoubleSide, roughness: 0.7, flatShading: true })); ring.rotation.x = -1.2; pl.add(ring); } }); }
+  // inside the pavilion: the lamplit floor, a brass refractor aimed out of an arch, the stair hatch down to the Hall of Memories
+  { const fl = new THREE.Mesh(new THREE.CircleGeometry(PCR - 0.25, 16), glowMat('#b8682a', 0.42)); fl.rotation.x = -Math.PI / 2; fl.position.y = 0.205; fl.userData.noAO = true; G.add(fl);
+    const tel = prop('telescope', { h: 1.6 }); tel.position.copy(at(prowA + 0.6, 0.9, 0.2)); tel.rotation.y = prowA + 0.6; G.add(tel);
+    const hatch = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.3), glowMat('#ff9a48', 0.9)); hatch.rotation.x = -Math.PI / 2; hatch.position.copy(at(prowA + Math.PI, 0.8, 0.215)); hatch.rotation.z = -(prowA + Math.PI); hatch.userData.noAO = true; G.add(hatch); G.userData.doorGlow = hatch;
+    const il = new THREE.PointLight(0xffa850, 3.2, 7, 1.6); il.position.set(0, 1.8, 0); G.add(il); lamps.push({ l: il, k: 3.2 }); }
   // ---------------------------------------------------------------- banners hanging from the parapet (cloth that ripples), pixel-art emblem
   const bannerTex = (() => { const W = 24, H = 64; const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); const royal = upgrades.has('tower:banners_royal');
     const base = royal ? ['#14205a', '#1e3080', '#2a44a8'] : ['#4a0e14', '#7a1620', '#9a2228']; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const v = (x * 7 + y * 3) % 5 === 0 ? 0 : (x % 6 === 0 ? 0 : 1 + ((x + y) % 2 ? 1 : 0) * (y % 3 === 0 ? 1 : 0)); g.fillStyle = base[Math.min(2, v)]; g.fillRect(x, y, 1, 1); }
@@ -204,22 +298,32 @@ export function clockTower({ seed = 11, upgrades = new Set(), base = 62 } = {}) 
   bannerMat.onBeforeCompile = (sh) => { sh.uniforms.uTime = windU.uTime; sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       float hang = 1.0 - uv.y; float ph = position.x * 3.1 + modelMatrix[3][0] * 0.7; transformed.z += sin(uTime * 2.6 - hang * 5.0 + ph) * 0.14 * hang + sin(uTime * 4.7 - hang * 9.0 + ph) * 0.04 * hang; transformed.x += sin(uTime * 1.7 - hang * 3.0) * 0.05 * hang;`); };
   bannerMat.customProgramCacheKey = () => 'towerBanner';
-  for (const i of [1, 7, 2, 6, 0]) { const a = face(i); const d = dirOf(a); const p = d.clone().multiplyScalar(TA + 0.05); p.y = PH - 0.15; const geo = new THREE.PlaneGeometry(0.85, 2.6, 4, 12); geo.translate(0, -1.3, 0); const b = new THREE.Mesh(geo, bannerMat); b.position.copy(p); b.rotation.y = a; b.castShadow = true; G.add(b); banners.push(b);
-    K.add('plain:#2a2630', new THREE.BoxGeometry(1.0, 0.06, 0.06), p.clone().add(V(0, 0.03, 0)), new THREE.Euler(0, a, 0)); }
-  // ---------------------------------------------------------------- chains sagging from the orrery to the parapet posts (alternating links)
-  { const links = []; const L = new THREE.TorusGeometry(0.07, 0.016, 4, 8); const from = V(1.9, ORY - 0.3, ORZ);
-    for (const to of [V(TA - 0.4, PH + 0.5, 1.6), V(-TA + 0.4, PH + 0.5, 1.3), V(3.9, PH + 0.5, -0.4)]) { const n = Math.ceil(from.distanceTo(to) / 0.11); const prev = V();
-      for (let j = 0; j <= n; j++) { const u = j / n; const q = from.clone().lerp(to, u); q.y -= Math.sin(u * Math.PI) * 0.5; if (j) { const dir = q.clone().sub(prev).normalize(); const m4 = new THREE.Matrix4().lookAt(V(), dir, V(0, 1, 0)); const qq = new THREE.Quaternion().setFromRotationMatrix(m4).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, j % 2 ? Math.PI / 2 : 0))); links.push(L.clone().applyMatrix4(new THREE.Matrix4().compose(q, qq, V(1, 1, 1)))); } prev.copy(q); }
-      const post = to.clone(); K.add('plain:#2a2630', cbox(0.12, 0.5, 0.12, 0.02), post.clone().setY(PH + 0.25)); }
-    const cm = new THREE.Mesh(mergeGeometries(links), lmat('iron')); cm.castShadow = true; G.add(cm); }
-  // braziers flanking the door (warm practicals against the dusk)
-  const fires = []; for (const s of [-1, 1]) { const p = V(s * 1.65, 0, DZ - 0.3); const bz = prop('lantern', { h: 0.55 }); bz.position.copy(p).setY(0.0); G.add(bz); const l = new THREE.PointLight(0xff9a48, 2.2, 6, 1.7); l.position.copy(p).setY(0.5); G.add(l); fires.push(l); }
+  for (const da of [0.95, -1.05, 2.3, -2.5]) { const a = prowA + da; const p = at(a, TA + 0.04, 0.7); const geo = new THREE.PlaneGeometry(0.9, 3.1, 4, 14); geo.translate(0, -1.55, 0); const b = new THREE.Mesh(geo, bannerMat); b.position.copy(p); b.rotation.y = a; b.castShadow = true; G.add(b); banners.push(b);
+    K.add('plain:#2a2630', new THREE.BoxGeometry(1.05, 0.06, 0.06), p.clone().add(V(0, 0.03, 0)), tq(a)); }
+  // pennants on the bartizan finials (small cloth that streams in the wind)
+  for (const { p, s } of pennants) { const geo = new THREE.PlaneGeometry(0.9 * s, 0.32 * s, 6, 1); geo.translate(0.45 * s, 0, 0); const pm = new THREE.Mesh(geo, bannerMat); pm.position.copy(p); pm.rotation.y = -0.6; G.add(pm); banners.push(pm); }
+  // ---------------------------------------------------------------- lanterns on the stair parapet (a few real lights near the top)
+  { const nL = Math.round(TURNS * 6); for (let k = 0; k < nL; k++) { const t = (k + 0.5) / nL; const a = rampA(t), y = rampY(t), R = rr(y); const lan = prop('lantern', { h: 0.36 }); lan.position.copy(at(a, R + RW - 0.13, y + 0.71)); G.add(lan);
+      if (k >= nL - 4 && k % 2 === 1) { const l = new THREE.PointLight(0xffa850, 2.4, 6, 1.7); l.position.copy(at(a, R + RW + 0.2, y + 1.1)); G.add(l); lamps.push({ l, k: 2.4 }); } } }
+  // ---------------------------------------------------------------- ivy on the shaded flank and trailing over the parapet (pixel-art leaf-spray cards)
+  { const qs = []; const ivyR = mulberry32(seed + 5); const shadeA = prowA + Math.PI * 0.85;
+    for (let k = 0; k < 120; k++) { const y = -BASE + 1.5 + Math.pow(ivyR(), 1.35) * (BASE - 6); const a = shadeA + (ivyR() - 0.5) * 2.2 * (1 - (y + BASE) / BASE * 0.5); const R = rad(y) * 1.03 + 0.07 + ivyR() * 0.06;
+      const s = 0.8 + ivyR() * 0.7; const q = new THREE.PlaneGeometry(s, s); q.rotateZ(ivyR() * TAU); q.applyMatrix4(new THREE.Matrix4().compose(at(a, R, y), new THREE.Quaternion().setFromEuler(new THREE.Euler((ivyR() - 0.5) * 0.4, a, 0)), V(1, 1, 1))); qs.push(q); }
+    for (let k = 0; k < 40; k++) { const t = ivyR() * 0.7; const a = rampA(t), y = rampY(t), R = rr(y) + RW + 0.08; const s = 0.5 + ivyR() * 0.5; const q = new THREE.PlaneGeometry(s, s * 1.6); q.translate(0, -s * 0.5, 0); q.applyMatrix4(new THREE.Matrix4().compose(at(a, R, y + 0.55), new THREE.Quaternion().setFromEuler(new THREE.Euler(0.1, a, (ivyR() - 0.5) * 0.4)), V(1, 1, 1))); qs.push(q); }
+    const ivy = new THREE.Mesh(mergeGeometries(qs), new THREE.MeshStandardMaterial({ map: leafTex('vine'), alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.85 })); ivy.castShadow = true; ivy.receiveShadow = true; G.add(ivy); }
+  { const gl = new THREE.Mesh(mergeGeometries(lit), glowMat(upgrades.has('tower:lanterns') ? '#ffc86a' : '#ff9a3a', upgrades.has('tower:lanterns') ? 1.6 : 1.15)); gl.userData.noAO = true; G.add(gl); const dk = new THREE.Mesh(mergeGeometries(dark), lmat('glass', { color: 0x262c3c })); G.add(dk); }
   K.build(G, { uvScale: { stone: 0.9, rubble: 0.8, marble: 0.6, tile: 1.4 } });
   G.traverse((o) => { if (o.isMesh && o.castShadow !== false) o.receiveShadow = true; });
   const api = {
-    group: G, prow: V(0, 0, PZ + 0.9), door: V(0, 1.1, DZ + 0.5), doorOut: V(0, 1.6, DZ - 3.5), height: BASE, terraceR: TA, crystals, banners,
-    update(dt, t) { windU.uTime.value = t; for (const g of gears) g.w.rotation.z += g.speed * dt * 0.35; for (const s of spinners) s.o.rotation[s.ax] += s.s * dt; for (const [i, l] of fires.entries()) l.intensity = 2.0 + Math.sin(t * 7.3 + i * 2) * 0.25 + Math.sin(t * 13.1 + i) * 0.15;
-      for (const [i, c] of crystals.entries()) c.rotation.y = Math.sin(t * 0.2 + i) * 0.05; crysMat.emissiveIntensity = (upgrades.has('tower:crystals_lit') ? 1.3 : 0.5) + Math.sin(t * 1.3) * 0.12; },
+    group: G, prow: prowP.clone(), prowA, door: at(prowA + Math.PI, 0.8, 1.1), doorOut: at(prowA, 3.5, 1.6), height: BASE, terraceR: TA, spireTop: SY + SH, crystals, banners, rad, rampY, rampA, ramp: { RY0, RY1, TURNS },
+    update(dt, t) { windU.uTime.value = t; for (const g of gears) g.w.rotation.z += g.speed * dt * 0.35; for (const s of spinners) s.o.rotation[s.ax] += s.s * dt;
+      for (const [i, L] of lamps.entries()) L.l.intensity = L.k * (0.92 + Math.sin(t * 7.3 + i * 2) * 0.06 + Math.sin(t * 13.1 + i) * 0.04);
+      const d = new Date(); const h = (d.getHours() % 12) + d.getMinutes() / 60, m = d.getMinutes() + d.getSeconds() / 60; clock.hh.rotation.z = -(h / 12) * TAU; clock.mm.rotation.z = -(m / 60) * TAU;
+      G.userData.vane.rotation.y = Math.sin(t * 0.3) * 0.6 + t * 0.05; for (const [i, c] of crystals.entries()) c.rotation.y = Math.sin(t * 0.2 + i) * 0.2; crysMat.emissiveIntensity = (upgrades.has('tower:crystals_lit') ? 1.3 : 0.5) + Math.sin(t * 1.3) * 0.12; },
   };
   return api;
 }
+/** box-projected UVs for a geometry in its own space (tile = 1 / s units) */
+function worldUVLocal(geo, s) { const p = geo.attributes.position; geo.computeVertexNormals(); const n = geo.attributes.normal; const uv = new Float32Array(p.count * 2);
+  for (let i = 0; i < p.count; i++) { const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i)); const x = p.getX(i), y = p.getY(i), z = p.getZ(i); if (ay >= ax && ay >= az) { uv[i * 2] = x * s; uv[i * 2 + 1] = z * s; } else if (ax >= az) { uv[i * 2] = z * s; uv[i * 2 + 1] = y * s; } else { uv[i * 2] = x * s; uv[i * 2 + 1] = y * s; } }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); return geo; }

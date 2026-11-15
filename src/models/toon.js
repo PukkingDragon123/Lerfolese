@@ -32,7 +32,7 @@ const WIND_VERT = `{ vec4 wq = modelMatrix * vec4(position, 1.0); float hk = cla
 const SAT_FRAG = `{ float l = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114)); diffuseColor.rgb = max(mix(vec3(l), diffuseColor.rgb, uSat) * uTint, 0.0);
   diffuseColor.rgb = mix(diffuseColor.rgb, uPaint * (0.55 + 1.6 * l), uPaintK); }`;
 // HD-2D: photo albedo maps of the CC0 models become pixel art: box-downscaled to <=384px, luminance posterised into 6
-// hue-shifted bands (cool shadows, warm lights), NearestFilter up close. Hand-made pixel textures pass through as they are.
+// hue-shifted bands (starting at a charcoal floor, never pure black) (cool shadows, warm lights), NearestFilter up close. Hand-made pixel textures pass through as they are.
 const PXC = new Map();
 export function pixelMap(tex, max = 384) {
   if (!tex || tex.magFilter === THREE.NearestFilter) return tex || null; if (PXC.has(tex.uuid)) return PXC.get(tex.uuid);
@@ -41,7 +41,7 @@ export function pixelMap(tex, max = 384) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high';
   try { g.drawImage(img, 0, 0, w, h); } catch { return tex; }
   const id = g.getImageData(0, 0, w, h), d = id.data;
-  for (let i = 0; i < d.length; i += 4) { const r = d[i], gg = d[i + 1], b = d[i + 2]; const L = (r * 0.3 + gg * 0.59 + b * 0.11) / 255; const q = Math.min(5, Math.floor(L * 6)); const f = (q + 0.5) / 6 / Math.max(L, 1e-3); const tw = (q - 2.5) / 2.5;
+  for (let i = 0; i < d.length; i += 4) { const r = d[i], gg = d[i + 1], b = d[i + 2]; const L = (r * 0.3 + gg * 0.59 + b * 0.11) / 255; const q = Math.min(5, Math.floor(L * 6)); const f = (0.13 + (q + 0.5) / 6 * 0.85) / Math.max(L, 1e-3); /* bands from a believable darkest albedo (charcoal), so near-black maps (ebony, deep foliage) never render as black holes */ const tw = (q - 2.5) / 2.5;
     d[i] = Math.min(255, r * f * (1 + 0.05 * tw)); d[i + 1] = Math.min(255, gg * f); d[i + 2] = Math.min(255, b * f * (1 - 0.07 * tw)); }
   g.putImageData(id, 0, 0); const t = new THREE.CanvasTexture(c);
   t.colorSpace = tex.colorSpace; t.flipY = tex.flipY; t.wrapS = tex.wrapS; t.wrapT = tex.wrapT; t.repeat.copy(tex.repeat); t.offset.copy(tex.offset); t.channel = tex.channel; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestMipmapLinearFilter; t.anisotropy = 4;
@@ -58,9 +58,13 @@ export function toonMaterial(src, { sat = 1.3, tint = null, wind = 0, windH = 0.
     alphaTest: src.alphaTest || 0, transparent: !!src.transparent, opacity: src.opacity ?? 1, side: src.side ?? THREE.FrontSide, depthWrite: src.depthWrite ?? true,
   });
   m.shadowSide = src.shadowSide ?? null; m.userData = { ...src.userData, toon: true };
+  // foliage cards never go black: a little light through the leaf (translucency / skylight the toon model has no IBL
+  // for) shows the leaf's own colour on its shaded side, as real backlit leaves do. (The Poly Haven leaf maps are dark
+  // olive greens that rendered almost black under the toon light with no environment term.)
+  if ((src.alphaTest > 0 || src.userData?.foliage) && m.map) { m.emissiveMap = m.map; m.emissive.setRGB(0.2, 0.22, 0.14); }
   const tintC = tint ? C(tint) : C(0xffffff); const paintC = paint ? C(paint) : C(0xffffff);
   m.onBeforeCompile = (sh) => {
-    sh.uniforms.uSat = { value: 1 + (sat - 1) * 0.45 }; /* natural colour: the old cartoon saturation boost is mostly gone */ sh.uniforms.uTint = { value: tintC }; sh.uniforms.uPaint = { value: paintC }; sh.uniforms.uPaintK = { value: paint ? paintK : 0 }; sh.uniforms.uTime = WIND.time; sh.uniforms.uWindDir = WIND.dir; sh.uniforms.uWindAmp = { value: wind }; sh.uniforms.uWindH = { value: windH };
+    sh.uniforms.uSat = { value: 1 + (sat - 1) * 0.7 }; /* colourful but natural: most of the per-model saturation boost */ sh.uniforms.uTint = { value: tintC }; sh.uniforms.uPaint = { value: paintC }; sh.uniforms.uPaintK = { value: paint ? paintK : 0 }; sh.uniforms.uTime = WIND.time; sh.uniforms.uWindDir = WIND.dir; sh.uniforms.uWindAmp = { value: wind }; sh.uniforms.uWindH = { value: windH };
     sh.fragmentShader = 'uniform float uSat; uniform vec3 uTint; uniform vec3 uPaint; uniform float uPaintK;\n' + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n' + SAT_FRAG);
     if (wind) sh.vertexShader = 'uniform float uTime; uniform vec2 uWindDir; uniform float uWindAmp; uniform float uWindH;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIND_VERT);
   };

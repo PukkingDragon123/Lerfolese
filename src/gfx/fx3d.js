@@ -10,6 +10,7 @@
 //   spiralling up into the apple, a bloom where they meet; thrown apples leave a banded glowing trail shedding
 //   fine pixel sparkles, and every hit gets a small crisp impact bloom.
 import * as THREE from 'three';
+import { ART } from '../core/art.js';
 import { tweens } from '../core/tween.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -138,14 +139,14 @@ const TRAIL_FS = `uniform vec3 uCol; uniform float uFade; varying float vU; vary
   void main(){ float b = floor(pow(vU, 1.4) * 4.0) / 4.0; float edge = step(abs(vS), 0.35 + 0.65 * vU); float a = b * edge * uFade; if (a <= 0.01) discard;
     gl_FragColor = vec4(mix(uCol, vec3(1.0), step(0.75, b) * step(abs(vS), 0.45)) * a * 1.8, a); }`;
 // fine pixel sparkles: a 5x5-texel cross that twinkles (arms shrink), white core, tinted arms
-const SPARK_VS = `attribute vec4 aC; varying vec4 vC; uniform float uPx; void main(){ vC = aC; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = uPx * aC.a; gl_Position = projectionMatrix * mv; }`;
+const SPARK_VS = `attribute vec4 aC; varying vec4 vC; uniform float uPx, uPointK; void main(){ vC = aC; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = max(5.0, uPx * aC.a * uPointK); gl_Position = projectionMatrix * mv; }`;
 const SPARK_FS = `varying vec4 vC; void main(){ vec2 g = floor(gl_PointCoord * 5.0) - 2.0; float d = abs(g.x) + abs(g.y); float cross = step(min(abs(g.x), abs(g.y)), 0.0);
     float arm = step(d, vC.a > 0.6 ? 2.0 : 1.0); float m = cross * arm; if (m < 0.5) discard; gl_FragColor = vec4(mix(vC.rgb, vec3(1.0), step(d, 0.0)) * 1.8, 1.0); }`;
 class Sparkles {
   constructor(scene, cap = 260) {
     this.cap = cap; this.list = []; const g = new THREE.BufferGeometry(); this.pos = new Float32Array(cap * 3); this.col = new Float32Array(cap * 4);
     g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('aC', new THREE.BufferAttribute(this.col, 4)); g.setDrawRange(0, 0); this.g = g;
-    this.pts = new THREE.Points(g, new THREE.ShaderMaterial({ vertexShader: SPARK_VS, fragmentShader: SPARK_FS, uniforms: { uPx: { value: 13 * Math.min(2, window.devicePixelRatio || 1) } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+    this.pts = new THREE.Points(g, new THREE.ShaderMaterial({ vertexShader: SPARK_VS, fragmentShader: SPARK_FS, uniforms: { uPx: { value: 13 * Math.min(2, window.devicePixelRatio || 1) }, uPointK: ART.pointK }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
     this.pts.frustumCulled = false; this.pts.renderOrder = 6; this.pts.userData.noInk = true; this.pts.userData.noAO = true; scene.add(this.pts); this.c = new THREE.Color();
   }
   spawn(p, { vel = null, life = 0.6, col = '#ffe8a0', seek = null, swirl = 0, drag = 2 } = {}) { if (this.list.length >= this.cap) this.list.shift(); this.list.push({ p: p.clone(), v: vel ? vel.clone() : new THREE.Vector3(), life, age: 0, col: new THREE.Color(col), seek, swirl, drag, ph: Math.random() * 6 }); }
@@ -212,7 +213,7 @@ export class FX3D {
   }
   after(sec, fn) { this.items.push({ mesh: new THREE.Object3D(), life: sec, t: 0, upd: null, done: fn }); }
   bloom(p, col = '#ffe2a0', size = 0.9) { const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), smat(BLOOM_FS, col)); m.position.copy(p); m.renderOrder = 7; m.userData.noInk = true; return this.add(m, 0.42, () => { m.quaternion.copy(this.S.camera.quaternion); }); }
-  dust(pos, n) { const P = this.S.parts; if (!P) return; for (let i = 0; i < n; i++) { const a = Math.random() * 6.28; P.spawn({ pos: [pos.x, pos.y + 0.05, pos.z], vel: [Math.cos(a) * rnd(1, 2.6), rnd(0.3, 1.1), Math.sin(a) * rnd(0.6, 1.6)], life: rnd(0.5, 0.9), size: rnd(18, 30), size1: 44, color: pick(['#c8a478', '#b08a60', '#dcc09a']), alpha: 0.75, sprite: 'smoke', drag: 3 }); } }
+  dust(pos, n) { const P = this.S.parts; if (!P) return; for (let i = 0; i < n; i++) { const a = Math.random() * 6.28; P.spawn({ pos: [pos.x, pos.y + 0.05, pos.z], vel: [Math.cos(a) * rnd(1, 2.6), rnd(0.2, 0.8), Math.sin(a) * rnd(0.6, 1.6)], life: rnd(0.45, 0.8), size: rnd(10, 18), size1: 22, color: pick(['#a88a62', '#8e7254', '#c2a680']), alpha: 0.6, sprite: 'chip', drag: 3.2, grav: 1.2, floor: 0.03 }); } } // low kicked-up grit, never a cloud puff
   sparks(pos, n, kind = 'hit') { const G = this.S.glowParts; if (!G) return; const cols = kind === 'fire' ? ['#ffb040', '#ff7a1a', '#ffe08a'] : kind === 'zap' ? ['#e8fbff', '#8ee8ff', '#ffffff'] : ['#fff6cf', '#ffe08a', '#ffffff']; for (let i = 0; i < n; i++) G.spawn({ pos: [pos.x, pos.y, pos.z + 0.3], vel: [rnd(-4, 4), rnd(-1, 5), rnd(-1.5, 1.5)], life: rnd(0.2, 0.45), size: rnd(10, 18), color: pick(cols), sprite: kind === 'fire' ? 'ember' : 'spark2', grav: kind === 'fire' ? -2 : 9, drag: 2 }); }
   // spring knockback: root offset + lean-back tilt + stagger dip, settling back to where it started
   knock(root, dir, strength) {

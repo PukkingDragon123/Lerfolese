@@ -32,7 +32,7 @@ const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x
 const SKIP = Symbol('skip');
 const BEATS = ['title', 'garden', 'cards', 'throw', 'fight', 'snake', 'grab', 'painting', 'sky'];
 const fast = () => (window.__storyFast > 1 ? Math.min(2, window.__storyFast) : 1);
-const GOLDEN = { bloom: [0.45, 0.6, 0.82], exposure: 0.86, grade: { warmth: 0.48, vignette: 0.52, sat: 1.04, contrast: 1.1, lift: [0.02, 0.012, 0.03], gain: [1.04, 0.98, 0.9] } };
+const GOLDEN = { bloom: [0.42, 0.6, 0.84], exposure: 0.95, grade: { warmth: 0.32, vignette: 0.42, sat: 1.12, vib: 0.3, sel: [0.14, 0.14, 0.12], contrast: 1.08, lift: [0.006, 0.01, 0.03], gain: [1.04, 0.99, 0.92] } }; // colourful realistic golden hour: warm key, cool shade
 const SPOT = { teacher: V(-1.45, 0, 2.55), kid: V(0.15, 0, 3.95), kidStart: V(-9.5, 0, 8.5), bench: V(-2.35, 0, 1.85), basket: V(1.75, 0, 1.05), con: V(-0.66, 1.12, 3.25), snake: V(4.2, 0, 7.4), drop: V(0.55, 0, 4.55), snakeOut: V(7, 0, 11) };
 
 export class PrologueScene extends UIScreen {
@@ -75,9 +75,9 @@ export class PrologueScene extends UIScreen {
     try { const { buildOrchard } = await import('../models/orchard.js'); O = buildOrchard({ renderer: this.engine.renderer, menu: false }); sc.add(O.group); O.title.group.visible = false; O.prompt.group.visible = false; O.setNight(0.12); sc.fog = O.fog; } catch (e) { console.warn('prologue garden fallback', e); }
     this.O = O; this.hAt = O?.hAt || (() => 0); const hAt = this.hAt;
     // moody golden hour: a low warm sun with long real shadows, a dim warm sky fill, a cool shade
-    const sun = new THREE.DirectionalLight(0xffa458, 2.25); sun.position.set(-24, 6.5, 11); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 10, bottom: -8, near: 1, far: 80 }); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.02; sc.add(sun); this.sun = sun;
-    this.hemi = new THREE.HemisphereLight(0xffc690, 0x2a2014, 0.42); sc.add(this.hemi);
-    const cool = new THREE.DirectionalLight(0x8aa0d8, 0.28); cool.position.set(10, 8, -6); sc.add(cool);
+    const sun = new THREE.DirectionalLight(0xffb468, 2.7); sun.position.set(-24, 6.5, 11); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 10, bottom: -8, near: 1, far: 80 }); sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.02; sc.add(sun); this.sun = sun;
+    this.hemi = new THREE.HemisphereLight(0xa6bce0, 0x4a3a20, 0.55); sc.add(this.hemi); // a clear sky over warm earth: shadows read cool blue
+    const cool = new THREE.DirectionalLight(0x7e9ce0, 0.36); cool.position.set(10, 8, -6); sc.add(cool);
     if (sc.fog) { sc.fog.color.set(0xb07850); }
     // the orchard is lit for the menu's moonlit dusk: hand the light to the low sun (dim the moon, the dusk fill, the sky dome fill)
     O?.group.traverse((o) => { if (!o.isLight) return; if (o.isAmbientLight) o.intensity = 0.06; else if (o.isHemisphereLight) o.intensity = 0; else if (o.isDirectionalLight) { o.intensity = 0; o.castShadow = false; } else if (o.isPointLight) o.intensity *= 0.45; });
@@ -304,7 +304,7 @@ export class PrologueScene extends UIScreen {
   async b_painting() {
     const { buildCreation } = await import('../story/painting.js'); const P = buildCreation(); this.paint = P;
     if (!this.shock) { this.shock = shockPass(this.engine); this.shock.set({ white: 1, k: 0 }); }
-    this.frozen = false; this.timeK = 1; this.world(P.scene); this.engine.setFx({ bloom: [0.35, 0.6, 0.86], exposure: 0.95, grade: { warmth: 0.25, vignette: 0.3, sat: 1.0, contrast: 1.04 }, rays: false, ink: { strength: 0.55 } });
+    this.frozen = false; this.timeK = 1; this.world(P.scene); this.engine.setFx({ bloom: [0.35, 0.6, 0.86], exposure: 0.97, grade: { warmth: 0.22, vignette: 0.3, sat: 1.1, vib: 0.26, contrast: 1.06, lift: [0.004, 0.006, 0.02] }, rays: false, ink: { strength: 0.55 } });
     const PP = (this.paintFx = paintPass(this.engine)); PP.set(1); audio.playMusic('journal');
     this.shot(V(-0.5, 1.55, 8.4), V(-0.5, 1.2, 0), 42, 0); this.shot(V(-0.4, 1.5, 7.2), V(-0.4, 1.2, 0), 40, 22);
     await this.tween(2.4, (u) => this.shock.set({ white: 1 - ease(u), gray: 0, k: 0 }));

@@ -1,8 +1,9 @@
 // Realistic low-poly pixel-art look, shared by every scene.
 //
-// 1) Realistic light on the old toon materials: importing this module (engine.js does) swaps three's toon gradient
-//    lookup for physically plausible Lambert diffuse (no cel bands), so every MeshToonMaterial in the game, painted
-//    pixel-art maps included, is lit by the real sun / sky / bounce / shadows / AO. Gradient maps become no-ops.
+// 1) Realistic CEL light on the toon materials: importing this module (engine.js does) swaps three's toon gradient
+//    lookup for Lambert diffuse pulled toward three soft bands (see getGradientIrradiance), so every MeshToonMaterial
+//    in the game, painted pixel-art maps included, gets clean shadow terminators while still being lit by the real
+//    sun / sky / bounce / shadows / AO. Gradient maps become no-ops.
 // 2) lowpolyify(objectOrMesh, { detail, flat, uvs }) -> converts meshes to clean faceted low poly:
 //    - vertex-clustering decimation on a grid whose cell is set by `detail` (0 = very coarse .. 1 = fine; default 0.5),
 //      degenerate triangles dropped;
@@ -18,9 +19,16 @@ THREE.ShaderChunk.gradientmap_pars_fragment = `
 #ifdef USE_GRADIENTMAP
 	uniform sampler2D gradientMap;
 #endif
+// REALISTIC CEL: physically plausible Lambert, pulled toward three soft tones (core shadow / half light / full light)
+// with clean but anti-aliased terminators. The pull is partial, so forms still turn with real gradients inside each
+// band: it reads as a painted cel shade, not a cartoon.
 vec3 getGradientIrradiance( vec3 normal, vec3 lightDirection ) {
-	float dotNL = dot( normal, lightDirection );
-	return vec3( max( dotNL, 0.0 ) ); // realistic Lambert: soft terminator, no cel bands
+	float d = dot( normal, lightDirection );
+	float lam = max( d, 0.0 );
+	float w = fwidth( d ) * 1.5 + 0.035;
+	float cel = 0.5 * smoothstep( 0.04 - w, 0.04 + w, d ) + 0.5 * smoothstep( 0.42 - w, 0.42 + w, d ); // 0 | 0.5 | 1
+	cel = cel * ( 0.82 + 0.18 * lam ); // the lit band still rolls off toward the terminator
+	return vec3( mix( lam, cel, 0.68 ) );
 }`;
 
 // MeshToonMaterial has no declared flatShading, so `new MeshToonMaterial({ flatShading: true })` warned and was ignored;
@@ -43,9 +51,14 @@ export function lowpolyGeometry(geo, { detail = 0.5, cell = null } = {}) {
   for (let t = 0; t + 2 < idx.length; t += 3) { const a = idx[t], b = idx[t + 1], d = idx[t + 2]; if (rep[a] === rep[b] || rep[b] === rep[d] || rep[a] === rep[d]) continue; tris.push(a, b, d); }
   const out = new THREE.BufferGeometry(); const n = tris.length; const pos = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) pos.set(cpos[rep[tris[i]]], i * 3); out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  for (const name of Object.keys(geo.attributes)) { if (name === 'position' || name === 'normal') continue; const A = geo.attributes[name]; const sz = A.itemSize; const arr = new A.array.constructor(n * sz); const skin = name === 'skinIndex' || name === 'skinWeight';
+  // every attribute is read through getComponent (which DE-normalises quantised data: the Poly Haven GLBs use
+  // KHR_mesh_quantization, so their UVs are normalised Uint16 / Int16) and written as plain floats. Writing the
+  // de-normalised 0..1 values back into the source's integer array truncated every UV to 0 or 1, so whole models
+  // sampled one corner texel of their atlas and rendered black. Only skinIndex keeps its integer type.
+  for (const name of Object.keys(geo.attributes)) { if (name === 'position' || name === 'normal') continue; const A = geo.attributes[name]; const sz = A.itemSize; const skin = name === 'skinIndex' || name === 'skinWeight';
+    const keepInt = name === 'skinIndex' && !A.normalized; const arr = keepInt ? new A.array.constructor(n * sz) : new Float32Array(n * sz);
     for (let i = 0; i < n; i++) { const src = skin ? first[rep[tris[i]]] : tris[i]; for (let k = 0; k < sz; k++) arr[i * sz + k] = A.getComponent ? A.getComponent(src, k) : A.array[src * sz + k]; }
-    out.setAttribute(name, new THREE.BufferAttribute(arr, sz, A.normalized)); }
+    out.setAttribute(name, new THREE.BufferAttribute(arr, sz, keepInt ? A.normalized : false)); }
   for (const g of geo.groups || []) void g; // material groups are dropped by clustering; multi-material meshes keep the first material
   out.computeVertexNormals(); out.computeBoundingBox(); out.computeBoundingSphere(); out.userData = { ...geo.userData, lowpoly: { from: P.count, tris: n / 3 } }; return out;
 }
