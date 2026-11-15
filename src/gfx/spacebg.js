@@ -24,7 +24,7 @@ const RAMPS = {
 };
 
 const FS = `
-uniform float uTime; uniform vec2 uGrid; uniform vec2 uCam; uniform vec4 uShoot; uniform vec2 uStar; uniform float uFlare; uniform vec2 uArtRes;
+uniform float uTime; uniform vec2 uGrid; uniform vec2 uCam; uniform vec4 uShoot; uniform vec2 uStar; uniform float uFlare; uniform vec2 uArtRes; uniform float uCell;
 uniform vec3 uVio[6]; uniform vec3 uTea[6]; uniform vec3 uGol[6]; uniform vec3 uGal[6]; uniform vec3 uGas[6]; uniform vec3 uIce[6];
 varying vec2 vUv;
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
@@ -37,11 +37,14 @@ vec3 r6i(vec3 R[6], int i){ return i <= 0 ? R[0] : i == 1 ? R[1] : i == 2 ? R[2]
 vec3 r6(vec3 R[6], float l){ l = clamp(l, 0.0, 5.0); int i = int(floor(l)); return mix(r6i(R, i), r6i(R, i + 1), smoothstep(0.0, 1.0, fract(l))); } // smooth ramp
 float lv(float d, float th){ return clamp(d, 0.0, 1.0) * 5.0; } // density -> continuous ramp level 0..5
 void main(){
-  vec2 P = vUv * uGrid; float th = 0.5; float asp = uGrid.x / uGrid.y; // continuous: full native resolution, no dithering
+  // pixel look: the whole backdrop is evaluated once per space pixel (uCell art pixels, about 360 rows), so the gas, the
+  // galaxy and the stars read as crisp pixel art at a slightly coarser grain than the 3D apple in front of it
+  vec2 uv0 = uArtRes.x > 0.0 ? (floor(gl_FragCoord.xy / uCell) + 0.5) * uCell / uArtRes : vUv; vec2 fcp = uArtRes.x > 0.0 ? floor(gl_FragCoord.xy / uCell) : gl_FragCoord.xy;
+  vec2 P = uv0 * uGrid; float th = 0.5; float asp = uGrid.x / uGrid.y; // continuous: full native resolution, no dithering
   vec3 col = vec3(0.004, 0.003, 0.01); float lvl = 0.0;
   // ---- far starfield (1 px dust stars), almost no parallax. Pixel look: exactly one art pixel each, stepping in whole
   // art pixels with the parallax (never sub-pixel specks that shimmer)
-  if (uArtRes.x > 0.0) { vec2 ce = floor(vUv * uArtRes + floor(uCam * 0.06 * uArtRes.y / uGrid.y)); float h = h21(ce * 1.13 + 3.1); if (h > 0.9935) { float tw = 0.5 + 0.5 * sin(uTime * (0.6 + h * 3.0) + h * 400.0); float b = h > 0.9988 ? 0.85 : h > 0.997 ? 0.5 : 0.3; col += mix(vec3(0.6, 0.62, 0.9), vec3(1.0, 0.86, 0.7), step(0.9992, h)) * b * (0.55 + 0.45 * tw); } }
+  if (uArtRes.x > 0.0) { vec2 ce = fcp + floor(uCam * 0.06 * uArtRes.y / uGrid.y / uCell); float h = h21(ce * 1.13 + 3.1); if (h > 0.9935) { float tw = 0.5 + 0.5 * sin(uTime * (0.6 + h * 3.0) + h * 400.0); float b = h > 0.9988 ? 0.85 : h > 0.997 ? 0.5 : 0.3; col += mix(vec3(0.6, 0.62, 0.9), vec3(1.0, 0.86, 0.7), step(0.9992, h)) * b * (0.55 + 0.45 * tw); } }
   else { vec2 q = (P + uCam * 0.06) * 3.0; vec2 ce = floor(q); float h = h21(ce * 1.13 + 3.1); if (h > 0.9965) { float tw = 0.5 + 0.5 * sin(uTime * (0.6 + h * 3.0) + h * 400.0); float b = h > 0.999 ? 0.6 : 0.34; vec2 so = fract(q) - 0.5; col += vec3(0.6, 0.62, 0.9) * b * (0.55 + 0.45 * tw) * exp(-dot(so, so) * 9.0); } }
   // ---- nebula (slow parallax)
   vec2 Pn = P + uCam * 0.18; vec2 uv = Pn / uGrid.y; vec2 q = uv * 2.6;
@@ -49,12 +52,12 @@ void main(){
   float band = exp(-pow((uv.y - 0.62 + (uv.x / asp - 0.5) * 0.7) * 2.3, 2.0));
   float dV = smoothstep(0.42, 0.92, fbm(q * 0.9 + w * 1.7 + vec2(2.0, 0.0))) * (0.35 + 0.85 * band);
   float dT = smoothstep(0.45, 0.95, fbm(q * 1.15 + w.yx * 2.0 + vec2(8.0, 3.0))) * (0.25 + 0.95 * exp(-pow((uv.y - 0.3 + (uv.x / asp - 0.6) * 0.3) * 2.6, 2.0)));
-  vec2 sd = (vUv - uStar) * vec2(asp, 1.0); float near = exp(-dot(sd, sd) * 7.0);
+  vec2 sd = (uv0 - uStar) * vec2(asp, 1.0); float near = exp(-dot(sd, sd) * 7.0);
   float dG = smoothstep(0.5, 0.95, fbm(q * 1.7 + w * 2.6 + vec2(-3.0, 7.0))) * (0.15 + 1.1 * near);
   float dust = smoothstep(0.58, 0.8, fbm(q * 2.3 + w * 3.2 + 11.0));
   float dm = max(dV, max(dT, dG)) * (1.0 - dust * 0.75);
   if (dm > 0.02) {
-    float l = lv(dm, th); if (uArtRes.x > 0.0) l = floor(l * 3.0 + bayer(gl_FragCoord.xy) * 0.9 + 0.05) / 3.0; // pixel look: the gas steps through its ramp in ordered-dither bands
+    float l = lv(dm, th); if (uArtRes.x > 0.0) l = floor(l * 3.0 + bayer(fcp) * 0.9 + 0.05) / 3.0; // pixel look: the gas steps through its ramp in ordered-dither bands
     vec3 c;
     if (dG + (th - 0.5) * 0.12 > max(dV, dT)) c = r6(uGol, l); else if (dT + (th - 0.5) * 0.12 > dV) c = r6(uTea, l); else c = r6(uVio, l);
     col = mix(col, c, smoothstep(0.0, 1.2, l)); lvl = l;
@@ -63,7 +66,7 @@ void main(){
   { vec2 gc = vec2(0.2 * asp, 0.74); vec2 d = (uv - gc - vec2(0.0)) ; float ca = cos(0.5), sa = sin(0.5); d = vec2(ca * d.x - sa * d.y, sa * d.x + ca * d.y); d.y *= 2.3;
     float r = length(d) / 0.25; if (r < 1.6) { float a = atan(d.y, d.x) + uTime * 0.03; float arm = pow(0.5 + 0.5 * cos(2.0 * (a - log(r + 0.05) * 2.6)), 3.0);
       float gd = arm * exp(-r * 2.4) * (0.6 + 0.6 * fbm(d * 18.0 + 4.0)) + exp(-r * 9.0) * 1.3; gd *= 1.0 - smoothstep(1.1, 1.6, r);
-      float l = lv(gd * 1.15, th); if (uArtRes.x > 0.0) l = floor(l * 3.0 + bayer(gl_FragCoord.xy + 2.0) * 0.9 + 0.05) / 3.0; col = mix(col, r6(uGal, l), smoothstep(0.0, 1.5, l) * smoothstep(lvl - 1.5, lvl, l)); lvl = max(lvl, l); } }
+      float l = lv(gd * 1.15, th); if (uArtRes.x > 0.0) l = floor(l * 3.0 + bayer(fcp + 2.0) * 0.9 + 0.05) / 3.0; col = mix(col, r6(uGal, l), smoothstep(0.0, 1.5, l) * smoothstep(lvl - 1.5, lvl, l)); lvl = max(lvl, l); } }
   // ---- mid stars (plus shapes), medium parallax
   { vec2 q2 = P + uCam * 0.32; vec2 cell = floor(q2 / 10.0); float h = h21(cell + 17.0); if (h > 0.8) { vec2 sp = cell * 10.0 + 1.5 + vec2(h21(cell + 1.3), h21(cell + 7.7)) * 7.0; vec2 o = q2 - sp; float tw = 0.5 + 0.5 * sin(uTime * (0.8 + h * 2.4) + h * 60.0);
       vec3 sc = h > 0.9 ? vec3(1.0, 0.86, 0.6) : vec3(0.75, 0.85, 1.0); float core = exp(-dot(o, o) * 6.0); float spk = (exp(-abs(o.y) * 9.0) * exp(-abs(o.x) * 1.6) + exp(-abs(o.x) * 9.0) * exp(-abs(o.y) * 1.6)) * tw;
@@ -102,7 +105,7 @@ void main(){
 }`;
 
 export function spaceBackdrop() {
-  const U = { uArtRes: { value: new THREE.Vector2(0, 0) }, uTime: { value: 0 }, uGrid: { value: new THREE.Vector2(400, 225) }, uCam: { value: new THREE.Vector2() }, uShoot: { value: new THREE.Vector4(0, 0, 0, -1) }, uStar: { value: new THREE.Vector2(0.77, 0.78) }, uFlare: { value: 0 } };
+  const U = { uArtRes: { value: new THREE.Vector2(0, 0) }, uCell: { value: 1 }, uTime: { value: 0 }, uGrid: { value: new THREE.Vector2(400, 225) }, uCam: { value: new THREE.Vector2() }, uShoot: { value: new THREE.Vector4(0, 0, 0, -1) }, uStar: { value: new THREE.Vector2(0.77, 0.78) }, uFlare: { value: 0 } };
   for (const [k, r] of Object.entries(RAMPS)) U['u' + k[0].toUpperCase() + k.slice(1)] = { value: r };
   const mat = new THREE.ShaderMaterial({ uniforms: U, fragmentShader: FS, depthWrite: false, depthTest: false, toneMapped: false,
     vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 1.0, 1.0); }' });
@@ -113,7 +116,7 @@ export function spaceBackdrop() {
     /** art pixel size k (screen px per art px) chosen so the art grid is ~240 rows and k is an integer */
     update(dt, t, renderer, cam = null) {
       renderer.getDrawingBufferSize(sz); const k = Math.max(2, Math.round(sz.y / 240)); api.px = k; U.uGrid.value.set(Math.floor(sz.x / k), Math.floor(sz.y / k)); U.uTime.value = t;
-      if (ART.on) U.uArtRes.value.set(ART.w, ART.h); else U.uArtRes.value.set(0, 0); // the engine's slight pixel look (setFx pixel): stars and gas snap to art pixels
+      if (ART.on) { U.uArtRes.value.set(ART.w, ART.h); U.uCell.value = Math.max(1, Math.floor(ART.h / 360)); } else U.uArtRes.value.set(0, 0); // the engine's slight pixel look (setFx pixel): stars and gas snap to art pixels
       // keep vUv on whole art pixels: the quad covers the buffer exactly when sz is a multiple of k; otherwise stretch slightly (still hard-edged)
       if (cam) U.uCam.value.set(cam.x, cam.y);
       nextShoot -= dt; if (nextShoot < 0 && shootT < 0) { shootT = 0; nextShoot = 3.5 + Math.random() * 5; const g = U.uGrid.value; U.uShoot.value.set(g.x * (0.15 + Math.random() * 0.6), g.y * (0.75 + Math.random() * 0.2), -0.35 - Math.random() * 0.5 + (Math.random() < 0.3 ? -2.2 : 0), 0); }

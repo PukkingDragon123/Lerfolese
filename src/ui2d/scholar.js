@@ -28,6 +28,7 @@ function css() {
 .lf-panel.lf-hide { opacity: 0; transform: translateY(calc(var(--k) * 10px)) scale(.98); pointer-events: none; }
 .lf-title { font-family: 'Alagard'; font-size: calc(var(--k) * 16px); line-height: calc(var(--k) * 16px); letter-spacing: 0; color: ${INK.parch}; text-shadow: 0 var(--k-px) 0 rgba(255,240,200,.55); white-space: nowrap; }
 .lf-night .lf-title, .lf-title.lf-gold { color: ${INK.gold}; text-shadow: 0 var(--k-px) 0 #1a0a04, var(--k-px) 0 0 #1a0a04, calc(-1 * var(--k-px)) 0 0 #1a0a04, 0 calc(-1 * var(--k-px)) 0 #1a0a04; }
+.lf-wrap { white-space: normal; }
 .lf-big { font-size: calc(var(--k) * 32px); line-height: calc(var(--k) * 30px); }
 .lf-body { font-size: calc(var(--k) * 11px); line-height: calc(var(--k) * 13px); }
 .lf-num { font-family: 'NanoPlus'; font-size: calc(var(--k) * 13px); line-height: calc(var(--k) * 12px); }

@@ -58,7 +58,7 @@ export class Codex extends Modal {
   }
   cardInfo(id, known) {
     const UI = this.UI, R = this.right, d = BASICS[id]; if (!known) { UI.el('div', 'lf-title', '???', R); UI.el('div', 'lf-body lf-soft', 'Not yet met in any loop. Discover it in a merge or on the road.', R).style.marginTop = UI.px(6); return; }
-    const D = describeCard({ id, type: 'basic', up: 0 }); UI.el('div', 'lf-title', d.name, R); UI.el('div', 'lf-body lf-red', KIND_LABEL[d.kind] || '', R).style.marginTop = UI.px(3);
+    const D = describeCard({ id, type: 'basic', up: 0 }); UI.el('div', 'lf-title lf-wrap', d.name, R); UI.el('div', 'lf-body lf-red', KIND_LABEL[d.kind] || '', R).style.marginTop = UI.px(3);
     if (D) for (const [h, t] of D.lines) { if (!t) continue; const b = UI.el('div', 'lf-body', null, R); b.style.marginTop = UI.px(5); UI.el('span', 'lf-goldt', h + '  ', b); UI.el('span', '', t, b); }
     const n = Object.keys(save.journal.combos || {}).filter((k) => k.split('+').includes(id)).length; const f = UI.el('div', 'lf-body lf-soft', `In ${n} known combination${n === 1 ? '' : 's'}.`, R); f.style.marginTop = UI.px(6);
     if (D?.flavor) { const q = UI.el('div', 'lf-body lf-soft', '"' + D.flavor + '"', R); q.style.marginTop = UI.px(6); }
@@ -73,12 +73,12 @@ export class Codex extends Modal {
   }
   foeInfo(id, e) {
     const UI = this.UI, R = this.right, d = ENEMIES[id]; if (!e) { UI.el('div', 'lf-title', '? ? ?', R); UI.el('div', 'lf-body lf-soft', 'Not yet encountered in any loop.', R).style.marginTop = UI.px(6); return; }
-    UI.el('div', 'lf-title', d.name, R); UI.el('div', 'lf-body lf-red', d.title || '', R).style.marginTop = UI.px(2);
+    UI.el('div', 'lf-title lf-wrap', d.name, R); UI.el('div', 'lf-body lf-red', d.title || '', R).style.marginTop = UI.px(2);
     const pic = UI.el('div', '', null, R); Object.assign(pic.style, { height: UI.px(92), margin: `${UI.px(4)} 0`, background: 'rgba(90,54,34,.12)', border: 'var(--k-px) solid rgba(90,54,34,.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' });
     portrait(this.game, id).then((c) => { if (!c || !pic.isConnected) return; const cv = document.createElement('canvas'); cv.width = c.width; cv.height = c.height; cv.getContext('2d').drawImage(c, 0, 0); cv.className = 'lf-cv'; cv.dataset.w = 120; cv.dataset.h = 90; UI.add(cv, pic); });
     UI.el('div', 'lf-body', `Seen ${e.seen || 0}   Defeated ${e.killed || 0}`, R);
     const learned = Object.keys(e.learned || {}); const w = UI.el('div', 'lf-body', learned.length ? 'Weaknesses learned:' : (d.weakness ? 'Weakness: unknown. Experiment on it.' : ''), R); w.style.marginTop = UI.px(4);
-    for (const k of learned.slice(0, 4)) { const l = UI.el('div', 'lf-body lf-soft', '- ' + k, R); l.style.marginTop = UI.px(2); }
+    import('../scenes/journal.js').then(({ LEARN }) => { for (const k of learned.slice(0, 4)) { if (!R.isConnected) return; const l = UI.el('div', 'lf-body lf-soft', '- ' + (LEARN?.[k] || k), R); l.style.marginTop = UI.px(2); } }).catch(() => {});
   }
   // ---- Laws of Nature
   laws() {
@@ -89,7 +89,7 @@ export class Codex extends Modal {
     if (first) this.select(first[0], () => this.lawInfo(first[1], first[2]));
   }
   lawInfo(s, has) {
-    const UI = this.UI, R = this.right; UI.el('div', 'lf-title', has ? s.name : 'A hidden Law', R);
+    const UI = this.UI, R = this.right; UI.el('div', 'lf-title lf-wrap', has ? s.name : 'A hidden Law', R);
     if (!has) { UI.el('div', 'lf-body lf-soft', `Still unwritten. It needs ${s.key.split('+').length} kinds of card, merged at once.`, R).style.marginTop = UI.px(6); return; }
     const rec = UI.el('div', 'lf-body lf-red', s.key.split('+').map((id) => BASICS[id]?.name || id).join(' + '), R); rec.style.marginTop = UI.px(4);
     if (s.effect) { const e = UI.el('div', 'lf-body', s.effect, R); e.style.marginTop = UI.px(6); }

@@ -33,7 +33,7 @@ export class LoadingScene extends UIScreen {
     // violet sky fill keeps the shadow side coloured (never black); a faint warm kick from below-front shapes the base
     const KEY = V(2.4, 2.1, 1.5), COOL = V(-2.6, 0.9, -2.2);
     const star = new THREE.DirectionalLight(0xffd29a, 3.4); star.position.copy(KEY); star.target.position.set(0, 0.85, 0);
-    const rim = new THREE.DirectionalLight(0x56c8e8, 3.0); rim.position.copy(COOL); rim.target.position.set(0, 0.85, 0);
+    const rim = new THREE.DirectionalLight(0x5ac4e6, 2.4); rim.position.copy(COOL); rim.target.position.set(0, 0.85, 0);
     const rim2 = new THREE.DirectionalLight(0xa070ff, 1.4); rim2.position.set(0.4, 2.6, -2.8); rim2.target.position.set(0, 0.85, 0); // violet top-back edge from the nebula's bright veil
     const kick = new THREE.DirectionalLight(0xff9a6a, 0.35); kick.position.set(0.3, -1.4, 2.6); kick.target.position.set(0, 0.85, 0);
     sc.add(star, star.target, rim, rim.target, rim2, rim2.target, kick, kick.target, new THREE.HemisphereLight(0x5a4a9a, 0x0a1022, 0.75));
@@ -104,7 +104,8 @@ export class LoadingScene extends UIScreen {
       const q = (this._q ??= new THREE.Quaternion()), qt = (this._qt ??= new THREE.Quaternion()); q.setFromAxisAngle(V(0, 1, 0), sp.a); qt.setFromAxisAngle(V(Math.cos(t * 0.21), 0, Math.sin(t * 0.21)), tilt + Math.sin(t * 0.47) * 0.05); q.premultiply(qt);
       const ap = A.apple; const c = V(0, 0.42, 0); ap.quaternion.copy(q); ap.position.copy(c).sub(c.clone().applyQuaternion(q)).multiplyScalar(ap.scale.x); // pivot round the apple's heart, not its base
       A.seed.rotation.y = sp.a * 0.8; A.group.position.y = 0.62 + Math.sin(t * 0.8) * 0.012; }
-    // camera: a slow orbit-drift; dive at the seedling when leaving const zin = ease(this.age > 0.86 ? (this.age - 0.86) / 0.14 : 0); const lv = this.leaving ? ease5((performance.now() - this.leaving) / 1500) : 0;
+    // camera: a slow orbit-drift; dive at the seedling when leaving
+    const zin = ease(this.age > 0.86 ? (this.age - 0.86) / 0.14 : 0); const lv = this.leaving ? ease5((performance.now() - this.leaving) / 1500) : 0;
     const tip = A.sproutTip(); const cp = V(Math.sin(t * 0.2) * 0.12, 1.05 - zin * 0.18, 2.75 - zin * 1.1); const look = V(0, 0.86 - zin * 0.12, 0);
     if (lv > 0) { cp.lerp(tip.clone().add(V(0.02, 0.05, 0.42)), lv * 0.85); look.lerp(tip, lv); this.bg.U.uFlare.value = Math.max(this.bg.U.uFlare.value, lv * 0.8); }
     this.camera.position.copy(cp); this.camera.lookAt(look);

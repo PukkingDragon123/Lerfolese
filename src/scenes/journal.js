@@ -16,7 +16,7 @@ import { tweens } from '../core/tween.js';
 import { audio } from '../core/audio.js';
 
 const PW = 640, PH = 860, BW = 7.6, BH = 10.2;
-const LEARN = {
+export const LEARN = {
   prone: 'Gravity knocks him flat. He is not, technically, balanced.', wine: 'His spilled wine burns beautifully. Bring Heat.', drunk: 'Drunk swings sometimes hit his own friends.',
   analyzed: 'A Lens makes it Vulnerable: +50% damage.', reflect: 'A Lens reflects the petrifying gaze. She stuns herself!', evade: 'Nimble. Dodges single hits: use waves, wells, ricochets.',
   crash: 'Charges blindly into solid objects. Place a Boulder. Watch.', rage: 'Every hit makes him angrier. Fewer, bigger hits.', hide: 'Thick hide halves damage while 3+ heads live. Falling attacks pierce it.',

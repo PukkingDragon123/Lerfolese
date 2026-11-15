@@ -48,14 +48,14 @@ function pendulum() {
 // ---------------------------------------------------------------- the falling apple
 function fall() {
   const g = new THREE.Group();
-  put(g, cbox(0.5, 0.05, 0.36, 0.012), M.walnut(), 0, 0.025, 0); put(g, cbox(0.05, 1.05, 0.05, 0.01), M.oak(), -0.2, 0.55, -0.1);
-  const bough = put(g, tube([[-0.2, 1.05, -0.1], [-0.05, 1.12, -0.06], [0.12, 1.1, 0.0], [0.24, 1.04, 0.02]], 0.022, { seg: 8, rad: 5, taper: (u) => 1 - u * 0.6 }), M.oak()); void bough;
+  put(g, cbox(0.5, 0.05, 0.36, 0.012), M.walnut(), 0, 0.025, 0); put(g, cbox(0.05, 0.8, 0.05, 0.01), M.oak(), -0.2, 0.42, -0.1);
+  const bough = put(g, tube([[-0.2, 0.8, -0.1], [-0.05, 0.87, -0.06], [0.12, 0.85, 0.0], [0.24, 0.79, 0.02]], 0.022, { seg: 8, rad: 5, taper: (u) => 1 - u * 0.6 }), M.oak()); void bough;
   const leafM = smat('green', { rough: 0.8, color: 0x7ab048 });
-  for (let i = 0; i < 7; i++) { const a = i * 1.7; const l = put(g, extrude(shape([[0, 0], [0.03, 0.02], [0.05, 0.06], [0.03, 0.09], [0, 0.1], [-0.02, 0.06]]), 0.004, 0.001), leafM, -0.1 + (i % 4) * 0.1, 1.08 + Math.sin(a) * 0.04, -0.06 + (i % 3) * 0.04, Math.sin(a) * 0.6, a, Math.cos(a) * 0.9 - 0.5); l.castShadow = false; }
+  for (let i = 0; i < 7; i++) { const a = i * 1.7; const l = put(g, extrude(shape([[0, 0], [0.03, 0.02], [0.05, 0.06], [0.03, 0.09], [0, 0.1], [-0.02, 0.06]]), 0.004, 0.001), leafM, -0.1 + (i % 4) * 0.1, 0.83 + Math.sin(a) * 0.04, -0.06 + (i % 3) * 0.04, Math.sin(a) * 0.6, a, Math.cos(a) * 0.9 - 0.5); l.castShadow = false; }
   // a brass weighing pan below
   put(g, lathe([[0.0005, 0], [0.16, 0.0], [0.17, 0.025], [0.15, 0.03], [0.0005, 0.012]], 10), M.brass(), 0.16, 0.05, 0.02);
-  const apple = makeApple({ s: 0.085 }); g.add(apple); const home = V(0.16, 0.98, 0.02); apple.position.copy(home);
-  const stem = put(g, cbox(0.006, 0.05, 0.006, 0.001), M.oak(), 0.16, 1.04, 0.02);
+  const apple = makeApple({ s: 0.085 }); g.add(apple); const home = V(0.16, 0.73, 0.02); apple.position.copy(home);
+  const stem = put(g, cbox(0.006, 0.05, 0.006, 0.001), M.oak(), 0.16, 0.79, 0.02);
   let st = 'hang', v = V(), grow = 1, tHang = 0; void stem;
   return { group: g, eq: 'F = G m1 m2 / r^2',
     update(dt, t) { if (st === 'hang') { tHang += dt; apple.rotation.z = Math.sin(t * 1.3) * 0.08; apple.position.copy(home); if (tHang > 5) this.click(); }

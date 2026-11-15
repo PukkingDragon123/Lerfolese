@@ -95,7 +95,7 @@ export class StudiesScene extends UIScreen {
     this.flare = new THREE.PointLight(0xffd070, 0, 4, 1.4); this.flare.position.set(0, BENCH_Y + 0.6, 0.4); B.add(this.flare);
     this.benchHit = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.4, 1.2), new THREE.MeshBasicMaterial({ visible: false })); this.benchHit.position.set(0, BENCH_Y + 0.6, 0); B.add(this.benchHit);
   }
-  setDemo(kind) { if (this.demo?.kind === kind) return; if (this.demo) { this.slot.remove(this.demo.group); } this.demo = makeDemo(kind, { motes: this.motes }); this.demo.group.scale.setScalar(0.001); this.demoS = 1.3; this.slot.add(this.demo.group); this.demoIn = 0; }
+  setDemo(kind) { if (this.demo?.kind === kind) return; if (this.demo) { this.slot.remove(this.demo.group); } this.demo = makeDemo(kind, { motes: this.motes }); this.demo.group.scale.setScalar(0.001); this.demoS = { fall: 1.45, pendulum: 1.1, orbit: 1.2 }[kind] || 1.3; this.slot.add(this.demo.group); this.demoIn = 0; }
   // ---------------------------------------------------------------- the chalkboard: the study's law in chalk
   buildBoard(sc) {
     const g = new THREE.Group(); g.position.set(0, 2.55, -4.42); sc.add(g); put(g, cbox(3.0, 1.7, 0.08, 0.02), M.walnut(), 0, 0, 0); put(g, cbox(2.9, 0.07, 0.16, 0.01), M.oak(), 0, -0.88, 0.06);
@@ -111,7 +111,7 @@ export class StudiesScene extends UIScreen {
     if (!S) { chalkText('Nothing studied yet', W / 2, 140, 'title', 2); chalkText('merge cards in battle', W / 2, 200, 'body', 3, '#c8d4c8'); this.boardT.needsUpdate = true; return; }
     const D = DEMO[S.demo] || DEMO.orbit; const long = S.name.length > 17; chalkText(S.name, W / 2, long ? 64 : 72, long ? 'head' : 'title', long ? 3 : 2, '#f6f2d8'); chalkText(S.recipe, W / 2, 118, 'body', S.recipe.length > 28 ? 2 : 3, '#c8e0d0');
     chalkText(D.eq, W / 2, 196, 'title', 2, '#ffe8a0'); g.strokeStyle = '#d8e4d8'; g.lineWidth = 3; g.beginPath(); g.moveTo(W / 2 - 150, 214); g.lineTo(W / 2 + 150, 214); g.stroke();
-    chalkText(`${Math.min(S.uses, S.goal)} of ${S.goal}`, W / 2, 262, 'body', 3, S.done ? '#ffe08a' : '#a8c0b0'); this.boardT.needsUpdate = true;
+    if (!S.preview) chalkText(`${Math.min(S.uses, S.goal)} of ${S.goal}`, W / 2, 262, 'body', 3, S.done ? '#ffe08a' : '#a8c0b0'); else chalkText(D.act, W / 2, 262, 'body', 2, '#a8c0b0'); this.boardT.needsUpdate = true;
   }
   // ---------------------------------------------------------------- the trophy cabinet: one curio per claimed cosmetic study
   buildCabinet(sc) {
@@ -136,7 +136,11 @@ export class StudiesScene extends UIScreen {
     const done = this.studies.filter((s) => s.claimed).length, ready = this.studies.filter((s) => s.done && !s.claimed).length;
     UI.el('div', 'lf-title lf-big', 'Studies', L.inner); this.headEl = UI.el('div', 'lf-body lf-soft', this.studies.length ? `${done} of ${this.studies.length} complete${ready ? `  -  ${ready} to claim` : ''}` : 'Nothing studied yet', L.inner); UI.el('div', 'lf-rule', null, L.inner);
     const list = (this.listEl = UI.el('div', 'lf-list', null, L.inner)); Object.assign(list.style, { position: 'absolute', left: 0, right: 0, top: UI.px(54), bottom: 0 });
-    if (!this.studies.length) { UI.el('div', 'lf-body lf-soft', 'Every combination or Law you discover in battle becomes a study here. Use it to complete it, then claim a lasting reward.', list).style.padding = UI.px(4); }
+    if (!this.studies.length) { UI.el('div', 'lf-body lf-soft', 'Every combination or Law you discover in battle becomes a study here. Use it to complete it, then claim a lasting reward.', list).style.padding = UI.px(4);
+      // until then, the bench can show what it will demonstrate: the eight experiments, as previews
+      const NEED = { pendulum: 'Pendulum or Spring', fall: 'Gravity', prism: 'Lens or Prism', top: 'Rotation or Spin', cradle: 'Force, Mass or Motion', flask: 'Heat, Water or Pressure', spark: 'Spark or Magnet', orbit: 'Gravity, Inertia and Rotation' };
+      for (const [k, D] of Object.entries(DEMO)) { const r = UI.el('div', 'lf-row', null, list); r.appendChild(UI.fit(icon('flask', { accent: '#3ab0a0' }))); const t = UI.el('div', '', null, r); UI.el('div', 'lf-title', D.name, t); UI.el('div', 'lf-body lf-soft', 'Needs ' + NEED[k], t);
+        UI.hoverSound(r, 'paper_rustle', 0.15); r.addEventListener('pointerdown', () => { for (const x of list.querySelectorAll('.lf-sel')) x.classList.remove('lf-sel'); r.classList.add('lf-sel'); audio.play('page_turn', { vol: 0.35 }); this.setDemo(k); this.chalk({ id: k, name: D.name, recipe: 'Needs ' + NEED[k], comps: [], demo: k, uses: 0, goal: 0, done: false, preview: true }); }); } }
     this.rows = new Map(); for (const S of this.studies) this.rows.set(S.id, this.row(S, list));
     const back = (this.backP = UI.panel({ w: 92, h: 34, anchor: 'bottom-right', mx: 8, my: 8, seed: 51, pad: 7, frame: 'thin' })); UI.show(back, false); const b = UI.button('Return', () => this.leave(), { parent: back.inner, w: 76, sound: 'ui_back' }); void b;
     setTimeout(() => { UI.show(L, true); setTimeout(() => UI.show(back, true), 260); audio.play('paper_rustle', { vol: 0.35 }); }, 650);
@@ -154,7 +158,7 @@ export class StudiesScene extends UIScreen {
     this.sel = S; for (const [id, r] of this.rows || []) { const on = !!S && id === S.id; r.classList.toggle('lf-sel', on); r.detail.style.display = on ? 'block' : 'none'; if (on) { r.detail.innerHTML = ''; this.read(S, r.detail); setTimeout(() => r.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 30); } } this.setDemo(S ? S.demo : 'fall'); this.chalk(S); if (!S) this.read(null, this.listEl); if (S) audio.play(({ pendulum: 'metal_clang', fall: 'apple_crunch', prism: 'glass_clink', top: 'spin_whoosh', cradle: 'metal_clang', flask: 'liquid_slosh', spark: 'electric_zap', orbit: 'clockwork' })[S.demo] || 'ui_click', { vol: 0.18, delay: 0.25 });
   }
   read(S, el) { // the selected study opens in place: its kind, note, reward and the claim plaque
-    const UI = this.UI; if (!S) { if (this.studies.length) return; const n = UI.el('div', 'lf-body lf-soft', 'Click the apple on the bench.', el); n.style.padding = UI.px(4); return; }
+    const UI = this.UI; if (!S) return;
     const D = DEMO[S.demo] || DEMO.orbit; el.style.paddingTop = UI.px(2); const k = UI.el('div', 'lf-body lf-red', (S.law ? 'Law of Nature' : S.special ? 'Named discovery' : 'Combination') + '  -  ' + S.recipe, el); void k;
     if (S.note) { const n = UI.el('div', 'lf-body lf-soft', '"' + S.note + '"', el); n.style.marginTop = UI.px(2); n.style.whiteSpace = 'normal'; }
     const rw = UI.el('div', '', null, el); Object.assign(rw.style, { display: 'flex', alignItems: 'center', gap: UI.px(4), marginTop: UI.px(3) }); rw.appendChild(UI.fit(icon(REWARD_ICON[S.reward.kind] || 'star'))); const rt = UI.el('div', 'lf-body lf-goldt', S.rewardText, rw); rt.style.whiteSpace = 'normal';

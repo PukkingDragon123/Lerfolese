@@ -5,7 +5,8 @@ import { ITEMS, ITEM_POOLS } from './data/items.js';
 import { ENCOUNTERS, ENEMIES } from './data/enemies.js';
 import { LOOT, EXTRA_LOOT } from './data/items.js';
 import { computeMove, baseOf } from './combos.js';
-import { save } from '../core/save.js';
+import { save, recordStudyUse } from '../core/save.js';
+import { cardWeight } from './studies.js';
 
 // content unlocked by the wizard frog (save.meta, from the star gallery). Anything not flagged `unlock` is base content.
 const CARD_GROUP = { lens: 'optics', prism: 'optics', orbit: 'orbits', antigravity: 'orbits' }; // save.js STAR_UNLOCKS card sets
@@ -64,6 +65,7 @@ export function newRun(seed = (Math.random() * 2 ** 31) | 0, { start = null } = 
 export function attachRun(run) {
   run.journal = save.journal;
   run.onDiscover = (mv) => {
+    try { recordStudyUse(mv); } catch (e) { console.warn('[studies]', e); } // research progress (forecast clones null onDiscover, so previews never count)
     const j = save.journal; const e = j.combos[mv.key];
     const math = (mv.attack.lines || []).map((l) => (l.kind === 'base' ? l.text : l.kind === 'total' ? l.text : `×${+(l.mul ?? 1).toFixed(3)} ${l.text}`)).slice(0, 5);
     if (!e) { j.combos[mv.key] = { name: mv.name, count: 1, loop: run.loop, special: !!mv.special, law: !!mv.special?.law, note: mv.special?.note || '', best: mv.attack.total, math }; run.stats.combos++; }
@@ -160,9 +162,11 @@ export function eventBoss(eventId) { const e = AREAS.wilderness.enc.event?.[even
 
 // ---------------------------------------------------------------- rewards
 // a discovery's offer: three different new cards (science cards mostly, now and then a rare one or a Law of nature)
+// studied cards turn up more often: a weighted pick by cardWeight (1 for unstudied cards)
+function wpick(r, arr) { const w = arr.map((id) => cardWeight(id)); let x = r.next() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < arr.length; i++) { x -= w[i]; if (x <= 0) return arr[i]; } return arr[arr.length - 1]; }
 export function discoveryChoices(run, n = 3, rare = 0) {
   const r = run.rng; const out = []; let guard = 0;
-  while (out.length < n && guard++ < 80) { const roll = r.next(); const id = roll < 0.08 + rare * 0.1 ? r.pick(CARD_POOL.powers) : roll < 0.2 + rare * 0.3 ? r.pick(CARD_POOL.rare) : r.pick(CARD_POOL.discover); if (!out.includes(id) && unlocked(id)) out.push(id); }
+  while (out.length < n && guard++ < 80) { const roll = r.next(); const id = roll < 0.08 + rare * 0.1 ? wpick(r, CARD_POOL.powers) : roll < 0.2 + rare * 0.3 ? wpick(r, CARD_POOL.rare) : wpick(r, CARD_POOL.discover); if (!out.includes(id) && unlocked(id)) out.push(id); }
   return out;
 }
 export function itemChoices(run, pool, n = 1) {

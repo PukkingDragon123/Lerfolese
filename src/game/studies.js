@@ -93,7 +93,7 @@ export function studyPerks() {
 /** how much more often a card turns up in offers (1 = normal); event / discovery pools can multiply their weights by it */
 export const cardWeight = (cardId) => studyPerks().weights[baseId(cardId)] || 1;
 /** the astral select's extra stars: one per studied run start */
-export function studyStarts() { return studyPerks().starts.map((s) => ({ ...s, blurb: `Begin with the Move ${s.name} in your deck.`, cards: s.comps })); }
+export function studyStarts() { return studyPerks().starts.map((s) => ({ ...s, blurb: `${s.comps.map(cardName).join(' + ')}, merged and ready from the first turn.`, cards: s.comps })); }
 /** at the start of a run (main.js newRun): the gold bonus, and the studied Move when the run starts under a study's star */
 export async function applyStudyPerks(run, startId) {
   const P = studyPerks(); if (P.gold) run.gold += P.gold;

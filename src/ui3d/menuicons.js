@@ -40,7 +40,7 @@ function alembic() {
   const ring = add(g, new THREE.TorusGeometry(0.1, 0.008, 4, 12), brass(), -0.08, -0.15, 0, Math.PI / 2);
   // the flask: a round bulb (faceted), a long neck; the liquor inside
   const prof = [[0.0005, -0.16], [0.07, -0.15], [0.115, -0.1], [0.13, -0.03], [0.115, 0.04], [0.07, 0.085], [0.034, 0.11], [0.03, 0.26], [0.04, 0.28]];
-  const flask = add(g, lathe(prof, 9), glass(0xe8f4ff, 0.28), -0.08, -0.0, 0); flask.castShadow = false; flask.renderOrder = 3;
+  const flask = add(g, lathe(prof, 9), glass(0xe8f4ff, 0.16), -0.08, -0.0, 0); flask.castShadow = false; flask.renderOrder = 3;
   const liq = add(g, lathe([[0.0005, -0.15], [0.065, -0.142], [0.105, -0.1], [0.118, -0.04], [0.11, 0.0], [0.0005, 0.0]], 9), liquorM, -0.08, -0.0, 0); liq.castShadow = false; liq.renderOrder = 2;
   add(g, new THREE.TorusGeometry(0.036, 0.01, 4, 10), brass(), -0.08, 0.2, 0, Math.PI / 2);
   // the swan neck to the receiving vial

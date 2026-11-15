@@ -311,6 +311,7 @@ export class Diorama {
     for (let p = 0; p < 560; p++) {
       const cx = D.X0 + 0.5 + rnd() * (D.X1 - D.X0 - 1), cz = D.ZF + 0.5 + rnd() * (D.ZN - D.ZF - 1); const c = ok(cx, cz); if (!c) continue;
       const f = n.fbm(cx * 0.13 + 7, cz * 0.13 + 1, 2); const wet = c.wet < 0.9; const edge = this.dP[c.i] < 0.9;
+      if (!wet && !edge && f <= 0.6 && rnd() < 0.62) continue; // (visuals: a calm board) the open lawn stays mostly clear; tufts gather along paths, water and in flower drifts
       const kinds = wet ? ['reeds', 'reeds', 'cattail', 'tall'] : f > 0.6 ? [FLOW[Math.floor(n(cx * 0.05, cz * 0.05) * 4) % 4], FLOW[Math.floor(n(cx * 0.05, cz * 0.05) * 4) % 4], 'short', 'clover'] : edge ? ['dry', 'short', 'wispy', 'seed'] : rnd() < 0.15 ? ['fern', 'fern', 'tall'] : rnd() < 0.12 ? ['berry', 'broom', 'rosemary'] : ['tall', 'short', 'wispy', 'clover', 'tall'];
       const cnt = 4 + Math.floor(rnd() * 9), rad = 0.25 + rnd() * 0.45;
       for (let k = 0; k < cnt; k++) { const a = rnd() * TAU, r = Math.sqrt(rnd()) * rad; const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (!ok(x, z)) continue; const kind = kinds[Math.floor(rnd() * kinds.length)]; items.push({ kind, x, y: this.heightAt(x, z) - 0.01, z, s: (/berry|broom|rosemary/.test(kind) ? 1.1 : 0.8) + rnd() * 0.35 }); }

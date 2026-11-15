@@ -44,7 +44,7 @@
     var id = og.getImageData(0, 0, AW, AH), E = id.data, step = 7; for (var yy = 0; yy < AH; yy++) for (var xx = 0; xx < AW; xx++) { var q = (BAY[(yy & 3) * 4 + (xx & 3)] + 0.5) / 16, j = (yy * AW + xx) * 4; for (var k = 0; k < 3; k++) E[j + k] = Math.min(255, Math.floor(E[j + k] / step + q) * step); }
     og.putImageData(id, 0, 0); return o; }
   function resize() { dpr = Math.min(2, window.devicePixelRatio || 1); W = Math.round(innerWidth * dpr); H = Math.round(innerHeight * dpr); cv.width = W; cv.height = H;
-    B = Math.max(1, Math.round(H / 533)); AW = Math.ceil(W / B); AH = Math.ceil(H / B); art = document.createElement('canvas'); art.width = AW; art.height = AH; a = art.getContext('2d');
+    var blk = Math.max(1, Math.round(H / 533)); B = blk * Math.max(1, Math.floor(Math.ceil(H / blk) / 360)); /* the loading scene's grain: the engine's ~540-row art block, space drawn at ~360 rows */ AW = Math.ceil(W / B); AH = Math.ceil(H / B); art = document.createElement('canvas'); art.width = AW; art.height = AH; a = art.getContext('2d');
     neb = paintNebula(); stars = []; for (var i = 0; i < Math.round(AW * AH / 2200); i++) stars.push([Math.floor(h(i, 7) * AW), Math.floor(h(i, 13) * AH), h(i, 29), h(i, 31), h(i, 37)]); }
   function apple(cx, cy, R, t) { // a glossy red apple turning slowly: the stem, leaf and gloss slide round with the spin
     var sp = t * 0.62, sx = Math.sin(sp), cx2 = Math.cos(sp); a.save(); a.translate(cx, cy);
