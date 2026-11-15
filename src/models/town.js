@@ -44,7 +44,7 @@ export function buildTown({ hAt, gate = V(0, 0, 8), riverX = () => -40, seed = 2
     const idx = (i, j) => (j + N) * (2 * N + 1) + (i + N);
     for (let j = -N; j <= N; j++) for (let i = -N; i <= N; i++) { const x = i * S + (Math.abs(i) < N && Math.abs(j) < N ? (R2() - 0.5) * S * 0.5 : 0), z = j * S + (Math.abs(i) < N && Math.abs(j) < N ? (R2() - 0.5) * S * 0.5 : 0); const d = Math.hypot(x, z); pts.push([x, hAt(x, z) - Math.max(0, d - 80) * 0.08, z, d]); }
     const pos = [], col = []; const cc = new THREE.Color();
-    const cMeadow = C('#4a6428'), cMeadow2 = C('#5e6e2e'), cDark = C('#34481e'), cEarth = C('#6e5a3a'), cCobble = C('#8a7c68'), cCobble2 = C('#6e6254'), cBank = C('#56502e'), cSquare = C('#a09078');
+    const cMeadow = C('#8a7a34'), cMeadow2 = C('#a08a3c'), cDark = C('#6a6228'), cEarth = C('#7a5e36'), cCobble = C('#8a7c68'), cCobble2 = C('#6e6254'), cBank = C('#6a5a30'), cSquare = C('#a09078');
     const tri = (a, b, c) => { const mx = (a[0] + b[0] + c[0]) / 3, mz = (a[2] + b[2] + c[2]) / 3; if (Math.min(a[3], b[3], c[3]) > TOWN_R) return; const ld = laneD(mx, mz), rv = river(mx, mz), sd = Math.hypot(mx - sq.x, mz - sq.z);
       const h = Math.sin(mx * 12.9898 + mz * 78.233) * 43758.5453; const j = h - Math.floor(h);
       if (sd < 7.5) cc.copy(j < 0.5 ? cSquare : cCobble); else if (ld < 1.5) cc.copy(j < 0.5 ? cCobble : cCobble2); else if (ld < 2.6) cc.copy(cEarth).lerp(cMeadow, (ld - 1.5) / 1.1 * 0.6);

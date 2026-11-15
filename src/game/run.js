@@ -27,11 +27,13 @@ export const AREAS = {
 // of these constellations, newRun(seed, { start: 'prism' }). Each is a small starting artifact / deck twist; the
 // numbers are a first pass for the RULES agent to rebalance (keep the ids; the menu reads name / blurb from here).
 export const STARTS = {
-  apple: { name: 'The Apple', blurb: 'The classic start, and one more Apple.', add: ['apple'] },
-  pendulum: { name: 'The Pendulum', blurb: "Foucault's Pendulum. 8 less max health.", items: ['pendulum'], maxHp: -8 },
-  prism: { name: 'The Prism', blurb: "Newton's Prism. A Spark replaces Mass.", items: ['prism'], swap: { mass: 'spark' } },
-  comet: { name: 'The Comet', blurb: 'Winged Talaria and 60 more gold.', items: ['talaria'], gold: 60 },
-  owl: { name: 'The Owl', blurb: 'Owl of Athena and a Notebook.', items: ['owl'], add: ['notebook'] },
+  // (RULES agent rebalance, tools/sim.mjs --start=<id>: every start lands near the base 62/18/9; extra cards dilute
+  // the tiny starter deck, so starts give curios rather than cards)
+  apple: { name: 'The Apple', blurb: "The classic start, with Prometheus' Ember: your apple starts every battle warm.", items: ['ember'] },
+  pendulum: { name: 'The Pendulum', blurb: "Foucault's Pendulum: every 3rd turn your best Move swings again.", items: ['pendulum'] },
+  prism: { name: 'The Prism', blurb: "Newton's Prism and a Spark.", items: ['prism'], add: ['spark'] },
+  comet: { name: 'The Comet', blurb: 'Winged Talaria. 16 less max health.', items: ['talaria'], maxHp: -16 },
+  owl: { name: 'The Owl', blurb: 'Owl of Athena: a sharper first turn, and Lens and Notebook draw more.', items: ['owl'] },
 };
 export function applyStart(run, id) {
   const S = STARTS[id]; if (!S) return run; run.start = id;

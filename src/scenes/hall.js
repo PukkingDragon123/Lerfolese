@@ -1,5 +1,5 @@
 // THE HALL OF MEMORIES: inside the clockwork tower (swipe left from the tower top; swipe right / Right arrow / the
-// small cloud carrying a golden arrow to go back up). No titles: a tall round hall of dark masonry, brass gears
+// floating golden arrow to go back up). No titles: a tall round hall of dark masonry, brass gears
 // turning high in the walls, a gallery ring, tall leaded windows holding the last of the sunset, a stepped plinth with
 // the GOLDEN APPLE floating above it, orbited by brass rings, books, a scroll, a globe and a goblet. Its warm light is
 // the hall's key light (plus a small PMREM environment of that warm room for real reflections on the metals).
@@ -17,7 +17,7 @@
 import * as THREE from 'three';
 import { UIScreen } from '../ui3d/widgets.js';
 import { forgedText } from '../ui3d/text3d.js';
-import { CloudButton } from '../ui3d/cloudbtn.js';
+import { FloatIcon } from '../ui3d/menuword.js';
 import { Kit } from '../models/village.js';
 import { lmat, cbox, prop, extrude, shape } from '../models/lowprops.js';
 import { gearGeo } from '../models/tower.js';
@@ -125,9 +125,9 @@ export class HallScene extends UIScreen {
     }
     this.count = this.shards.filter((s) => s.claimed).length;
   }
-  buildSigns(sc) { // no titles: the way back up is a small cloud carrying a golden arrow (it names itself only on hover)
+  buildSigns(sc) { // no titles: the way back up is a floating golden arrow (it names itself only on hover)
     const arrow = new THREE.Mesh(extrude(shape([[-0.09, -0.3], [0.09, -0.3], [0.09, 0.02], [0.22, 0.02], [0, 0.32], [-0.22, 0.02], [-0.09, 0.02]]), 0.06, 0.015), new THREE.MeshStandardMaterial({ color: 0xffc860, metalness: 0.85, roughness: 0.3, emissive: 0x6a3a08, emissiveIntensity: 0.6, flatShading: true }));
-    const back = (this.backCloud = new CloudButton('Tower', { seed: 77, w: 1.3, icon: arrow, labelOnHover: true, unit: 0.0075, h: 0.75 })); back.setBase(this.camPt(0.82, -0.02, 4.2)); sc.add(back.group);
+    const back = (this.backCloud = new FloatIcon('Tower', { seed: 77, icon: arrow, unit: 0.0075 })); back.setBase(this.camPt(0.82, -0.02, 4.2)); sc.add(back.group);
   }
   camPt(nx, ny, d) { const c = new THREE.PerspectiveCamera(CAM.fov, this.engine.aspect, 0.1, 100); c.position.copy(CAM.pos); c.lookAt(CAM.look); c.updateMatrixWorld(); return V(nx, ny, 0.5).unproject(c).sub(c.position).normalize().multiplyScalar(d).add(c.position); }
   // ---------------------------------------------------------------- hover info (forged lettering under the shard)

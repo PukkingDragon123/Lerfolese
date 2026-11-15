@@ -1,6 +1,7 @@
 // THE ASTRAL SELECT (the LERFOLESE tower menu, "New"): the camera tilts up from the tower top into the sky, night
 // falls and the sky becomes a hand-made PIXEL-ART cosmos. Every picture element is an art pixel on a fixed grid in the
-// view's tangent plane (about 240 art rows, an integer number of screen pixels each, crisp at native resolution):
+// view's tangent plane (about 360 art rows, a GENTLE pixel-art look: an integer number of screen pixels each, crisp at
+// native resolution; the rest of the game is not pixelated):
 //   - deep space in three dithered tones, a diagonal MILKY WAY of stepped violet and dusty-rose bands cut by dark dust
 //     lanes, two NEBULAE (teal and magenta, domain-warped, posterised to hand-picked 6-tone ramps), a little SPIRAL
 //     GALAXY, a cratered CRESCENT MOON, shooting stars;
@@ -33,7 +34,7 @@ export const FIGURES = {
     edges: [[2, 0], [0, 4], [4, 1], [1, 3], [0, 5], [5, 8], [8, 7], [7, 9], [9, 6], [6, 1]] },
 };
 // where each sits in the astral view (tan-space, fov 50, 16:9: x in about +-0.8, y in +-0.46)
-const LAYOUT = { apple: [-0.56, 0.14, 0.12], pendulum: [-0.26, -0.12, 0.1], prism: [0.05, 0.2, 0.11], comet: [0.38, -0.1, 0.11], owl: [0.62, 0.2, 0.1] };
+const LAYOUT = { apple: [-0.56, 0.14, 0.12], pendulum: [-0.26, -0.12, 0.1], prism: [0.05, 0.2, 0.11], comet: [0.44, -0.2, 0.11], owl: [0.62, 0.2, 0.1] };
 
 // ---------------------------------------------------------------- the pixel-art cosmos (a dome around the camera, art pixels in the view's tangent plane)
 const DOME_FS = `
@@ -129,7 +130,7 @@ export class Astral {
     this.A = A; this.e1 = e1; this.e2 = e2; this.fov = fov; this.U.uA.value.copy(A); this.U.uE1.value.copy(e1); this.U.uE2.value.copy(e2);
     const sx = Math.min(1, aspect / (16 / 9)); const tanY = Math.tan((fov * Math.PI) / 360);
     if (this.pts) { this.group.remove(this.pts); this.pts.geometry.dispose(); } for (const c of this.cons) this.labels.remove(c.label);
-    const P = [], S = [], Col = [], Gp = [], Kd = [], Ord = [], Sd = []; this.cons = []; const art = (2 * tanY) / 240;
+    const P = [], S = [], Col = [], Gp = [], Kd = [], Ord = [], Sd = []; this.cons = []; const art = (2 * tanY) / 360;
     const dirAt = (u, v) => A.clone().addScaledVector(e1, u).addScaledVector(e2, v).normalize();
     this.ids.forEach((id, gi) => { const F = FIGURES[id]; const [cx, cy, sc0] = LAYOUT[id]; const sc = sc0 * (tanY / Math.tan((50 * Math.PI) / 360)); const ux = cx * sx * (tanY / Math.tan((50 * Math.PI) / 360)) * 1.0, vy = cy * (tanY / Math.tan((50 * Math.PI) / 360));
       const col = new THREE.Color(F.col); const pos2 = F.stars.map(([x, y]) => [ux + x * sc, vy + y * sc]);
@@ -150,7 +151,7 @@ export class Astral {
   centerDir(i) { const c = this.cons[i]; return this.A.clone().addScaledVector(this.e1, c.u).addScaledVector(this.e2, c.v).normalize(); }
   update(dt, t, cam, renderer) {
     this.group.position.copy(cam.position); const U = this.U; U.uTime.value = t; U.uFade.value = this.fade; this.PU.uTime.value = t;
-    const bs = renderer.getDrawingBufferSize(this._bs || (this._bs = new THREE.Vector2())); const px = Math.max(2, Math.round(bs.y / 240)); this.PU.uPx.value = px; U.uArt.value = (2 * Math.tan((cam.fov * Math.PI) / 360)) / (bs.y / px);
+    const bs = renderer.getDrawingBufferSize(this._bs || (this._bs = new THREE.Vector2())); const px = Math.max(1, Math.round(bs.y / 360)); // gently pixel-art: about 360 art rows (2 device px at 720p, 3 at 1080p) this.PU.uPx.value = px; U.uArt.value = (2 * Math.tan((cam.fov * Math.PI) / 360)) / (bs.y / px);
     this.PU.uFade.value = Math.max(0, Math.min(1, (this.fade - 0.55) / 0.35));
     if (this.hover !== this._hv) { this._hv = this.hover; this.hovT.value = 0; this.hovT.target = this.hover >= 0 ? 1 : 0; } this.hovT.update(dt);
     this.PU.uHover.value = this.hover; this.PU.uHovT.value = Math.max(0, this.hovT.value); this.PU.uPick.value = this.pickIdx; if (this.pickIdx >= 0) this.pickT += dt; this.PU.uPickT.value = this.pickT;

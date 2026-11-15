@@ -182,7 +182,7 @@ export class Diorama {
     // pixel dirt paths with ruts and pebbles, sandy banks, trampled clearings, wildflower speckles, crop furrows
     const P = D.PPU, CW = W * P, CH = L * P; const cv = document.createElement('canvas'); cv.width = CW; cv.height = CH; const g = cv.getContext('2d'); const img = g.createImageData(CW, CH);
     const mk = document.createElement('canvas'); mk.width = CW; mk.height = CH; const mg = mk.getContext('2d'); const mimg = mg.createImageData(CW, CH);
-    const R = (a) => a.map(rgb); const GR = R(['#2c5a36', '#3b7438', '#52903c', '#6eaa44', '#97c452', '#c4dc6c']), DRY = R(['#5e7a34', '#7e9440', '#a0aa4c', '#c0c062']), DIRT = R(['#4e3626', '#6c4c32', '#8c6840', '#a8834e', '#c09c62', '#d6b67a']);
+    const R = (a) => a.map(rgb); const GR = R(['#3c4a26', '#545e2c', '#6e7832', '#8a8e3a', '#aaa446', '#ccc068']), DRY = R(['#7a7432', '#988a3c', '#b6a24a', '#d0b862']) /* warm golden-olive lawn (user) */, DIRT = R(['#4e3626', '#6c4c32', '#8c6840', '#a8834e', '#c09c62', '#d6b67a']);
     const SAND = R(['#a08a5a', '#c2a872', '#dcc48c', '#ecdaa6']), MUD = R(['#3c4a3a', '#4e5c42']), HIGH = R(['#6a7a46', '#86924e', '#a2a85a']), ROCK = R(['#6e6458', '#8a7e6e', '#a89a86']), SNOW = R(['#c8cce8', '#e8ecfa', '#ffffff']);
     const FLOW = R(['#fff6e0', '#ffd84a', '#ff7a8a', '#b48aff', '#7ab8ff']); const COBBLE = R(['#6e6458', '#9a8e7c', '#bcae96', '#d8ccb2']);
     const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);

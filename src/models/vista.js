@@ -96,7 +96,8 @@ export function buildVista({ groundY = -64, seed = 5, hole = 0 } = {}) { // hole
   const xs = [], zs = []; for (let i = 0; i <= NX; i++) { const u = i / NX * 2 - 1; xs.push(Math.sign(u) * Math.pow(Math.abs(u), 1.7) * X); } for (let j = 0; j <= NZ; j++) { const u = j / NZ; zs.push(Z0 + (Z1 - Z0) * Math.pow(u, 1.55)); }
   const H = []; for (let j = 0; j <= NZ; j++) { const row = new Float32Array(NX + 1); for (let i = 0; i <= NX; i++) row[i] = hAt(xs[i], zs[j]); H.push(row); }
   const pos = new Float32Array(NX * NZ * 6 * 3), col = new Float32Array(NX * NZ * 6 * 3); let o = 0;
-  const cMeadow = C('#4e6a2c'), cMeadow2 = C('#6a7a34'), cForest = C('#26381c'), cField = C('#a0863a'), cField2 = C('#7a7a30'), cRock = C('#5e544c'), cRock2 = C('#7a6c60'), cSnow = C('#d8d4e0'), cBank = C('#5a5034'), cc = new THREE.Color();
+  const cMeadow = C('#867634'), cMeadow2 = C('#9c8a3e'), cForest = C('#3e4220'), cField = C('#b08a3a'), cField2 = C('#8a7a30'), // warm grass: golden, olive, ochre
+    cRock = C('#5e544c'), cRock2 = C('#7a6c60'), cSnow = C('#d8d4e0'), cBank = C('#5a5034'), cc = new THREE.Color();
   const fieldAt = (x, z) => { for (const [vx, vz] of villages) { const vd = Math.hypot(x - vx, z - vz); if (vd < 95 && vd > 22) return ((Math.floor((x - vx) / 14) + Math.floor((z - vz) / 9)) & 1) ? 1 : 2; } return 0; };
   const tri = (ax, ay, az, bx, by, bz, cx, cy, cz) => {
     const mx = (ax + bx + cx) / 3, my = (ay + by + cy) / 3, mz = (az + bz + cz) / 3; const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az; const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const slope = 1 - Math.abs(ny) / Math.hypot(nx, ny, nz);
@@ -143,8 +144,8 @@ export function buildVista({ groundY = -64, seed = 5, hole = 0 } = {}) { // hole
     [pine, broad].forEach((geo, gi) => { const im = new THREE.InstancedMesh(geo, mat, spots[gi].length); spots[gi].forEach(([x, y, z, s, a], i) => { q.setFromEuler(e.set(0, a, 0)); m4.compose(V(x, y, z), q, V(s, s * (0.9 + (i % 5) * 0.06), s)); im.setMatrixAt(i, m4); }); im.receiveShadow = true; im.userData.noInk = true; im.computeBoundingSphere(); G.add(im); }); }
   // clouds BELOW the tower top: a scattered deck of faceted cumulus, lit by the low sun (hot rims toward it, violet bellies)
   const clouds = []; const cmat = new THREE.MeshStandardMaterial({ vertexColors: true, map: grainTex(), color: C('#fff0ea'), roughness: 1, metalness: 0, flatShading: true, emissive: C('#6a4a6a'), emissiveIntensity: 0.45, fog: true });
-  for (let k = 0; k < 30; k++) { const a = r() * Math.PI * 2, d = 170 + Math.pow(r(), 0.7) * 520; const x = Math.cos(a) * d * 1.3, z = -Math.abs(Math.sin(a)) * d * 1.1 - 10 + (r() < 0.25 ? d * 0.7 : 0); const s = 6 + r() * 14 + d * 0.025;
-    const m = new THREE.Mesh(cloudGeo(100 + k, { n: 5 + Math.floor(r() * 5), w: s * 2.4, h: s * 0.75, d: s * 1.4, detail: 1 }), cmat); m.position.set(x, 20 + r() * 40 + d * 0.12, z); m.rotation.y = r() * Math.PI; m.userData.noInk = true; m.castShadow = false; m.receiveShadow = false; G.add(m); clouds.push({ m, v: 0.4 + r() * 0.6 }); }
+  for (let k = 0; k < 30; k++) { const a = r() * Math.PI * 2, d = 160 + Math.pow(r(), 0.7) * 560; const x = Math.cos(a) * d * 1.3, z = -Math.abs(Math.sin(a)) * d * 1.1 - 10 + (r() < 0.25 ? d * 0.7 : 0); const s = 6 + r() * 14 + d * 0.025;
+    const m = new THREE.Mesh(cloudGeo(100 + k, { n: 5 + Math.floor(r() * 5), w: s * 2.4, h: s * 0.75, d: s * 1.4, detail: 1 }), cmat); m.position.set(x, -4 - r() * 12 - d * 0.012, z); m.rotation.y = r() * Math.PI; m.userData.noInk = true; m.castShadow = false; m.receiveShadow = false; G.add(m); clouds.push({ m, v: 0.4 + r() * 0.6 }); }
   // birds: a loose flock wheeling round the tower (dark silhouettes against the sunset)
   const birds = []; { const bm = new THREE.MeshStandardMaterial({ color: 0x1a1418, roughness: 0.9, side: THREE.DoubleSide, flatShading: true });
     for (let k = 0; k < 14; k++) { const b = new THREE.Group(); const body = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.42, 4), bm); body.rotation.x = Math.PI / 2; b.add(body);

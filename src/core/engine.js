@@ -1,11 +1,12 @@
 // Renderer + post FX (bloom, tilt-shift diorama blur, film grade) + UI overlay layer + transition overlay + main loop.
-// WHOLE-GAME PIXEL LOOK (HD-2D): the 3D world and its whole post chain (AO, ink, motion blur, bloom, grade) render into
-// a low ART-resolution buffer (about 320 rows: each art pixel is an integer block of screen pixels), which is upscaled
-// with crisp nearest sampling. The camera is snapped to the art-pixel grid (at its focus depth) and the sub-pixel
+// OPT-IN PIXEL LOOK (engine.setPixel(k), default OFF: the game renders at full native resolution). A scene that wants a
+// pixel-art feel (the galaxy / astral scenes, slightly) asks for it; setFx() resets it to fx.pixel ?? 0 on every scene.
+// When on, the 3D world and its whole post chain (AO, ink, motion blur, bloom, grade) render into a low ART-resolution
+// buffer (320 / k rows: each art pixel is an integer block of screen pixels), which is upscaled with crisp nearest sampling. The camera is snapped to the art-pixel grid (at its focus depth) and the sub-pixel
 // remainder is applied as a smooth offset of the upscale, so still and slowly drifting views keep rock-stable pixels
 // (no crawl, no shimmer). The UI scene is drawn afterwards at full resolution (crisp text and 3D UI); the scene
 // transition is drawn into its own art-resolution layer on top, so clouds and galaxy read as pixel art too.
-// ?px=<rows> overrides the art rows, ?px=0 turns the pixel look off, ?snap=0 turns the camera snap off.
+// ?px=<rows> forces the pixel look at that many rows everywhere (testing), ?snap=0 turns the camera snap off.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -249,9 +250,9 @@ export class Engine {
     import('three/addons/environments/RoomEnvironment.js').then(({ RoomEnvironment }) => { const pm = new THREE.PMREMGenerator(r); this.ui.scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; this.ui.scene.environmentIntensity = 0.8; });
 
     // the pixel look: art rows (see the header); MSAA inside the art buffer keeps edges stable while things move
-    const pxq = art('px'); this.artRows = pxq === null ? 320 : Math.max(0, pxq); this.pixelOn = this.artRows > 0; this.snapOn = art('snap') !== 0;
+    const pxq = art('px'); this.pixelForced = pxq !== null && pxq > 0 ? pxq : null; this.pixelK = 0; this.artRows = this.pixelForced ?? 320; this.pixelOn = !!this.pixelForced; this.snapOn = art('snap') !== 0;
     const size = r.getDrawingBufferSize(new THREE.Vector2());
-    const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: this.testMode && !this.pixelOn ? 0 : 4 });
+    const rt = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: this.testMode ? 0 : 4 });
     this.composer = new EffectComposer(r, rt); this.composer.renderToScreen = !this.pixelOn;
     this.upMat = new THREE.ShaderMaterial({ ...UpscaleShader, uniforms: THREE.UniformsUtils.clone(UpscaleShader.uniforms), depthTest: false, depthWrite: false });
     this.upScene = new THREE.Scene(); { const m = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.upMat); m.frustumCulled = false; this.upScene.add(m); }
@@ -307,14 +308,16 @@ export class Engine {
     const w = innerWidth, h = innerHeight;
     this.renderer.setSize(w, h, false);
     const db = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    // one art pixel = an integer block of SCREEN pixels (so every block is the same size); in drawing-buffer pixels
+    // that block is block * (buffer px per screen px). The art frame is centred, cropping under one block per side.
+    const dims = (rows) => { const dpr = window.devicePixelRatio || 1, bpp = db.y / Math.max(1, h * dpr); const block = Math.max(1, Math.round((h * dpr) / rows)) * bpp; const aw = Math.ceil(db.x / block), ah = Math.ceil(db.y / block); return { aw, ah, block, pad: [(aw * block - db.x) / 2, (ah * block - db.y) / 2] }; };
+    const setUp = (m, d) => { const u = m.uniforms; u.uArt.value.set(d.aw, d.ah); u.uBlock.value = d.block; u.uPad.value.set(...d.pad); };
+    // the galaxy transition always carries a slight pixel look (about 540 rows); with the pixel look on it follows the art rows
+    const wd = dims(this.pixelOn ? this.artRows : 540); this.wipeRT.setSize(wd.aw, wd.ah); setUp(this.wipeUpMat, wd); this.wipeArt = new THREE.Vector2(wd.aw, wd.ah);
     if (this.pixelOn) {
-      // one art pixel = an integer block of SCREEN pixels (so every block is the same size); in drawing-buffer pixels
-      // that block is block * (buffer px per screen px). The art frame is centred, cropping under one block per side.
-      const dpr = window.devicePixelRatio || 1, bpp = db.y / Math.max(1, h * dpr); const blockS = Math.max(1, Math.round((h * dpr) / this.artRows)); const block = blockS * bpp;
-      const aw = Math.ceil(db.x / block), ah = Math.ceil(db.y / block);
+      const d = dims(this.artRows); const { aw, ah, block } = d;
       Object.assign(ART, { on: true, rows: ah, w: aw, h: ah, k: ah / db.y, block }); ART.pointK.value = ah / db.y;
-      this.composer.setPixelRatio(1); this.composer.setSize(aw, ah); this.wipeRT.setSize(aw, ah);
-      for (const m of [this.upMat, this.wipeUpMat]) { const u = m.uniforms; u.uArt.value.set(aw, ah); u.uBlock.value = block; u.uPad.value.set((aw * block - db.x) / 2, (ah * block - db.y) / 2); }
+      this.composer.setPixelRatio(1); this.composer.setSize(aw, ah); setUp(this.upMat, d);
       this.artSize = new THREE.Vector2(aw, ah);
     } else {
       Object.assign(ART, { on: false, rows: db.y, w: db.x, h: db.y, k: 1, block: 1 }); ART.pointK.value = 1;
@@ -339,9 +342,18 @@ export class Engine {
     if (camera.isPerspectiveCamera) { camera.aspect = this.aspect; camera.updateProjectionMatrix(); }
   }
 
+  /** the opt-in pixel look: k = 0 off (full native resolution, the default), 1 = strong (320 art rows), 0.6 = slight
+   *  (about 540 rows: 2-pixel blocks at 1080p). The art pixel is always an integer block of screen pixels. */
+  setPixel(k = 0) {
+    k = Math.max(0, Math.min(1, +k || 0)); if (this.pixelForced) return; if (Math.abs(k - this.pixelK) < 1e-3) return;
+    this.pixelK = k; this.pixelOn = k > 0; this.artRows = k > 0 ? Math.round(320 / k) : 320;
+    this.composer.renderToScreen = !this.pixelOn; if (this.ink) this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.75, this.pixelRatio * 0.55);
+    this.resize();
+  }
+
   // fx: { bloom:[strength,radius,threshold], tilt:{focus,width,feather,amount,top,bottom} | false, grade:{sat,contrast,vignette,grain,warmth}, exposure }
   setFx(fx = {}) {
-    this.fx = fx;
+    this.fx = fx; this.setPixel(fx.pixel ?? 0); // pixel look: off unless the scene asks (fx.pixel 0..1)
     const b = fx.bloom || [0.55, 0.55, 0.82];
     this.bloom.strength = b[0]; this.bloom.radius = b[1]; this.bloom.threshold = b[2]; this.bloom.enabled = !this.testMode || this.fullFx;
     const t = fx.tilt;
@@ -435,7 +447,7 @@ export class Engine {
     if (this.uiVisible) { this.renderer.clearDepth(); this.renderer.render(this.ui.scene, this.ui.camera); }
     if (this.wipeActive) {
       const wu = this.wipeMat.uniforms; wu.uTime.value = this.time;
-      if (this.pixelOn) { wu.uRes.value.copy(this.artSize); const cc = this.renderer.getClearAlpha(); this._cc ??= new THREE.Color(); this.renderer.getClearColor(this._cc); this.renderer.setRenderTarget(this.wipeRT); this.renderer.setClearColor(0x000000, 0); this.renderer.clear(); this.renderer.render(this.wipeScene, this.wipeCam); this.renderer.setClearColor(this._cc, cc);
+      if (this.pixelOn || this.wipeStyle === 'galaxy') { wu.uRes.value.copy(this.wipeArt); const cc = this.renderer.getClearAlpha(); this._cc ??= new THREE.Color(); this.renderer.getClearColor(this._cc); this.renderer.setRenderTarget(this.wipeRT); this.renderer.setClearColor(0x000000, 0); this.renderer.clear(); this.renderer.render(this.wipeScene, this.wipeCam); this.renderer.setClearColor(this._cc, cc);
         this.renderer.setRenderTarget(null); const u = this.wipeUpMat.uniforms; u.tArt.value = this.wipeRT.texture; u.uOff.value.set(0, 0); this.renderer.render(this.wipeUpScene, this.upCam); }
       else { this.renderer.getDrawingBufferSize(wu.uRes.value); this.renderer.clearDepth(); this.renderer.render(this.wipeScene, this.wipeCam); }
     }

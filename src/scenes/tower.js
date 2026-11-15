@@ -1,19 +1,20 @@
 // THE TOWER-TOP MENU. Sir Isaac stands on the prow of the SPIRAL OBSERVATORY (models/tower.js) on the RIGHT of the
 // frame at sunset, the hill TOWN (models/town.js) lamplit far below round the tower's foot, the river and the wild
 // land (models/vista.js) running out to the mountains. No title, very little text: the menu is the sky itself.
-//   - On the LEFT the menu words float in the sky, and their letters are MADE OF CLOUD (ui3d/cloudword.js): "Resume"
-//     and "New Game" (or "New Adventure" when there is no run). Hover: a swell runs through the letters, a warm light
-//     kindles inside, a chime, puffs break off; press: they squash and burst. Resume goes straight into the run.
+//   - On the LEFT the menu words float in the air: crisp Alagard lettering forged in old gold with real depth
+//     (ui3d/menuword.js): "Resume" and "New Game" (or "New Adventure" when there is no run). They float and sway; on
+//     hover they lift and tilt to the pointer and a shimmer sweeps the face with a few glints; a press squashes them
+//     with a bright sweep and a chime. Resume goes straight into the run. No clouds and no plates in the menu UI.
 //   - New: the camera tilts up into the sky, night falls, and the sky becomes the PIXEL-ART ASTRAL SELECT
 //     (scenes/astral.js): pick a CONSTELLATION to start under (game/run.js STARTS); it zooms in and the run opens
 //     through the galaxy transition (game.newRun({ start })). Esc, right-click or the moon-ward drag returns.
-//   - Small clouds bottom-left carry objects that explain themselves (naming themselves on hover): a leather book
-//     (the Journal), a brass dial (music volume), a memory crystal (the Hall of Memories, inside the tower).
-//   - SWIPE LEFT (drag, wheel, Left arrow) or the crystal cloud: down the pavilion stair into the Hall (scenes/hall.js).
+//   - Small floating objects bottom-left explain themselves (naming themselves on hover): a leather book (the
+//     Journal), a brass dial (music volume), a memory crystal (the Hall of Memories, inside the tower).
+//   - SWIPE LEFT (drag, wheel, Left arrow) or the memory crystal: down the pavilion stair into the Hall (scenes/hall.js).
 //     Click Isaac for a word from him and the credits.
 // The first visit after loading opens on an establishing shot that rises from the town up the spiral to the hero shot
 // (click to skip). Lighting is moody and natural: the low sun (off the left of the frame) is the key, side-lighting
-// the tower and rimming the cloud words; the sunset sky is the image-based fill; everything else is dusk.
+// the tower and catching the gold lettering; the sunset sky is the image-based fill; everything else is dusk.
 //   game.toMenu({ from: 'loading' | 'hall' | 'prologue' | null })  ->  new MenuScene(game).enter(opts)
 import * as THREE from 'three';
 import { UIScreen } from '../ui3d/widgets.js';
@@ -21,8 +22,7 @@ import { createProfessor } from '../models/professor.js';
 import { clockTower } from '../models/tower.js';
 import { buildVista } from '../models/vista.js';
 import { buildTown, HOLE } from '../models/town.js';
-import { CloudButton } from '../ui3d/cloudbtn.js';
-import { cloudWord } from '../ui3d/cloudword.js';
+import { menuWord, FloatIcon } from '../ui3d/menuword.js';
 import { Astral } from './astral.js';
 import { STARTS } from '../game/run.js';
 import { lmat, cbox } from '../models/lowprops.js';
@@ -38,8 +38,8 @@ const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
 const ease5 = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * x * (x * (x * 6 - 15) + 10); };
 const BASE = 26; // the terrace stands this high above the town square
-export const HERO = { pos: V(-13.2, 2.4, 19.6), look: V(-5, 0, 0), fov: 40 };
-const TOWER_NDC = 0.56, TOWER_AIM = V(0, 0.4, 0); // where the tower stands in the hero frame (the look point is solved from these)
+export const HERO = { pos: V(-12.2, 2.8, 18.2), look: V(-5, 0, 0), fov: 40 };
+const TOWER_NDC = 0.56, TOWER_AIM = V(0, 1.9, 0); // where the tower stands in the hero frame (the look point is solved from these)
 const ASTRAL = { dir: V(-0.22, 0.9, -0.42).normalize(), fov: 50 };
 const QUIPS = ['Every action has an equal and opposite god.', 'Somewhere down there, the Bookworm Queen is reading my notes.', 'Gravity: still undefeated.', 'Mass times velocity. Mostly velocity.', 'The stars are just apples that never fell.'];
 
@@ -86,33 +86,33 @@ export class MenuScene extends UIScreen {
     const face = new THREE.DirectionalLight(0xc8a0a8, 0.55); face.position.copy(HERO.pos).add(V(-2, 3, 2)); face.target.position.copy(this.tower.prow).add(V(0, 1, 0)); sc.add(face, face.target); // soft fill from the lit clouds behind us, so faces read
     const land = new THREE.DirectionalLight(0xc0704a, 0.3); land.position.set(0, -30, -40); sc.add(land); // the sunlit land bounces a little warmth up
   }
-  // ---------------------------------------------------------------- the sky menu: cloud words on the left, small object clouds below
+  // ---------------------------------------------------------------- the menu: forged gold words on the left, small floating objects below
   camPt(nx, ny, d, cam = { pos: HERO.pos, look: HERO.look, fov: HERO.fov }) { const c = new THREE.PerspectiveCamera(cam.fov, this.engine.aspect, 0.1, 100); c.position.copy(cam.pos); c.lookAt(cam.look); c.updateMatrixWorld(); return V(nx, ny, 0.5).unproject(c).sub(c.position).normalize().multiplyScalar(d).add(c.position); }
   async buildMenu(sc) {
     this.words = []; const asp = this.engine.aspect; const D = 11; const maxW = 2 * D * Math.tan((HERO.fov * Math.PI) / 360) * asp * 0.4;
-    const add = async (label, act, nx, ny, h, seed) => { const W = await cloudWord(label, { height: h, seed, maxW }); W.act = act; W.base = this.camPt(nx, ny, D); W.group.position.copy(W.base); W.group.quaternion.copy(this.heroQuat()); sc.add(W.group); W.hit.userData.word = W; this.words.push(W); return W; };
+    const add = async (label, act, nx, ny, h, seed) => { const W = menuWord(label, { height: h, seed, maxW }); W.act = act; W.base = this.camPt(nx, ny, D); W.group.position.copy(W.base); W.group.quaternion.copy(this.heroQuat()); sc.add(W.group); W.hit.userData.word = W; this.words.push(W); return W; };
     const nx = -0.52 * Math.min(1, 1.25 / Math.max(0.6, asp / 1.6));
-    if (this.hasRun) { await add('Resume', 'continue', nx, 0.42, 1.25, 3); await add('New Game', 'new', nx, 0.06, 1.05, 8); }
-    else await add('New Adventure', 'new', nx, 0.3, 1.2, 5);
+    if (this.hasRun) { await add('Resume', 'continue', nx, 0.4, 0.9, 3); await add('New Game', 'new', nx, 0.12, 0.72, 8); }
+    else await add('New Adventure', 'new', nx, 0.3, 0.82, 5);
   }
   heroQuat() { const c = new THREE.PerspectiveCamera(); c.position.copy(HERO.pos); c.lookAt(HERO.look); return c.quaternion.clone(); }
   buildSmall(sc) {
-    // small clouds carrying objects that explain themselves (a book, a brass dial, a memory crystal), naming themselves only on hover
+    // small floating objects that explain themselves (a book, a brass dial, a memory crystal), naming themselves only on hover
     this.clouds = [];
-    const add = (label, act, nx, ny, d, seed, o = {}) => { const b = new CloudButton(label, { seed, ...o }); b.setBase(this.camPt(nx, ny, d)); b.act = act; sc.add(b.group); this.clouds.push(b); return b; };
-    const NX = -0.86, NY = -0.68, STEP = 0.19;
+    const add = (label, act, nx, ny, d, seed, o = {}) => { const b = new FloatIcon(label, { seed, icon: o.icon, unit: o.unit }); b.setBase(this.camPt(nx, ny, d)); b.act = act; sc.add(b.group); this.clouds.push(b); return b; };
+    const NX = -0.84, NY = -0.7, STEP = 0.25;
     { const g = new THREE.Group(); const cm = new THREE.MeshStandardMaterial({ color: 0x9a86d8, emissive: 0x6a4ab8, emissiveIntensity: this.fresh ? 1.2 : 0.6, roughness: 0.15, metalness: 0.2, flatShading: true });
       const geo = new THREE.LatheGeometry([[0.001, -0.42], [0.13, -0.18], [0.16, 0.2], [0.001, 0.48]].map(([x, y]) => new THREE.Vector2(x, y)), 5); const cr = new THREE.Mesh(geo, cm); cr.rotation.z = 0.2; g.add(cr); g.scale.setScalar(0.55);
       for (let i = 0; i < 2; i++) { const c2 = new THREE.Mesh(geo, cm); c2.scale.setScalar(0.5); c2.position.set(i ? 0.18 : -0.17, -0.12, 0.05); c2.rotation.z = i ? -0.5 : 0.6; g.add(c2); }
       const l = new THREE.PointLight(0x9a7aff, this.fresh ? 2.5 : 1.0, 3, 1.6); l.position.z = 0.4; g.add(l); this.hallCrystal = { cm, l };
-      this.hallCloud = add('Memories', 'hall', NX + STEP * 2, NY, 8.5, 21, { w: 1.0, icon: g, labelOnHover: true, unit: 0.009, h: 0.8 }); this.hallCloud.spinIcon = true; }
+      this.hallCloud = add('Memories', 'hall', NX + STEP * 2, NY, 8.5, 21, { w: 0.85, icon: g, labelOnHover: true, unit: 0.009, h: 0.8 }); this.hallCloud.spinIcon = true; }
     { const book = new THREE.Group(); const S = new Surf(48, 32); parchment(S, 0, 0, 48, 32, { seed: 3, torn: 0, tone: 4 }); inscribeLines(S, ['m = F/a', 'apple ~ moon?'], { x: 3, y: 4, w: 42, h: 24 }, 'hand', 'ink', {});
       const pages = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.36), [lmat('parch'), lmat('parch'), new THREE.MeshStandardMaterial({ map: pxTex(S.toCanvas()), roughness: 0.9 }), lmat('parch'), lmat('parch'), lmat('parch')]); pages.position.y = 0.03; book.add(pages);
       const back = new THREE.Mesh(cbox(0.54, 0.02, 0.4, 0.008), lmat('leather')); back.rotation.x = Math.PI / 2; book.add(back);
       const hinge = new THREE.Group(); hinge.position.set(-0.26, 0.065, 0); book.add(hinge); const cover = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.025, 0.4), lmat('leather')); cover.position.x = 0.27; hinge.add(cover);
       const clasp = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 0.09), lmat('brass')); clasp.position.set(0.52, 0, 0); hinge.add(clasp); const emb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.05, 0), lmat('gold')); emb.scale.y = 0.3; emb.position.set(0.27, 0.016, 0); hinge.add(emb);
       book.rotation.x = 0.9; book.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-      this.journalCloud = add('Journal', 'journal', NX, NY, 8.5, 31, { w: 1.0, icon: book, labelOnHover: true, unit: 0.0085, h: 0.75 }); this.journalCloud.hinge = hinge; this.journalCloud.open = new Spring(0, 7, 0.6); }
+      this.journalCloud = add('Journal', 'journal', NX, NY, 8.5, 31, { w: 0.85, icon: book, labelOnHover: true, unit: 0.0085, h: 0.75 }); this.journalCloud.hinge = hinge; this.journalCloud.open = new Spring(0, 7, 0.6); }
     { const dial = new THREE.Group(); const S = new Surf(40, 40); for (let y = 0; y < 40; y++) for (let x = 0; x < 40; x++) { const d = Math.hypot(x - 19.5, y - 19.5); if (d > 19.5) continue; const an = Math.atan2(y - 19.5, x - 19.5); const tick = d > 15 && d < 18.5 && Math.abs(((an / (Math.PI * 2)) * 24 + 48) % 1 - 0.5) > 0.38; S.set(x, y, RAMP.brass, d > 18.5 ? 1 : tick ? 0 : d > 14 ? 3 : 4 - (x + y < 30 ? 0 : 1)); }
       const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.28, 0.05, 12), [lmat('brass'), new THREE.MeshStandardMaterial({ map: pxTex(S.toCanvas()), metalness: 0.7, roughness: 0.4 }), lmat('brass')]); disc.rotation.x = Math.PI / 2; dial.add(disc);
       const knob = new THREE.Group(); knob.position.z = 0.03; dial.add(knob); const kb = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.08, 0.06, 8), lmat('bronze')); kb.rotation.x = Math.PI / 2; kb.position.z = 0.03; knob.add(kb);
@@ -120,7 +120,7 @@ export class MenuScene extends UIScreen {
       const pipM = []; for (let i = 0; i < 3; i++) { const m = new THREE.MeshStandardMaterial({ color: 0x3a2a14, emissive: 0xffb040, emissiveIntensity: 0, metalness: 0.6, roughness: 0.4, flatShading: true }); const pip = new THREE.Mesh(new THREE.OctahedronGeometry(0.035, 0), m); pip.position.set(-0.1 + i * 0.1, -0.36, 0.02); dial.add(pip); pipM.push(m); }
       dial.traverse((o) => { if (o.isMesh) o.castShadow = true; });
       const steps = [0, 0.3, 0.6, 0.9]; const cur = steps.reduce((x, y) => (Math.abs(y - this.game.settings.music) < Math.abs(x - this.game.settings.music) ? y : x));
-      const b = (this.dialCloud = add('Music', 'settings', NX + STEP, NY, 8.5, 41, { w: 0.95, icon: dial, labelOnHover: true, unit: 0.0085, h: 0.75 })); b.knob = knob; b.pips = pipM; b.notch = steps.indexOf(cur); b.turn = new Spring(-b.notch * Math.PI / 2, 10, 0.42); this.setPips(b); }
+      const b = (this.dialCloud = add('Music', 'settings', NX + STEP, NY, 8.5, 41, { w: 0.82, icon: dial, labelOnHover: true, unit: 0.0085, h: 0.75 })); b.knob = knob; b.pips = pipM; b.notch = steps.indexOf(cur); b.turn = new Spring(-b.notch * Math.PI / 2, 10, 0.42); this.setPips(b); }
   }
   setPips(b) { b.pips.forEach((m, i) => { m.emissiveIntensity = i < b.notch ? 1.6 : 0; m.color.set(i < b.notch ? 0xffc860 : 0x3a2a14); }); }
   // ---------------------------------------------------------------- actions
@@ -129,8 +129,9 @@ export class MenuScene extends UIScreen {
     setTimeout(async () => { const { Journal } = await import('./journal.js'); if (!this.journal) this.journal = new Journal(this.game, this.root); this.journal.open(); }, 520); }
   turnDial() { const b = this.dialCloud; const steps = [0, 0.3, 0.6, 0.9]; b.notch = (b.notch + 1) % 4; b.turn.target -= Math.PI / 2; b.turn.kick(-2); const s = this.game.settings; s.music = steps[b.notch]; audio.vol.music = s.music; audio.applyVolumes(); save.saveSettings(); this.setPips(b);
     audio.play('clockwork', { vol: 0.6 }); audio.play('ui_click', { vol: 0.5, delay: 0.08 }); }
-  resume(W) { if (this.mode !== 'hero') return; this.mode = 'resume'; this.resumeT = 0; W.press(this.motes); audio.play('ui_click'); audio.play('magic_shimmer', { vol: 0.5 }); for (const w of this.words) if (w !== W) w.vis.target = 0; this.prof.act?.('cheer'); }
-  toAstral(W) { if (this.mode !== 'hero') return; this.mode = 'astral'; this.skyDir = 1; W?.press(this.motes); audio.play('ui_click'); audio.play('whoosh_soft', { vol: 0.7 }); audio.play('magic_shimmer', { vol: 0.4, delay: 0.6 });
+  glints(W, n) { const r = this.rnd; for (let i = 0; i < n; i++) { const q = W.sparkPoint(); this.motes.spawn({ pos: q, vel: [(r() - 0.5) * 0.08, 0.05 + r() * 0.1, 0], drag: 1.2, life: 0.5 + r() * 0.5, seq: r() < 0.6 ? 'glint' : 'twinkle', fps: 8, color: r() < 0.6 ? '#fff2c8' : '#ffd890', bright: 1.5, fadeIn: 0.03 }); } }
+  resume(W) { if (this.mode !== 'hero') return; this.mode = 'resume'; this.resumeT = 0; W.press(); this.glints(W, 24); audio.play('chime_soft', { vol: 0.5 }); audio.play('ui_click'); audio.play('magic_shimmer', { vol: 0.5 }); for (const w of this.words) if (w !== W) w.vis.target = 0; this.prof.act?.('cheer'); }
+  toAstral(W) { if (this.mode !== 'hero') return; this.mode = 'astral'; this.skyDir = 1; if (W) { W.press(); this.glints(W, 24); } audio.play('ui_click'); audio.play('chime_soft', { vol: 0.5 }); audio.play('whoosh_soft', { vol: 0.7 }); audio.play('magic_shimmer', { vol: 0.4, delay: 0.6 });
     for (const w of this.words) w.vis.target = 0; for (const c of this.clouds) c.vis.target = 0; this.hover = null; this.engine.renderer.domElement.style.cursor = ''; this.prof.lookAt(-0.2, 0.9); }
   fromAstral() { if (this.mode !== 'astral' || this.skyT < 0.85) return; this.skyDir = -1; this.astral.hover = -1; audio.play('whoosh_soft', { vol: 0.5 }); }
   choose(i) { if (this.mode !== 'astral' || this.chosen) return; const c = this.astral.cons[i]; this.chosen = { t: 0, i, id: c.id, dir: this.astral.centerDir(i), from: this.camDir() }; this.astral.pickIdx = i; this.astral.hover = -1; this.engine.renderer.domElement.style.cursor = '';
@@ -153,7 +154,7 @@ export class MenuScene extends UIScreen {
   onMove() { const p = this.pick(); const key = p ? (p.word ? 'w:' + p.word.label : p.cloud ? 'c:' + p.cloud.label : p.star != null ? 's:' + p.star : 'isaac') : null;
     if (key !== this.hoverKey) { this.hoverKey = key; this.hover = p; if (this.mode === 'astral') this.astral.hover = p ? p.star : -1;
       if (p) audio.play(p.word ? 'chime_soft' : p.star != null ? 'magic_sparkle' : 'ui_hover', { vol: p.word ? 0.4 : p.star != null ? 0.3 : 0.35 });
-      if (p?.word) for (let i = 0; i < 10; i++) { const q = p.word.crownPoint(); const r = this.rnd; this.motes.spawn({ pos: [q.x + (r() - 0.5) * 0.4, q.y, q.z], vel: [(r() - 0.5) * 0.3, 0.25 + r() * 0.3, (r() - 0.5) * 0.2], drag: 1.6, grav: -0.04, life: 0.8 + r() * 0.6, seq: 'puff', fps: 4, once: true, color: '#fff0ea', bright: 0.9, k: r() < 0.3 ? 2 : 1, fadeIn: 0.02 }); }
+      if (p?.word) this.glints(p.word, 7);
       this.engine.renderer.domElement.style.cursor = p ? 'pointer' : ''; } }
   onClick(e) {
     if (this.mode === 'intro') { this.intro.t = Math.max(this.intro.t, this.intro.dur - 0.9); return true; }
@@ -198,8 +199,8 @@ export class MenuScene extends UIScreen {
       cam.position.lerp(pos.add(drift), this.back ? 1 : Math.min(1, dt * 2.5)); this.look.lerp(look.add(V(nd.x * 0.5, nd.y * 0.3, 0)), this.back ? 1 : Math.min(1, dt * 2.5)); if (Math.abs(cam.fov - fov) > 0.01) { cam.fov += (fov - cam.fov) * Math.min(1, dt * 4); cam.updateProjectionMatrix(); } }
     cam.lookAt(this.look);
     this.astral.update(dt, t, cam, this.engine.renderer);
-    // the cloud words and the small clouds
-    const hov = this.hover; for (const w of this.words) { w.update(dt, t, hov?.word === w, cam, this.vista.sunDir); w.group.position.set(w.base.x + Math.sin(t * 0.21 + w.base.y) * 0.08, w.base.y + Math.sin(t * 0.37 + w.base.x) * 0.06, w.base.z); }
+    // the words and the floating objects
+    const hov = this.hover; for (const w of this.words) { w.update(dt, t, hov?.word === w, cam, this.vista.sunDir, nd); w.group.position.set(w.base.x + Math.sin(t * 0.21 + w.base.y) * 0.08, w.base.y + Math.sin(t * 0.37 + w.base.x) * 0.06, w.base.z); }
     for (const c of this.clouds) c.update(dt, t, cam, hov?.cloud === c);
     { const j = this.journalCloud; j.open.target = this.journal?.isOpen ? 1 : 0; j.open.update(dt); const k = Math.max(0, j.hov.value); j.hinge.rotation.z = 0.25 + (Math.PI * 0.95 - 0.25) * Math.max(0, Math.min(1, j.open.value)) + k * 0.35 + Math.sin(t * 5) * 0.03 * k; }
     { const d = this.dialCloud; d.turn.update(dt); d.knob.rotation.z = d.turn.value + Math.sin(t * 9) * 0.03 * Math.max(0, d.hov.value); }
