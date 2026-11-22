@@ -20,6 +20,8 @@ class Game {
     this.journal = save.journal; this.settings = save.settings; window.__settings = this.settings;
     audio.vol = { master: this.settings.master, sfx: this.settings.sfx, music: this.settings.music, amb: this.settings.amb };
     this.input.onFirstInteract = () => { audio.unlock(); };
+    if (!this.engine.testMode) this.engine.setQuality(this.settings.quality || 'auto'); // MOBILE: phones / low-end hardware start on the low preset; 'auto' then governs resolution by frame rate
+    mobileShell(this);
     setForgeRenderer(this.engine.renderer);
     this.engine.start(() => {});
     window.__game = this;
@@ -103,7 +105,7 @@ class Game {
   }
   /** the prologue (src/scenes/prologue.js); { replay: true } from the gallery */
   async playPrologue(opts = {}) { try { const { playPrologue } = await import('./scenes/prologue.js'); await playPrologue(this, opts); } catch (e) { console.warn('prologue skipped', e); await this.toMenu().catch(() => {}); } this.journal.seenPrologue = true; this.saveJournal(); }
-  async continueRun() { const d = save.loadRun(); if (!d) return this.newRun(); this.run = restoreRun(d); await this.toMap(false, 'galaxy'); }
+  async continueRun() { const d = save.loadRun(); if (!d) return this.newRun(); try { this.run = restoreRun(d); if (!this.run?.map?.nodes || !this.run.player || !Array.isArray(this.run.deck)) throw new Error('incomplete run save'); } catch (e) { console.warn('run save unreadable; starting fresh', e); save.clearRun(); return this.newRun(); } await this.toMap(false, 'galaxy'); }
   async toMap(first = false, style = 'cloud', wipe = null) { // galaxy from the menu into a run; clouds between the nodes of a run
     const mod = import('./scenes/mapscene.js'); // (the transition starts at once; the module loads under it)
     await this.swap(async () => { const { MapScene } = await mod; this.scene = new MapScene(this); await this.scene.enter(first); }, { style, ...(wipe || {}) });
@@ -177,6 +179,24 @@ class Game {
     const { EndScene } = await import('./scenes/end.js');
     await this.swap(async () => { this.scene = new EndScene(this); await this.scene.enter(true, unl); }, { style: 'galaxy' });
   }
+}
+
+// MOBILE SHELL: audio unlocks on the first touch (iOS / Android need a gesture), the page never scrolls, zooms, bounces or
+// shows long-press callouts, audio sleeps while the page is hidden, a portrait phone gets the turn-your-device prompt
+// (ui2d/rotate.js), and a phone goes fullscreen (landscape-locked where the browser allows) on its first tap.
+function mobileShell(game) {
+  const wake = () => { audio.unlock(); audio.wake?.(); };
+  for (const ev of ['pointerdown', 'touchend', 'keydown', 'click']) addEventListener(ev, wake, { capture: true, passive: true });
+  document.addEventListener('visibilitychange', () => audio.sleep?.(document.hidden));
+  const stop = (e) => e.preventDefault();
+  for (const ev of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick', 'contextmenu', 'selectstart']) document.addEventListener(ev, stop, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 || e.target === game.engine.canvas || e.target === document.body) e.preventDefault(); }, { passive: false });
+  let lastTouchEnd = 0; document.addEventListener('touchend', (e) => { const now = Date.now(); if (now - lastTouchEnd < 320) e.preventDefault(); lastTouchEnd = now; }, { passive: false }); // no double-tap zoom
+  if (!matchMedia('(pointer: coarse)').matches) return;
+  import('./ui2d/rotate.js').then((m) => { game.portrait = m.portraitGuard(); }).catch((e) => console.warn('portrait guard', e));
+  if (new URLSearchParams(location.search).get('q') === 'test') return;
+  const fs = () => { removeEventListener('pointerup', fs, true); const d = document.documentElement; if (document.fullscreenElement || !d.requestFullscreen) return; d.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation?.lock?.('landscape').catch(() => {})).catch(() => {}); };
+  addEventListener('pointerup', fs, true);
 }
 
 addEventListener('unhandledrejection', (e) => console.error('unhandled:', e.reason?.message, e.reason?.stack?.split('\n').slice(0, 3).join(' | ')));

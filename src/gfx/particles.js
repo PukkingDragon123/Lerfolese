@@ -50,7 +50,7 @@ export class Particles {
     this.fade[i] = o.fade === false ? 0 : 1; this.wobble[i] = o.wobble || 0; this.floorY[i] = o.floor ?? -1e9; this.bounce[i] = o.bounce ?? 0.35;
     this.frameOf[i] = this.A.index(o.sprite || 'dot');
   }
-  burst(n, o) { for (let k = 0; k < n; k++) this.spawn(typeof o === 'function' ? o(k) : o); }
+  burst(n, o) { const k0 = window.__fxK ?? 1; if (k0 < 1 && n > 2) n = Math.max(2, Math.round(n * k0)); for (let k = 0; k < n; k++) this.spawn(typeof o === 'function' ? o(k) : o); } // (fewer on the low / medium presets: engine.setQuality sets __fxK)
   update(dt, time) {
     let n = this.count;
     for (let i = 0; i < n; i++) {

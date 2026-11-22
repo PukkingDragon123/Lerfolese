@@ -72,7 +72,7 @@ export class MapScene extends UIScreen {
     this.addButton(new Button3D('Journal', () => this.openJournal(), { w: 3.6, h: 1.1, size: 50, color: 'purple' }), W - 3.9, H - 4.4, 2); // clouds need more air between them
     this.addButton(new Button3D(`Deck (${r.deck.length})`, () => this.openDeck(), { w: 3.6, h: 1.1, size: 46 }), W - 3.9, H - 6.5, 2);
     this.addButton(new Button3D('Menu', () => this.game.toMenu(), { w: 3.6, h: 1.1, size: 50, color: 'red' }), W - 3.9, H - 8.6, 2);
-    this.hint = new Strip(['Drag to pan · wheel to scroll · right-drag to turn · click a glowing piece to travel'], { maxW: 22, font: 'handS', tone: 3 }); uiPos(this.hint.group, 0, -H + 0.8, 2); this.root.add(this.hint.group);
+    this.hint = new Strip([this.input.isTouch ? 'Drag to pan · pinch to zoom · tap a glowing piece to travel · hold one to read it' : 'Drag to pan · wheel to scroll · right-drag to turn · click a glowing piece to travel'], { maxW: 22, font: 'handS', tone: 3 }); uiPos(this.hint.group, 0, -H + 0.8, 2); this.root.add(this.hint.group);
   }
   async openJournal() { const { Journal } = await import('./journal.js'); if (!this.journal) { this.journal = new Journal(this.game, this.root); } this.journal.open(); }
   async openDeck() { const { DeckView } = await import('./deckview.js'); this.deckView = new DeckView(this.game, this.root, this.run.deck); this.deckView.open(); }

@@ -126,7 +126,7 @@ function anchorUI(a, out) {
   let w = null;
   if (typeof a === 'function') w = a(_w); else if (a.isVector3) w = _w.copy(a); else if (a.headWorld) w = a.headWorld(_w); else if (a.root?.isObject3D) { a.root.updateMatrixWorld(true); w = a.root.getWorldPosition(_w).add(V(0, 1.6, 0)); } else if (a.isObject3D) { a.updateMatrixWorld(true); w = a.getWorldPosition(_w); }
   if (!w) return null; const cam = E.world.camera; _p.copy(w).project(cam); if (_p.z > 1) return null; // behind the camera
-  return out.set(_p.x * E.uiW, _p.y * E.uiH, 0);
+  return E.ndcToUI(_p, out);
 }
 function bandY() { const D = window.__cine; const E = eng(); if (D && !D.ended && D.bars) return -E.uiH + D.band * 0.5 + 0.06; if (window.__storyBand) return -E.uiH + E.uiH * 0.165 * 0.5 + 0.06; return -E.uiH + 1.25; } // on the letterbox beam when one is up
 function step(dt) {
@@ -148,7 +148,7 @@ function step(dt) {
       if (y + s.h / 2 > top) { y = Math.min(top - s.h / 2, a.y + s.h * 0.15); x = a.x + (a.x > 0 ? -1 : 1) * (s.w / 2 + 1.1); } // a close-up: beside the face instead of above it
       x = Math.max(-W + s.w / 2 + 0.3, Math.min(W - s.w / 2 - 0.3, x)); y = Math.max(-H + s.h / 2 + 0.4 + (top < H - 0.3 ? H * 0.165 : 0), Math.min(top - s.h / 2, y));
     }
-    if (L.lift) y += L.lift;
+    if (L.lift) { y += L.lift; if (s.kind !== 'strip') y = Math.min(y, H - (window.__storyBand || (window.__cine && !window.__cine.ended && window.__cine.bars) ? H * 0.165 : 0) - 0.25 - s.h / 2); } // (a lifted scrap never leaves the frame's top)
     L.x = L.x == null ? x : L.x + (x - L.x) * Math.min(1, dt * 14); L.y = L.y == null ? y : L.y + (y - L.y) * Math.min(1, dt * 14);
     s.baseScale = KZ; s.group.position.set(L.x * KZ, L.y * KZ, Z + (L.z || 0)); s.update(dt);
   }
@@ -179,6 +179,7 @@ export function say(speaker, text, opts = {}) {
   if (name) registerSpeaker(speaker, { name });
   const a0 = anchorUI(anchor, V()); const E = eng(); const tail = side || (a0 && a0.x > E.uiW * 0.25 ? 'right' : 'left');
   for (const L of lines) if (L.speaker === speaker && !L.fall) L.finishNow(); // one scrap per speaker
+  { const live = [...lines].filter((L) => L.scrap.kind === 'scrap' && !L.fall && !L.dead); for (const L of live) if (L.finished) drop(L); const busy = live.filter((L) => !L.finished); for (const L of busy.slice(0, Math.max(0, busy.length - 1))) L.finishNow(true); } // at most two scraps: read ones leave as a new one starts
   const scrap = new Scrap(text, { speaker, kind: 'scrap', paper, maxW: maxW || (paper === 'vellum' ? 10 : 8.6), tail }); ui.add(scrap.group);
   return run(speaker, text, scrap, { ...opts, anchor, wait, advance, side: tail });
 }

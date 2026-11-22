@@ -52,7 +52,7 @@ export function holdToSkip(onSkip, { hold = 0.8, anywhere = true, label = 'Hold 
 
 // ---------------------------------------------------------------- drawing (DPR-aware; Alagard at a whole multiple of its 16 px grid, so always crisp)
 function draw(g, cv, H, k, dt, label, holding) {
-  const dpr = Math.min(3, window.devicePixelRatio || 1); const css = Math.max(0.75, Math.min(1, innerWidth / 760)); const fpx = Math.max(1, Math.round(dpr * css)) * 16; // Alagard px size in buffer pixels
+  const dpr = Math.min(3, window.devicePixelRatio || 1); const css = TOUCH ? 1.25 : Math.max(0.75, Math.min(1, innerWidth / 760)); /* (touch: a tap target of 44+ px) */ const fpx = Math.max(1, Math.round(dpr * css)) * 16; // Alagard px size in buffer pixels
   g.font = `${fpx}px Alagard`; const tw = Math.ceil(g.measureText(label).width); const keyW = TOUCH ? 0 : Math.round(fpx * 2.9); const pad = Math.round(fpx * 0.5);
   const W = tw + keyW + pad * 3, Hh = Math.round(fpx * 2.4);
   if (cv.width !== W || cv.height !== Hh) { cv.width = W; cv.height = Hh; cv.style.width = W / dpr + 'px'; cv.style.height = Hh / dpr + 'px'; }

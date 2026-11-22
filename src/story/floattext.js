@@ -86,7 +86,7 @@ function anchorUI(a, out) {
   const E = eng(); if (!a) return null; let w = null;
   if (a.ui) return out.set(a.ui[0], a.ui[1], 0);
   if (typeof a === 'function') w = a(_w); else if (a.isVector3) w = _w.copy(a); else if (a.headWorld) w = a.headWorld(_w).add(_p.set(0, 0.28, 0)); else if (a.isObject3D) { a.updateMatrixWorld(true); w = a.getWorldPosition(_w); }
-  if (!w) return null; _p.copy(w).project(E.world.camera); if (_p.z > 1) return null; return out.set(_p.x * E.uiW, _p.y * E.uiH, 0);
+  if (!w) return null; _p.copy(w).project(E.world.camera); if (_p.z > 1) return null; return E.ndcToUI(_p, out);
 }
 function step(dt, t) {
   const E = eng(); if (!E) return; const W = E.uiW, H = E.uiH; const band = window.__storyBand ? H * 0.165 : 0;
@@ -109,10 +109,13 @@ function step(dt, t) {
   }
   // keep character lines from overlapping (the older one moves up)
   const sc = [...lines].filter((L) => L.kind === 'say' && !L.out);
-  for (let i = 0; i < sc.length; i++) for (let j = i + 1; j < sc.length; j++) { const A = sc[i], B = sc[j]; const ox = (A.block.w + B.block.w) / 2 - Math.abs(A.x0 - B.x0), oy = (A.block.h + B.block.h) / 2 - Math.abs(A.y0 - B.y0); if (ox > 0 && oy > 0) A.lift = Math.min(4, (A.lift || 0) + oy * dt * 6); }
+  for (let i = 0; i < sc.length; i++) { const A = sc[i]; let hit = false; for (let j = i + 1; j < sc.length; j++) { const B = sc[j]; const ox = (A.block.w + B.block.w) / 2 - Math.abs(A.x0 - B.x0), oy = (A.block.h + B.block.h) / 2 - Math.abs(A.y0 - B.y0); if (ox > 0 && oy > 0) { hit = true; A.lift = Math.min(4, (A.lift || 0) + oy * dt * 6); } }
+    if (!hit && A.lift) A.lift = Math.max(0, A.lift - dt * 3); // (it settles back once the overlap is gone)
+    if (A.lift && A.y0 != null) A.lift = Math.min(A.lift, Math.max(0, H - band - A.block.h / 2 - 0.3 - A.y0)); } // never pushed off the top of the frame (fast-forwarded / skipped lines used to stack there)
 }
 function run(speaker, text, block, { anchor = null, wait = true, hold = null, kind = 'say', voice = true, side = null } = {}) {
   ensureMgr(); let res; const p = new Promise((r) => (res = r));
+  if (kind === 'say') { const live = [...lines].filter((o) => o.kind === 'say' && !o.out); for (const o of live) if (o.finished) o.out = true; const busy = live.filter((o) => !o.finished); for (const o of busy.slice(0, Math.max(0, busy.length - 1))) o.skip(); } // at most two lines on screen: read ones leave as a new one starts
   const L = { speaker, block, anchor, kind, n: 0, fade: 0, out: false, ph: Math.random() * 6, side, finished: false }; lines.add(L); ui.add(block.mesh);
   audio.play(kind === 'narr' ? 'page_turn' : 'whoosh_soft', { vol: kind === 'narr' ? 0.18 : 0.12, rate: 1.4 });
   const holdT = hold ?? (0.6 + Math.min(1.8, text.length * 0.013)); let timer = null;

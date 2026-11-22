@@ -91,15 +91,21 @@ export const STAR_UNLOCKS = [
 ];
 const UNLOCK_IDS = new Set(STAR_UNLOCKS.map((u) => u.id));
 
+// SAVE CORRUPTION: a stored value that is not valid JSON, or not the right shape (null, a string, a key of the wrong type),
+// falls back to the defaults key by key, so a damaged save can never stop the game from booting.
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+function healed(def, v) { if (!isObj(v)) return def; const out = { ...def }; for (const k of Object.keys(v)) { const d = def[k], x = v[k]; if (d === undefined || d === null) { out[k] = x; continue; } if (Array.isArray(d) ? Array.isArray(x) : typeof d === 'object' ? isObj(x) : typeof x === typeof d) out[k] = x; } return out; }
+const SETTINGS0 = { master: 0.9, sfx: 0.85, music: 0.5, amb: 0.6, quality: 'auto', screenshake: 1, fastAnims: false, qv: 2 };
+function readSettings() { const s = healed(SETTINGS0, read(KEY.settings, {})); if (s.qv !== 2) { s.quality = 'auto'; s.qv = 2; } /* (picture quality became 'auto': detected per device, governed by the frame rate) */ for (const k of ['master', 'sfx', 'music', 'amb']) s[k] = Number.isFinite(s[k]) ? Math.max(0, Math.min(1, s[k])) : SETTINGS0[k]; return s; }
 export const save = {
-  journal: read(KEY.journal, null) || defaultJournal(),
-  settings: Object.assign({ master: 0.9, sfx: 0.85, music: 0.5, amb: 0.6, quality: 'high', screenshake: 1, fastAnims: false }, read(KEY.settings, {})),
-  meta: Object.assign(defaultMeta(), read(KEY.meta, {})),
+  journal: healed(defaultJournal(), read(KEY.journal, null)),
+  settings: readSettings(),
+  meta: healed(defaultMeta(), read(KEY.meta, {})),
   get CHALLENGES() { return CHALLENGES; },
   saveJournal() { write(KEY.journal, this.journal); },
   saveSettings() { write(KEY.settings, this.settings); },
   saveMeta() { write(KEY.meta, this.meta); },
-  loadRun() { return read(KEY.run, null); },
+  loadRun() { const r = read(KEY.run, null); return isObj(r) ? r : null; },
   saveRun(run) { write(KEY.run, run); },
   clearRun() { try { localStorage.removeItem(KEY.run); } catch (e) { /* */ } },
   resetAll() { this.journal = defaultJournal(); this.meta = defaultMeta(); this.saveJournal(); this.saveMeta(); this.clearRun(); },

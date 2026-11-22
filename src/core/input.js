@@ -1,11 +1,15 @@
 // Unified pointer input: position, smoothed velocity, drag / flick / shake detection, wheel & pinch.
+// TOUCH: a finger acts as a hovering pointer while it is down (a 'move' fires on touch-down, so whatever shows on hover
+// shows under the finger: card tooltips, map node notes, foe natures), a LONG-PRESS (430 ms still) emits 'longpress' and
+// then no 'click' on release (so holding to read never also acts), lifting the finger clears the hover; a tap is a click,
+// a drag is a drag, two fingers pinch.
 import * as THREE from 'three';
 
 export class Input {
   constructor(el) {
     this.el = el;
     this.x = innerWidth / 2; this.y = innerHeight / 2;
-    this.ndc = new THREE.Vector2();
+    this.ndc = new THREE.Vector2(); this.view = new THREE.Vector2(); // view: the last on-screen pointer (camera parallax); ndc leaves the screen when a finger lifts
     this.vx = 0; this.vy = 0;           // smoothed px/s
     this.down = false; this.dragging = false; this.button = 0;
     this.downX = 0; this.downY = 0; this.downTime = 0;
@@ -16,7 +20,7 @@ export class Input {
     this._shake = { lastSignX: 0, lastSignY: 0, flips: [], fired: 0 };
     this._touches = new Map(); this._pinchDist = 0;
     this.hasInteracted = false; this.onFirstInteract = null;
-    this.isTouch = matchMedia('(pointer: coarse)').matches;
+    this.isTouch = matchMedia('(pointer: coarse)').matches; this.lastType = this.isTouch ? 'touch' : 'mouse'; this.longPressed = false; this._lpT = 0;
 
     el.addEventListener('pointerdown', (e) => this._onDown(e));
     addEventListener('pointermove', (e) => this._onMove(e));
@@ -43,7 +47,7 @@ export class Input {
 
   _setPos(e) {
     this.x = e.clientX; this.y = e.clientY;
-    this.ndc.set((this.x / innerWidth) * 2 - 1, -(this.y / innerHeight) * 2 + 1);
+    this.ndc.set((this.x / innerWidth) * 2 - 1, -(this.y / innerHeight) * 2 + 1); this.view.copy(this.ndc);
   }
 
   _firstInteract() {
@@ -57,7 +61,11 @@ export class Input {
       if (this._touches.size === 2) { this._pinchDist = this._touchDist(); if (this.down) { this._emit('dragcancel', {}); this.down = false; this.dragging = false; } return; }
     }
     try { this.el.setPointerCapture?.(e.pointerId); } catch (err) { /* ignore */ }
-    this._setPos(e);
+    this._setPos(e); this.lastType = e.pointerType || 'mouse'; this.longPressed = false; clearTimeout(this._lpT);
+    if (e.pointerType === 'touch') { // the finger hovers where it lands; held still, it is a long-press
+      this._last = { x: this.x, y: this.y, t: performance.now() }; this.vx = 0; this.vy = 0; this._emit('move', { x: this.x, y: this.y, touch: true });
+      this._lpT = setTimeout(() => { if (this.down && !this.dragging && this._touches.size <= 1) { this.longPressed = true; try { navigator.vibrate?.(8); } catch (er) { /* */ } this._emit('longpress', { x: this.x, y: this.y }); } }, 430);
+    }
     this.down = true; this.dragging = false; this.button = e.button;
     this.downX = this.x; this.downY = this.y; this.downTime = performance.now();
     this._hist = [{ x: this.x, y: this.y, t: this.downTime }];
@@ -82,8 +90,8 @@ export class Input {
     if (this.down) {
       this._hist.push({ x: this.x, y: this.y, t: now });
       while (this._hist.length > 2 && now - this._hist[0].t > 90) this._hist.shift();
-      if (!this.dragging && Math.hypot(this.x - this.downX, this.y - this.downY) > (this.isTouch ? 10 : 6)) {
-        this.dragging = true; this._emit('dragstart', { x: this.downX, y: this.downY, button: this.button });
+      if (!this.dragging && Math.hypot(this.x - this.downX, this.y - this.downY) > (e.pointerType === 'touch' || this.isTouch ? 10 : 6)) {
+        this.dragging = true; clearTimeout(this._lpT); this._emit('dragstart', { x: this.downX, y: this.downY, button: this.button });
       }
       if (this.dragging) { this._emit('drag', { x: this.x, y: this.y, vx: this.vx, vy: this.vy }); this._detectShake(ivx, ivy, now); }
     }
@@ -113,17 +121,20 @@ export class Input {
       const a = this._hist[0], b = this._hist[this._hist.length - 1];
       const dt = Math.max(16, b.t - a.t) / 1000; fvx = (b.x - a.x) / dt; fvy = (b.y - a.y) / dt;
     }
-    const wasDragging = this.dragging;
+    const wasDragging = this.dragging; clearTimeout(this._lpT); const touch = e.pointerType === 'touch', wasLong = this.longPressed; this.longPressed = false;
     this.down = false; this.dragging = false;
-    if (cancelled) { this._emit('dragcancel', {}); return; }
+    if (cancelled) { this._emit('dragcancel', {}); if (touch) this._leave(); return; }
     if (wasDragging) {
       const speed = Math.hypot(fvx, fvy);
       this._emit('dragend', { x: this.x, y: this.y, vx: fvx, vy: fvy, speed, flick: speed > 1500 && now - this._last.t < 80 });
-    } else {
-      this._emit('click', { x: this.x, y: this.y, button: e.button ?? 0, long: now - this.downTime > 450 });
+    } else if (!(touch && wasLong)) {
+      this._emit('click', { x: this.x, y: this.y, button: e.button ?? 0, long: now - this.downTime > 450, touch });
     }
     this._emit('up', { x: this.x, y: this.y });
+    if (touch) this._leave();
   }
+  /** a lifted finger stops hovering: the pointer leaves the screen (hover states and tooltips clear) */
+  _leave() { this.ndc.set(-9, -9); this._emit('move', { x: -9999, y: -9999, touch: true, leave: true }); }
 
   toNDC(x, y, out = new THREE.Vector2()) { return out.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1); }
 }

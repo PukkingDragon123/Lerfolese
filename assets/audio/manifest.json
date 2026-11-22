@@ -678,7 +678,7 @@
     },
     "sting_reward": {
       "files": [
-        "sfx/sting_reward_1.mp3"
+        "music/sting_reward.mp3"
       ],
       "vol": 0.55
     },

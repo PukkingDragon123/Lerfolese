@@ -37,7 +37,7 @@ export class TravelScene {
       // the sun follows the walk so the puppet keeps his shadow far from the arena
       const mid = this.shot.walk.path.getPointAt(0.5);
       const box = new THREE.Box3(); for (let k = 0; k <= 8; k++) box.expandByPoint(this.shot.walk.path.getPointAt(k / 8)); box.expandByScalar(6); box.min.y = -0.5; box.max.y = 5;
-      stageLights(sc, { theme, sunDir: st.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4), target: mid, box, mapSize: this.engine.quality === 'high' ? 4096 : 2048 }); new ContactShadows(sc, { hAt: st.hAt });
+      stageLights(sc, { theme, sunDir: st.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4), target: mid, box, mapSize: this.engine.quality === 'high' ? 4096 : this.engine.quality === 'low' ? 1024 : 2048 }); new ContactShadows(sc, { hAt: st.hAt });
       this._ready();
       await this.shot.done;
     } finally { this._ready(); }

@@ -10,6 +10,7 @@ import { Strip, Paper } from '../ui3d/objects.js';
 import { Surf, RAMP, pxTex, frontMat, sideMat, slab, wood, rivet, mesh, uiRig, wrapText, PX, PXP } from '../ui3d/craft.js';
 import { audio } from '../core/audio.js';
 import { narrate, stopAll as stopLines, voiceOnly } from '../story/dialogue.js';
+import { fstop } from '../story/floattext.js';
 import { hud } from '../ui3d/hud.js';
 
 // the storyteller reads each chapter card aloud (the card itself is drawn by hud.js)
@@ -142,18 +143,19 @@ export class Director {
   /** hold the clock at time t until ok() is true (a voiced line still being spoken); max seconds as a safety net */
   hold(t, ok, max = 14) { this.holds.push({ t, ok, max, waited: 0 }); this.holds.sort((a, b) => a.t - b.t); return this; }
   card(name, epithet) { const c = new NameCard(this.group, name, epithet); this.cards.push(c); return c; }
-  skip() { if (this.skipped || this.ended) return; this.skipped = true; if (!this.skipper?.fired) this.skipper?.dispose(); this.cues = []; this.narr.clear(); stopLines(); for (const c of this.cards) c.hide(); audio.play('page_turn', { vol: 0.7 }); this.onSkip?.(); }
+  skip() { if (this.skipped || this.ended) return; this.skipped = true; if (!this.skipper?.fired) this.skipper?.dispose(); this.cues = []; this.narr.clear(); stopLines(); fstop(); for (const c of this.cards) c.hide(); audio.play('page_turn', { vol: 0.7 }); try { this.onSkip?.(); } catch (e) { console.warn('cinematic skip', e); } }
   end() { if (this.ended) return; this.ended = true; if (!this.skipper?.fired) this.skipper?.dispose(); this.restoreShafts(); this.cues = []; this.bars?.hide(); this.narr.clear(); for (const c of this.cards) c.hide(); this.input.remove(this.handler); if (window.__cine === this) window.__cine = null; this._res(); }
   // advance the timeline by real time; hold while the page-turn wipe still covers the picture
   step(dt) {
     if (!this.skipped && !this.seeking) for (const h of this.holds) { if (h.done || h.t < this.t - 1e-6) continue; if (this.t + dt < h.t) break; h.waited += dt; if (h.ok() || h.waited > h.max) { h.done = true; continue; } dt = Math.max(0, h.t - this.t); break; }
-    this.t += dt; while (!this.ended && this.cues.length && this.cues[0].t <= this.t) this.cues.shift().fn(this.t); if (!this.ended) this.frame?.(this.t, dt); }
+    this.t += dt; while (!this.ended && this.cues.length && this.cues[0].t <= this.t) { const c = this.cues.shift(); try { c.fn(this.t); } catch (e) { console.warn('cinematic cue', e); } }
+    if (!this.ended && this.frame) { try { this.frame(this.t, dt); } catch (e) { console.warn('cinematic frame failed; skipping to the end', e); this.frame = null; try { this.skip(); } catch (er) { /* */ } this.end(); } } }
   sunShafts() {
     const E = this.engine, cam = E.world?.camera; if (!E.rays || !E.raysPos || !cam) return; if (this.raysWas == null) this.raysWas = E.rays.enabled; if (!this.raysWas) return;
     const f = cam.getWorldDirection(_f), s = _s.copy(E.raysPos).sub(cam.position).normalize(); E.rays.enabled = f.dot(s) > 0.8;
   }
   restoreShafts() { if (this.raysWas != null && this.engine.rays) this.engine.rays.enabled = this.raysWas; this.raysWas = null; }
-  seek(t) { this.seeking = true; while (!this.ended && this.t < t) this.step(Math.min(1 / 30, t - this.t)); this.seeking = false; }
+  seek(t) { if (t > this.t + 0.5) { stopLines(); fstop(); } this.seeking = true; while (!this.ended && this.t < t) this.step(Math.min(1 / 30, t - this.t)); this.seeking = false; } // (a fast-forward first drops the lines on screen, so they never pile up)
   update() {
     if (this.disposed) return;
     const now = performance.now(); const rdt = Math.min(0.25, Math.max(0, (now - this.last) / 1000)); this.last = now;

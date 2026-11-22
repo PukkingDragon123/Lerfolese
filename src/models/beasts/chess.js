@@ -287,6 +287,9 @@ export const createChessRook = (seed = 1) => limboBeast({
     const ga = prop('chess-gate', gate, ROOK_PAL, P_OPT(2200, 256, 0.007)); const gm = K.mesh(ga.geo, ga.mat); gm.scale.setScalar(1.3); mount(ctx, 'chest', gm, { at: [0, 0.0, 0.17 * sc] }); ctx.vars.gate = gm.material;
     const fire = new THREE.PointLight(0xff7a2a, 1.2, 2.4, 2); fire.position.set(0, 0, 0.1); gm.add(fire); ctx.vars.fire = fire;
     ctx.root.add(pieceBase(0.9));
+    // the legs stand still inside the tower skirt: the shared attack / stagger swing a thigh forward, which poked a leg
+    // through the rigid masonry robe (the strike reads from the torso and fists; only death lets the legs go)
+    const upd = ctx.L.update.bind(ctx.L); ctx.L.update = (dt) => { if (!(ctx.st.dead > 0)) for (const j of ['thighL', 'thighR', 'shinL', 'shinR', 'footL', 'footR']) ctx.B[j]?.rotation.set(0, 0, 0); return upd(dt); };
   },
   pose(addp, t) { addp('spine', 0.08); addp('neck', 0.12); addp('head', -0.08); addp('uarmL', 0, 0, 0.3); addp('uarmR', 0, 0, -0.3); addp('farmL', -0.3); addp('farmR', -0.3); addp('chest', Math.sin(t * 0.7) * 0.02); },
   update(dt, ctx, t) { const f = ctx.vars.fire; if (f) f.intensity = ctx.st.dead > 0 ? Math.max(0, f.intensity - dt) : 1.1 + Math.sin(t * 9) * 0.25 + Math.sin(t * 23) * 0.12; },

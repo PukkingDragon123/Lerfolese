@@ -241,7 +241,7 @@ const art = (q) => { const v = new URLSearchParams(location.search).get(q); retu
 // canvas resolution: supersample on 1x screens, full device resolution (capped at 2x) on hi-dpi ones. This is the UI's
 // (and the upscale's) resolution: the 3D world itself is drawn at the art resolution (see the header), so text and the
 // 3D UI stay crisp while the world reads as pixel art. Auto quality drops shadows / AO samples, never the art rows.
-const hiRes = (q) => { const d = window.devicePixelRatio || 1; return q === 'low' ? Math.min(2, Math.max(1, d)) : q === 'medium' ? Math.min(2, Math.max(1.25, d)) : Math.min(2, Math.max(1.5, d)); };
+const hiRes = (q) => { const d = window.devicePixelRatio || 1; return q === 'low' ? Math.min(1.5, Math.max(1, d)) : q === 'medium' ? Math.min(2, Math.max(1.25, d)) : Math.min(2, Math.max(1.5, d)); };
 
 // copies the motion-blurred frame into a history target (read by the next frame's object smear) and passes it on
 class HistoryPass extends Pass {
@@ -262,7 +262,7 @@ export class Engine {
     r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap;
     r.autoClear = false;
     this.quality = 'high';
-    const qp = new URLSearchParams(location.search).get('q'); this.testMode = qp === 'test';
+    const qp = new URLSearchParams(location.search).get('q'); this.testMode = qp === 'test'; { const ff = Number(new URLSearchParams(location.search).get('ff')); if (ff > 1) window.__ff = Math.min(20, ff); }
     this.pixelRatio = this.testMode ? (Number(new URLSearchParams(location.search).get('pr')) || 0.5) : hiRes('high');
     this.fullFx = new URLSearchParams(location.search).get('fx') === '1'; // test mode with every effect on (lighting reviews)
     if (this.testMode) { r.shadowMap.enabled = this.fullFx; window.__noAutoQuality = true; }
@@ -317,17 +317,29 @@ export class Engine {
     this.updaters = new Set(); this.time = 0; this.dt = 0; this.frame = 0;
     this.trauma = 0; this.shakeOffset = new THREE.Vector3(); this.hitStopT = 0; this.timeScale = 1;
     this.fx = { tilt: true }; this.uiVisible = true; this.paused = false;
-    this.fps = 60; this._fpsAcc = 0; this._fpsN = 0; this._lowFrames = 0;
-    addEventListener('resize', () => this.resize());
+    this.fps = 60; this._fpsAcc = 0; this._fpsN = 0; this._lowFrames = 0; this._hiFrames = 0; this.resScale = 1; this.governor = false; // (governor: on with the 'auto' picture setting)
+    // the bloom can run at a fraction of the frame (the low preset: half, so its mip chain costs a quarter)
+    this._bloomK = 1; { const bs = this.bloom.setSize.bind(this.bloom); this.bloom.setSize = (w, h) => bs(Math.max(2, Math.round(w * this._bloomK)), Math.max(2, Math.round(h * this._bloomK))); }
+    // a lost WebGL context (mobile tab switch, GPU reset): stop drawing, let three restore it; if it never comes back, reload (the run is saved at every node)
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.contextLost = true; console.warn('[engine] WebGL context lost'); clearTimeout(this._ctxT); this._ctxT = setTimeout(() => { if (this.contextLost && !document.hidden) location.reload(); }, 6000); }, false);
+    canvas.addEventListener('webglcontextrestored', () => { this.contextLost = false; clearTimeout(this._ctxT); console.info('[engine] WebGL context restored'); this.resize(); }, false);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && this.contextLost) { clearTimeout(this._ctxT); this._ctxT = setTimeout(() => { if (this.contextLost) location.reload(); }, 4000); } });
+    // the device's safe area (notches, rounded corners, the home bar): read from env(safe-area-inset-*) on a probe
+    this._safe = document.createElement('div'); Object.assign(this._safe.style, { position: 'fixed', left: 0, top: 0, width: 0, height: 0, visibility: 'hidden', pointerEvents: 'none', paddingTop: 'env(safe-area-inset-top, 0px)', paddingRight: 'env(safe-area-inset-right, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', paddingLeft: 'env(safe-area-inset-left, 0px)' }); document.body.appendChild(this._safe);
+    addEventListener('resize', () => this.resize()); addEventListener('orientationchange', () => setTimeout(() => this.resize(), 250)); window.visualViewport?.addEventListener('resize', () => this.resize());
     this.resize();
   }
 
+  /** the picture preset: 'low' | 'medium' | 'high' (an explicit choice), or 'auto' (detected from the device, then the
+   *  FPS governor steps the preset and the render resolution down or up to hold the frame rate) */
   setQuality(q) {
-    this.quality = q;
-    this.pixelRatio = hiRes(q); if (this.ink) this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.7, this.pixelRatio * 0.45);
+    if (q === 'auto') { this.governor = !this.testMode; q = Engine.detectQuality(); } else if (q) this.governor = false;
+    if (!['low', 'medium', 'high'].includes(q)) q = 'high';
+    this.quality = q; window.__fxK = q === 'low' ? 0.5 : q === 'medium' ? 0.8 : 1; this.resScale = this.governor ? Math.min(1, this.resScale) : 1; this._bloomK = q === 'low' ? 0.5 : q === 'medium' ? 0.75 : 1;
+    this.pixelRatio = this.testMode ? this.pixelRatio : hiRes(q) * this.resScale; if (this.ink) this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.7, this.pixelRatio * 0.45);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.setAtmo(this.fx?.atmo);
-    this.renderer.shadowMap.enabled = q !== 'low'; // low quality: no shadow maps / GTAO; contact shadows and vertex AO still ground everything
+    if (!this.testMode || this.fullFx) this.renderer.shadowMap.enabled = q !== 'low'; // low quality: no shadow maps / GTAO; contact shadows and vertex AO still ground everything
     if (this.mblur) { const n = q === 'low' ? 6 : q === 'medium' ? 10 : 12; if (this.mblur.material.defines.MB_N !== n) { this.mblur.material.defines.MB_N = n; this.mblur.material.needsUpdate = true; } this.mbHist.enabled = q !== 'low'; }
     if (this.gtao) { this.gtao.enabled = this.aoForced || (q !== 'low' && this.fx?.ao !== false); this.gtao.updateGtaoMaterial({ samples: q === 'high' ? 16 : 8 }); this.gtao.updatePdMaterial({ samples: q === 'high' ? 12 : 6 }); }
     this.resize();
@@ -360,7 +372,13 @@ export class Engine {
     this.ui.camera.aspect = this.aspect; this.ui.camera.updateProjectionMatrix();
     // visible half-extents of the UI plane at z=0
     const d = this.ui.camera.position.z; const hh = Math.tan((this.ui.camera.fov * Math.PI) / 360) * d;
-    this.uiH = hh; this.uiW = hh * this.aspect;
+    // safe area: the UI frame (uiW / uiH, what every HUD lays out against) shrinks to the safe rectangle and the UI camera
+    // shifts so the UI origin sits at its centre; full-bleed things use uiFullW / uiFullH (worldToUI / ndcToUI map both)
+    const cs = getComputedStyle(this._safe); const ins = { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 }; this.safe = ins;
+    const upp = (2 * hh) / Math.max(1, h); this.uiFullH = hh; this.uiFullW = hh * this.aspect;
+    this.uiH = hh - ((ins.t + ins.b) / 2) * upp; this.uiW = hh * this.aspect - ((ins.l + ins.r) / 2) * upp;
+    this.uiOX = -((ins.l - ins.r) / 2) * upp; this.uiOY = ((ins.t - ins.b) / 2) * upp; this.ui.camera.position.x = this.uiOX; this.ui.camera.position.y = this.uiOY;
+    this.uiPx = 1 / upp; // UI units -> CSS pixels (tap targets: at least 44 px)
     for (const fn of this.updaters) fn.onResize?.(w, h);
     this.onResize?.(w, h);
   }
@@ -442,7 +460,12 @@ export class Engine {
    *  animating), then let a few real frames draw them, so a scene is never revealed half-built or with a compile hitch */
   async warmup({ frames = 3, maxMs = 6000 } = {}) {
     const r = this.renderer; const t0 = performance.now();
-    try { const jobs = [r.compileAsync?.(this.world.scene, this.world.camera), r.compileAsync?.(this.ui.scene, this.ui.camera)].filter(Boolean); if (jobs.length) await Promise.race([Promise.all(jobs), new Promise((res) => setTimeout(res, maxMs))]); } catch (e) { /* compile errors surface on render */ }
+    // (our own poll instead of renderer.compileAsync: three's polls in a bare setTimeout and throws 'reading isReady' when a
+    //  material is disposed mid-compile, e.g. a scene swapped during a transition or a lost context; this one never throws)
+    try { if (!this.contextLost) { const mats = new Set(); for (const [sc, cam] of [[this.world.scene, this.world.camera], [this.ui.scene, this.ui.camera]]) { try { for (const m of r.compile(sc, cam) || []) mats.add(m); } catch (e) { /* compile errors surface on render */ } }
+      const par = !!r.extensions?.get?.('KHR_parallel_shader_compile'); const props = r.properties;
+      const ready = (m) => { try { const pr = props.get(m)?.currentProgram; return !pr || !pr.isReady || pr.isReady(); } catch (e) { return true; } };
+      await new Promise((res) => { const poll = () => { if (this.contextLost || performance.now() - t0 > maxMs) return res(); for (const m of mats) if (ready(m)) mats.delete(m); if (!mats.size) return res(); setTimeout(poll, par ? 10 : 30); }; setTimeout(poll, par ? 0 : 10); }); } } catch (e) { /* never block a transition */ }
     await new Promise((res) => { let n = 0; const f = () => (++n >= frames ? res() : requestAnimationFrame(f)); requestAnimationFrame(f); });
     this.lastWarmMs = performance.now() - t0;
   }
@@ -450,7 +473,7 @@ export class Engine {
     let last = performance.now();
     const loop = (now) => {
       requestAnimationFrame(loop);
-      let rdt = Math.min(0.05, (now - last) / 1000); last = now;
+      let rdt = Math.min(0.05 * (window.__ff || 1), (now - last) / 1000); last = now; // (__ff / ?ff=: test fast-forward on slow headless GPUs)
       this._fpsAcc += rdt; this._fpsN++;
       if (this._fpsAcc > 1) { this.fps = this._fpsN / this._fpsAcc; this._fpsAcc = 0; this._fpsN = 0; this._autoQuality(); }
       let dt = rdt * this.timeScale;
@@ -458,18 +481,36 @@ export class Engine {
       this.dt = dt; this.rdt = rdt; this.time += dt; this.frame++;
       tweens.update(dt);
       update?.(dt, this.time, rdt);
-      for (const u of this.updaters) u.update?.(dt, this.time, rdt);
-      this.render(rdt);
+      for (const u of this.updaters) { try { u.update?.(dt, this.time, rdt); } catch (e) { if (!u.__failed) { u.__failed = true; console.error('[engine] an updater failed (it keeps running; later errors muted)', e); } } } // one broken object never stops the frame
+      if (this.contextLost) return;
+      try { this.render(rdt); } catch (e) { if (!this._renderErr) { this._renderErr = true; console.error('[engine] render failed', e); } }
     };
     requestAnimationFrame(loop);
   }
 
   _autoQuality() {
-    if (this.quality === 'low' || window.__noAutoQuality) return;
+    if (window.__noAutoQuality || document.hidden) return;
+    if (this.governor && !this.wipeActive) { // adaptive resolution first (cheap to change, invisible at small steps), then the preset
+      if (this.fps < 42) { this._lowFrames++; this._hiFrames = 0; } else if (this.fps > 57) { this._hiFrames++; this._lowFrames = Math.max(0, this._lowFrames - 1); } else { this._lowFrames = Math.max(0, this._lowFrames - 1); this._hiFrames = 0; }
+      if (this._lowFrames >= 2) { this._lowFrames = 0; if (this.resScale > 0.62) { this.resScale = Math.max(0.6, this.resScale - 0.12); this._applyRes(); } else if (this.quality !== 'low') { this.resScale = 0.85; this.setQuality(this.quality === 'high' ? 'medium' : 'low'); this.governor = true; console.info('[engine] auto quality ->', this.quality); } }
+      else if (this._hiFrames >= 5 && this.resScale < 1) { this._hiFrames = 0; this.resScale = Math.min(1, this.resScale + 0.06); this._applyRes(); }
+      return;
+    }
+    if (this.quality === 'low') return;
     if (this.fps < 30) this._lowFrames++; else this._lowFrames = Math.max(0, this._lowFrames - 1);
     if (this._lowFrames >= 4) { this._lowFrames = 0; this.setQuality(this.quality === 'high' ? 'medium' : 'low'); console.info('[engine] auto quality ->', this.quality); }
   }
 
+  _applyRes() { this.pixelRatio = hiRes(this.quality) * this.resScale; this.renderer.setPixelRatio(this.pixelRatio); if (this.ink) this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.7, this.pixelRatio * 0.45); this.resize(); }
+  /** mobile / low-end hardware -> 'low'; mid machines -> 'medium'; else 'high' */
+  static detectQuality() {
+    const n = navigator; const coarse = matchMedia('(pointer: coarse)').matches; const mobile = coarse && (n.maxTouchPoints || 0) > 0 || /Android|iPhone|iPad|iPod|Mobile/i.test(n.userAgent || '') || (n.userAgentData?.mobile ?? false);
+    const mem = n.deviceMemory || 8, cores = n.hardwareConcurrency || 8; let gpu = '';
+    try { const c = document.createElement('canvas').getContext('webgl'); const ext = c?.getExtension('WEBGL_debug_renderer_info'); gpu = ext ? String(c.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : ''; c?.getExtension('WEBGL_lose_context')?.loseContext(); } catch (e) { /* */ }
+    if (mobile || mem <= 2 || cores <= 2 || /SwiftShader|llvmpipe|Software|Mali-4|Adreno \(TM\) [345]/i.test(gpu)) return 'low';
+    if (mem <= 4 || cores <= 4 || /Intel\(R\) (HD|UHD) Graphics [456]/i.test(gpu)) return 'medium';
+    return 'high';
+  }
   /** the golden apple's time ripple from a screen point (uv 0..1, y up) */
   ripple(uv = [0.5, 0.5], dur = 1.1, k = 1) { const u = this.grade.uniforms; u.uRipC.value.set(uv[0], uv[1]); u.uRipR.value = 0; u.uRipK.value = k; tweens.to(u.uRipR, { value: 1.7 }, dur, { ease: 'outQuad' }); tweens.to(u.uRipK, { value: 0 }, dur, { ease: 'inQuad' }); }
   render(rdt) {
@@ -521,9 +562,9 @@ export class Engine {
   // project a world position to UI plane coordinates (z=0)
   worldToUI(v, out = new THREE.Vector3()) {
     const p = v.clone().project(this.world.camera);
-    return out.set(p.x * this.uiW, p.y * this.uiH, 0);
+    return out.set(p.x * this.uiFullW + this.uiOX, p.y * this.uiFullH + this.uiOY, 0);
   }
-  ndcToUI(ndc, out = new THREE.Vector3()) { return out.set(ndc.x * this.uiW, ndc.y * this.uiH, 0); }
+  ndcToUI(ndc, out = new THREE.Vector3(), z = 0) { return out.set(ndc.x * this.uiFullW + this.uiOX, ndc.y * this.uiFullH + this.uiOY, z); }
 }
 
 export { damp, WipeShader };

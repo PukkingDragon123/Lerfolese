@@ -17,7 +17,9 @@ export class Audio {
   unlock() {
     if (this.unlocked) return; this.unlocked = true;
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-    this.ctx = new AC();
+    try { this.ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { try { this.ctx = new AC(); } catch (er) { this.unlocked = false; return; } }
+    this.wake(); // iOS / Android: resume inside the gesture and play one silent sample, which opens the audio route
+    try { const b = this.ctx.createBuffer(1, 1, 22050); const s = this.ctx.createBufferSource(); s.buffer = b; s.connect(this.ctx.destination); s.start(0); } catch (e) { /* */ }
     this.master = this.ctx.createGain(); this.master.connect(this.ctx.destination);
     this.sfxBus = this.ctx.createGain(); this.sfxBus.connect(this.master);
     this.musicBus = this.ctx.createGain(); this.musicBus.connect(this.master);
@@ -29,6 +31,10 @@ export class Audio {
     for (const [n, o] of this._pendingAmb || []) this.playAmb(n, o);
     this._pendingAmb = null;
   }
+  /** resume a suspended / interrupted context (call from any user gesture; mobile browsers suspend audio until one) */
+  wake() { const c = this.ctx; if (c && c.state !== 'running' && !this._asleep) c.resume?.().catch(() => {}); }
+  /** the page was hidden (tab switch, phone locked): silence everything; shown again: resume */
+  sleep(on) { this._asleep = on; const c = this.ctx; if (!c) return; if (on) c.suspend?.().catch(() => {}); else c.resume?.().catch(() => {}); if (this.music?.el) { if (on) this.music.el.pause(); else this.music.el.play().catch(() => {}); } }
   applyVolumes() {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;

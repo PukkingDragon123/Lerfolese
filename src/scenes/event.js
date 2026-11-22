@@ -66,7 +66,7 @@ export default class EventScene extends UIScreen {
     const j = this.game.journal; (j.events[ev.id] ||= 0); j.events[ev.id]++; this.game.saveJournal();
     // world
     const sc = (this.scene = new THREE.Scene()); let st; try { st = await realStage(ev.theme, 30 + ev.id.length, this.engine.renderer, { event: ev.id }); sc.environment = st.env; sc.environmentIntensity = 0.38; sc.background = st.background; } catch (e) { console.warn('event stage fallback', e); st = buildStage(ev.theme, 30 + ev.id.length); } sc.add(st.group); sc.fog = new THREE.Fog(0xe8c09a, 30, 95);
-    stageLights(sc, { theme: ev.theme, sunDir: new THREE.Vector3(-8, 10, 7), target: new THREE.Vector3(-1, 0, 0), box: new THREE.Box3(new THREE.Vector3(-14, -0.5, -9), new THREE.Vector3(12, 6, 6)), mapSize: this.engine.quality === 'high' ? 4096 : 2048 }); new ContactShadows(sc, { hAt: st.hAt });
+    stageLights(sc, { theme: ev.theme, sunDir: new THREE.Vector3(-8, 10, 7), target: new THREE.Vector3(-1, 0, 0), box: new THREE.Box3(new THREE.Vector3(-14, -0.5, -9), new THREE.Vector3(12, 6, 6)), mapSize: this.engine.quality === 'high' ? 4096 : this.engine.quality === 'low' ? 1024 : 2048 }); new ContactShadows(sc, { hAt: st.hAt });
     this.camera = new THREE.PerspectiveCamera(32, this.engine.aspect, 0.1, 300); this.camera.position.set(-2.5, 3.0, 10.5); this.camLook = new THREE.Vector3(-1.2, 1.4, 0); this.camera.lookAt(this.camLook); this.camBase = this.camera.position.clone(); this.stage = st;
     this.prof = createProfessor(); this.prof.root.position.set(-4.4, 0, 1.2); this.prof.root.rotation.y = 0.6; sc.add(this.prof.root); this.wear = wearArtifacts(this.prof, this.game.run?.items);
     const prop = propFor(ev.prop); prop.position.set(-0.6, 0, 0); sc.add(prop);

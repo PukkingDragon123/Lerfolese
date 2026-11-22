@@ -212,7 +212,7 @@ export class BattleScene {
       else this.parts.spawn({ pos: [x, 7, z], vel: [vrange(0.3, 0.9), -0.6, 0], life: 8, size: vrange(20, 30), color: vpick(['#9cb84a', '#cfe07a', '#e0a83a']), sprite: 'leaf', wobble: 1.2, spin: vrange(-2, 2), floor: 0.05 }); }
     // camera drift + punch
     this.camPunch = Math.max(0, this.camPunch - rdt * 2.5); dt = rdt;
-    const cx = this.camBase.x + Math.sin(t * 0.21) * 0.25 + this.input.ndc.x * 0.25, cy = this.camBase.y + Math.sin(t * 0.17) * 0.12 + this.input.ndc.y * 0.12;
+    const cx = this.camBase.x + Math.sin(t * 0.21) * 0.25 + this.input.view.x * 0.25, cy = this.camBase.y + Math.sin(t * 0.17) * 0.12 + this.input.view.y * 0.12;
     this.camera.position.set(cx, cy, this.camBase.z - this.camPunch * 1.6); this.camera.lookAt(this.camLook);
     this.thinkCam(dt, t); this.shotCam.apply(rdt, this.camera, this.baseFov);
     // UI
@@ -225,7 +225,7 @@ export class BattleScene {
     for (const b of this.barks) { const p = this.engine.worldToUI(b.anchor()); b.note.at(p.x + b.ox, p.y + b.oy); b.note.update(dt); }
     this.barks = this.barks.filter((b) => { if (b.note.dead) { b.note.dispose(); return false; } return true; });
     this.fieldMarker.material.opacity = this.hand.drag && this.dropTarget?.type === 'field' ? 0.85 : 0;
-    this.prof.lookAt(this.input.ndc.x * 0.6, this.input.ndc.y * 0.4);
+    this.prof.lookAt(this.input.view.x * 0.6, this.input.view.y * 0.4);
   }
 
   // preparing your turn: the camera eases in on Newton (thinking pose, calm vignette); End Turn pulls back wide to watch
@@ -297,6 +297,9 @@ export class BattleScene {
         const h = S.held?.pick(); if (h && !S.busy) { S._heldTip = null; S.held.inspect(h.uid); return true; }
         const s = S.hand.pick(S.rayUI(S.cardMeshes())); if (s && s.slot.cards.length > 1 && e.long) { S.battle.split(s.uid); S.syncHand(); return true; }
       },
+      longpress() { // touch: hold a merged card to split it (the desktop long click); hold anything else to read its tooltip (shown on touch-down)
+        if (S.done) return; const s = S.hand.pick(S.rayUI(S.cardMeshes())); if (s && s.slot.cards.length > 1 && S.battle.phase === 'player' && !S.busy) { S.battle.split(s.uid); S.syncHand(); audio.play('paper_rustle'); return true; }
+        const h = S.held?.pick(); if (h) { S._heldTip = null; S.showHeldTip(h); return true; } },
       key(e) { if (S.done) return; if (e.code === 'Space' || e.code === 'Enter') S.endTurn(); },
     };
   }

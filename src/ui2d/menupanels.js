@@ -98,7 +98,7 @@ export class Codex extends Modal {
 }
 
 // ---------------------------------------------------------------- settings
-const QUAL = [['high', 'High'], ['medium', 'Medium'], ['low', 'Low']];
+const QUAL = [['auto', 'Auto'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low']]; // Auto: detected per device (phones start Low), then held at a steady frame rate
 export class SettingsPanel extends Modal {
   open() {
     if (this.isOpen) return; this.isOpen = true; const UI = this.UI, s = this.game.settings; audio.play('clockwork', { vol: 0.5 });
@@ -114,7 +114,7 @@ export class SettingsPanel extends Modal {
     UI.el('div', 'lf-rule', null, P.inner);
     const q = UI.el('div', '', null, P.inner); Object.assign(q.style, { display: 'flex', alignItems: 'center', gap: UI.px(3), margin: `${UI.px(4)} 0` }); UI.el('div', 'lf-body', 'Picture', q).style.width = UI.px(66);
     const lit = (b, on) => { b.style.filter = on ? 'brightness(1.22) saturate(1.3)' : 'brightness(0.82) saturate(0.7)'; };
-    const qb = QUAL.map(([k, l]) => { const b = UI.button(l, () => { s.quality = k; this.game.engine.setQuality?.(k); save.saveSettings(); for (const x of qb) lit(x, x === b); }, { parent: q, w: k === 'medium' ? 62 : 48 }); lit(b, (s.quality || 'high') === k); return b; });
+    const qb = QUAL.map(([k, l]) => { const b = UI.button(l, () => { s.quality = k; this.game.engine.setQuality?.(k); save.saveSettings(); for (const x of qb) lit(x, x === b); }, { parent: q, w: k === 'medium' ? 62 : 48 }); lit(b, (s.quality || 'auto') === k); return b; });
     const tog = (label, key) => { const t = UI.el('div', '', null, P.inner); Object.assign(t.style, { display: 'flex', alignItems: 'center', gap: UI.px(3), margin: `${UI.px(3)} 0` }); UI.el('div', 'lf-body', label, t).style.width = UI.px(66);
       const mk = (on) => { const b = UI.button(on ? 'On' : 'Off', () => { if (!!voiceSettings[key] !== on) { voiceSettings.toggle(key); lit(bOn, on); lit(bOff, !on); } }, { parent: t, w: 44 }); return b; }; const bOn = mk(true), bOff = mk(false); lit(bOn, !!voiceSettings[key]); lit(bOff, !voiceSettings[key]); };
     tog('Voices', 'voice'); tog('Subtitles', 'subtitles');

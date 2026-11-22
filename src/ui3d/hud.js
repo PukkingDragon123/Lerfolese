@@ -127,9 +127,11 @@ export class BattleHUD {
   /** THE RESULT, after time flowed: a short stamp where the hypothesis was (the experiment, checked) */
   showResult(rows) {
     if (!this.bell) return; if (!this.resT) { this.resT = new FloatText(null, { font: 'head', align: 'center', lighten: false, depth: 0.08 }); this.root.add(this.resT.group); }
-    this.resT.set(rows, { fonts: ['tiny', 'head'] }); this.resT.show(); this.resT.pop.kick(5); this.resLife = 2.8; const W = this.engine.uiW, H = this.engine.uiH, k = this.k; this.resT.place(W - 3.0 * k, -H + 6.25 * k, 1.3); this.resT.group.scale.multiplyScalar(0.9 * k);
+    this.resT.set(rows, { fonts: ['tiny', 'head'] }); this.resT.show(); this.resT.pop.kick(5); this.resLife = 2.8; const W = this.engine.uiW, H = this.engine.uiH, k = this.k; this.resT.place(this.edgeX(this.resT, W, k), -H + 6.25 * k, 1.3); this.resT.group.scale.multiplyScalar(0.9 * k);
   }
-  layoutForecast() { if (!this.fcT || !this.bell) return; const W = this.engine.uiW, H = this.engine.uiH, k = this.k; this.fcT.place(W - 3.0 * k, -H + 6.25 * k, 1.3); this.fcT.group.scale.multiplyScalar(0.9 * k); }
+  layoutForecast() { if (!this.fcT || !this.bell) return; const W = this.engine.uiW, H = this.engine.uiH, k = this.k; this.fcT.place(this.edgeX(this.fcT, W, k), -H + 6.25 * k, 1.3); this.fcT.group.scale.multiplyScalar(0.9 * k); }
+  /** centred over the apple, but never past the (safe-area) right edge: wide phones clipped the readout */
+  edgeX(T, W, k) { const hw = ((T.w || 0) * 0.9 * k) / 2; return Math.min(W - 3.0 * k, W - hw - 0.25); }
   // hit tests: screen px (bin drop) or the current pointer ray (bell / bin / law hover)
   ray(objs) { const r = new THREE.Raycaster(); r.setFromCamera(hud.input.ndc, this.engine.ui.camera); return r.intersectObjects(objs, true)[0]; }
   wellHit() { return false; } wellUI() { return [0, 0]; } setWellHot() {}
