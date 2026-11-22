@@ -154,7 +154,7 @@ export function starModel(kind, seed = 1) {
   g.setAttribute('position', fa(P, 3)); g.setAttribute('aSize', fa(S, 1)); g.setAttribute('aCol', fa(C, 3)); g.setAttribute('aKind', fa(K, 1)); g.setAttribute('aOrd', fa(O, 1)); g.setAttribute('aSeed', fa(Sd, 1)); g.setAttribute('aScat', fa(Sc, 3)); g.setAttribute('aSwing', fa(Sw, 1));
   g.computeBoundingSphere(); const U = { uPx: { value: 3 }, uTime: { value: 0 }, uFade: { value: 0 }, uRev: { value: 0 }, uHov: { value: 0 }, uDim: { value: 0 }, uBurst: { value: 0 }, uSwing: { value: 0 }, uScale: { value: 1 } };
   const pts = new THREE.Points(g, new THREE.ShaderMaterial({ uniforms: U, vertexShader: MV_VS, fragmentShader: MV_FS, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending, toneMapped: false }));
-  pts.frustumCulled = false; pts.renderOrder = 6; pts.userData.noInk = true; pts.userData.noAO = true; return { points: pts, U, rad: g.boundingSphere.radius, count: n };
+  pts.frustumCulled = false; pts.renderOrder = 6; pts.userData.noInk = true; pts.userData.noAO = true; return { points: pts, U, rad: g.boundingSphere.radius, count: n, ymin };
 }
 
 // ---------------------------------------------------------------- the pixel-art cosmos (a dome around the camera, art pixels in the view's tangent plane)
@@ -281,8 +281,8 @@ export class Astral {
       let label = null; if (this.labelsOn && D.label !== false) { label = cineText(D.name, { height: 0.074, depth: 2, bevel: 0.22, style: st === 1 ? 'gold' : 'starlight', glow: st === 0 ? 0.02 : 0.12 }); label.scale.setScalar(0.001); label.visible = false; this.labels.add(label); }
       if (mk) { const M = starModel(mk, gi + 3); const DM = 60; const dir = dirAt(ux, vy); const zA = dir.clone().negate(); const xA = e1.clone().addScaledVector(zA, -e1.dot(zA)).normalize(); const yA = V().crossVectors(zA, xA);
         const pivot = new THREE.Group(); pivot.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xA, yA, zA)); pivot.position.copy(dir).multiplyScalar(DM); const k = (rad * DM * (D.study ? 0.58 : 0.66)) / M.rad; M.points.scale.setScalar(k); M.U.uScale.value = k * M.rad;
-        pivot.add(M.points); this.group.add(pivot); Object.assign(M, { pivot, gi, mk, base: dir.clone().multiplyScalar(DM), hov: 0, dim: 0, k, spin: (gi * 1.7) % 6.28, rock: mk === 'owl' || mk === 'pendulum' || mk === 'lens' }); this.models.push(M); }
-      this.cons.push({ ...D, gi, u: ux, v: vy, rad, col, label, ls: new Spring(0, 8, 0.7), rev, model: !!mk }); });
+        pivot.add(M.points); this.group.add(pivot); D._drop = (-M.ymin * k) / DM + 0.012; Object.assign(M, { pivot, gi, mk, base: dir.clone().multiplyScalar(DM), hov: 0, dim: 0, k, spin: (gi * 1.7) % 6.28, rock: mk === 'owl' || mk === 'pendulum' || mk === 'lens' }); this.models.push(M); }
+      this.cons.push({ ...D, gi, u: ux, v: vy, rad, col, label, ls: new Spring(0, 8, 0.7), rev, model: !!mk, drop: mk ? D._drop : null }); });
     const g = new THREE.BufferGeometry(); const fa = (a, n) => new THREE.Float32BufferAttribute(a, n);
     g.setAttribute('position', fa(P, 3)); g.setAttribute('aSize', fa(S, 1)); g.setAttribute('aCol', fa(Col, 3)); g.setAttribute('aGroup', fa(Gp, 1)); g.setAttribute('aKind', fa(Kd, 1)); g.setAttribute('aOrd', fa(Ord, 1)); g.setAttribute('aSeed', fa(Sd, 1)); g.setAttribute('aRev', fa(Rv, 1)); g.setAttribute('aState', fa(St, 1));
     this.pts = new THREE.Points(g, new THREE.ShaderMaterial({ uniforms: this.PU, vertexShader: PT_VS, fragmentShader: PT_FS, transparent: true, depthWrite: false, depthTest: false, toneMapped: false })); this.pts.frustumCulled = false; this.pts.renderOrder = 5; this.pts.userData.noInk = true; this.pts.userData.noAO = true; this.group.add(this.pts);
@@ -321,7 +321,7 @@ export class Astral {
     for (const c of this.cons) { if (!c.label) continue; const shown = this.revealT > c.rev + 0.9 && this.showFigures !== false; const on = shown && this.fade > 0.9 && (this.pickIdx < 0 || c.gi === this.pickIdx); const focus = c.gi === this.hover || c.gi === this.pickIdx; c.ls.target = on ? (focus ? 1 : this.labelMode === 'hover' ? 0 : 0.62) : 0; c.ls.update(dt); const s = Math.max(0, c.ls.value);
       c.label.visible = s > 0.01; c.label.scale.setScalar(Math.max(0.001, s)); c.label.quaternion.copy(cam.quaternion); const U2 = c.label.userData.U; if (U2) { U2.uShine.value = c.gi === this.hover ? 0.6 : 0; U2.uSweep.value = ((t * 0.5 + c.gi * 0.3) % 2) * 2.5 - 2.4; U2.uGlow.value = c.gi === this.hover ? 0.3 : c.state === 1 ? 0.2 + 0.15 * Math.sin(t * 4) : 0.08; }
       const tanX = Math.tan((cam.fov * Math.PI) / 360) * cam.aspect, hw2 = ((c.label.userData.size?.[0] || 0.3) / 2 / 2.6) * 1.05 + 0.03; const uL = Math.max(-tanX * 0.97 + hw2, Math.min(tanX * 0.97 - hw2, c.u));
-      c.label.position.copy(this.A.clone().addScaledVector(this.e1, uL).addScaledVector(this.e2, c.v - (c.model ? c.rad * 0.72 : c.rad) - 0.03 + (1 - s) * 0.02).normalize().multiplyScalar(2.6)); }
+      c.label.position.copy(this.A.clone().addScaledVector(this.e1, uL).addScaledVector(this.e2, c.v - (c.drop ?? c.rad) - 0.03 + (1 - s) * 0.02).normalize().multiplyScalar(2.6)); }
     this.nextShoot -= dt; if (this.fade > 0.9 && this.nextShoot < 0 && this.shootT < 0) { this.shootT = 0; this.nextShoot = 3 + Math.random() * 5; U.uShoot.value.set(-0.6 + Math.random() * 1.2, 0.25 + Math.random() * 0.2, -0.5 - Math.random() * 0.6 + (Math.random() < 0.4 ? -2 : 0), 0); }
     if (this.shootT >= 0) { this.shootT += dt / 1.0; U.uShoot.value.w = this.shootT; if (this.shootT >= 1) { this.shootT = -1; U.uShoot.value.w = -1; } }
     this.updateModels(dt, t);
