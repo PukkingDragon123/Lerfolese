@@ -24,7 +24,7 @@
 - Cards: Slay the Spire / Balatro feel, BIG easy-to-read card text. Card kinds include draw-more and discard cards. Merge into attacks; when cards become an attack, show an illustration of Isaac performing it. Cool cinematic attack animations.
 - Preparing your turn: TIME IS STOPPED (world frozen). END TURN is a physical GOLDEN APPLE: clicking it makes time flow again and all your queued actions play out.
 - Deaths: procedural RAGDOLL (weighted crumple, killing-blow impulse); procedural animation everywhere (hit reactions, staggers, breathing). Removed: dodge QTE, "Second Thoughts" redraw basket.
-- Battle UI: health = an HOURGLASS (sand pours when hurt); gold = a JAR. No paper notes: text is crisp 3D FLOATING TEXT. Lighting/UI less saturated, more realistic, polished, detailed; no ugly big text.
+- Battle UI: health = an HOURGLASS (sand pours when hurt); gold = a JAR. No paper notes: text is crisp 3D FLOATING TEXT. UI realistic, polished, detailed; no ugly big text.
 - Combat dilemmas: full zoom-in interactive scenes showing Isaac doing the action. Bosses include the wizard FROG, the BOOKWORMS, and some events become optional boss fights (e.g. Prometheus' eagle, the Sphinx).
 - GAME NAME: LERFOLESE (renamed from Apple of Discord) in all user-visible text.
 - Combat like Slay the Spire: BLOCK is central, enemies hit hard with telegraphed intents, and it is a LOT HARDER. Map board figurines show exactly the enemies of each node's pre-rolled encounter.
@@ -70,3 +70,5 @@
 - Static site, three.js r170 vendored, ES modules, no build. Serve the repo root (`python3 -m http.server`).
 - Tests: `node tools/sim.mjs 300` (rules); `node tools/play2.mjs "<url>?q=test" out.png 30000 "<actions @@-separated>"` (Playwright, long timeouts). Battle intro skip: `click:640:360@@key:Space@@wait:3000@@key:Space@@wait:15000`. Debug: `?battle=a,b&kind=elite`, `?node=event&event=icarus`, `&ink=1`.
 - Hosted artifact: https://claude.ai/artifact/QV1BdMLkQoY2fbe5JLMmJ5 (.glb/.hdr ship as .b64.json via src/core/binfetch.js).
+- COLOUR + SHADERS (user, newest): the game felt colourless - world and lighting must be VIVID and colourful (rich saturated natural colour, strong warm key / cool fill, coloured bounce and sky light); no global desaturating grade or hue-harmony that greys things out. Old-book muting applies to card faces only, not the world. Shaders a LOT better (surface detail, rim/sky light, AO, water, foliage translucency, atmosphere).
+- END TURN golden apple must look MUCH better (detailed, alive, polished, satisfying hover/press).
