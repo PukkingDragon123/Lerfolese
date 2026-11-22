@@ -6,7 +6,7 @@ import { RNG } from '../src/core/util.js';
 import { ITEMS } from '../src/game/data/items.js';
 import { ENCOUNTERS } from '../src/game/data/enemies.js';
 const N = +(process.argv[2] || 200); const E = ENCOUNTERS.wilderness;
-const list = [...E.easy, ...E.hard, ...E.elite, ...E.guardian, ...Object.values(E.event || {})];
+const list = [...E.easy, ...E.hard, ...E.elite, ...Object.values(E.event || {}), ...Object.values(ENCOUNTERS).flatMap((A) => A.guardian || [])]; // (every act's piece of the Grandmaster too)
 const ARTS = Object.keys(ITEMS); let turns = 0, bad = 0;
 for (let i = 0; i < N; i++) {
   const enemies = list[i % list.length]; const run = newRun(500 + i); const r = new RNG(i * 31 + 7); run.floor = r.int(0, 10);

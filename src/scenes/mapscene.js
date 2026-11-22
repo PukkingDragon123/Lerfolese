@@ -12,7 +12,12 @@ import { UIScreen } from '../ui3d/widgets.js';
 import { CloudButton as Button3D } from '../ui3d/instruments.js'; // buttons are soft clouds
 import { MapSheet } from './mapsheet.js';
 import { DIO } from '../models/diorama.js';
-import { reachable } from '../game/run.js';
+import { reachable, AREAS, nodeEncounter } from '../game/run.js';
+import { ENEMIES } from '../game/data/enemies.js';
+// (story agent) the boss of each act is one of the Grandmaster's pieces: its name and its chess move on the hover plate
+function bossInfo(run, nd) { const e = nodeEncounter(run, nd); const d = ENEMIES[(e?.enemies || []).find((id) => ENEMIES[id]?.chess && !ENEMIES[id].minion)];
+  const MOVE = { pawn: 'Three black pawns, shields locked. They promote on the 8th rank.', knight: 'The Black Knight never rides straight: L-leaps over your Block.', bishop: 'The Bishop of Delphi walks the diagonals: his rays turn cards to stone.', rook: 'The Walking Bastion: walls that keep their Block, straight charges.', queen: 'The Black Queen moves as every piece moves.', king: 'The Grandmaster himself. Break his CHECK, or be mated.' };
+  return d ? [d.chess === 'pawn' ? 'THE BLACK PHALANX' : d.name.toUpperCase(), MOVE[d.chess] || d.title] : NODE_INFO.guardian; }
 import { ItemToken } from './reward.js';
 import { tweens, Spring } from '../core/tween.js';
 import { audio } from '../core/audio.js';
@@ -20,7 +25,7 @@ import { clamp } from '../core/util.js';
 
 const NODE_INFO = {
   battle: ['Skirmish', 'Local wildlife with opinions.'], elite: ['ELITE', 'Something big. Drops a rare curio.'], event: ['Curiosity', 'An encounter. Bring your science.'],
-  shop: ["Diogenes' Barrel", 'Cards, removals, upgrades. No curios.'], lab: ['Field Laboratory', 'Rest, upgrade, merge or mutate cards.'], guardian: ['GUARDIAN OF THE WILDS', 'The gate to the Trojan War.'],
+  shop: ["Diogenes' Barrel", 'Cards, removals, upgrades. No curios.'], lab: ['Field Laboratory', 'Rest, upgrade, merge or mutate cards.'], guardian: ["THE GRANDMASTER'S PIECE", 'One of his chessmen bars the way to the next rank.'],
 };
 
 export class MapScene extends UIScreen {
@@ -36,8 +41,8 @@ export class MapScene extends UIScreen {
     this.refreshNodes();
   }
   story() {
-    const lines = ['In 1687 a man published the laws of motion.', 'In 1688 the gods read them. They did not care for them.', 'Humanity had found the source code of the universe,', 'so the gods turned it off and on again. Forever.', 'One mind remembers every loop: young Isaac Newton,', 'natural philosopher, floating, still taking notes.', 'He has an apple. The gods should be worried.'];
-    const st = (this.storyPanel = new Panel('The Loop', lines, { w: Math.min(17, this.W * 1.7), h: 9, titleColor: '#5a1a22' })); uiPos(st.group, 0, 0.6, 9); this.root.add(st.group); audio.play('paper_rustle');
+    const lines = ['Olympus is not a mountain. It is a board,', 'and its master is Pessokrator, the Grandmaster,', 'who plays chess with mortal lives.', 'Every god a piece. Every hero a pawn.', 'One white pawn moves itself: young Isaac Newton,', 'with a stolen golden apple and a notebook.', 'Cross the board. Take his pieces. Reach the last rank.']; // (story agent) the Grandmaster's game
+    const st = (this.storyPanel = new Panel('The Board', lines, { w: Math.min(17, this.W * 1.7), h: 9, titleColor: '#5a1a22' })); uiPos(st.group, 0, 0.6, 9); this.root.add(st.group); audio.play('paper_rustle');
     st.ty = st.group.position.y; st.seal = new Strip(['click to roll it up'], { font: 'handS', tone: 3, tacks: 0, maxW: 8 }); st.seal.group.position.set(0, -st.scroll.h / 2 - 0.75, 0.2); st.group.add(st.seal.group);
     clearTimeout(this._storyT); this._storyT = setTimeout(() => this.dismissStory(), 9000); // real time, not game time
     this.game.journal.seenIntro = true; this.game.saveJournal();
@@ -62,7 +67,7 @@ export class MapScene extends UIScreen {
   // ------------------------------------------------------------ HUD
   buildHUD() {
     const W = this.W, H = this.H; const r = this.run;
-    this.runHud = new BattleHUD({ mode: 'map', sub: `LOOP ${roman(r.loop)} &middot; FLOOR ${Math.max(0, r.floor + 1)}/${this.map.rows}` }); this.runHud.setVitals(r.player.hp, r.player.maxHp, 0, r.gold);
+    const A = AREAS[r.area] || AREAS.wilderness; this.runHud = new BattleHUD({ mode: 'map', sub: `LOOP ${roman(r.loop)} &middot; ${A.chapter.toUpperCase()} &middot; ${Math.max(0, (r.pos ? this.map.nodes[r.pos]?.row ?? -1 : -1) + 1)}/${this.map.rows}` }); this.runHud.setVitals(r.player.hp, r.player.maxHp, 0, r.gold);
     this.items = r.items.map((id, i) => { const t = new ItemToken(id, { size: 1.5 }); t.group.position.set(-W + 1.6 + i * 1.7, H - 6.7, 2); this.root.add(t.group); return t; });
     this.addButton(new Button3D('Journal', () => this.openJournal(), { w: 3.6, h: 1.1, size: 50, color: 'purple' }), W - 3.9, H - 4.4, 2); // clouds need more air between them
     this.addButton(new Button3D(`Deck (${r.deck.length})`, () => this.openDeck(), { w: 3.6, h: 1.1, size: 46 }), W - 3.9, H - 6.5, 2);
@@ -93,7 +98,7 @@ export class MapScene extends UIScreen {
   rayNodes() { return this.sheet.pick(this.input.ndc); }
   onMove() {
     if (this.journal?.isOpen || this.deckView?.isOpen) return;
-    const nd = this.rayNodes(); if (nd !== this.hoverNode) { this.hoverNode = nd; this.sheet?.hover(nd); if (nd) { const fog = this.nodeViews.get(nd.id)?.fogged; const [t, d] = fog ? ['Lost in the Fog', 'Something waits out there. Come closer to see.'] : NODE_INFO[nd.type]; audio.play('ui_hover', { vol: 0.4 }); this.tip.show([[[t, !fog && (nd.type === 'elite' || nd.type === 'guardian') ? '#8f2a2e' : '#3a2410']], [[d, '#2a160c']], [[this.reach.has(nd.id) ? 'Click to travel here.' : 'Not reachable yet.', this.reach.has(nd.id) ? '#2d6e6a' : '#8a6a44']]], 0, -this.H + 3.5, 8); } else this.tip.hide(); }
+    const nd = this.rayNodes(); if (nd !== this.hoverNode) { this.hoverNode = nd; this.sheet?.hover(nd); if (nd) { const fog = this.nodeViews.get(nd.id)?.fogged; const [t, d] = fog ? ['Lost in the Fog', 'Something waits out there. Come closer to see.'] : nd.type === 'guardian' || nd.fixed ? bossInfo(this.run, nd) : NODE_INFO[nd.type]; audio.play('ui_hover', { vol: 0.4 }); this.tip.show([[[t, !fog && (nd.type === 'elite' || nd.type === 'guardian') ? '#8f2a2e' : '#3a2410']], [[d, '#2a160c']], [[this.reach.has(nd.id) ? 'Click to travel here.' : 'Not reachable yet.', this.reach.has(nd.id) ? '#2d6e6a' : '#8a6a44']]], 0, -this.H + 3.5, 8); } else this.tip.hide(); }
     // pan the view towards the pointer edges
   }
   // roll the story scroll up and let it slide away upward (click anywhere, or after nine real seconds)

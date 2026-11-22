@@ -165,7 +165,10 @@ export class BattleHUD {
 
 // chapter titles in the manner of an old chronicle
 const WHO = { frog_wizard: 'Archimage Croakley', bookworm_queen: 'the Bookworm Queen', sphinx: 'the Sphinx', eagle: 'the Eagle of Zeus', satyr: 'a Drunken Satyr', kobalos: 'a Thieving Kobalos', medusa: 'the Gorgon Medusa', minotaur: 'the Minotaur', minotaur_king: 'the Minotaur King', hydra: 'the Hydra', hydra_elder: 'the Elder Hydra' };
-const DOES = { frog_wizard: 'Sets the Final Examination', bookworm_queen: 'Devours the Principia', sphinx: 'Grades with Teeth', eagle: 'Comes for the Liver', satyr: 'Objects to Physics', kobalos: 'Pockets the Laws of Motion', medusa: 'Takes a Hard Look at Science', minotaur: 'Charges Headlong at Reason', minotaur_king: 'Will Not Be Reasoned With', hydra: 'Grows More Heads Than Arguments', hydra_elder: 'Has Heard All Your Theories Before' };
+// (story agent) the Grandmaster's pieces: proper names and their chess deeds
+Object.assign(WHO, { black_pawn: 'the Black Phalanx', black_knight: 'Hippolochos the Black Knight', oracle_bishop: 'the Hierophant of Delphi', rook_titan: 'Pyrgos the Walking Bastion', black_queen: 'Ophira the Black Queen', pessokrator: 'the Grandmaster' });
+const CHESS_DOES = { black_pawn: 'Advances Two Squares', black_knight: 'Never Rides Straight', oracle_bishop: 'Walks the Long Diagonal', rook_titan: 'Castles', black_queen: 'Moves However She Pleases', pessokrator: 'Calls Check' };
+const DOES = { ...CHESS_DOES, frog_wizard: 'Sets the Final Examination', bookworm_queen: 'Devours the Principia', sphinx: 'Grades with Teeth', eagle: 'Comes for the Liver', satyr: 'Objects to Physics', kobalos: 'Pockets the Laws of Motion', medusa: 'Takes a Hard Look at Science', minotaur: 'Charges Headlong at Reason', minotaur_king: 'Will Not Be Reasoned With', hydra: 'Grows More Heads Than Arguments', hydra_elder: 'Has Heard All Your Theories Before' };
 export function chapterTitle(foes) {
   const ids = [...new Set(foes.filter((e) => !e.def?.minion).map((e) => e.id))]; const name = (id, d) => WHO[id] || ('the ' + (d || id));
   const names = ids.slice(0, 2).map((id) => name(id, foes.find((e) => e.id === id)?.def?.name)); const lead = ids[0];

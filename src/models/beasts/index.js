@@ -13,6 +13,7 @@ import { createSpartoi, warmSpartoi } from './spartoi.js';
 import { createRaccoon, warmRaccoon } from './raccoon.js';
 import { BESTIARY_IDS, createBestiary, warmBestiary } from './bestiary.js'; // the experimental bestiary (beasts)
 import { NYMPH_IDS, createNymph, warmNymphs } from './nymphs.js'; // the experimental bestiary (humanoids on the Limbo base)
+import { CHESS_MODEL_IDS, createChessPiece, warmChessPiece } from './chess.js'; // the Grandmaster's pieces (story agent)
 
 const BUILD = {
   minotaur: (s) => createMinotaur(s, false),
@@ -31,6 +32,8 @@ const BUILD = {
 };
 for (const id of BESTIARY_IDS) BUILD[id] = (s) => createBestiary(id, s);
 for (const id of NYMPH_IDS) BUILD[id] = (s) => createNymph(id, s);
+for (const id of CHESS_MODEL_IDS) BUILD[id] = (s) => createChessPiece(id, s);
+for (const [id, m] of Object.entries({ board_knight: 'black_knight', board_bishop: 'oracle_bishop', board_pawn: 'black_pawn', pawn_guard: 'black_pawn' })) BUILD[id] = (s) => createChessPiece(m, s); // the Grandmaster's lesser pieces wear the same bodies
 export const isBeast = (id) => id in BUILD;
 export function createBeast(id, seed = 1) {
   const api = BUILD[id](seed);
@@ -40,4 +43,6 @@ export function createBeast(id, seed = 1) {
 const WARM = { cyclops: warmCyclops, talos: warmTalos, wolf: warmWolf, chimera: warmChimera, centaur: warmCentaur, harpy: warmHarpy, spartoi: warmSpartoi, raccoon: warmRaccoon };
 for (const id of BESTIARY_IDS) WARM[id] = () => warmBestiary(id);
 for (const id of NYMPH_IDS) WARM[id] = () => warmNymphs(id);
+for (const id of CHESS_MODEL_IDS) WARM[id] = () => warmChessPiece(id);
+for (const [id, m] of Object.entries({ board_knight: 'black_knight', board_bishop: 'oracle_bishop', board_pawn: 'black_pawn', pawn_guard: 'black_pawn' })) WARM[id] = () => warmChessPiece(m);
 export function warmBeast(id) { if (id.startsWith('minotaur')) warmMinotaur(id === 'minotaur_king'); else if (id.startsWith('hydra')) warmHydra(id === 'hydra_elder'); else WARM[id]?.(); }

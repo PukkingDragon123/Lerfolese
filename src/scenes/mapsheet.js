@@ -20,7 +20,7 @@ let CACHE = null;
 export class MapSheet {
   /** the cached diorama for this run (or a fresh one) */
   static for({ engine, run, map }) {
-    const key = `${run.seed}|${JSON.stringify(map.starts)}|${Object.keys(map.nodes).length}`;
+    const key = `${run.seed}|${run.area}|${JSON.stringify(map.starts)}|${Object.keys(map.nodes).length}`;
     if (CACHE && CACHE.key === key) { CACHE.sheet.engine = engine; CACHE.sheet.run = run; CACHE.sheet.map = map; return CACHE.sheet; }
     if (CACHE) CACHE.sheet.dispose(); const sheet = new MapSheet({ engine, run, map }); CACHE = { key, sheet }; return sheet;
   }
@@ -87,7 +87,7 @@ export class MapSheet {
   }
   refresh(reach, run) {
     const path = run.path || []; const row = run.pos ? this.map.nodes[run.pos]?.row ?? -1 : -1; this.curRow = row;
-    for (const [id, v] of this.nodeViews) { v.reachable = reach.has(id); v.visited = path.includes(id); v.mini.setState({ reachable: v.reachable, visited: v.visited }); v.fogged = v.nd.row > row + 2 && id !== 'guardian' ? true : id === 'guardian' && row < 10; }
+    for (const [id, v] of this.nodeViews) { v.reachable = reach.has(id); v.visited = path.includes(id); v.mini.setState({ reachable: v.reachable, visited: v.visited }); v.fogged = v.nd.row > row + 2 && id !== 'guardian' ? true : id === 'guardian' && row < this.map.rows - 4; }
     this.fog.setRow(row, false); if (this.fogPrevRow == null) this.fog.front.value = this.fog.frontFor(Math.max(-1, row - 1)); this.fogPrevRow = row;
   }
   pick(ndc) { this.ray.setFromCamera(ndc, this.camera); const h = this.ray.intersectObjects([...this.nodeViews.values()].map((v) => v.hit)); return h[0]?.object.userData.node; }

@@ -1,6 +1,7 @@
 // Enemies of the Mythical Wilderness. Each has an AI that picks an intent; the battle executes it.
 // Intent: { kind:'attack'|'block'|'buff'|'debuff'|'special'|'none', dmg, hits, ... , icon, label }
 
+import { CHESS } from './chess.js'; // the Grandmaster's pieces: every act boss (story agent)
 const A = (dmg, hits = 1, extra = {}) => ({ kind: 'attack', dmg, hits, icon: 'sword', ...extra });
 
 export const ENEMIES = {
@@ -341,7 +342,18 @@ export const ENCOUNTERS = {
     hard: [['satyr', 'kobalos'], ['medusa', 'kobalos'], ['satyr', 'satyr'], ['medusa', 'satyr'], ['kobalos', 'kobalos', 'kobalos'], ['centaur'], ['harpy', 'harpy'], ['spartoi', 'spartoi'], ['centaur', 'wolf'], ['wolf', 'wolf', 'harpy'], ['spartoi', 'harpy'],
       ['boar'], ['siren'], ['empusa'], ['karkinos', 'karkinos'], ['salamander', 'ice_nymph'], ['siren', 'stymphalian'], ['boar', 'satyr'], ['empusa', 'kobalos']],
     elite: [['minotaur'], ['hydra'], ['cyclops'], ['chimera'], ['automaton'], ['magnet_golem'], ['bronze_bull']],
-    guardian: [['minotaur_king'], ['hydra_elder'], ['talos'], ['frog_wizard'], ['bookworm_queen', 'bookworm', 'bookworm'], ['ladon']],
+    // THE OPENING: the Grandmaster opens, as he always opens, with his pawns (story agent: data/chess.js)
+    guardian: [['black_pawn', 'black_pawn', 'black_pawn']],
     event: { sphinx: ['sphinx'], prometheus: ['eagle'] },
   },
 };
+Object.assign(ENEMIES, CHESS);
+// THE MIDDLEGAME and THE ENDGAME reuse the Wilds' bestiary (harder: later floors) with the old guardians as mid-bosses
+// among the elites; their bosses are his minor pieces, then his Rook. THE BOARD (the finale): the Queen, then the King.
+{
+  const W = ENCOUNTERS.wilderness; const MID = [['minotaur_king'], ['hydra_elder'], ['frog_wizard'], ['talos'], ['ladon'], ['bookworm_queen', 'bookworm', 'bookworm']];
+  ENCOUNTERS.highlands = { easy: W.hard, hard: W.hard, elite: [...W.elite, ...MID.slice(0, 3)], guardian: [['black_knight'], ['oracle_bishop']], event: W.event };
+  ENCOUNTERS.olympus = { easy: W.hard, hard: W.hard, elite: [...W.elite.slice(2), ...MID], guardian: [['rook_titan']], event: W.event };
+  ENCOUNTERS.board = { easy: W.hard, hard: W.hard, elite: [['black_queen']], guardian: [['pessokrator', 'board_knight', 'board_bishop']], event: W.event, midboss: [['black_queen']] };
+  for (const k of ['highlands', 'olympus']) ENCOUNTERS[k].midboss = MID;
+}

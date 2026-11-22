@@ -372,3 +372,52 @@ export async function dressTabletop(scene, renderer, { kind = 'study' } = {}) {
   for (const [x, y, z, i] of [[9.5, 3.0, -5.0, 10], [12.1, 1.6, -1.9, 6]]) { const l = new THREE.PointLight(0xffa04a, i, 9, 1.8); l.position.set(x, y, z); scene.add(l); }
   await Promise.all(jobs);
 }
+
+// ================================================================ THE GRANDMASTER'S ARENAS (story agent): looks for the chess places
+// (places.js chesscourt / chesstemple / chessrampart / chessmirror) and the final COSMIC BOARD above Olympus.
+import { spaceBackdrop } from '../gfx/spacebg.js';
+import { LIGHT_LOOKS } from '../gfx/lighting.js';
+import { chessPiece, marbleTileMat } from './beasts/chess.js';
+import { RoundedBoxGeometry as RBG } from 'three/addons/geometries/RoundedBoxGeometry.js';
+Object.assign(LOOKS, {
+  chesscourt: { turb: 4.4, ray: 1.9, mie: 0.0042, g: 0.78, haze: '#dcc6b0', fog: [18, 125], cloud: '#fff1dc', shade: '#9c86a8', grass: 0.2 },
+  chesstemple: { turb: 4.2, ray: 2.0, mie: 0.004, g: 0.78, haze: '#e0c8b4', fog: [18, 120], cloud: '#ffeee0', shade: '#a48ab4', grass: 0.15 },
+  chessrampart: { turb: 6, ray: 1.6, mie: 0.0045, g: 0.78, haze: '#b4a0a8', fog: [16, 110], cloud: '#ffe0cc', shade: '#6a5a7a', grass: 0.45 },
+  chessmirror: { turb: 5, ray: 2.2, mie: 0.004, g: 0.8, haze: '#a894b8', fog: [16, 110], cloud: '#f0d8f0', shade: '#5a4a7a', grass: 0.2 },
+});
+Object.assign(HDRI, { chesscourt: 'sunset_dry_plain', chesstemple: 'sunset_dry_plain', chessrampart: 'golden_dry_valley', chessmirror: 'sunset_dry_plain' });
+Object.assign(T.SKY, {
+  chesscourt: { ...T.SKY.garden }, chesstemple: { ...T.SKY.meadow, mid: '#f0aa9c', low: '#ffd0a0' },
+  chessrampart: { ...T.SKY.guardian }, chessmirror: { zen: '#1c1650', hi: '#4a3a8e', mid: '#a0609a', low: '#e88a86', hor: '#ffc0a0', gnd: '#6a4a6a', glow: '#ffd0e0', cloud: ['#f8e0f0', '#e0a8c8', '#8a6ab0', '#4a3a80'], mtn: ['#4a3a7a', '#6a5090', '#8a6aa0'] },
+});
+Object.assign(LIGHT_LOOKS, {
+  chesscourt: LIGHT_LOOKS.garden, chesstemple: LIGHT_LOOKS.meadow, chessrampart: LIGHT_LOOKS.guardian,
+  chessmirror: { sun: '#ffb0a0', k: 2.3, sky: '#8a78d0', gnd: '#3a2a3a', hemi: 0.62, bounce: '#e08aa0', bk: 0.2, fill: '#7a6ad8', fk: 0.34 },
+  cosmic: { sun: '#e8ecff', k: 2.4, sky: '#7a70d8', gnd: '#3a2418', hemi: 0.6, bounce: '#ffb060', bk: 0.3, fill: '#8a70e0', fk: 0.36 },
+});
+/** the final arena: a vast chessboard of ivory and obsidian floating among the stars above Olympus, its frame inlaid with
+ *  gold, a broken crag of the mountain beneath it, and around it, drifting, the chessmen of ten thousand finished games */
+export async function cosmicStage(seed = 1, renderer) {
+  const g = new THREE.Group(); g.name = 'stage:cosmic'; const rnd = mulberry32(seed * 31 + 7); const SQ = 1.6, N = 10, cx = 0.4, cz = -0.6;
+  const bg = spaceBackdrop(); bg.mesh.onBeforeRender = (r) => bg.update(1 / 60, performance.now() / 1000, r, null); g.add(bg.mesh);
+  const geo = new RBG(SQ * 0.985, 0.2, SQ * 0.985, 2, 0.04); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  for (const L of [true, false]) { const im = new THREE.InstancedMesh(geo, marbleTileMat(L ? 'ivory' : 'ebony'), (N * N) / 2); let i = 0;
+    for (let a = 0; a < N; a++) for (let b = 0; b < N; b++) { if (((a + b) % 2 === 0) !== L) continue; q.setFromAxisAngle(new V3(0, 1, 0), ((a * 3 + b * 5) % 4) * Math.PI / 2); m4.compose(new V3(cx + (a - (N - 1) / 2) * SQ, -0.1, cz + (b - (N - 1) / 2) * SQ), q, new V3(1, 1, 1)); im.setMatrixAt(i++, m4); }
+    im.receiveShadow = true; g.add(im); }
+  const W = N * SQ; const kerb = marbleTileMat('kerb');
+  for (const [x, z, w, d] of [[cx, cz - W / 2 - 0.4, W + 1.6, 0.8], [cx, cz + W / 2 + 0.4, W + 1.6, 0.8], [cx - W / 2 - 0.4, cz, 0.8, W], [cx + W / 2 + 0.4, cz, 0.8, W]]) { const m = new THREE.Mesh(new RBG(w, 0.4, d, 2, 0.06), kerb); m.position.set(x, -0.14, z); m.receiveShadow = true; m.castShadow = true; g.add(m); }
+  const slab = new THREE.Mesh(new RBG(W + 2.2, 1.2, W + 2.2, 2, 0.15), marbleTileMat('ebony')); slab.position.set(cx, -0.95, cz); g.add(slab);
+  const rockM = T.toonMat ? null : null; void rockM;
+  const crag = new THREE.LatheGeometry([[W * 0.62, 0], [W * 0.6, -1.2], [W * 0.5, -4], [W * 0.36, -7.5], [W * 0.2, -11], [0.001, -14]].map(([x, y]) => new THREE.Vector2(x, y)), 10); const cp = crag.attributes.position; for (let i = 0; i < cp.count; i++) { const k = 1 + Math.sin(i * 12.9898) * 0.1; cp.setX(i, cp.getX(i) * k); cp.setZ(i, cp.getZ(i) * k); } crag.computeVertexNormals();
+  const cm = new THREE.Mesh(crag, new THREE.MeshStandardMaterial({ color: 0x3a3442, roughness: 0.95, flatShading: true })); cm.position.set(cx, -1.5, cz); g.add(cm);
+  // the chessmen of finished games drifting round the board; corner finials; braziers of starfire are added by the battle
+  const drift = []; const kinds = ['pawn', 'rook', 'knight', 'bishop', 'queen', 'king'];
+  for (let i = 0; i < 26; i++) { const a = (i / 26) * Math.PI * 2 + rnd() * 0.2, R = 14 + rnd() * 16; const p = chessPiece(kinds[i % 6], i % 2 ? 'ivory' : 'ebony'); const s = 1.2 + rnd() * 2.6; p.scale.setScalar(s); p.position.set(cx + Math.sin(a) * R, -2 + rnd() * 12, cz - Math.abs(Math.cos(a)) * R - 4); p.rotation.set(rnd() * 2, rnd() * 6, rnd() * 2); g.add(p); drift.push({ p, w: (rnd() - 0.5) * 0.3, y0: p.position.y, ph: rnd() * 6 }); }
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const f = chessPiece('king', 'ebony'); f.scale.setScalar(1.6); f.position.set(cx + sx * (W / 2 + 0.4), 0.06, cz + sz * (W / 2 + 0.4)); g.add(f); }
+  const tick = new THREE.Object3D(); tick.onBeforeRender = () => {}; const t0 = performance.now();
+  const upd = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ visible: false })); upd.frustumCulled = false; upd.onBeforeRender = () => { const t = (performance.now() - t0) / 1000; for (const d of drift) { d.p.rotation.y += d.w * 0.016; d.p.rotation.x += d.w * 0.008; d.p.position.y = d.y0 + Math.sin(t * 0.4 + d.ph) * 0.6; } }; g.add(upd);
+  g.traverse((o) => { if (o.isMesh && o !== bg.mesh) { o.castShadow = o.castShadow || false; } });
+  const env = T.gradientEnv(renderer, 'stage:cosmic', { top: '#2a2460', hor: '#c8906a', gnd: '#141020' });
+  const hAt = () => 0; const sunPos = CAM.clone().add(new V3(40, 30, -160));
+  return { group: g, theme: 'cosmic', trees: [], env, background: null, sunDir: SUN_KEY.clone(), sunPos, road: null, fog: new THREE.Fog(0x161230, 40, 160), animals: () => {}, hAt, waters: [] };
+}

@@ -127,7 +127,7 @@ export function fsay(speaker, text, opts = {}) {
   if (!ensureMgr()) return Promise.resolve(); const w = who(speaker);
   for (const L of lines) if (L.speaker === speaker && L.kind === 'say') { if (!L.out) L.skip(); L.fade = 0; } // one line per speaker: the old one goes at once
   const E = eng(); const a0 = anchorUI(opts.anchor, new THREE.Vector3()); const side = opts.side || (a0 && a0.x > E.uiW * 0.2 ? 'right' : 'left');
-  const b = new Block(text, { name: opts.name ?? w.name, nameColor: w.color, style: w.style, font: w.font || 'body', maxW: opts.maxW || 210 });
+  const b = new Block(text, { name: opts.name ?? w.name, nameColor: w.color, style: opts.style || w.style, font: opts.font || w.font || 'body', maxW: opts.maxW || 210 }); // (story agent: per-line font / style, e.g. Alagard 'head')
   return run(speaker, text, b, { ...opts, side });
 }
 /** voice only, no text (the visuals carry the scene); resolves when spoken plus a beat */
@@ -141,7 +141,7 @@ export function fnarrate(text, opts = {}) {
   if (opts.show === false) return voiceLine('narrator', text, opts);
   if (!ensureMgr()) return Promise.resolve();
   for (const L of lines) if (L.kind === 'narr') { if (!L.out) L.skip(); L.fade = 0; }
-  const b = new Block(text, { style: 'gold', font: 'body', maxW: opts.maxW || 300, center: true, sz: opts.sz || 1 });
+  const b = new Block(text, { style: opts.style || 'gold', font: opts.font || 'body', maxW: opts.maxW || 300, center: true, sz: opts.sz || 1 });
   return run('narrator', text, b, { ...opts, kind: 'narr' });
 }
 /** finish the current lines (reveal all) or drop finished ones */

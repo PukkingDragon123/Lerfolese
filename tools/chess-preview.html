@@ -1,0 +1,27 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../styles/main.css">
+<script type="importmap">{"imports":{"three":"../vendor/three/three.module.js","three/addons/":"../vendor/three/addons/"}}</script>
+<style>#boot{display:none}</style></head><body><canvas id="game"></canvas>
+<script type="module">
+// story agent: the Grandmaster's pieces side by side (?ids=black_pawn,oracle_bishop  &set=1: the chessmen  &act=attack)
+import * as THREE from 'three';
+import { Engine } from '../src/core/engine.js';
+const q = new URLSearchParams(location.search);
+const eng = new Engine(document.getElementById('game')); window.__noAutoQuality = true;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x3a3448);
+const cam = new THREE.PerspectiveCamera(30, 1, 0.1, 200); eng.setWorld(scene, cam); eng.setFx({ tilt: false, bloom: [0.4, 0.5, 0.85], exposure: 1.1 });
+const sun = new THREE.DirectionalLight(0xffe2b8, 3.2); sun.position.set(-4, 7, 6); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12 }); scene.add(sun, new THREE.HemisphereLight(0xb8c8ff, 0x6a5040, 1.1));
+const rim = new THREE.DirectionalLight(0x9ab8ff, 1.6); rim.position.set(3, 4, -5); scene.add(rim);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x5a5260, roughness: 0.9 })); ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const upd = [];
+if (q.get('set')) {
+  const { chessPiece } = await import('../src/models/beasts/chess.js'); const kinds = ['pawn', 'rook', 'knight', 'bishop', 'queen', 'king'];
+  kinds.forEach((k, i) => { for (const [s, z] of [['ivory', 0.9], ['ebony', -0.6]]) { const p = chessPiece(k, s); p.position.set((i - 2.5) * 1.0, 0, z); p.rotation.y = s === 'ebony' ? Math.PI : 0; scene.add(p); } });
+  cam.position.set(0, 2.6, 6.4); cam.lookAt(0, 0.5, 0);
+} else {
+  const { createCreature } = await import('../src/models/creatures.js'); const ids = (q.get('ids') || 'black_pawn').split(','); const gap = +(q.get('gap') || 2.6);
+  ids.forEach((id, i) => { const api = createCreature(id, 3); api.root.position.set((i - (ids.length - 1) / 2) * gap, 0, 0); api.root.rotation.y = +(q.get('yaw') || 0.3); scene.add(api.root); upd.push(api); if (q.get('act')) setTimeout(() => api.act?.(q.get('act')), 600 + i * 100); });
+  const H = +(q.get('h') || 2.6); cam.position.set(0, H * 0.7, +(q.get('z') || 9)); cam.lookAt(0, H * 0.5, 0);
+}
+window.__apis = upd; eng.start((dt) => { for (const u of upd) u.update(dt); });
+setTimeout(() => (window.__done = true), +(q.get('wait') || 1800));
+</script></body></html>

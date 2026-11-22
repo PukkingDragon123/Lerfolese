@@ -27,7 +27,11 @@ const TIER = {
   elite: { floor: [5, 8], extra: [3, 5], arts: [1, 2] },
   guardian: { floor: [11, 12], extra: [5, 8], arts: [2, 3] },
 };
-const list = [...E.easy.map((g) => ['normal', g]), ...E.hard.map((g) => ['normal', g]), ...E.elite.map((g) => ['elite', g]), ...Object.values(E.event || {}).map((g) => ['elite', g]), ...E.guardian.map((g) => ['guardian', g])];
+// bosses: every act's piece of the Grandmaster (data/chess.js) plus the old guardians, now mid-bosses among the later acts' elites
+const BOSSES = []; for (const A of Object.values(ENCOUNTERS)) for (const g of [...(A.guardian || []), ...(A.midboss || [])]) if (!BOSSES.some((b) => b.join() === g.join())) BOSSES.push(g);
+const ONLY = process.argv.find((x) => x.startsWith('--only='))?.slice(7); // e.g. --only=guardian
+const MATCH = (() => { const m = process.argv.find((x) => x.startsWith('--match='))?.slice(8); return m ? new RegExp(m) : null; })(); // e.g. --match=pawn|knight
+const list = [...E.easy.map((g) => ['normal', g]), ...E.hard.map((g) => ['normal', g]), ...E.elite.map((g) => ['elite', g]), ...Object.values(E.event || {}).map((g) => ['elite', g]), ...BOSSES.map((g) => ['guardian', g])].filter(([t, g]) => (!ONLY || t === ONLY) && (!MATCH || MATCH.test(g.join('+'))));
 const ARTS = Object.keys(ITEMS).filter((id) => ITEMS[id].math || ['talaria', 'aegis', 'greaves', 'ram', 'lever', 'horn_shard', 'plumb_bob', 'gorgon_scale', 'wine_flask'].includes(id)).filter(unlocked);
 const stats = {}; const tiers = {}; let blockedTot = 0, takenTot = 0, discards = 0; let overheats = 0, vents = 0, heatSum = 0, heatN = 0; const tierN = {}; let errors = 0, placed = 0, laws = 0, fizzles = 0, best = 0, dilemmas = 0, twins = 0, clones = 0; const picks = {};
 
@@ -53,10 +57,13 @@ for (let i = 0; i < N; i++) {
   const b = new Battle({ run, enemies, rng: new RNG(i * 7 + 1), fx, kind: tier });
   try {
     await b.start(); let guard = 0;
+    const TRACE = process.argv.includes('--trace') && i < 3; // print each turn: your HP and Block, the foes' HP and intents
     while (!b.over && guard++ < 40) {
       await playTurn(b, r);
+      if (TRACE) console.log(`  T${b.turn} you ${b.player.hp}/${b.player.maxHp} blk ${b.player.block} | ` + b.alive().map((e) => `${e.id} ${e.hp}/${e.maxHp}${e.block ? ' b' + e.block : ''} -> ${e.intent?.label || e.intent?.kind} ${e.intent?.dmg ? b.attackValue(e, e.intent.dmg) + 'x' + (e.intent.hits || 1) : ''}`).join(' ; '));
       if (!b.over) await b.endTurn();
     }
+    if (TRACE) console.log(`  => ${b.phase} after ${b.turn} turns, hp ${b.player.hp}`);
     b.finish();
     const s = (stats[key] ||= { tier, n: 0, won: 0, turns: 0, hpLeft: 0 }); s.n++; if (b.phase === 'won') s.won++; s.turns += b.turn; s.hpLeft += b.player.hp;
     const t = (tiers[tier] ||= { n: 0, won: 0 }); t.n++; if (b.phase === 'won') t.won++;

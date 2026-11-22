@@ -4,7 +4,7 @@
 // and every word in crisp floating 3D letters (tooltips, intents, speech, numbers) instead of paper.
 import * as THREE from 'three';
 import { buildStage } from '../models/world.js';
-import { realStage, firePit } from '../models/realworld.js';
+import { realStage, firePit, cosmicStage } from '../models/realworld.js';
 import { loadModel } from '../gfx/assets.js';
 import { createProfessor } from '../models/professor.js';
 import { wearArtifacts } from '../models/wearables.js';
@@ -36,6 +36,7 @@ import { ITEMS } from '../game/data/items.js';
 import { foeNature } from '../game/data/synergy.js';
 import { IntentLayer } from './intents.js';
 import { battleIntro } from './cinematic.js';
+import { boardMove, chessFx, pieceOfEncounter } from './chesscine.js'; // story agent: the Grandmaster's chess cinematics
 import { HeatLayer, heatFx, heatPreviewLine } from '../ui3d/heat.js'; // APPLE HEAT gauge + glowing apples (rules agent)
 
 const THEME = { satyr: 'meadow', medusa: 'garden', kobalos: 'gully', minotaur: 'labyrinth', minotaur_king: 'labyrinth', hydra: 'marsh', hydra_elder: 'marsh', karkinos: 'marsh', siren: 'marsh', ladon: 'garden', empusa: 'gully', boar: 'gully', bronze_bull: 'labyrinth', automaton: 'labyrinth', magnet_golem: 'gully' };
@@ -82,6 +83,7 @@ export class BattleScene {
     const reveal = () => held.forEach((g, i) => { if (g.visible) return; g.visible = true; g.position.y = i ? 3.2 : -3.6; tweens.to(g.position, { y: 0 }, 0.6, { ease: 'outBack' }); });
     let cine = null;
     if (this.encounter.tutorial) { await this.tutorialHook('intro'); reveal(); return; } // story agent: the prologue's tutorial stages its own opening
+    const piece = pieceOfEncounter(this.encounter); if (piece && !this.encounter.noCine) { try { await boardMove(this, piece); } catch (e) { console.warn('chess cinematic skipped', e); this.engine.setWorld(this.scene, this.camera); } } // the god's hand moves his piece, then the arena reveal
     try { cine = this.cine = battleIntro(this, { onReveal: reveal }); await cine.done; } catch (e) { console.warn('battle intro skipped', e); cine?.abort(); }
     this.cine = null; reveal();
   }
@@ -89,14 +91,15 @@ export class BattleScene {
   // ---------------------------------------------------------------- world
   async buildWorld(enc) {
     const lead = enc.enemies[0]; this.theme = enc.theme || (enc.kind === 'guardian' ? 'guardian' : THEME[lead] || 'meadow'); if (lead.startsWith('hydra')) this.theme = 'marsh'; if (lead.startsWith('minotaur')) this.theme = 'labyrinth';
+    { const pc = pieceOfEncounter(enc); if (pc && !enc.theme) this.theme = { pawn: 'chesscourt', knight: 'chesscourt', bishop: 'chesstemple', rook: 'chessrampart', queen: 'chessmirror', king: 'cosmic' }[pc]; } // story agent: the Grandmaster's arenas
     const sc = (this.scene = new THREE.Scene());
     let stage = null;
-    try { stage = await realStage(this.theme, 7 + this.runData.stats.floors, this.engine.renderer); sc.environment = stage.env; sc.environmentIntensity = 0.32; sc.background = stage.background; sc.backgroundIntensity = 0.62; }
+    try { stage = this.theme === 'cosmic' ? await cosmicStage(7 + this.runData.stats.floors, this.engine.renderer) : await realStage(this.theme, 7 + this.runData.stats.floors, this.engine.renderer); sc.environment = stage.env; sc.environmentIntensity = 0.32; sc.background = stage.background; sc.backgroundIntensity = 0.62; }
     catch (e) { console.warn('realistic stage failed, using fallback', e); stage = buildStage(this.theme, 7 + this.runData.stats.floors); }
     sc.add(stage.group); this.stage = stage;
     this.critters = new Critters(70); this.critters.bounds = { x: [-15, 15], y: [1.5, 8], z: [-10, 1] }; sc.add(this.critters.mesh); this.fx3d = new FX3D(this);
     sc.updateMatrixWorld(true); for (const t of stage.trees) this.critters.perchesFrom(t, 4);
-    this.critters.spawnBirds(14, this.theme === 'garden' ? ['crow', 'dove', 'sparrow'] : this.theme === 'marsh' ? ['swallow', 'crow'] : ['sparrow', 'swallow', 'hoopoe', 'dove']); this.critters.spawnButterflies(this.theme === 'labyrinth' ? 2 : 6, new THREE.Vector3(0, 0.5, -2), 14);
+    if (this.theme !== 'cosmic') this.critters.spawnBirds(14, this.theme === 'garden' ? ['crow', 'dove', 'sparrow'] : this.theme === 'marsh' ? ['swallow', 'crow'] : ['sparrow', 'swallow', 'hoopoe', 'dove']); if (this.theme !== 'cosmic') this.critters.spawnButterflies(this.theme === 'labyrinth' ? 2 : 6, new THREE.Vector3(0, 0.5, -2), 14);
     sc.fog = stage.fog || new THREE.Fog(this.theme === 'marsh' ? 0x7a8a86 : 0xb07c62, 26, 90); stage.animals?.(this.critters);
     // golden-hour light rig: warm sun with a shadow frustum fitted round the arena, sky / ground hemisphere, warm ground bounce, cool sky fill
     this.lights = stageLights(sc, { theme: this.theme, sunDir: stage.sunDir || new THREE.Vector3(-0.5, 0.6, 0.4), mapSize: this.engine.quality === 'low' ? 1024 : this.engine.quality === 'medium' ? 2048 : 4096 }); this.contact = new ContactShadows(sc, { hAt: stage.hAt });
@@ -460,6 +463,7 @@ export class BattleScene {
     return {
       ...heldFx(S),
       ...heatFx(S), // APPLE HEAT hooks (rules agent): heat, overheat, vented, burnt, quench
+      ...chessFx(S), // the Grandmaster's pieces (story agent): leaps, beams, promotion, fork, CHECK
       // a blow lands: the foe lunges (the camera has already cut to it in enemyAct)
       async blow(e, h, it, dmg) {
         const v = S.enemyViews.get(e.uid); if (!v) return; if (h > 0) { v.api.act('attack'); if (!it?.charge) await S.fx3d.lunge(v.api.root, S.enemySlotPos(e), S.prof.root.position.x); else await tweens.wait(0.15); }

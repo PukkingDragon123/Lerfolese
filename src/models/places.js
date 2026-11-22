@@ -223,3 +223,87 @@ function stall(seed = 1) {
   const aw = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 1.5, 8, 4), mat('canvas', { side: THREE.DoubleSide })); const p = aw.geometry.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin((p.getX(i) / 2.8) * Math.PI * 4) * 0.04); aw.geometry.computeVertexNormals(); aw.rotation.x = -Math.PI / 2 + 0.35; aw.position.set(0, 2.35, 0.15); aw.castShadow = true; G.add(aw); void seed;
   return G;
 }
+
+// ================================================================ THE GRANDMASTER'S ARENAS (story agent): one per piece of his
+// chess story, each laid on a marble CHESSBOARD floor (instanced bevelled tiles of veined ivory and obsidian, following
+// the ground), dressed with his chessmen as giant statues: the courtyard of the Opening (pawns, knights), the oracle's
+// temple (the bishop), the fortress rampart (towers that are rooks), the Queen's mirrored colonnade. (The cosmic
+// board above Olympus is its own stage: realworld.js cosmicStage.)
+import { chessPiece, marbleTileMat } from './beasts/chess.js';
+function chessFloor(ctx, { sq = 1.5, nx = 12, nz = 6, cx = 0.4, cz = 0.4, light = 'ivory', dark = 'ebony' } = {}) {
+  const geo = new RoundedBoxGeometry(sq * 0.985, 0.16, sq * 0.985, 2, 0.035); const m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  for (const L of [true, false]) {
+    const im = new THREE.InstancedMesh(geo, marbleTileMat(L ? light : dark), (nx * nz) / 2); let i = 0;
+    for (let a = 0; a < nx; a++) for (let b = 0; b < nz; b++) { if (((a + b) % 2 === 0) !== L) continue; const x = cx + (a - (nx - 1) / 2) * sq, z = cz + (b - (nz - 1) / 2) * sq;
+      q.setFromAxisAngle(V(0, 1, 0), ((a * 3 + b * 5) % 4) * Math.PI / 2); m4.compose(V(x, ctx.hAt(x, z) - 0.02, z), q, V(1, 1, 1)); im.setMatrixAt(i++, m4); ctx.solid.push([x, z, sq * 0.75]); }
+    im.receiveShadow = true; im.castShadow = false; ctx.g.add(im);
+  }
+  // a kerb of ebony and gold round the board
+  const kerb = marbleTileMat('kerb'); const W = nx * sq, D = nz * sq;
+  for (const [x, z, w, d] of [[cx, cz - D / 2 - 0.2, W + 0.8, 0.4], [cx, cz + D / 2 + 0.2, W + 0.8, 0.4], [cx - W / 2 - 0.2, cz, 0.4, D], [cx + W / 2 + 0.2, cz, 0.4, D]]) {
+    const n = Math.max(1, Math.round(Math.max(w, d) / 1.5)); for (let k = 0; k < n; k++) { const f = (k + 0.5) / n - 0.5; const px = x + (w > d ? f * w : 0), pz = z + (w > d ? 0 : f * d); const m = new THREE.Mesh(new RoundedBoxGeometry(w > d ? w / n : 0.4, 0.22, w > d ? 0.4 : d / n, 2, 0.04), kerb); m.position.set(px, ctx.hAt(px, pz), pz); m.receiveShadow = true; ctx.g.add(m); }
+  }
+}
+/** a giant chessman statue on a stepped plinth */
+function chessStatue(ctx, kind, side, x, z, { s = 4, ry = 0, plinth = true } = {}) {
+  const g = new THREE.Group(); if (plinth) for (let i = 0; i < 2; i++) { const p = new THREE.Mesh(new RoundedBoxGeometry(s * (0.9 - i * 0.14), 0.32, s * (0.9 - i * 0.14), 2, 0.05), marbleTileMat('kerb')); p.position.y = 0.16 + i * 0.32; p.castShadow = p.receiveShadow = true; g.add(p); }
+  const c = chessPiece(kind, side); c.scale.setScalar(s); c.position.y = plinth ? 0.64 : 0; c.rotation.y = ry; g.add(c); g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return ctx.add(g, x, z, { foot: s * 0.5 });
+}
+Object.assign(PLACES, {
+  // ACT I / the Knight: the courtyard of the Opening: a marble chessboard below a colonnade, giant knights and pawns
+  chesscourt: {
+    plan(ctx) { ctx.hill(-14, -26, 12, 2.4); ctx.hill(16, -24, 10, 2.8); ctx.noThemeWater = true; },
+    build(ctx) {
+      const r = ctx.rnd; chessFloor(ctx, { nx: 14, nz: 6 });
+      for (let i = 0; i < 10; i++) ctx.model(`greek_column#${i % 3}`, -15.5 + i * 3.5, -8.2 - (i % 2) * 0.3, { s: 0.85, stone: true, ry: 0 });
+      ctx.add(stoneWall([[-17, -9.4], [-6, -9.6], [6, -9.6], [17, -9.4]], ctx.hAt, 21, { h: 1.1 }), 0, 0, { abs: true });
+      chessStatue(ctx, 'knight', 'ebony', -10.5, -5.6, { s: 4.2, ry: 0.5 }); chessStatue(ctx, 'knight', 'ebony', 11.5, -5.8, { s: 4.2, ry: -0.5 + Math.PI });
+      for (const [x, z, side] of [[-13, -1.5, 'ivory'], [-13.5, 2.2, 'ebony'], [13.5, -1.2, 'ebony'], [14, 2.6, 'ivory']]) chessStatue(ctx, 'pawn', side, x, z, { s: 3, plinth: true });
+      for (const [x, z] of [[-9.8, 2.8], [10.6, 2.4]]) ctx.firePit(x, z, 1.6);
+      for (const sd of [-1, 1]) for (let i = 0; i < 4; i++) ctx.tree('cypress', 0.4 + sd * (16.5 + i * 2.4), -6 - i * 1.4, { s: 1.15 });
+      ctx.model('marble_bust_01', -6.5, -7.4, { s: 2.6, ry: 0.3, stone: true }); ctx.model('horse_statue_01', 7.5, -7.2, { s: 2.6, ry: -0.5, stone: true }); for (let i = 0; i < 4; i++) ctx.model('antique_ceramic_vase_01', -15 + i * 10 + r(), -7, { s: 1.6 });
+      woods(ctx, 26, box(0, -20, 60, 12), { mix: MIX.garden, gap: 3.2 }); farBelt(ctx, 50, MIX.olive); roadside(ctx, MIX.olive); ctx.drifts(['lavender', 'poppy', 'clover'], 8);
+    },
+  },
+  // the Bishop: the oracle's temple of Delphi: a great tholos, incense, laurels, giant bishops, a chessboard pavement
+  chesstemple: {
+    plan(ctx) { ctx.hill(0, -24, 14, 3.0); ctx.noThemeWater = true; },
+    build(ctx) {
+      chessFloor(ctx, { nx: 12, nz: 6, light: 'ivory', dark: 'ebony' });
+      ctx.add(tholos(14, { R: 4.4, n: 14, h: 5.4 }), 0.6, -12.5, { ry: 0.1, foot: 5.5 }); ctx.smoke([V(0.6, ctx.hAt(0.6, -12.5) + 8.4, -12.5), V(-6, ctx.hAt(-6, -6) + 2.2, -6), V(7.5, ctx.hAt(7.5, -6) + 2.2, -6)]);
+      chessStatue(ctx, 'bishop', 'ivory', -8.6, -6.4, { s: 4.6, ry: 0.4 }); chessStatue(ctx, 'bishop', 'ebony', 9.6, -6.6, { s: 4.6, ry: -0.4 });
+      for (let i = 0; i < 8; i++) { const a = -1.2 + (i / 7) * 2.4; ctx.model('greek_column#0', 0.6 + Math.sin(a) * 13, -7 - Math.cos(a) * 5, { s: 0.85, stone: true }); }
+      for (const [x, z] of [[-6, -5.6], [7.5, -5.6]]) { ctx.model('brass_vase_03', x, z, { s: 5 }); ctx.firePit(x, z + 1.4, 1.2); }
+      for (const [x, z] of [[-13.5, -3], [14.5, -3.5], [-15, 2], [15.5, 1.6]]) ctx.tree('laurel', x, z, { s: 1.0 });
+      woods(ctx, 22, box(0, -22, 60, 10), { mix: MIX.garden, gap: 3.2 }); farBelt(ctx, 50, MIX.garden); roadside(ctx, MIX.garden); ctx.drifts(['lavender', 'narcissus', 'daisy'], 8);
+    },
+  },
+  // the Rook: a fortress rampart high on Olympus: basalt flags, a crenellated curtain wall whose towers are rooks
+  chessrampart: {
+    plan(ctx) { ctx.hill(-12, -20, 10, 3.6); ctx.hill(14, -18, 9, 4.2); ctx.noThemeWater = true; },
+    build(ctx) {
+      chessFloor(ctx, { nx: 12, nz: 6, light: 'basalt', dark: 'ebony' });
+      ctx.add(stoneWall([[-19, -8.6], [-9, -8.8], [0, -9.0], [9, -8.8], [19, -8.6]], ctx.hAt, 31, { h: 2.6 }), 0, 0, { abs: true });
+      for (const x of [-15, -5, 5, 15]) chessStatue(ctx, 'rook', 'ebony', x, -8.8, { s: 6.2, plinth: false });
+      for (let i = 0; i < 12; i++) ctx.model('stone_wall_kit', -17 + i * 3.1, -7.4, { s: 0.3, ry: 0, stone: true });
+      ctx.model('rock_face_02', -14, -14, { s: 3, ry: 0.4 }); ctx.model('rock_face_02', 15, -13, { s: 3.2, ry: -0.5 }); ctx.model('cliff_mountainside', 0, -32, { s: 1.6 });
+      for (const [x, z] of [[-10.4, 2.4], [11, 2.2], [-9.6, -5.4], [10.4, -5.6]]) ctx.firePit(x, z, 1.6);
+      woods(ctx, 12, box(0, -16, 50, 6), { mix: [['pine', 4], ['fir', 2]], gap: 3.4 }); farBelt(ctx, 40, [['pine', 3], ['fir', 2]]); roadside(ctx, MIX.dry);
+    },
+  },
+  // the Queen: her mirrored colonnade at dusk: polished black marble, tall gilt mirrors between the columns, queens
+  chessmirror: {
+    plan(ctx) { ctx.hill(0, -26, 14, 2.4); ctx.noThemeWater = true; },
+    build(ctx) {
+      chessFloor(ctx, { nx: 14, nz: 6, light: 'ivory', dark: 'jade' });
+      const mir = new THREE.MeshStandardMaterial({ color: 0xc8d8e8, metalness: 1, roughness: 0.04, envMapIntensity: 1.4 }); const gilt = marbleTileMat('gold');
+      for (let i = 0; i < 9; i++) { const x = -14 + i * 3.5, z = -8.4; ctx.model('greek_column#1', x, z, { s: 0.95, stone: true });
+        if (i < 8) { const g = new THREE.Group(); const m = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 4.2), mir); m.position.y = 2.6; m.userData.noInk = true; g.add(m); for (const [w, h, px, py] of [[2.5, 0.22, 0, 4.75], [2.5, 0.22, 0, 0.45], [0.2, 4.4, -1.18, 2.6], [0.2, 4.4, 1.18, 2.6]]) { const f = new THREE.Mesh(new RoundedBoxGeometry(w, h, 0.18, 2, 0.04), gilt); f.position.set(px, py, 0.02); f.castShadow = true; g.add(f); } ctx.add(g, x + 1.75, z - 0.2, { foot: 0.6 }); } }
+      chessStatue(ctx, 'queen', 'ebony', -12.5, -2.0, { s: 4.4, ry: 0.6 }); chessStatue(ctx, 'queen', 'ebony', 13.5, -2.2, { s: 4.4, ry: -0.6 });
+      for (const [x, z] of [[-9.8, 3.0], [10.6, 2.8]]) ctx.firePit(x, z, 1.5);
+      for (const sd of [-1, 1]) for (let i = 0; i < 3; i++) ctx.tree('cypress', 0.4 + sd * (17 + i * 2.2), -5 - i * 1.6, { s: 1.15 });
+      woods(ctx, 20, box(0, -20, 60, 10), { mix: MIX.garden, gap: 3.2 }); farBelt(ctx, 40, MIX.garden); roadside(ctx, MIX.garden); ctx.drifts(['lavender', 'narcissus'], 6);
+    },
+  },
+});

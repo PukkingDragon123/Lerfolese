@@ -16,6 +16,11 @@ import { nodeEncounter } from '../game/run.js';
 import { TX, toonM, bevelBox, addMesh as M, pixTex, hash, propMats } from './diorama.js';
 import { makeNoise } from '../gfx/pixel.js';
 import { prop } from './lowprops.js';
+import { chessPiece, marbleTileMat } from './beasts/chess.js'; // story agent: the boss node is a great chessman
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { AREAS } from '../game/run.js';
+const PIECE_ID = { black_pawn: 'pawn', black_knight: 'knight', oracle_bishop: 'bishop', rook_titan: 'rook', black_queen: 'queen', pessokrator: 'king' };
+function bossPieceOf(nd, run) { const e = nodeEncounter(run, nd); for (const id of e?.enemies || []) if (PIECE_ID[id]) return PIECE_ID[id]; const p = AREAS[run?.area]?.piece; return p === 'minor' ? 'knight' : p || 'king'; }
 
 const V3 = THREE.Vector3; const TAU = Math.PI * 2;
 const strHash = (s) => { let h = 7; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 100003; return h; };
@@ -141,7 +146,7 @@ function droppedGear(g, rnd) { const G = gear(); const Mt = propMats(); const s 
 // ---------------------------------------------------------------- which enemies stand on a battle node: exactly the node's pre-rolled encounter
 // (game/run.js nodeEncounter: same species, same count, the elite / boss itself); minions beyond three stay off the plinth
 function groupFor(nd, run) { const enc = nodeEncounter(run, nd); return (enc?.enemies || ['satyr']).slice(0, 3); }
-const FIG_SCALE = { karkinos: 0.9, salamander: 1.1, teumessian_fox: 0.8, stymphalian: 0.6, boar: 0.62, bronze_bull: 0.5, ladon: 0.36, ice_nymph: 0.62, siren: 0.6, empusa: 0.62, automaton: 0.48, magnet_golem: 0.44, frog_wizard: 0.55, bookworm_queen: 0.5, bookworm: 0.55, sphinx: 0.55, eagle: 0.6, satyr: 0.66, kobalos: 0.74, medusa: 0.6, minotaur: 0.7, hydra: 0.5, minotaur_king: 0.8, hydra_elder: 0.58 };
+const FIG_SCALE = { black_pawn: 0.5, black_knight: 0.4, oracle_bishop: 0.5, rook_titan: 0.36, black_queen: 0.46, pessokrator: 0.33, board_knight: 0.4, board_bishop: 0.46, board_pawn: 0.5, pawn_guard: 0.5, karkinos: 0.9, salamander: 1.1, teumessian_fox: 0.8, stymphalian: 0.6, boar: 0.62, bronze_bull: 0.5, ladon: 0.36, ice_nymph: 0.62, siren: 0.6, empusa: 0.62, automaton: 0.48, magnet_golem: 0.44, frog_wizard: 0.55, bookworm_queen: 0.5, bookworm: 0.55, sphinx: 0.55, eagle: 0.6, satyr: 0.66, kobalos: 0.74, medusa: 0.6, minotaur: 0.7, hydra: 0.5, minotaur_king: 0.8, hydra_elder: 0.58 };
 
 // ---------------------------------------------------------------- node pieces
 export class NodeMini {
@@ -164,13 +169,16 @@ export class NodeMini {
     else if (t === 'elite') { const b = miniBase(this.R, this.R * 0.85, { rim: 'rim', h: 0.09 }); this.body.add(b);
       loadModel('rock_moss_set_01#' + (strHash(this.nd.id) % 6)).then((o) => { lowpolyify(T.toonify(o, { sat: 1.15, tint: '#f2e6ff', wind: 0 }), { detail: 0.35 }); o.scale.setScalar(0.26); o.position.set(0, 0.04, -0.05); this.body.add(o); this.standOn(o); }).catch(() => {});
       const bn = banner('horns', { h: 1.9, w: 0.48 }); bn.position.set(-this.R * 0.62, 0.08, -this.R * 0.4); bn.rotation.y = 0.5; this.body.add(bn); this.chest(this.R * 0.62, 0.08, -this.R * 0.35, -0.5); }
-    else { // the guardian's crag between braziers and banners
-      for (let k = 0; k < 5; k++) { const a = (k / 5) * TAU + 0.3; loadModel('rock_face_02').then((o) => { lowpolyify(T.toonify(o, { sat: 1.1, tint: '#efe4ff', wind: 0 }), { detail: 0.35 }); o.scale.setScalar(0.42 + (k % 2) * 0.1); o.position.set(Math.cos(a) * 0.75, -0.25, Math.sin(a) * 0.6 - 0.2); o.rotation.y = a + Math.PI / 2; this.body.add(o); }).catch(() => {}); }
-      loadModel('rock_face_02').then((o) => { lowpolyify(T.toonify(o, { sat: 1.1, tint: '#efe4ff', wind: 0 }), { detail: 0.35 }); o.scale.setScalar(0.5); o.position.set(0, -0.32, -0.05); this.body.add(o); this.standOn(o); }).catch(() => {});
+    else { // (story agent) the act's boss is one of the Grandmaster's pieces: a great ebony CHESSMAN towers on a stepped marble board
+      const kind = bossPieceOf(this.nd, this.run); const plin = new THREE.Group(); this.body.add(plin);
+      for (let i = 0; i < 3; i++) { const w = 2.5 - i * 0.42; const p = new THREE.Mesh(new RoundedBoxGeometry(w, 0.16, w * 0.82, 2, 0.03), marbleTileMat(i === 2 ? 'ebony' : 'kerb')); p.position.set(0, 0.08 + i * 0.16, -0.05); p.castShadow = p.receiveShadow = true; plin.add(p); }
+      const top = new THREE.InstancedMesh(new RoundedBoxGeometry(0.2, 0.04, 0.2, 1, 0.01), marbleTileMat('ivory'), 32); let ti = 0; const m4 = new THREE.Matrix4(); for (let a = 0; a < 8; a++) for (let b = 0; b < 8; b++) if ((a + b) % 2 === 0) { m4.makeTranslation((a - 3.5) * 0.2, 0.5, -0.05 + (b - 3.5) * 0.17); top.setMatrixAt(ti++, m4); } top.receiveShadow = true; plin.add(top);
+      const big = chessPiece(kind, 'ebony'); big.scale.setScalar(1.75); big.position.set(0, 0.5, -0.55); big.rotation.y = Math.PI; plin.add(big); big.traverse((o) => { if (o.isMesh) o.castShadow = true; }); this.bigPiece = big;
+      this.standY = 0.52;
       for (const s of [-1, 1]) { const br = brazier(); br.position.set(s * 1.55, 0, 0.7); this.body.add(br); this.flames.push(br.userData.flame); const bn = banner('horns', { h: 2.5, w: 0.55, field: '#6a1018' }); bn.position.set(s * 1.25, 0, -0.9); bn.rotation.y = s > 0 ? Math.PI : 0; this.body.add(bn); }
       const l = new THREE.PointLight(0xff7a3a, 4, 7, 1.6); l.position.set(0, 1.6, 1.0); this.body.add(l); this.glows.push(l);
     }
-    const stand = (this.standY ??= t === 'elite' ? 0.36 : t === 'guardian' ? 0.95 : 0.07); const n = ids.length; const xs = n === 1 ? [0] : n === 2 ? [-0.36, 0.36] : [-0.5, 0.06, 0.55];
+    const stand = (this.standY ??= t === 'elite' ? 0.36 : t === 'guardian' ? 0.52 : 0.07); const n = ids.length; const xs = n === 1 ? [0] : n === 2 ? [-0.36, 0.36] : [-0.5, 0.06, 0.55];
     ids.forEach((id, i) => {
       figureFor(id).then((fig) => {
         if (!fig) return; const s = FIG_SCALE[id] ?? 0.5; const f = figurine(fig, s); const zz = n === 3 && i === 1 ? -0.22 : 0.05;

@@ -38,8 +38,8 @@ export class Battle {
 
   // HARD difficulty: foes are tougher than their base sheet, and grow a little every floor of the run
   tier(def) { return def.guardian ? 'guardian' : def.elite ? 'elite' : 'normal'; }
-  diffHp(def, id) { const f = Math.max(0, this.run.floor || 0); return DIFF.hp[this.tier(def)] * (DIFF.per[id] ?? 1) * (1 + f * DIFF.hpFloor); }
-  diffDmg(def, id) { const f = Math.max(0, this.run.floor || 0); return DIFF.dmg[this.tier(def)] * (DIFF.dmgPer[id] ?? 1) * (1 + f * DIFF.dmgFloor); }
+  diffHp(def, id) { const f = def.chess ? 12 : Math.max(0, this.run.floor || 0); /* the Grandmaster's pieces are tuned by their own sheets */ return DIFF.hp[this.tier(def)] * (DIFF.per[id] ?? 1) * (1 + f * DIFF.hpFloor); }
+  diffDmg(def, id) { const f = def.chess ? 12 : Math.max(0, this.run.floor || 0); return DIFF.dmg[this.tier(def)] * (DIFF.dmgPer[id] ?? 1) * (1 + f * DIFF.dmgFloor); }
   spawnEnemy(id, opts = {}) {
     const def = ENEMIES[id]; const hp = Math.round(((def.hp[0] + def.hp[1]) / 2) * this.diffHp(def, id)); // no rolled HP: the same foe is always as tough
     const e = { uid: uid('e'), id, def, hp, maxHp: hp, block: 0, st: {}, turn: 0, alive: true, intent: null, loot: null, lootTurns: 0, pendingHeads: 0, parent: opts.parent || null, minionOf: opts.minionOf || null, slot: opts.slot ?? this.enemies.length };
@@ -58,7 +58,7 @@ export class Battle {
   async start() {
     this.phase = 'start';
     if (this.has('pan_flute')) for (const e of this.alive()) { this.addSt(e, 'weak', 1); this.addSt(e, 'dizzy', 1); }
-    for (const e of this.alive()) if (e.def.minion && !e.minionOf) e.minionOf = this.enemies.find((x) => x.def.brood && x.alive)?.uid || null;
+    for (const e of this.alive()) if (e.def.minion && !e.minionOf) e.minionOf = this.enemies.find((x) => (x.def.brood || x.def.throne) && x.alive)?.uid || null;
     if (this.has('schrodinger')) this.hand.push(this.slotOf([{ uid: uid('c'), id: 'superposition', up: 0, temp: true }]));
     for (const e of this.alive()) this.pickIntent(e);
     if (this.heatOn() && this.has('ember')) this.heat = 3; // Prometheus' Ember Jar: the apple starts warm
@@ -91,7 +91,8 @@ export class Battle {
     P.retain = false;
     await this.drawCards(n);
     if (P.st.petrify) { await this.petrifyHand(P.st.petrify); delete P.st.petrify; }
-    if (P.st.hex) { await this.hexHand(P.st.hex); delete P.st.hex; } // the frog's hex: cards turn into rotten apples
+    if (P.st.hex) { await this.hexHand(P.st.hex); delete P.st.hex; }
+    if (P.st.diagonal) { await this.diagonalHand(); delete P.st.diagonal; } // a bishop's ray: the 1st, 3rd and 5th cards turn to stone // the frog's hex: cards turn into rotten apples
     if (P.st.nibble) { const pool = this.hand.filter((s) => !s.cards.some((c) => c.type === 'power')); const out = pool.slice(-P.st.nibble); /* the rightmost card(s) */ delete P.st.nibble; if (out.length) { await this.fx.nibbled?.(out); await this.discardSlots(out, 'nibble'); } }
     if (this.tutorial?.onTurn) await this.tutorial.onTurn(this);
     if (this.turn === 2 && !this.flags.dilemma) await this.dilemma(); if (this.checkEnd()) return;
@@ -133,6 +134,11 @@ export class Battle {
     let ids = await this.fx.chooseCards?.(pool, opts);
     if (!Array.isArray(ids)) { const val = (s) => { const mv = this.moveOf(s); return (mv?.attack.perHit || 0) + (mv?.self.block || 0) + (BASICS[s.cards[0].id]?.kind === 'matter' ? 6 : 0); }; ids = [...pool].sort((a, b) => val(a) - val(b)).slice(0, opts.min || 0).map((s) => s.uid); }
     return ids.map((id) => this.hand.find((s) => s.uid === id)).filter(Boolean).slice(0, opts.max ?? 99);
+  }
+  async diagonalHand() {
+    const cands = this.hand.flatMap((s) => s.cards).filter((c) => c.type !== 'power' && c.id !== 'stone' && !c.petrified);
+    const picked = cands.filter((_, i) => i % 2 === 0).slice(0, 3); for (const c of picked) c.petrified = true; // from the left: 1st, 3rd, 5th
+    if (picked.length) await this.fx.petrified?.(picked);
   }
   async petrifyHand(n) {
     const cands = this.hand.flatMap((s) => s.cards).filter((c) => c.type !== 'power' && c.id !== 'stone' && !c.petrified);
@@ -397,7 +403,7 @@ export class Battle {
     if (a.dizzy) this.addSt(target, 'dizzy', a.dizzy);
     if (a.vulnerable) {
       const tg = a.spread ? this.alive() : [target];
-      for (const t of tg) { this.addSt(t, 'vulnerable', a.vulnerable); this.flags.lensOn.add(t.uid); if (t.id === 'medusa' || (this.has('mirror') && t.intent?.kind === 'debuff')) { t.reflected = true; await this.fx.bark?.('player', 'Mirror, mirror. Look at YOURSELF.'); } }
+      for (const t of tg) { this.addSt(t, 'vulnerable', a.vulnerable); this.flags.lensOn.add(t.uid); if (t.id === 'medusa' || t.def.reflectable || (this.has('mirror') && t.intent?.kind === 'debuff')) { t.reflected = true; await this.fx.bark?.('player', 'Mirror, mirror. Look at YOURSELF.'); } }
       this.learn(target, 'analyzed');
     }
     if (a.blind) for (const t of this.alive()) this.addSt(t, 'blind', a.blind);
@@ -464,6 +470,7 @@ export class Battle {
       }
     }
     if (e.def.heads) for (const h of this.enemies) if (h.parent === e.uid && h.alive) { h.alive = false; h.hp = 0; await this.fx.enemyDie?.(h); }
+    if (e.def.sweep) for (const x of this.enemies) if (x.alive && x.minionOf === e.uid) { x.alive = false; x.hp = 0; await this.fx.enemyDie?.(x); } // topple the King (or the Rook) and his pieces fall with him
     if (e.loot) { const c = e.loot; e.loot = null; this.discard.push(c); await this.fx.lootBack?.(e, c); }
     if (o.move?.attack?.goldOnKill) this.run.gold += o.move.attack.goldOnKill;
     this.run.stats.kills++;
@@ -693,17 +700,17 @@ export class Battle {
     if (it.block) e.block += it.block; if (it.str) this.addSt(e, 'strength', it.str); if (it.heal) { const h = Math.min(it.heal, e.maxHp - e.hp); e.hp += h; await this.fx.heal?.(e, h); }
   }
   // an enemy blow lands on Newton (Block soaks it first). Talaria: the first blow of each foe turn is sidestepped for half.
-  async blow(e, dmg, h = 0, it = null) {
+  async blow(e, dmg, h = 0, it = null, o = {}) {
     await this.fx.blow?.(e, h, it, dmg);
     if (dmg > 0 && this.has('talaria') && !this.flags.talaria) { this.flags.talaria = true; dmg = Math.ceil(dmg / 2); this.fx.artifact?.('talaria'); }
-    const got = await this.hurtPlayer(dmg, { source: e });
+    const got = await this.hurtPlayer(dmg, { source: e, pierce: !!o.pierce }); // pierce: a knight's leap jumps your Block
     if (got > 0 && e.def.drain && e.alive && !this.over) { const hh = Math.min(got, e.maxHp - e.hp); if (hh > 0) { e.hp += hh; await this.fx.heal?.(e, hh); this.learn(e, 'drain'); } } // Empusa drinks what gets past your Block
     return got;
   }
   async hurtPlayer(amount, o = {}) {
     const P = this.player; if (amount <= 0 || this.over) return 0;
     let dmg = amount; if (P.st.vulnerable && !o.pure) dmg = Math.round(dmg * 1.5);
-    let blocked = 0; if (!o.pure && P.block > 0) { blocked = Math.min(P.block, dmg); P.block -= blocked; dmg -= blocked; }
+    let blocked = 0; if (!o.pure && !o.pierce && P.block > 0) { blocked = Math.min(P.block, dmg); P.block -= blocked; dmg -= blocked; }
     P.hp -= dmg; this.stats.blocked += blocked; this.stats.taken += dmg;
     if (blocked && o.source?.alive && this.has('ram')) { await this.fx.artifact?.('ram'); await this.damageEnemy(o.source, blocked, { kind: 'thorns', pierce: true }); } // the Battering Ram: Block hits back
     await this.fx.playerHit?.(dmg, { ...o, blocked });

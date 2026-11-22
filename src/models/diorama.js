@@ -44,7 +44,11 @@ export function pixTex(w, h, fn, { repeat = [1, 1], srgb = true, mip = true } = 
 const ramp = (hexes) => hexes.map(rgb);
 const pick = (R, v) => R[clamp(Math.floor(v * R.length), 0, R.length - 1)];
 const TEXC = new Map(); const once = (k, f) => (TEXC.has(k) ? TEXC.get(k) : (TEXC.set(k, f()), TEXC.get(k)));
+const AREA_TITLE = { wilderness: 'I · The Opening · The Mythical Wilderness', highlands: 'II · The Middlegame · The Highlands of Delphi', olympus: 'III · The Endgame · The Slopes of Olympus', board: 'Checkmate · The Board Above Olympus' };
 export const TX = {
+  checker: () => once('checker', () => { const n = makeNoise(77); const IV = ramp(['#9a8c76', '#bcae94', '#d6caae', '#e8dcc4']), EB = ramp(['#141018', '#1e1a24', '#2a2432', '#3a3244']), GD = ramp(['#8a5a1e', '#c8963a']);
+    return pixTex(96, 96, (x, y) => { const sq = (Math.floor(x / 48) + Math.floor(y / 48)) % 2; const v = n(x * 0.09 + sq * 9, y * 0.09) * 0.7 + n(x * 0.3, y * 0.3) * 0.3; const w = Math.abs(Math.sin(x * 0.11 + y * 0.07 + v * 6)); const edge = x % 48 === 0 || y % 48 === 0;
+      if (edge) return pick(GD, 0.5 + v * 0.5); if (w < 0.05) return sq ? pick(GD, v) : pick(IV, 0.2 + v * 0.3); return sq ? pick(EB, v) : pick(IV, v); }); }),
   wood: () => once('wood', () => { const n = makeNoise(31); const R = ramp(['#4a2c1a', '#6a4026', '#8a5a34', '#a8743f', '#c79256']); return pixTex(32, 32, (x, y) => { const plank = Math.floor(y / 8); const g = n(x * 0.12 + plank * 9, y * 0.9) * 0.7 + n(x * 0.5, y * 0.2 + plank) * 0.3; const seam = y % 8 === 0 ? -0.35 : y % 8 === 1 ? 0.12 : 0; const knot = Math.hypot(((x + plank * 11) % 32) - 18, (y % 8) - 4) < 1.6 ? -0.3 : 0; return pick(R, 0.25 + g * 0.55 + seam + knot); }); }),
   stone: () => once('stone', () => { const n = makeNoise(17); const R = ramp(['#4e4a52', '#6c6670', '#8a8488', '#aaa29e', '#c8beb2']); return pixTex(32, 32, (x, y) => { const row = Math.floor(y / 6); const off = row % 2 ? 5 : 0; const bx = (x + off) % 10; const mortar = y % 6 === 5 || bx === 9; const hl = y % 6 === 0 || bx === 0; const v = n(x * 0.4 + row * 3, y * 0.4) * 0.35 + 0.42; return pick(R, mortar ? 0.05 : hl ? v + 0.25 : v); }); }),
   plaster: () => once('plaster', () => { const n = makeNoise(5); const R = ramp(['#b8a48a', '#d8c8aa', '#ece0c6', '#f8f0dc']); const B = ramp(['#3a2216', '#5a3420', '#7a4a2a']); return pixTex(32, 32, (x, y) => { const beam = x < 2 || x > 29 || y > 29 || (y < 2) || Math.abs(x - y) < 1.5 && y > 16 || Math.abs(31 - x - y) < 1.5 && y > 16; if (beam) return pick(B, 0.4 + n(x * 0.8, y * 0.1) * 0.6); return pick(R, 0.45 + n(x * 0.3, y * 0.3) * 0.5); }); }),
@@ -297,10 +301,10 @@ export class Diorama {
     const fm = new THREE.Mesh(frame, wood); fm.castShadow = true; fm.receiveShadow = true; fm.name = 'plinth'; this.group.add(fm);
     loadPBR('wood_dark', { repeat: [4, 4] }).then((m) => { const w2 = T.toonMaterial(m, { sat: 1.0, paint: '#8a5230', paintK: 0.6, bands: [0.5, 0.78, 1.0] }); fm.material = w2; }).catch(() => {});
     // brass plaque on the front
-    const plq = brassPlaque('The Mythical Wilderness', 7.2, 0.62); plq.position.set(0, D.BASE - 0.56, D.ZN + 0.41); this.group.add(plq);
+    const plq = brassPlaque(AREA_TITLE[this.map?.area] || 'The Mythical Wilderness', 7.2, 0.62); plq.position.set(0, D.BASE - 0.56, D.ZN + 0.41); this.group.add(plq);
     // the study table under the diorama
-    const desk = new THREE.Mesh(new THREE.PlaneGeometry(140, 180).rotateX(-Math.PI / 2), toonM({ color: '#6a4028' }, 1)); desk.position.set(0, D.BASE - 1.18, -25); desk.receiveShadow = true; desk.userData.noInk = true; this.group.add(desk);
-    loadPBR('wood_dark', { repeat: [14, 18] }).then((m) => { desk.material = T.toonMaterial(m, { sat: 0.95, paint: '#5a3420', paintK: 0.7, bands: [0.45, 0.72, 1.0] }); }).catch(() => {});
+    // (story agent) the table under the diorama is the Grandmaster's own board: great squares of veined ivory and obsidian
+    const desk = new THREE.Mesh(new THREE.PlaneGeometry(144, 180).rotateX(-Math.PI / 2), toonM({ color: '#ffffff', map: TX.checker() }, 1)); desk.material.map.repeat.set(144 / 24, 180 / 24); desk.position.set(0, D.BASE - 1.18, -25); desk.receiveShadow = true; desk.userData.noInk = true; this.group.add(desk);
   }
 
   // ------------------------------------------------ pixel-art grass tufts, wildflowers, reeds (one instanced field)

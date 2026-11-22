@@ -7,7 +7,7 @@ import { audio } from './core/audio.js';
 import { save } from './core/save.js';
 import { tweens } from './core/tween.js';
 import { setForgeRenderer } from './gfx/cardart.js';
-import { newRun, restoreRun, serializeRun, encounterFor, battleRewards, attachRun } from './game/run.js';
+import { newRun, restoreRun, serializeRun, encounterFor, battleRewards, attachRun, nextAct, floorOf, AREAS } from './game/run.js';
 import { BattleScene } from './scenes/battlescene.js';
 
 const $ = (id) => document.getElementById(id);
@@ -34,7 +34,7 @@ class Game {
     bootMsg('Loading fonts…', 10);
     await Promise.all(['16px "Alagard"', '32px "Alagard"', '700 40px "Pixelify"', '32px "VT323"', '700 22px "Silkscreen"', '400 22px "Silkscreen"', '40px "Caveat"', '700 18px "Caveat"', '40px "HomemadeApple"', '40px "Jacquard"', '24px "Jacquard"', '8px "Tiny5"', '400 8px "Silkscreen"', '11px "PixelSans"', '13px "NanoPlus"', '12px "RuneMono"', '24px "RuneMono"', '9px "MicroPixel"', '48px "Alagard"'].map((f) => document.fonts.load(f).catch(() => {})));
     const q = new URLSearchParams(location.search);
-    if (!q.get('battle') && !q.get('node') && !q.get('scene') && !q.get('prologue')) { // the loading time-lapse: an apple lives and dies while everything preloads
+    if (!q.get('battle') && !q.get('node') && !q.get('scene') && !q.get('prologue') && !q.get('chess')) { // the loading time-lapse: an apple lives and dies while everything preloads
       bootMsg('Planting the apple…', 60); const pre = this.preload();
       const { LoadingScene } = await import('./scenes/menu.js'); this.scene = new LoadingScene(this); await this.scene.enter({ preload: pre });
       requestAnimationFrame(() => setTimeout(bootGone, 120)); return;
@@ -44,6 +44,7 @@ class Game {
     bootGone();
     if (q.get('scene')) { const k = q.get('scene'); if (k === 'studies') return this.toStudies(); if (k === 'stars' || k === 'hall') return this.toStars(); if (k === 'sky') return this.toSky(); if (k === 'gallery') return this.toGallery(); return this.toMenu({ from: k === 'loading-end' || k === 'intro' ? 'loading' : null }); } // debug: ?scene=tower|intro|studies|stars (&grant=all: mark achievements earned) (old: sky|gallery)
     if (q.get('battle')) return this.debugBattle(q.get('battle').split(','), q.get('kind') || 'normal');
+    if (q.get('chess')) return this.debugChess(q.get('chess')); // story: ?chess=pawn|knight|bishop|rook|queen|king (&beat=1: the story beat after it; &finale=1: the finale; &map=1: that act's map)
     if (q.get('prologue')) { this.journal.seenPrologue = false; return this.newRun(); } // story: ?prologue=1 (&beat=...)
     if (q.get('node')) { this.run = newRun(Number(q.get('seed')) || 1234); attachRun?.(this.run, this.journal); const n = Object.values(this.run.map.nodes).find((x) => x.type === q.get('node')); if (n) return this.enterNode(n.id); }
     return this.toMenu();
@@ -52,9 +53,21 @@ class Game {
   async debugBattle(enemies, kind) {
     this.run = newRun(Number(new URLSearchParams(location.search).get('seed')) || 1234);
     const q = new URLSearchParams(location.search); if (q.get('deck')) this.run.deck = q.get('deck').split(',').map((id) => ({ uid: 'd' + Math.random(), id, type: 'basic', up: 0 })); if (q.get('items')) this.run.items.push(...q.get('items').split(',')); // debug: ?items=statues,tyche
+    if (kind === 'boss') kind = 'guardian';
     const bs = new BattleScene(this); this.scene = bs;
-    const res = await bs.run(this.run, { enemies, kind });
+    const res = await bs.run(this.run, { enemies, kind, noCine: !!q.get('nocine') }); // (&nocine=1: no chess cinematic)
     console.info('battle result', res);
+  }
+
+  /** story debug: a run already at the act of `piece`, straight into that boss's cinematic and fight (or its beat / the finale) */
+  async debugChess(piece) {
+    const q = new URLSearchParams(location.search); const { debugRunAt } = await import('./scenes/chesscine.js');
+    this.run = debugRunAt(newRun(Number(q.get('seed')) || 1234), piece); attachRun(this.run);
+    if (q.get('finale')) { const { playFinale } = await import('./scenes/chesscine.js'); await playFinale(this, this.run); return this.toMenu(); }
+    if (q.get('beat')) { const { playActBeat } = await import('./scenes/chesscine.js'); await playActBeat(this, this.run); return; }
+    if (q.get('map')) return this.toMap(true, 'galaxy'); // the act's diorama, its boss node a great chessman
+    const node = Object.values(this.run.map.nodes).find((n) => (piece === 'queen' ? n.fixed : n.type === 'guardian'));
+    return this.enterNode(node.id);
   }
 
   // background preload behind the loading screen: audio, scene modules, the stages' models / ground sets / skies (paced, with progress)
@@ -96,7 +109,7 @@ class Game {
     await this.swap(async () => { const { MapScene } = await mod; this.scene = new MapScene(this); await this.scene.enter(first); }, { style, ...(wipe || {}) });
   }
   async enterNode(nodeId) {
-    const run = this.run; const node = run.map.nodes[nodeId]; run.pos = nodeId; run.floor = node.row; run.stats.floors++; this.saveRun();
+    const run = this.run; const node = run.map.nodes[nodeId]; run.pos = nodeId; run.floor = floorOf(run, node); run.stats.floors++; this.saveRun();
     if (node.type === 'battle' || node.type === 'elite' || node.type === 'guardian') {
       const enc = encounterFor(run, node);
       let res;
@@ -104,6 +117,7 @@ class Game {
       const r = await res;
       if (!r.won) return this.gameOver(r);
       if (enc.kind === 'elite') { run.foughtElites.push(enc.enemies[0]); run.stats.elites++; }
+      if (enc.kind !== 'guardian') { try { const C = await import('./scenes/chesscine.js'); const pc = C.pieceOfEncounter(enc); if (pc) await C.playActBeat(this, run, pc); } catch (e) { console.warn('chess beat', e); } } // story agent: the Queen falls mid-finale
       const rewards = battleRewards(run, enc.kind, enc.enemies); run.gold += rewards.gold; // only what the foes carried
       const rmod = import('./scenes/reward.js');
       await this.swap(async () => { const { RewardScene } = await rmod; this.scene = new RewardScene(this); await this.scene.enter(rewards, enc); });
@@ -135,7 +149,18 @@ class Game {
     const { EndScene } = await import('./scenes/end.js');
     await this.swap(async () => { this.scene = new EndScene(this); await this.scene.enter(false); }, { style: 'galaxy' }); // death: the cosmos takes him apart
   }
+  // STORY AGENT: an act's boss has fallen. The Grandmaster's hand takes the piece off the board (scenes/chesscine.js);
+  // then the next act's board, or (the King toppled) the finale and the win.
   async areaComplete() {
+    const r0 = this.run; let cine = null; try { cine = await import('./scenes/chesscine.js'); } catch (e) { console.warn('chess cinematics', e); }
+    if (AREAS[r0.area]?.next) {
+      try { await cine?.playActBeat(this, r0); } catch (e) { console.warn('act beat', e); }
+      nextAct(r0); this.saveRun(); return this.toMap(true, 'galaxy');
+    }
+    try { await cine?.playFinale(this, r0); } catch (e) { console.warn('finale', e); }
+    return this.gameWon();
+  }
+  async gameWon() {
     const j = this.journal; const r = this.run; j.wins++;
     j.history.unshift({ loop: r.loop, floor: r.floor + 1, area: r.area, kills: r.stats.kills, bestHit: r.stats.bestHit, combos: r.stats.combos, healed: r.stats.healed ?? null, fastest: r.stats.fastest ?? null, won: true, date: Date.now() });
     this.saveJournal(); save.clearRun(); try { (await import('./game/mastery.js')).recordMasteryRun(r, true); } catch (e) { /* */ } // MENU AGENT: constellation mastery

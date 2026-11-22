@@ -31,7 +31,7 @@ export class RewardScene extends UIScreen {
     this.engine.setFx({ bloom: [0.6, 0.6, 0.75], tilt: { focus: 0.5, width: 0.22, amount: 2.5 }, grade: { warmth: 0.6, vignette: 0.55 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('event');
     const W = this.W, H = this.H;
-    this.title = new Signboard([enc.kind === 'guardian' ? 'The Wilds Fall Silent' : rewards.loot ? 'Spoils of Battle' : 'Spoils of Science'], { hang: 2 }); this.title.group.scale.setScalar(Math.min(1.2, W * 1.1 / this.title.w)); uiPos(this.title.group, 0, H - 1.45, 3); this.root.add(this.title.group);
+    this.title = new Signboard([enc.kind === 'guardian' ? 'The Piece Is Taken' : rewards.loot ? 'Spoils of Battle' : 'Spoils of Science'], { hang: 2 }); this.title.group.scale.setScalar(Math.min(1.2, W * 1.1 / this.title.w)); uiPos(this.title.group, 0, H - 1.45, 3); this.root.add(this.title.group);
     this.pouch = new Pouch(); this.pouch.group.position.set(-W + 2.6, H - 2.2, 2); this.root.add(this.pouch.group); this.shownGold = run.gold - rewards.gold; this.pouch.set(this.shownGold);
     this.goldTag = new Strip([[[`+${rewards.gold} gold`, '#7a4a14']]], { maxW: 8 }); uiPos(this.goldTag.group, -W + 6.4, H - 4.4, 2); this.root.add(this.goldTag.group);
     tweens.run(1.2, (e) => { this.pouch.set(Math.round(this.shownGold + rewards.gold * e)); }, { delay: 0.4 }); for (let i = 0; i < 8; i++) audio.play('coin_single', { delay: 0.4 + i * 0.12, vol: 0.6, minGap: 0 });

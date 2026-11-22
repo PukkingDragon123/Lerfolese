@@ -20,9 +20,28 @@ export function unlocked(id) {
 export function mkCard(id, up = 0) { return { uid: uid('c'), id, type: POWERS[id] ? 'power' : 'basic', up }; }
 export function mkMove(ids, name) { const comps = ids.map((id) => ({ id, up: 0 })); return { uid: uid('c'), type: 'move', comps, up: 0, name: name || computeMove(comps).name }; }
 
+// THE GRANDMASTER'S GAME (story agent): a run crosses his board in acts, each ending at one of his pieces
+// (data/chess.js): I THE OPENING (the Black Phalanx), II THE MIDDLEGAME (his Knight or his Bishop), III THE ENDGAME
+// (the Rook), and the finale THE BOARD ABOVE OLYMPUS: a short fixed road to the Queen, then to the King himself.
+// floor0: added to a node's row for the foes' floor scaling (the acts climb); rows: node rows + the boss.
 export const AREAS = {
-  wilderness: { name: 'Mythical Wilderness', act: 1, rows: 13, enc: ENCOUNTERS.wilderness },
+  wilderness: { name: 'Mythical Wilderness', act: 1, chapter: 'The Opening', rows: 11, floor0: 0, enc: ENCOUNTERS.wilderness, next: 'highlands', piece: 'pawn' },
+  highlands: { name: 'Highlands of Delphi', act: 2, chapter: 'The Middlegame', rows: 10, floor0: 5, enc: ENCOUNTERS.highlands, next: 'olympus', piece: 'minor' },
+  olympus: { name: 'Slopes of Olympus', act: 3, chapter: 'The Endgame', rows: 10, floor0: 9, enc: ENCOUNTERS.olympus, next: 'board', piece: 'rook' },
+  board: { name: 'The Board Above Olympus', act: 4, chapter: 'Checkmate', rows: 4, floor0: 12, enc: ENCOUNTERS.board, next: null, piece: 'king', fixed: true },
 };
+export const actOf = (run) => AREAS[run?.area || 'wilderness'] || AREAS.wilderness;
+/** a node's floor for the difficulty scaling (the act's offset + its row) */
+export const floorOf = (run, node) => (actOf(run).floor0 || 0) + (node?.row ?? 0);
+/** after an act's boss: the next act's board (heals 75% of what is missing), or null when the game is won */
+export function nextAct(run) {
+  const A = actOf(run); if (!A.next) return null;
+  run.area = A.next; run.act = AREAS[A.next].act; run.pos = null; run.path = []; run.floor = -1;
+  const P = run.player; P.hp = Math.min(P.maxHp, P.hp + Math.ceil((P.maxHp - P.hp) * 0.75));
+  run.map = genMap(new RNG((hashString(String(run.seed) + ':' + A.next) ^ 0x2545f491) >>> 0), A.next);
+  for (const n of Object.values(run.map.nodes)) nodeEncounter(run, n);
+  return run;
+}
 
 // ---- MENU AGENT EDIT (constellation start select, scenes/tower.js + scenes/astral.js): a run can begin under one
 // of these constellations, newRun(seed, { start: 'prism' }). Each is a small starting artifact / deck twist; the
@@ -50,7 +69,7 @@ export function applyStart(run, id) {
 export function newRun(seed = (Math.random() * 2 ** 31) | 0, { start = null } = {}) {
   const rng = new RNG(seed);
   const run = {
-    seed, area: 'wilderness', floor: -1, pos: null, player: { hp: 56, maxHp: 56 }, gold: 99,
+    seed, area: 'wilderness', act: 1, floor: -1, pos: null, player: { hp: 56, maxHp: 56 }, gold: 99,
     deck: STARTER_DECK.map((id) => mkCard(id)), items: ['spirit_cross'], stats: { kills: 0, moves: 0, bestHit: 0, floors: 0, elites: 0, combos: 0 },
     flags: {}, foughtElites: [], seenEvents: [], loop: save.journal.loops + 1,
   };
@@ -91,7 +110,7 @@ export function restoreRun(data) { const run = { ...data }; run.rng = RNG.restor
 // ---------------------------------------------------------------- map
 const TYPES = ['battle', 'event', 'elite', 'lab', 'shop'];
 export function genMap(rng, areaId) {
-  const A = AREAS[areaId]; const ROWS = A.rows - 1, COLS = 7; const grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+  const A = AREAS[areaId]; if (A.fixed) return finaleMap(areaId); const ROWS = A.rows - 1, COLS = 7; const grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
   const edges = new Set();
   const node = (r, c) => (grid[r][c] ||= { id: `n${r}_${c}`, row: r, col: c, next: new Set(), prev: new Set(), type: null });
   let firstCols = [];
@@ -133,6 +152,15 @@ export function genMap(rng, areaId) {
   return { area: areaId, rows: ROWS + 1, nodes, starts: grid[0].filter(Boolean).map((n) => n.id) };
 }
 
+// the finale: one road up the board, a field laboratory, the Queen's square, a last laboratory, the King
+function finaleMap(areaId) {
+  const nodes = {}; const types = ['lab', 'elite', 'lab'];
+  types.forEach((t, r) => { nodes[`n${r}_3`] = { id: `n${r}_3`, row: r, col: 3, type: t, next: [r < 2 ? `n${r + 1}_3` : 'guardian'], prev: r ? [`n${r - 1}_3`] : [], x: 0, z: -r * 2.25 }; });
+  nodes.n1_3.fixed = { enemies: ['black_queen'], kind: 'elite', boss: true };
+  nodes.guardian = { id: 'guardian', row: 3, col: 3, type: 'guardian', next: [], prev: ['n2_3'], x: 0, z: -3 * 2.25 - 1.2 };
+  return { area: areaId, rows: 4, nodes, starts: ['n0_3'] };
+}
+
 export function reachable(run) {
   if (!run.pos) return run.map.starts;
   const cur = run.map.nodes[run.pos];
@@ -144,7 +172,8 @@ export function reachable(run) {
 // predate pre-rolled maps get theirs lazily, the first time the map or the battle asks.
 export const isFight = (node) => node && (node.type === 'battle' || node.type === 'elite' || node.type === 'guardian');
 export function rollEncounter(run, node) {
-  const enc = AREAS[run.area || 'wilderness'].enc; const r = new RNG((hashString(String(run.seed) + ':' + node.id) ^ 0x5bd1e995) >>> 0);
+  if (node.fixed) return { ...node.fixed, enemies: [...node.fixed.enemies] };
+  const enc = AREAS[run.area || 'wilderness'].enc; const r = new RNG((hashString(String(run.seed) + ':' + (run.area || 'wilderness') + ':' + node.id) ^ 0x5bd1e995) >>> 0);
   if (node.type === 'guardian') { const pool = enc.guardian.filter((g) => g.every((id) => unlocked(id) !== false)); return { enemies: [...r.pick(pool.length ? pool : enc.guardian)], kind: 'guardian' }; }
   if (node.type === 'elite') { // elites in the same row differ, and the map avoids repeating one elite on consecutive rows
     const rowSeed = new RNG((hashString(String(run.seed) + ':elites') >>> 0)); const order = rowSeed.shuffle([...enc.elite]);
@@ -156,7 +185,7 @@ export function nodeEncounter(run, node) {
   if (!isFight(node)) return null; if (!node.enc) node.enc = rollEncounter(run, node);
   return node.enc;
 }
-export function encounterFor(run, node) { const e = nodeEncounter(run, node); return { enemies: [...e.enemies], kind: e.kind }; }
+export function encounterFor(run, node) { const e = nodeEncounter(run, node); return { ...e, enemies: [...e.enemies] }; }
 // an event's optional boss (the Sphinx, Prometheus' eagle): its fight, or null
 export function eventBoss(eventId) { const e = AREAS.wilderness.enc.event?.[eventId]; return e ? { enemies: [...e], kind: 'elite', boss: true, event: eventId } : null; }
 
