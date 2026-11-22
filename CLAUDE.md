@@ -52,6 +52,17 @@
 - Voices (Web Speech) and narrator stay; dialogue as 3D floating text.
 - Fonts: Alagard titles; PixelSans/NanoPlus/RuneMono; always high-resolution, crisp.
 
+## Newest direction (user, latest wins)
+- STORY: full Greek mythology, but the MAIN ANTAGONIST is a CHESS MASTER GOD who plays chess with mortals: every boss is one of his pieces (Pawn/Knight/Bishop/Rook/Queen/King themed, Greek-myth flavoured), the final fight is against him. Storylines with full cinematics; polished arenas and map. Game STARTS with cinematic cutscenes; intro is skippable.
+- FONT: use ALAGARD as the main font almost everywhere, always rendered high-res (never low-res pixel fonts).
+- VOICES: uncanny gibberish babble (per-character pitch/timbre), text shows meaning.
+- Menu features (Studies, Stars, Journal) are LOCKED until the first won run; a run-end screen shows everything newly unlocked.
+- Cards: muted, old-book look (aged paper, ink, faded colours), not bold. Icons mix 3D and 2D (3D apples/objects on painted backgrounds) with animated effects.
+- Space/astral: less colourful. Constellation select shows each shape (apple etc.) as a very cool 3D model made of stars.
+- Loading: has sound; the apple floats with space physics, click to push it; procedural feel.
+- Lots more motion blur. Tutorial camera never turns away from the garden. Tutorial apple 'gold spinning machine' effect becomes cool magic-force science particles.
+- Must not bug; MOBILE supported (touch, layout, performance).
+
 ## Workflow
 - ASK THE USER FIRST (short question with options) before any big or ambiguous change or before launching agents; the user pays for every token.
 
