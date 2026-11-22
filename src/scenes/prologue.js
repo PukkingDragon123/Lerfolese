@@ -26,6 +26,8 @@ import { shockPass, paintPass } from '../story/fx.js';
 import * as P3 from '../models/props3d.js';
 import { Particles } from '../gfx/particles.js';
 import { computeMove, flatten } from '../game/combos.js';
+import { gardenFrame } from '../story/gardencam.js';
+import { ForceField } from '../gfx/forcefield.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
@@ -207,15 +209,15 @@ export class PrologueScene extends UIScreen {
     await this.say('isaac_kid', 'An apple is for THROWING!', k);
     const ap = this.windfall[0]; const at = ap.position.clone(); at.y = this.hAt(at.x, at.z);
     this.shot(V(2.2, 0.7, 6.4), at.clone().add(V(-0.2, 0.6, -0.4)), 32, 0); await this.w(k.walkTo(at.clone().add(V(-0.3, 0, -0.25)), 1.6));
-    k.act('grab'); this.holdGrab = true; audio.play('wood_creak', { vol: 0.2, rate: 1.6 }); await this.wait(0.42); ap.parent.remove(ap); ap.scale.setScalar(0.085 / k.sc * 0 + 0.085); k.hand(1).add(ap); ap.position.set(0, -0.02, 0.03); await this.wait(0.55);
+    k.act('grab'); this.holdGrab = true; audio.play('wood_creak', { vol: 0.2, rate: 1.6 }); await this.wait(0.42); ap.parent.remove(ap); ap.scale.setScalar(0.085 / k.sc * 0 + 0.085); k.hand(1).add(ap); ap.position.set(0, -0.02, 0.03); this.fieldOn(ap); await this.wait(0.55); // the force in his hand, made visible
     k.st.faceYaw = Math.atan2(SPOT.basket.x - k.root.position.x, SPOT.basket.z - k.root.position.z); await this.wait(0.5);
     { const kp = k.root.position.clone(), d = SPOT.basket.clone().sub(kp).setY(0).normalize(); const sd = V(-d.z, 0, d.x); if (sd.z < 0) sd.negate(); this.shot(kp.clone().addScaledVector(d, -2.1).addScaledVector(sd, 1.2).add(V(0, 1.3, 0)), SPOT.basket.clone().add(V(0, 0.35, 0)).lerp(kp.clone().add(V(0, 0.9, 0)), 0.35), 36, 0); }
     k.act('throw'); audio.play('whoosh_soft', { vol: 0.6, delay: THROW_RELEASE * 0.8 }); await this.wait(THROW_RELEASE);
-    const p0 = ap.getWorldPosition(V()); ap.parent.remove(ap); this.gardenScene.add(ap); ap.position.copy(p0); const target = SPOT.basket.clone().add(V(0, 0.35, 0)); const T = 0.7; const vel = target.clone().sub(p0).add(V(0, 0.5 * 9.8 * T * T, 0)).divideScalar(T);
+    const p0 = ap.getWorldPosition(V()); ap.parent.remove(ap); this.gardenScene.add(ap); ap.position.copy(p0); const target = SPOT.basket.clone().add(V(0, 0.35, 0)); const T = 0.7; const vel = target.clone().sub(p0).add(V(0, 0.5 * 9.8 * T * T, 0)).divideScalar(T); this.tff?.ff.setMode('force', vel.clone()).kick(1.5);
     this.track(() => ({ p: V(p0.x - 0.6, p0.y + 0.5, p0.z + 2.4).lerp(target.clone().add(V(-0.8, 0.5, 2.2)), Math.min(1, (this.flight || 0) / T)), l: ap.position, fov: 34 }), 6);
     this.flight = 0; await this.tween(T, (u) => { this.flight = u * T; const t = u * T; ap.position.copy(p0).addScaledVector(vel, t).add(V(0, -0.5 * 9.8 * t * t, 0)); ap.rotation.x += 0.4; }, false);
     // bonk: the basket jumps and the FAT RACCOON tumbles out, furious, cheeks full
-    audio.play('apple_squish'); audio.play('hit_light'); this.burst(target, '#ffe0b0', 12); this.gardenScene.remove(ap); this.basketObj.rotation.z = 0.25; setTimeout(() => (this.basketObj.rotation.z = 0), 160);
+    audio.play('apple_squish'); audio.play('hit_light'); this.burst(target, '#ffe0b0', 12); if (this.tff) { this.tff.ff.setMode('rotation').kick(2); this.tff.ff.show(false); this.tff.obj = null; const F = this.tff; setTimeout(() => { if (this.tff === F) { F.ff.dispose(); this.tff = null; } }, 1600); } this.gardenScene.remove(ap); this.basketObj.rotation.z = 0.25; setTimeout(() => (this.basketObj.rotation.z = 0), 160);
     const { createBeast } = await import('../models/beasts/index.js'); const rc = createBeast('raccoon', 3); rc.root.scale.setScalar(1.15); rc.root.position.copy(SPOT.basket).add(V(0.2, 0, 0.3)); rc.root.position.y = this.hAt(rc.root.position.x, rc.root.position.z); rc.root.rotation.y = -2.4; this.gardenScene.add(rc.root); this.raccoon = rc;
     rc.act?.('hurt'); audio.play('goblin_squeak', { vol: 0.8, rate: 0.8 }); this.engine.shake(0.15);
     this.shot(SPOT.basket.clone().add(V(-0.9, 0.35, 2.0)), SPOT.basket.clone().add(V(0.1, 0.35, 0.2)), 30, 0); await this.wait(0.9);
@@ -344,21 +346,20 @@ export class PrologueScene extends UIScreen {
   goldApple() { const ga = P3.apple({ kind: 'gold' }); ga.scale.setScalar(0.1); const mats = []; ga.traverse((o) => { if (o.isMesh && o.material?.emissive) { o.material = o.material.clone(); o.material.emissive.set(0x5a3a08); o.material.emissiveIntensity = 0.5; mats.push(o.material); } }); ga.userData.mats = mats; return ga; } // a warm inner glow in its own surface (no light pool on the grass)
   dropGold() { const g = this.gold; const p = g.getWorldPosition(V()); g.parent.remove(g); this.gardenScene.add(g); g.position.copy(p); this.goldGround = true; let vy = 0, vx = -0.35; const gy = this.hAt(p.x, p.z) + 0.06;
     this.ups.push({ t: 0, d: 2.0, real: false, res: () => {}, fn: () => { const dt = 1 / 60; vy -= 9.8 * dt; g.position.y += vy * dt; g.position.x += vx * dt; vx *= 0.97; g.rotation.z -= vx * 0.25; if (g.position.y < gy) { g.position.y = gy; if (vy < -0.6) audio.play('wood_knock', { vol: 0.25, rate: 1.8 }); vy = -vy * 0.35; } } }); }
-  makeConstruct() { // a turned brass stand with a glass collar, floating in the air between them; the cards' laws gather on it
+  makeConstruct() { // the laws made visible in the air between them: the apple held in its own field (filings, motes, vectors, a gravity well)
     const g = new THREE.Group(); g.position.copy(SPOT.con); g.position.y += this.hAt(SPOT.con.x, SPOT.con.z); this.gardenScene.add(g); g.scale.setScalar(0.001);
-    const brass = new THREE.MeshStandardMaterial({ color: 0xc8963c, metalness: 0.85, roughness: 0.35, flatShading: true });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.014, 4, 8), brass); ring.rotation.x = Math.PI / 2; ring.position.y = -0.22; g.add(ring);
-    for (let i = 0; i < 3; i++) { const s = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.24, 4), brass); const a = (i / 3) * Math.PI * 2; s.position.set(Math.cos(a) * 0.16, -0.12, Math.sin(a) * 0.16); s.rotation.set(Math.sin(a) * 0.5, 0, -Math.cos(a) * 0.5); g.add(s); }
-    const hold = new THREE.Group(); g.add(hold); this.con = { g, hold, apple: null, arrow: null, swirl: null, spin: 0, pop: 0, hover: 0 };
-    this.tween(0.8, (u) => g.scale.setScalar(Math.max(0.001, ease(u) * (1 + Math.sin(u * Math.PI) * 0.2)))); audio.play('clockwork', { vol: 0.4 });
+    const ff = new ForceField({ scale: 0.9 }); ff.group.position.y = 0.02; g.add(ff.group); ff.setMode('apple'); ff.show(false);
+    const hold = new THREE.Group(); g.add(hold); this.con = { g, hold, ff, apple: null, arrow: null, swirl: null, spin: 0, pop: 0, hover: 0 };
+    this.tween(0.8, (u) => g.scale.setScalar(Math.max(0.001, ease(u) * (1 + Math.sin(u * Math.PI) * 0.12)))); audio.play('magic_shimmer', { vol: 0.3 });
   }
   conSet(what) {
-    const C = this.con; if (!C) return; C.pop = 1; audio.play('glass_clink', { vol: 0.6 }); this.burst(C.g.position, '#ffe8a0', 14);
-    if (what === 'apple' && !C.apple) { const a = P3.apple({ kind: 'red' }); a.scale.setScalar(0.12); C.hold.add(a); C.apple = a; }
-    if (what === 'force' && !C.arrow) { const ar = P3.arrow(0xd8a040, 0.5); ar.scale.setScalar(0.32); ar.rotation.z = Math.PI / 2; ar.position.set(-0.24, 0, 0); C.hold.add(ar); C.arrow = ar; audio.play('whoosh_soft'); }
-    if (what === 'rotation' && !C.swirl) { const sw = new THREE.Group(); for (const [rx, rz] of [[0, 0], [Math.PI / 2, 0], [Math.PI / 2, Math.PI / 2]]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.008, 3, 6), new THREE.MeshStandardMaterial({ color: 0xd8b060, metalness: 0.8, roughness: 0.35, flatShading: true })); r.rotation.set(rx, 0, rz); sw.add(r); } C.hold.add(sw); C.swirl = sw; audio.play('spin_whoosh'); }
+    const C = this.con; if (!C) return; C.pop = 1; audio.play('glass_clink', { vol: 0.6 }); C.ff.kick(1.2);
+    if (what === 'apple' && !C.apple) { const a = P3.apple({ kind: 'red' }); a.scale.setScalar(0.12); C.hold.add(a); C.apple = a; C.ff.show(true).setMode('apple'); }
+    if (what === 'force') { C.ff.show(true).setMode('force', V(1, 0.15, 0)); audio.play('whoosh_soft'); } // the push: the lines stream and shear along it
+    if (what === 'rotation') { C.ff.show(true).setMode('rotation'); audio.play('spin_whoosh'); } // the twist: a vortex
   }
-  dropConstruct() { const C = this.con; if (!C) return; this.tween(0.6, (u) => C.g.scale.setScalar(Math.max(0.001, 1 - ease(u)))).then(() => { this.gardenScene.remove(C.g); }); this.con = null; }
+  fieldOn(obj) { this.tff?.ff.dispose(); const ff = new ForceField({ scale: 0.95, well: false, vectors: 5 }); ff.setMode('apple'); this.gardenScene.add(ff.group); this.tff = { ff, obj }; }
+  dropConstruct() { const C = this.con; if (!C) return; C.ff.show(false); this.tween(0.6, (u) => { C.g.scale.setScalar(Math.max(0.001, 1 - ease(u))); C.ff.update(1 / 60); }).then(() => { C.ff.dispose(); this.gardenScene.remove(C.g); }); this.con = null; }
   cloudBank(sc) { // sculpted cumulus banks below the camera's path: flat bases, billowing faceted tops in tiers, warm sunlit crowns, violet shade
     const top = new THREE.MeshStandardMaterial({ color: 0xfff0e2, emissive: 0x7a5048, emissiveIntensity: 0.32, roughness: 1, flatShading: true, fog: false }); const list = [];
     const lump = (g, x, y, z, sx, sy, sz) => { const geo = new THREE.IcosahedronGeometry(1, 1); const p = geo.attributes.position; for (let v = 0; v < p.count; v++) { const yy = p.getY(v); if (yy < -0.15) p.setY(v, -0.15 - (yy + 0.15) * 0.1); p.setX(v, p.getX(v) * (1 + Math.sin(v * 1.7) * 0.06)); } geo.computeVertexNormals(); const m = new THREE.Mesh(geo, top); m.scale.set(sx, sy, sz); m.position.set(x, y, z); m.rotation.y = Math.random() * 3; g.add(m); };
@@ -392,7 +393,7 @@ export class PrologueScene extends UIScreen {
   onClickUI() {
     if (this.applePick && this.gold && this.rayWorld([this.gold]).length) { this.takeApple?.(); return; }
     if (this.cardsLive && !this.mergeStep) { const v = this.cardAt(); if (v) { v.flip.target = v.flip.target ? 0 : 1; audio.play('card_flip'); return; } }
-    if (this.con && this.rayWorld([this.con.g]).length) { this.con.spin += 6; audio.play('spin_whoosh', { vol: 0.5 }); return; }
+    if (this.con && this.rayWorld([this.con.hold]).length) { this.con.spin += 6; audio.play('spin_whoosh', { vol: 0.5 }); return; }
     fadvance();
   }
   // ------------------------------------------------------------------ helpers
@@ -401,17 +402,20 @@ export class PrologueScene extends UIScreen {
     const rdt = dt; const c = this.cs; c.t += rdt;
     if (c.mv) { const M = c.mv; M.t += rdt; const u = ease(M.t / M.d); c.p.lerpVectors(M.p0, M.p, u); c.l.lerpVectors(M.l0, M.l, u); c.fov = M.f0 + (M.fov - M.f0) * u; if (M.t >= M.d) { c.mv = null; M.res(); } }
     else if (c.follow) { const f = c.follow.fn(); const k = Math.min(1, rdt * c.follow.k); c.p.lerp(f.p, k); c.l.lerp(f.l, k); if (f.fov) c.fov += (f.fov - c.fov) * k; }
-    const dr = this.frozen ? 0 : c.drift; this.cam.position.copy(c.p).add(V(Math.sin(c.t * 0.31) * 0.04 * dr, Math.sin(c.t * 0.23) * 0.03 * dr, 0)); this.cam.lookAt(c.l); this.cam.aspect = this.engine.aspect; if (Math.abs(this.cam.fov - c.fov) > 1e-3) this.cam.fov = c.fov; this.cam.updateProjectionMatrix();
+    const dr = this.frozen ? 0 : c.drift; this.cam.position.copy(c.p).add(V(Math.sin(c.t * 0.31) * 0.04 * dr, Math.sin(c.t * 0.23) * 0.03 * dr, 0)); const L = (this._camL ||= V()).copy(c.l);
+    if (this.sc === this.gardenScene && this.beatI >= 1 && this.beatI <= 6) gardenFrame(this.cam.position, L, { yawMax: 50, yawLeft: 32, pitchMax: 0, zMax: 10.5, hAt: this.hAt }); // never turn away from the garden (no sky, no void, no map edge)
+    this.cam.lookAt(L); this.cam.aspect = this.engine.aspect; if (Math.abs(this.cam.fov - c.fov) > 1e-3) this.cam.fov = c.fov; this.cam.updateProjectionMatrix();
     const k = this.paused ? 0 : this.timeK; const sdt = rdt * k;
     for (const u of [...this.ups]) { u.t += u.real === false ? sdt : rdt; const q = Math.min(1, u.t / u.d); u.fn(q); if (q >= 1) { this.ups.splice(this.ups.indexOf(u), 1); u.res(); } }
     if (!this.paused && this.sc === this.gardenScene) {
       if (this.holdGrab && this.kid.st.gest === 'grab' && this.kid.st.gt > 0.5) this.kid.st.gt = 0.5; // hold the reach until the touch
       for (const a of this.actors) a.update(sdt); this.raccoon?.update(sdt); this.snake?.update(sdt); if (sdt > 0) this.O?.update?.(sdt, t); this.parts?.update(sdt, t); this.dust?.update(sdt, t);
       if (this.gold) { this.gold.rotation.y += sdt * 1.2; for (const mt of this.gold.userData.mats || []) mt.emissiveIntensity = (this.goldHover ? 1.1 : 0.45) + Math.sin(c.t * 3) * 0.12; if (this.goldGround && Math.random() < sdt * 6) { const p = this.gold.getWorldPosition(V()); this.parts.burst(1, { pos: [p.x + (Math.random() - 0.5) * 0.2, p.y + Math.random() * 0.15, p.z + (Math.random() - 0.5) * 0.2], vel: [0, 0.25, 0], life: 1.2, size: 6, color: '#ffd860', sprite: 'star4', drag: 0.5 }); } }
-      if (this.con) { const C = this.con; C.pop = Math.max(0, C.pop - sdt * 3); C.spin *= Math.exp(-sdt * 1.5); C.hold.rotation.y += sdt * (0.6 + C.spin + C.hover * 2 + (C.swirl ? 3 : 0)); C.hold.position.y = Math.sin(c.t * 1.6) * 0.04 + C.hover * 0.05; C.hold.scale.setScalar(1 + Math.sin(C.pop * Math.PI) * 0.2); if (C.arrow) C.arrow.position.x = -0.24 - Math.sin(c.t * 4) * 0.03; }
+      if (this.con) { const C = this.con; C.pop = Math.max(0, C.pop - rdt * 3); if (C.spin > 0.5) { C.ff.kick(C.spin * 0.12); C.spin = 0; } C.hold.rotation.y += rdt * (0.5 + C.hover * 1.5 + C.ff.st.twist * 2.5); C.hold.position.y = Math.sin(c.t * 1.6) * 0.04 + C.hover * 0.05; C.hold.scale.setScalar(1 + Math.sin(C.pop * Math.PI) * 0.2); C.ff.update(rdt); }
+      if (this.tff) { const F = this.tff; if (F.obj) F.obj.getWorldPosition(F.ff.group.position); F.ff.update(rdt); }
     } else if (this.sc === this.paint?.scene) this.paint.update(rdt);
     if (this.clouds) for (const m of this.clouds) m.position.x += rdt * 0.4;
-    for (const v of this.lesson) { if (!v.gone && v.home && this.cardsLive) { const hv = v.hover || v.focus; v.target = this.dragging === v ? v.target : { x: v.home.x, y: v.home.y + (hv ? 0.7 : 0) + (v.glowK ? 0.3 : 0), z: hv ? 4.2 : 3, rz: v.target.rz * 0.9, s: v.home.s * (hv ? 1.12 : v.focus === false && this.lesson.some((x) => x.focus) ? 0.94 : 1) }; if (v.hover) { const p = this.ptr(3); v.tilt.x = -(p.y - v.home.y) * 0.05; v.tilt.y = (p.x - v.home.x) * 0.05; } else { v.tilt.x = 0; v.tilt.y = 0; } } v.update(rdt, c.t); }
+    for (const v of this.lesson) { if (!v.gone && v.home && this.cardsLive) { const hv = v.hover || v.focus; v.hot = !!hv; v.target = this.dragging === v ? v.target : { x: v.home.x, y: v.home.y + (hv ? 0.7 : 0) + (v.glowK ? 0.3 : 0), z: hv ? 4.2 : 3, rz: v.target.rz * 0.9, s: v.home.s * (hv ? 1.12 : v.focus === false && this.lesson.some((x) => x.focus) ? 0.94 : 1) }; if (v.hover) { const p = this.ptr(3); v.tilt.x = -(p.y - v.home.y) * 0.05; v.tilt.y = (p.x - v.home.x) * 0.05; } else { v.tilt.x = 0; v.tilt.y = 0; } } v.update(rdt, c.t); }
     this.bars?.update(rdt, this.H);
   }
   dispose() { fstop(); window.__storyBand = false; clearInterval(this.heartbeat); this.shock?.dispose(); this.paintFx?.dispose(); this.hint?.remove(); this.cap?.remove(); if (this.handler) this.input.remove(this.handler); if (window.__prologue?.scene === this) window.__prologue = null; this.bars?.dispose?.(); super.dispose(); }

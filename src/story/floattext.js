@@ -7,7 +7,7 @@
 // API: fsay(speaker, text, { anchor, wait, hold }) / fnarrate(text, o) -> Promise; fchoice(options, { prompt }) -> Promise<index>;
 //      fadvance() (click / Space: finish the line or drop it); fstop(); registerVoice(id, profile, { name, color, style })
 import * as THREE from 'three';
-import { FONT, measure, wrapText, drawPixelText } from '../ui3d/craft.js';
+import { FONT, measure, wrapText, drawPixelText, hiCanvas, hiK } from '../ui3d/craft.js';
 import { speak, cancelAll, PROFILES, estimate } from './voice.js';
 import { audio } from '../core/audio.js';
 import { ensureFonts } from './dialogue.js';
@@ -48,8 +48,8 @@ class Block {
     this.total = this.lines.join(' ').length; this.shown = -1; this.age = new Float32Array(this.total + 8).fill(-1);
     // the glyph x offsets of every character (prefix widths), per line
     this.pos = []; let gi = 0; this.lines.forEach((l, li) => { const x0 = center ? Math.round((this.W - measure(l, F)) / 2) : pad; for (let c = 0; c < l.length; c++) this.pos.push({ ch: l[c], x: x0 + measure(l.slice(0, c), F), li, gi: gi++ }); gi++; });
-    this.canvas = document.createElement('canvas'); this.canvas.width = this.W; this.canvas.height = this.H; this.g = this.canvas.getContext('2d');
-    this.tex = new THREE.CanvasTexture(this.canvas); this.tex.colorSpace = THREE.SRGBColorSpace; this.tex.magFilter = this.tex.minFilter = THREE.NearestFilter; this.tex.generateMipmaps = false;
+    this.canvas = hiCanvas(this.W, this.H, hiK()); this.g = this.canvas.getContext('2d'); // vector Alagard at device resolution
+    this.tex = new THREE.CanvasTexture(this.canvas); this.tex.colorSpace = THREE.SRGBColorSpace; this.tex.magFilter = THREE.LinearFilter; this.tex.minFilter = THREE.LinearMipmapLinearFilter; this.tex.generateMipmaps = true; this.tex.anisotropy = 4;
     this.U = { uFade: {} };
     const mat = new THREE.MeshBasicMaterial({ map: this.tex, transparent: true, opacity: 0, depthTest: false, depthWrite: false, toneMapped: false }); // full-resolution fade (no dither screen pattern)
     Object.defineProperty(this.U.uFade, 'value', { get: () => mat.opacity, set: (v) => { mat.opacity = v; } });

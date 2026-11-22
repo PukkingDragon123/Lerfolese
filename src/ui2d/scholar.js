@@ -22,7 +22,7 @@ let styleOn = false;
 function css() {
   if (styleOn) return; styleOn = true; const s = document.createElement('style'); s.id = 'lf-scholar-css';
   s.textContent = `
-.lf-ui { position: fixed; inset: 0; pointer-events: none; z-index: 5; --k: 2; font-family: 'PixelSans', monospace; color: ${INK.parch}; -webkit-font-smoothing: none; font-smooth: never; text-rendering: optimizeSpeed; image-rendering: pixelated; }
+.lf-ui { position: fixed; inset: 0; pointer-events: none; z-index: 5; --k: 2; font-family: 'Alagard', serif; color: ${INK.parch}; -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; } /* Alagard, crisp at device resolution */
 .lf-ui * { box-sizing: border-box; }
 .lf-panel { position: absolute; pointer-events: auto; background-repeat: no-repeat; background-size: 100% 100%; image-rendering: pixelated; transition: opacity .35s, transform .45s cubic-bezier(.2,1.4,.4,1); }
 .lf-panel.lf-hide { opacity: 0; transform: translateY(calc(var(--k) * 10px)) scale(.98); pointer-events: none; }
@@ -31,7 +31,7 @@ function css() {
 .lf-wrap { white-space: normal; }
 .lf-big { font-size: calc(var(--k) * 32px); line-height: calc(var(--k) * 30px); }
 .lf-body { font-size: calc(var(--k) * 11px); line-height: calc(var(--k) * 13px); }
-.lf-num { font-family: 'NanoPlus'; font-size: calc(var(--k) * 13px); line-height: calc(var(--k) * 12px); }
+.lf-num { font-family: 'Alagard'; font-size: calc(var(--k) * 13px); line-height: calc(var(--k) * 12px); }
 .lf-soft { color: ${INK.parchSoft}; } .lf-night { color: ${INK.night}; } .lf-night .lf-soft { color: ${INK.nightSoft}; } .lf-red { color: ${INK.red}; } .lf-goldt { color: #8a5a10; } .lf-night .lf-goldt { color: ${INK.gold}; }
 .lf-rule { height: var(--k-px); background: currentColor; opacity: .35; margin: calc(var(--k) * 3px) 0; }
 .lf-list { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #ad7826 rgba(0,0,0,.15); }
@@ -60,7 +60,7 @@ function css() {
 .lf-node { position: absolute; display: flex; flex-direction: column; align-items: center; transition: transform .15s, filter .15s; }
 .lf-node.lf-can { cursor: pointer; } .lf-node.lf-can:hover { transform: translateY(calc(var(--k) * -2px)) scale(1.1); }
 .lf-node.lf-got { filter: saturate(.7) brightness(.85); } .lf-node.lf-far { filter: grayscale(.9) brightness(.6); }
-.lf-mini { font-family: 'NanoPlus'; font-size: calc(var(--k) * 13px); line-height: calc(var(--k) * 11px); }
+.lf-mini { font-family: 'Alagard'; font-size: calc(var(--k) * 13px); line-height: calc(var(--k) * 11px); }
 `;
   document.head.appendChild(s);
 }

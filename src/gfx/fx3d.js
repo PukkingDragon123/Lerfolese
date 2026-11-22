@@ -12,6 +12,7 @@
 import * as THREE from 'three';
 import { ART } from '../core/art.js';
 import { tweens } from '../core/tween.js';
+import { ForceField } from './forcefield.js';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const pick = (a) => a[(Math.random() * a.length) | 0];
@@ -235,8 +236,10 @@ export class FX3D {
     for (let r = 0; r < 3; r++) { const ph = r * 2.094, rad = 0.65 + r * 0.08; const pts = []; for (let i = 0; i <= 40; i++) { const t = i / 40; pts.push(new THREE.Vector3(Math.cos(ph + t * 9) * rad * (1 - t * 0.3), t * 2.2, Math.sin(ph + t * 9) * rad * (1 - t * 0.3))); }
       const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 80, 0.022, 5), smat(RIBBON_FS, col)); m.position.set(pos.x, 0.1, pos.z); this.add(m, 1.2, (k, it) => { m.rotation.y = it.t * 2.5; }); }
   }
-  orb(pos, r = 0.4, col = '#b48cff') { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 4), smat(ORB_FS, col, ORB_VS)); m.position.copy(pos).add(new THREE.Vector3(0, 0.1, 0.4)); return this.add(m, 0.6, (k) => { m.scale.setScalar(0.6 + k * 1.2); }); }
-  swirl(pos, size = 2) { const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), smat(SWIRL_FS)); m.position.copy(pos).add(new THREE.Vector3(0, 0, 0.5)); return this.add(m, 1.1, (k, it) => { m.quaternion.copy(this.S.camera.quaternion); m.scale.setScalar(1.15 - k * 0.5); }); }
+  orb(pos, r = 0.4) { return this.swirl(pos.clone().add(new THREE.Vector3(0, 0.1, 0)), r * 4.2, 'apple'); } // (was a round fresnel orb: no blobs)
+  // gravity / law hits: magic-force science (filings along field lines, square pixel motes, orbiting vector glyphs, a
+  // dimpled spacetime grid; see gfx/forcefield.js), never a round swirl or orb
+  swirl(pos, size = 2, mode = 'rotation') { const F = new ForceField({ scale: size * 0.95, n: 360, vectors: 5 }); F.setMode(mode); F.st = { ...F.goal }; F.kick(1.6); F.group.position.copy(pos).add(new THREE.Vector3(0, 0, 0.3)); return this.add(F.group, 1.3, (k, it, dt) => { F.kT = k < 0.5 ? 1 : 0; F.update(dt); }); }
   flame(pos, h = 1.2) { const g = new THREE.Group(); for (let i = 0; i < 3; i++) { const pl = new THREE.Mesh(new THREE.PlaneGeometry(h * 0.7, h).translate(0, h / 2, 0), smat(FLAME_FS)); pl.rotation.y = (i / 3) * Math.PI; g.add(pl); } g.position.copy(pos); return this.add(g, 0.9, (k, it) => { for (const c of g.children) c.material.uniforms.uT.value = it.t; }); }
   lightning(from, to) {
     const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 2.2, 2.6), ...ADD }); const g = new THREE.Group(); g.userData.mat = mat;

@@ -45,17 +45,18 @@ export const K = {
 };
 
 // card kinds: enamel ramps (6) for frames and banners
+// card kinds: faded book inks (user: muted old-book look): oxblood, faded indigo, sepia, verdigris, olive, plum
 export const ENAMEL = {
-  matter: ramp('#22081a', '#4a1028', '#7c1c2e', '#ac3036', '#d4503e', '#ec8462', '#f8bc98'),
-  law: ramp('#0a1230', '#14285a', '#1e4288', '#2c62b2', '#4a8cd2', '#86bae8', '#c8e4fa'),
-  energy: ramp('#2a1208', '#58280c', '#8c4e12', '#bc7c1a', '#e2a82a', '#f4d062', '#fff0b0'),
-  tool: ramp('#061c20', '#0d3638', '#165a54', '#228072', '#3aa88e', '#78d0b2', '#c4f0dc'),
-  move: ramp('#0c1c12', '#18381c', '#285a26', '#3e8030', '#64a640', '#a2cc60', '#dcf0a4'),
-  power: ramp('#0c0620', '#1c1040', '#321e68', '#4c3294', '#7052be', '#a488e0', '#dccaff'),
+  matter: ramp('#1e0c0e', '#3e1618', '#5e2224', '#7c3230', '#9a4a40', '#b87060', '#d4a48c'),
+  law: ramp('#0e121e', '#1a2236', '#28344e', '#3a4a66', '#566682', '#7e8ca2', '#b0b8c4'),
+  energy: ramp('#1e140c', '#3a2614', '#5a3c1e', '#7a5428', '#9a7038', '#b89458', '#d6bc8a'),
+  tool: ramp('#0c1816', '#162a26', '#223e38', '#30564c', '#467062', '#6a9080', '#a0b8a8'),
+  move: ramp('#121610', '#20281a', '#323e24', '#465630', '#606e40', '#848e5e', '#b0b490'),
+  power: ramp('#160e16', '#281a28', '#3e2a3c', '#544054', '#6e5a6c', '#8e7e8a', '#b8aab2'),
 };
-export const TRIM = {
-  brass: ramp('#1c0c0c', '#46200f', '#7a4418', '#b07428', '#d8a440', '#f2d274', '#fff6cc'),
-  gold: ramp('#200c08', '#5a2c0c', '#94580e', '#d0921a', '#f6c42e', '#ffe76c', '#fffbe0'),
+export const TRIM = { // tarnished brass and old gilt
+  brass: ramp('#1a120c', '#3a2614', '#5e421e', '#84622e', '#a88444', '#c8a86a', '#e4d2a0'),
+  gold: ramp('#1e140a', '#46300e', '#725018', '#a07a26', '#c49c3e', '#dcc070', '#f0e0aa'),
 };
-export const PARCH = ramp('#3a2416', '#7a5634', '#b08c5c', '#d6b886', '#ead2a0', '#f6e6be', '#fff6dc');
-export const INKC = '#1a0c14';
+export const PARCH = ramp('#3a2818', '#6e5236', '#a08460', '#c4aa82', '#d8c29a', '#e6d4b0', '#efe2c4'); // aged paper
+export const INKC = '#241810'; // iron-gall ink, not black

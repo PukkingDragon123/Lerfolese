@@ -10,22 +10,23 @@ import { createProfessor } from '../models/professor.js';
 import { projectileModel } from './fieldviews.js';
 import { attackStyle } from './battlecine.js';
 import { drawPixelText, measure } from '../ui3d/craft.js';
+import { agePaper, RES } from '../gfx/cardart.js';
 import { BASICS } from '../game/data/cards.js';
 import { fmtMul } from './manifest.js';
 
 const PW = 120, PH = 168, CS = 4; // the face is pixel art at 120x168, blown up 4x with nearest filtering
 export const ART = { x: 8, y: 25, w: 104, h: 60 };
 export const SPELL_W = 3.0, SPELL_H = 4.2;
-const GOLD = ['#3a2208', '#7a4a12', '#b8781e', '#e8b84a', '#fff0a8'];
+const GOLD = ['#2c1c0c', '#5c4018', '#8c6c32', '#b89a56', '#dcc690']; // tarnished gilt (an old book's gold tooling)
 const INK = '#120a1e';
 
 // ---------------------------------------------------------------- the face (canvas)
 function px(g, x, y, c, w = 1, h = 1) { g.fillStyle = c; g.fillRect(x * CS, y * CS, w * CS, h * CS); }
 function frame(g, seed) {
   // night-indigo field with a scatter of pixel stars (and the art window cut out)
-  for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) { const band = y < 22 ? 0 : y < 90 ? 1 : 2; px(g, x, y, ['#1c1236', '#160e2c', '#1a1032'][band]); }
+  for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) { const band = y < 22 ? 0 : y < 90 ? 1 : 2; px(g, x, y, ['#221c2a', '#1c1824', '#201a28'][band]); }
   let s = seed >>> 0; const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
-  for (let i = 0; i < 60; i++) { const x = 3 + Math.floor(rnd() * (PW - 6)), y = 3 + Math.floor(rnd() * (PH - 6)); px(g, x, y, rnd() < 0.3 ? '#cdb6ff' : '#6a5a9a'); }
+  for (let i = 0; i < 60; i++) { const x = 3 + Math.floor(rnd() * (PW - 6)), y = 3 + Math.floor(rnd() * (PH - 6)); px(g, x, y, rnd() < 0.3 ? '#bcb0a0' : '#5a5262'); }
   // the double gold border with a bevel
   const rect = (x0, y0, x1, y1, c) => { for (let x = x0; x <= x1; x++) { px(g, x, y0, c); px(g, x, y1, c); } for (let y = y0; y <= y1; y++) { px(g, x0, y, c); px(g, x1, y, c); } };
   rect(0, 0, PW - 1, PH - 1, GOLD[0]); rect(1, 1, PW - 2, PH - 2, GOLD[3]); rect(2, 2, PW - 3, PH - 3, GOLD[2]); rect(3, 3, PW - 4, PH - 4, GOLD[1]); rect(5, 5, PW - 6, PH - 6, GOLD[2]);
@@ -38,26 +39,26 @@ function frame(g, seed) {
   g.clearRect(x * CS, y * CS, w * CS, h * CS);
   // separators: a gold rule under the window and above the footer, with a centre gem
   for (let xx = 10; xx < PW - 10; xx++) { px(g, xx, 104, GOLD[2]); px(g, xx, 150, GOLD[1]); }
-  for (let d = -2; d <= 2; d++) { px(g, 60 + d, 104 - (2 - Math.abs(d)), '#b07aff'); px(g, 60 + d, 104 + (2 - Math.abs(d)), '#b07aff'); }
+  for (let d = -2; d <= 2; d++) { px(g, 60 + d, 104 - (2 - Math.abs(d)), '#8a6a7e'); px(g, 60 + d, 104 + (2 - Math.abs(d)), '#8a6a7e'); }
 }
 /** the face for a held object's Move: { name, recipe, eq, total, target, hits, chips:[[text, col]], law } */
 export function spellFace(info) {
-  const c = document.createElement('canvas'); c.width = PW * CS; c.height = PH * CS; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
-  frame(g, info.seed || 7);
+  const c = document.createElement('canvas'); c.width = Math.round(PW * CS * RES); c.height = Math.round(PH * CS * RES); const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.setTransform(RES, 0, 0, RES, 0, 0);
+  frame(g, info.seed || 7); g.setTransform(1, 0, 0, 1, 0, 0); agePaper(c, info.seed || 7, 'power'); g.setTransform(RES, 0, 0, RES, 0, 0); // aged gilt and vellum, then crisp Alagard on top
   const T = (s, x, y, f, color, o = {}) => drawPixelText(g, s, x, y, f, { color, align: 'center', ...o });
   const fit = (s, f, max, ks) => { for (const k of ks) if (measure(s, f) * k <= max) return k; return 0; };
   // the name, Alagard on the title band
-  const name = info.name; let k = fit(name, 'head', 104 * CS, [2, 1]); if (k) T(name, (PW / 2) * CS, 18 * CS, 'head', '#fff0b8', { k, outline: '#2a1008', shadow: '#0a0410' }); else T(name, (PW / 2) * CS, 17 * CS, 'body', '#fff0b8', { k: 2, outline: '#2a1008' });
+  const name = info.name; let k = fit(name, 'head', 104 * CS, [2, 1]); if (k) T(name, (PW / 2) * CS, 18 * CS, 'head', '#ecdcae', { k, outline: '#22160c', shadow: '#0c0806' }); else T(name, (PW / 2) * CS, 17 * CS, 'body', '#ecdcae', { k: 2, outline: '#22160c' });
   // the ingredients and the equation
-  const rec = info.recipe; k = fit(rec, 'body', 108 * CS, [2, 1]); T(rec, (PW / 2) * CS, 95 * CS, 'body', '#cdb6ff', { k: k || 1 });
-  const eq = info.eq; k = fit(eq, 'body', 108 * CS, [3, 2, 1]); T(eq, (PW / 2) * CS, 101.5 * CS, 'body', '#ffe6a0', { k: k || 1, outline: '#1a0c08' });
+  const rec = info.recipe; k = fit(rec, 'body', 108 * CS, [2, 1]); T(rec, (PW / 2) * CS, 95 * CS, 'body', '#bdb2c0', { k: k || 1 });
+  const eq = info.eq; k = fit(eq, 'body', 108 * CS, [3, 2, 1]); T(eq, (PW / 2) * CS, 101.5 * CS, 'body', '#e6d6a6', { k: k || 1, outline: '#1a0c08' });
   // the result: the big number, at whom, then the effect chips
-  const big = info.fizzle ? 'FIZZLE' : String(info.total); T(big, (PW / 2) * CS, 124 * CS, info.fizzle ? 'body' : 'num', info.fizzle ? '#f6b3a0' : '#ff9a7a', { k: info.fizzle ? 3 : 4, outline: '#2a0a10', shadow: '#0a0410' });
-  if (!info.fizzle) T(info.target ? `DAMAGE → ${info.target.toUpperCase()}` : info.launched ? 'DAMAGE' : 'NOT LAUNCHED: ADD FORCE', (PW / 2) * CS, 131 * CS, 'body', info.launched ? '#e8dcc8' : '#f6b3a0', { k: 1 });
+  const big = info.fizzle ? 'FIZZLE' : String(info.total); T(big, (PW / 2) * CS, 124 * CS, info.fizzle ? 'body' : 'num', info.fizzle ? '#dcae9c' : '#e09272', { k: info.fizzle ? 3 : 4, outline: '#2a0e0c', shadow: '#0a0606' });
+  if (!info.fizzle) T(info.target ? `DAMAGE → ${info.target.toUpperCase()}` : info.launched ? 'DAMAGE' : 'NOT LAUNCHED: ADD FORCE', (PW / 2) * CS, 131.5 * CS, 'body', info.launched ? '#e0d4c0' : '#dcae9c', { k: fit(info.target ? `DAMAGE → ${info.target.toUpperCase()}` : 'NOT LAUNCHED: ADD FORCE', 'body', 106 * CS, [2, 1]) || 1 });
   let x = 10; const y0 = 137; const chips = info.chips.slice(0, 4); const ws = chips.map(([t]) => measure(t, 'body') + 8); const tot = ws.reduce((a, b) => a + b + 3, -3); x = Math.round((PW * CS - tot * 2) / 2 / CS);
-  chips.forEach(([t, col], i) => { const w = ws[i]; for (let yy = 0; yy < 10; yy++) for (let xx = 0; xx < w / 2 + 1; xx++) px(g, x + xx, y0 + yy, yy === 0 || yy === 9 ? GOLD[1] : '#2a1a44'); drawPixelText(g, t, (x + 1) * CS + 4, (y0 + 7.5) * CS, 'body', { color: col, k: 2 }); x += Math.round(w / 2) + 3; });
-  T(info.law ? 'A LAW OF NATURE' : `SPELL · ${info.n} CARDS`, (PW / 2) * CS, 160 * CS, 'rune', info.law ? '#ffd36a' : '#a890d8', { k: 2 });
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 4; return t;
+  chips.forEach(([t, col], i) => { const w = ws[i]; for (let yy = 0; yy < 10; yy++) for (let xx = 0; xx < w / 2 + 1; xx++) px(g, x + xx, y0 + yy, yy === 0 || yy === 9 ? GOLD[1] : '#2a2230'); drawPixelText(g, t, (x + 1) * CS + 4, (y0 + 7.5) * CS, 'body', { color: col, k: 2 }); x += Math.round(w / 2) + 3; });
+  T(info.law ? 'A LAW OF NATURE' : `SPELL · ${info.n} CARDS`, (PW / 2) * CS, 160 * CS, 'rune', info.law ? '#d8bc72' : '#a49ab4', { k: 2 });
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.anisotropy = 4; return t;
 }
 /** what the spell card says, from a held object's preview */
 export function spellInfo(pv, o, B) {
@@ -124,7 +125,7 @@ export class SpellCard {
     this.artM = new THREE.MeshBasicMaterial({ toneMapped: false });
     const face = new THREE.Mesh(new THREE.PlaneGeometry(SPELL_W, SPELL_H), this.faceM); face.position.z = 0.012; face.renderOrder = 22;
     const aw = (ART.w / PW) * SPELL_W, ah = (ART.h / PH) * SPELL_H; const art = new THREE.Mesh(new THREE.PlaneGeometry(aw, ah), this.artM); art.position.set(((ART.x + ART.w / 2) / PW - 0.5) * SPELL_W, (0.5 - (ART.y + ART.h / 2) / PH) * SPELL_H, 0.0); art.renderOrder = 21;
-    const back = new THREE.Mesh(new THREE.BoxGeometry(SPELL_W * 1.0, SPELL_H * 1.0, 0.05), new THREE.MeshStandardMaterial({ color: 0x8a5a18, metalness: 0.7, roughness: 0.35, emissive: 0x2a1406 })); back.position.z = -0.03;
+    const back = new THREE.Mesh(new THREE.BoxGeometry(SPELL_W * 1.0, SPELL_H * 1.0, 0.05), new THREE.MeshStandardMaterial({ color: 0x6e5634, metalness: 0.6, roughness: 0.5, emissive: 0x1a1208 })); back.position.z = -0.03;
     this.pivot = new THREE.Group(); this.pivot.add(back, art, face); this.group.add(this.pivot); this.group.visible = false; this.mesh = face; face.userData.spell = this;
   }
   set(pv, o, B) {

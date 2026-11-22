@@ -14,6 +14,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { InkPass } from './ink.js';
 import { ART } from './art.js';
 import '../gfx/lowpoly.js'; // realistic Lambert light on every toon material (no cel bands)
@@ -38,19 +39,33 @@ const TiltShiftShader = {
   }`,
 };
 
-// Camera motion blur: every pixel's world position (from depth, or a mid-distance plane when no depth is available) is
-// reprojected with last frame's view-projection; the frame is smeared along that screen velocity (8 taps, clamped). A
-// still camera gives zero velocity, so the image stays exactly as crisp as before.
+// MOTION BLUR (two parts, one pass):
+//  * camera blur: every pixel's world position (from depth, or a mid-distance plane when no depth is available) is
+//    reprojected with last frame's view-projection; the frame is smeared along that screen velocity (MB_N taps,
+//    clamped, faded in so a near-still camera never softens).
+//  * object blur: last frame's output, reprojected the same way, is blended in ONLY where it disagrees with this frame
+//    (something moved there: a thrown apple, a lunging beast, a falling body), so fast objects leave a short shutter
+//    smear while still pixels stay exactly as crisp as before. (History off on the low preset.)
+// A still camera over a still world gives zero velocity and zero disagreement: the image is untouched. The 3D UI and
+// all text are drawn after the post chain, never blurred.
 const MotionBlurShader = {
-  uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, uHasDepth: { value: 0 }, uInvVP: { value: new THREE.Matrix4() }, uPrevVP: { value: new THREE.Matrix4() }, uStrength: { value: 0.35 }, uMax: { value: 0.022 }, uNear: { value: 0.1 }, uFar: { value: 400 } },
+  defines: { MB_N: 12 },
+  uniforms: { tDiffuse: { value: null }, tDepth: { value: null }, tHist: { value: null }, uHasDepth: { value: 0 }, uHistK: { value: 0 }, uInvVP: { value: new THREE.Matrix4() }, uPrevVP: { value: new THREE.Matrix4() }, uStrength: { value: 0.35 }, uMax: { value: 0.036 }, uNear: { value: 0.1 }, uFar: { value: 400 } },
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-  fragmentShader: `uniform sampler2D tDiffuse, tDepth; uniform float uHasDepth, uStrength, uMax; uniform mat4 uInvVP, uPrevVP; varying vec2 vUv;
+  fragmentShader: `uniform sampler2D tDiffuse, tDepth, tHist; uniform float uHasDepth, uStrength, uMax, uHistK; uniform mat4 uInvVP, uPrevVP; varying vec2 vUv;
+  float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
   void main(){
     float d = uHasDepth > 0.5 ? texture2D(tDepth, vUv).x : 0.985; d = min(d, 0.9995);
-    vec4 wp = uInvVP * vec4(vUv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0); wp /= wp.w; vec4 pp = uPrevVP * wp; pp /= pp.w;
-    vec2 vel = (vUv - (pp.xy * 0.5 + 0.5)) * uStrength; float L = length(vel); if (L > uMax) vel *= uMax / L;
-    vec4 c = texture2D(tDiffuse, vUv); if (L < 0.0006) { gl_FragColor = c; return; }
-    vec4 acc = c; for (int i = 1; i < 8; i++) { float f = float(i) / 7.0 - 0.5; acc += texture2D(tDiffuse, vUv + vel * f); } gl_FragColor = acc / 8.0;
+    vec4 wp = uInvVP * vec4(vUv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0); wp /= wp.w; vec4 pp = uPrevVP * wp; pp /= pp.w; vec2 puv = pp.xy * 0.5 + 0.5;
+    vec2 vel = (vUv - puv) * uStrength; float L = length(vel); if (L > uMax) vel *= uMax / L;
+    vec4 c = texture2D(tDiffuse, vUv); vec4 o = c;
+    float fk = smoothstep(0.0007, 0.0025, L);
+    if (fk > 0.0) { float j = h(vUv * 917.0) - 0.5; vec4 acc = c; for (int i = 1; i < MB_N; i++) { float f = (float(i) + j * 0.6) / float(MB_N - 1) - 0.5; acc += texture2D(tDiffuse, vUv + vel * f); } o = mix(c, acc / float(MB_N), fk); }
+    if (uHistK > 0.0 && puv.x > 0.0 && puv.y > 0.0 && puv.x < 1.0 && puv.y < 1.0) {
+      vec3 hc = texture2D(tHist, puv).rgb; float df = dot(abs(hc - c.rgb), vec3(0.3, 0.5, 0.2));
+      o.rgb = mix(o.rgb, hc, uHistK * smoothstep(0.05, 0.22, df));
+    }
+    gl_FragColor = o;
   }`,
 };
 
@@ -229,6 +244,14 @@ const art = (q) => { const v = new URLSearchParams(location.search).get(q); retu
 // 3D UI stay crisp while the world reads as pixel art. Auto quality drops shadows / AO samples, never the art rows.
 const hiRes = (q) => { const d = window.devicePixelRatio || 1; return q === 'low' ? Math.min(2, Math.max(1, d)) : q === 'medium' ? Math.min(2, Math.max(1.25, d)) : Math.min(2, Math.max(1.5, d)); };
 
+// copies the motion-blurred frame into a history target (read by the next frame's object smear) and passes it on
+class HistoryPass extends Pass {
+  constructor(w, h) { super(); this.needsSwap = false; this.valid = false; this.rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthBuffer: false });
+    this.quad = new FullScreenQuad(new THREE.ShaderMaterial({ uniforms: { t: { value: null } }, vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }', fragmentShader: 'uniform sampler2D t; varying vec2 vUv; void main(){ gl_FragColor = texture2D(t, vUv); }', depthTest: false, depthWrite: false })); }
+  setSize(w, h) { this.rt.setSize(w, h); this.valid = false; }
+  render(renderer, writeBuffer, readBuffer) { this.quad.material.uniforms.t.value = readBuffer.texture; renderer.setRenderTarget(this.rt); this.quad.render(renderer); this.valid = true; }
+}
+
 export class Engine {
   constructor(canvas) {
     this.canvas = canvas;
@@ -268,7 +291,8 @@ export class Engine {
     // anime/cartoon black ink lines on the 3D world
     this.inkForced = new URLSearchParams(location.search).get('ink') === '1';
     this.ink = new InkPass(this.world.scene, this.world.camera, size.x, size.y); this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.75, this.pixelRatio * 0.55); this.composer.addPass(this.ink); // thin: one art pixel
-    this.mblur = new ShaderPass(MotionBlurShader); this.composer.addPass(this.mblur); this._prevVP = new THREE.Matrix4(); this._vp = new THREE.Matrix4(); this._mbPos = new THREE.Vector3(); this._mbInit = false; this.motionBlur = 0.32; // subtle camera motion blur
+    this.mblur = new ShaderPass(MotionBlurShader); this.composer.addPass(this.mblur); this._prevVP = new THREE.Matrix4(); this._vp = new THREE.Matrix4(); this._mbPos = new THREE.Vector3(); this._mbInit = false; this.motionBlur = 0.8; this.objectBlur = 0.4; this.mbTest = new URLSearchParams(location.search).get('mbh') === '1'; // (user: lots more motion blur) camera smear gain, object shutter smear
+    this.mbHist = new HistoryPass(size.x, size.y); this.composer.addPass(this.mbHist); this.mblur.uniforms.tHist.value = this.mbHist.rt.texture; // keeps this frame's blurred image for the next frame's object smear
     this.rays = new ShaderPass(RaysShader); this.rays.enabled = false; this.composer.addPass(this.rays);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.55, 0.55, 0.82);
     this.composer.addPass(this.bloom);
@@ -300,6 +324,7 @@ export class Engine {
     this.pixelRatio = hiRes(q); if (this.ink) this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.75, this.pixelRatio * 0.55);
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.shadowMap.enabled = q !== 'low'; // low quality: no shadow maps / GTAO; contact shadows and vertex AO still ground everything
+    if (this.mblur) { const n = q === 'low' ? 6 : q === 'medium' ? 10 : 12; if (this.mblur.material.defines.MB_N !== n) { this.mblur.material.defines.MB_N = n; this.mblur.material.needsUpdate = true; } this.mbHist.enabled = q !== 'low'; }
     if (this.gtao) { this.gtao.enabled = this.aoForced || (q !== 'low' && this.fx?.ao !== false); this.gtao.updateGtaoMaterial({ samples: q === 'high' ? 16 : 8 }); this.gtao.updatePdMaterial({ samples: q === 'high' ? 12 : 6 }); }
     this.resize();
   }
@@ -443,8 +468,9 @@ export class Engine {
     this.grade.uniforms.uTime.value = this.pixelOn ? 0 : this.time; // pixel look: the faint grain holds still (no crawling pixels)
     if (this.rays.enabled && this.raysPos) { const p = this._sunP || (this._sunP = new THREE.Vector3()); p.copy(this.raysPos).project(cam); const u = this.rays.uniforms; u.uSun.value.set(p.x * 0.5 + 0.5, p.y * 0.5 + 0.5); u.uAspect.value = this.aspect; u.uFade.value = p.z > 1 ? 0 : 1 - Math.min(1, Math.max(0, Math.max(Math.abs(p.x), Math.abs(p.y)) - 1.1) / 0.8); }
     // motion blur: this frame's inverse view-projection against last frame's (the shake is part of the motion)
-    if (this.mblur) { const mu = this.mblur.uniforms; cam.updateMatrixWorld(); this._vp.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); if (!this._mbInit || this._mbCam !== cam || cam.position.distanceTo(this._mbPos) > 1.2) { this._prevVP.copy(this._vp); this._mbInit = true; this._mbCam = cam; } this._mbPos.copy(cam.position); // (a hard cut is not motion)
-      mu.uInvVP.value.copy(this._vp).invert(); mu.uPrevVP.value.copy(this._prevVP); const dep = this.ink?.enabled ? this.ink.rt?.depthTexture : null; mu.tDepth.value = dep; mu.uHasDepth.value = dep ? 1 : 0; mu.uStrength.value = (this.motionBlur ?? 0.32) * Math.min(1, (1 / 60) / Math.max(1 / 240, rdt)); this.mblur.enabled = this.motionBlur > 0; }
+    if (this.mblur) { const mu = this.mblur.uniforms; cam.updateMatrixWorld(); this._vp.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); if (!this._mbInit || this._mbCam !== cam || cam.position.distanceTo(this._mbPos) > 1.2) { this._prevVP.copy(this._vp); this._mbInit = true; this._mbCam = cam; this._mbCut = true; } this._mbPos.copy(cam.position); // (a hard cut is not motion)
+      mu.uInvVP.value.copy(this._vp).invert(); mu.uPrevVP.value.copy(this._prevVP); const dep = this.ink?.enabled ? this.ink.rt?.depthTexture : null; mu.tDepth.value = dep; mu.uHasDepth.value = dep ? 1 : 0; mu.uStrength.value = (this.motionBlur ?? 0.8) * Math.min(1, (1 / 60) / Math.max(1 / 240, rdt)); this.mblur.enabled = this.motionBlur > 0;
+      const histOk = this.mbHist.enabled && this.mbHist.valid && this._mbCut !== true; mu.uHistK.value = histOk ? this.objectBlur * Math.min(1, (1 / 60) / Math.max(1 / 240, rdt)) : 0; this._mbCut = false; this.mbHist.enabled = this.mblur.enabled && this.quality !== 'low' && (!this.testMode || this.mbTest); }
     const snapped = this.pixelOn ? this._snap(cam) : null;
     this.renderer.setRenderTarget(null);
     this.renderer.clear();

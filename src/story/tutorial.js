@@ -10,6 +10,7 @@ import { fsay, fstop } from './floattext.js';
 import { audio } from '../core/audio.js';
 import { computeMove, flatten } from '../game/combos.js';
 import { DIFF } from '../game/battle.js';
+import { gardenFrame } from './gardencam.js';
 
 // the tutorial raccoon is not scaled by the run's HARD difficulty
 DIFF.per.raccoon = 1 / DIFF.hp.normal; DIFF.dmgPer.raccoon = 1 / DIFF.dmg.normal; // 40 HP (three turns of lessons), blows of 2 and 3: a first fight you cannot lose
@@ -58,13 +59,13 @@ export function kidHero() {
   return api;
 }
 
-export const tutorialFraming = { twoShot, overShoulder, headOf }; // (also used by the camera review tooling)
+export const tutorialFraming = { twoShot, overShoulder, headOf, gardenFrame }; // (also used by the camera review tooling)
 
 /** the run and the encounter for the tutorial battle; lines: the teacher's script (voiced) */
 export function tutorialBattle(game) {
   const run = newRun(4242); run.deck = ['apple', 'force', 'spin', 'stone'].map(card); // (the Stone: to hide behind, the Block lesson) run.items = []; run.player = { hp: 30, maxHp: 30 }; run.tutorial = true;
   let teacher = null, upd = null; const said = new Set();
-  const frame = (S, f) => S.shotCam?.shot?.(f.pos, f.look, { speed: 2.0, fov: f.fov }); // eases in, glides between framings (the battle releases it on its own turn changes)
+  const frame = (S, f) => { gardenFrame(f.pos, f.look); return S.shotCam?.shot?.(f.pos, f.look, { speed: 2.0, fov: f.fov }); }; // eases in, glides between framings (the battle releases it on its own turn changes)
   const foe = (S) => { const v = S.enemyViews?.values().next().value; return v ? headOf(v.api, Math.max(0.5, (v.h || 1) * 0.6)) : V(3.5, 0.6, 0); };
   const pair = (S, o = {}) => twoShot(S, headOf(teacher, 1.5), S.prof.headWorld ? S.prof.headWorld(V()) : headOf(S.prof, 1.0), o); // the teacher and the boy
   const rel = (S) => S.shotCam?.release?.(1.6);

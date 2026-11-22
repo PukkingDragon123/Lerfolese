@@ -70,7 +70,7 @@ export class Surf {
       const i = y * this.w + x; let v = this.fx[i]; if (!v) { const k = this.r[i]; if (k < 0) continue; v = P(rampList[k][this.t[i]]); }
       for (let j = 0; j < K; j++) { const row = (y * K + j) * W + x * K; for (let q = 0; q < K; q++) D[row + q] = v; }
     }
-    g.putImageData(img, 0, 0); c.userData = { K }; return c;
+    g.putImageData(img, 0, 0); if (this.texts?.length) { g.save(); g.setTransform(K, 0, 0, K, 0, 0); for (const J of this.texts) inkJob(g, J); g.restore(); } c.userData = { K }; return c;
   }
   // canvas resolution ~2x the on-screen pixels at 1080p (16 texels/unit x 6 = 96 px/unit), capped for very large sheets
   static K(w, h) { return Math.max(1, Math.min(6, Math.floor(3072 / Math.max(w, h)))); }
@@ -307,7 +307,33 @@ export function wrapText(str, f, maxW) {
 // pixel text straight onto a 2D canvas (card faces, journal pages, canvas labels): the binarised native raster drawn as
 // k x k blocks (k = f.scale), with an optional 1-font-pixel outline and drop shadow on the same grid. Row runs are
 // filled as rectangles, so there is never a soft or partial pixel. (x, baseY) in canvas px; returns the drawn width.
-export function drawPixelText(g, str, x, baseY, f, { color = '#2a160c', outline = null, shadow = null, align = 'left', k = null } = {}) {
+// ---------------------------------------------------------------- HIGH-RES ALAGARD (user: the main font almost everywhere)
+// Every lettering role (titles, rules text, numbers, captions) is now SET IN ALAGARD as real vector type at the full
+// resolution of the canvas it lands on (canvases are painted at device-pixel x2 or more; see hiCanvas / Surf.toCanvas),
+// never a low-res pixel raster. The role table (FONT) still gives each role its cap height and its advance widths, so every
+// existing layout keeps its measure: the Alagard run is sized to the role's cap height and fitted to the role's width
+// (a touch of size, then tracking, then at most a slight condense). Laws/runes keep RuneMono, also as vector type.
+const CAP_RATIO = { Alagard: 0.6875, RuneMono: 5 / 12 };
+const famOf = (f) => (f.font === 'RuneMono' ? 'RuneMono' : 'Alagard');
+export function vecText(g, str, x, baseY, f, { color = '#2a160c', outline = null, shadow = null, align = 'left', k = null, width = null } = {}) {
+  f = fontOf(f); str = String(str); if (!str) return 0; const K = k || f.scale || 1; const fam = famOf(f); str = fixGlyphs(str, { font: fam }).replace(/·/g, fam === 'Alagard' ? '-' : '·');
+  const capN = (f.cap ?? 8) / (f.scale || 1); const W = width ?? (measure(str, f) / (f.scale || 1)) * K;
+  let px = (capN * K) / CAP_RATIO[fam]; g.save(); g.font = `${px.toFixed(2)}px "${fam}"`; let aw = g.measureText(str).width;
+  const one = [...str].length === 1; // a single glyph (typewriter reveals) keeps Alagard's own size and sits centred in its cell
+  const s = one ? 1 : Math.max(0.84, Math.min(1.12, W / Math.max(1e-3, aw))); px *= s; aw *= s; g.font = `${px.toFixed(2)}px "${fam}"`;
+  let sx = 1; if (one) { x += (W - aw) / 2 * (align === 'center' ? 0 : align === 'right' ? -1 : 1); } else if (aw > W * 1.01) sx = W / aw; else if (str.length > 1 && 'letterSpacing' in g) { const ls = Math.min(px * 0.14, (W - aw) / (str.length - 1)); if (ls > 0.05) g.letterSpacing = ls.toFixed(2) + 'px'; }
+  const Wd = one ? aw : W; const x0 = align === 'center' ? x - Wd / 2 : align === 'right' ? x - Wd : x; g.translate(x0, baseY); if (sx !== 1) g.scale(sx, 1);
+  g.textBaseline = 'alphabetic'; g.textAlign = 'left'; g.lineJoin = 'round'; const o = K; // one role pixel
+  if (shadow) { g.fillStyle = g.strokeStyle = shadow; if (outline) { g.lineWidth = o * 2; g.strokeText(str, 0, o); } g.fillText(str, 0, o); }
+  if (outline) { g.strokeStyle = outline; g.lineWidth = o * 2; g.strokeText(str, 0, 0); }
+  g.fillStyle = color; g.fillText(str, 0, 0); g.restore(); return W;
+}
+/** a canvas painted at K x its layout size (layout coordinates stay W x H): for crisp vector type at device resolution */
+export function hiCanvas(W, H, K = 3) { const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(W * K)); c.height = Math.max(1, Math.round(H * K)); c.getContext('2d').setTransform(K, 0, 0, K, 0, 0); c.userData = { hiK: K, K, lw: W, lh: H }; return c; }
+export const hiK = () => Math.max(3, Math.min((typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches) ? 4 : 6, Math.ceil(2 * Math.max(1, Math.min(3, window.devicePixelRatio || 1)) * Math.max(1, (window.innerHeight || 720) / 720)))); // (capped: mobile memory)
+export function drawPixelText(g, str, x, baseY, f, o = {}) { return vecText(g, str, x, baseY, f, o); }
+// the old block renderer (pixel-art lettering), kept for sprites that really are pixel art
+export function drawPixelBlocks(g, str, x, baseY, f, { color = '#2a160c', outline = null, shadow = null, align = 'left', k = null } = {}) {
   f = fontOf(f); str = String(str); if (!str) return 0; const K = k || f.scale || 1; const nf = (f.scale || 1) === 1 ? f : { ...f, scale: 1, cap: f.cap / f.scale }; const m = runMask(str, nf);
   const W = m.w * K; x = Math.round(align === 'center' ? x - W / 2 : align === 'right' ? x - W : x); baseY = Math.round(baseY);
   const X0 = -2, X1 = m.w + 3, Y0 = m.top, Y1 = m.bot; const lit = (X, Y) => m.on(X, Y);
@@ -321,7 +347,11 @@ export function drawPixelText(g, str, x, baseY, f, { color = '#2a160c', outline 
 // draw one run of text with a style; (x, baseline). Returns width.
 // styles: ink | engrave | carve | gild | burn | chalk | stamp | emb | enamel
 export function inscribe(S, str, x, baseY, f, style = 'ink', { color = '#2a160c', ramp = null, seed = 1, fill = null } = {}) {
-  if (!str) return 0; f = fontOf(f); const m = runMask(str, f); const on = (X, Y) => m.on(X - x, Y - baseY);
+  if (!str) return 0; f = fontOf(f);
+  if (S.vecText !== false) { // high-res Alagard: recorded here, set as vector type when the surface is rendered (Surf.toCanvas)
+    const w = measure(String(str), f); const under = S.ramp(x + Math.min(w, 3), baseY - Math.max(1, Math.round((f.cap || 8) / 2))) || S.ramp(x, baseY);
+    (S.texts ||= []).push({ str: String(str), x, baseY, f, style, color, ramp, fill, under, w }); return w;
+  } const m = runMask(str, f); const on = (X, Y) => m.on(X - x, Y - baseY);
   const X0 = x - 2, X1 = x + m.w + 3, Y0 = baseY + m.top - 1, Y1 = baseY + m.bot + 1; const pts = [];
   for (let Y = Y0; Y < Y1; Y++) for (let X = X0; X < X1; X++) if (on(X, Y)) pts.push([X, Y]);
   const rampAt = (X, Y) => ramp || S.ramp(X, Y);
@@ -371,6 +401,20 @@ export function inscribe(S, str, x, baseY, f, style = 'ink', { color = '#2a160c'
   return m.w;
 }
 // lay out lines (strings or [[text, color], ...] segments) in a box; returns used height
+// one recorded inscription as vector Alagard, in the style's own light: grooves, lips, cast shadows, leaf, char
+function inkJob(g, J) {
+  const { str, x, baseY, f, style, color, ramp, fill, under: U, w } = J; const T = (c, dx = 0, dy = 0, o = {}) => vecText(g, str, x + dx, baseY + dy, f, { color: c, width: w, ...o });
+  const top = (r) => r[r.length - 1], lo = (r) => r[Math.min(1, r.length - 1)];
+  switch (style) {
+    case 'engrave': case 'enamel': case 'carve': { const R = U || RAMP.brass; T(top(R), 0.5, 0.6); T(R[0], 0, -0.35); T(fill ? fill[Math.min(2, fill.length - 1)] : style === 'carve' ? lo(R) : R[0]); break; }
+    case 'gild': { const G = ramp || RAMP.gold; T('rgba(20,8,4,0.55)', 1, 1); const fs = g.fillStyle; void fs; T(G[4]); g.save(); g.beginPath(); const cap = (f.cap || 8) / (f.scale || 1) * (f.scale || 1); g.rect(x - 2, baseY - cap - 2, w + 4, cap * 0.45 + 2); g.clip(); T(G[5]); g.restore(); break; }
+    case 'burn': T('rgba(70,24,6,0.45)', 0.6, 0.6); T(RAMP.char[1]); break;
+    case 'chalk': T(RAMP.chalk[2]); break;
+    case 'emb': { const R = ramp || RAMP.thread; T('rgba(0,0,0,0.35)', 0.7, 0.7); T(R[4]); break; }
+    case 'paint': T('rgba(10,4,6,0.45)', 0.7, 0.7); T(ramp ? ramp[ramp.length - 2] : color); break;
+    default: T(color); // ink, stamp
+  }
+}
 export function inscribeLines(S, lines, box, f, style = 'ink', { align = 'center', valign = 'middle', lineH = null, color = '#2a160c', seed = 1, ramp = null, fill = null, fonts = null } = {}) {
   const arr = Array.isArray(lines) ? lines : [lines]; const fl = (i) => fontOf((fonts && fonts[i]) || f);
   const LH = (i) => lineH || fl(i).lineH; let total = 0; for (let i = 0; i < arr.length; i++) total += LH(i);

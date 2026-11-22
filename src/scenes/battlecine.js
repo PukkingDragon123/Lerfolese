@@ -12,6 +12,7 @@ import { WIND } from '../models/toon.js';
 import { audio } from '../core/audio.js';
 import { tweens } from '../core/tween.js';
 import { baseOf } from '../game/combos.js';
+import { gardenFrame } from '../story/gardencam.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const sm = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
@@ -33,6 +34,7 @@ export class ShotCam {
   constructor(S) { this.S = S; this.w = 0; this.target = 0; this.pos = V(); this.look = V(); this.speed = 4; this.fov = null; this._f = V(); this._l = V(); this.cp = V(); this.cl = V(); this.cf = null; this.t = 0; }
   /** frame pos -> look; snap = a hard cut; speed = how fast the camera eases in (1/s) */
   shot(pos, look, { snap = false, speed = 4, fov = null } = {}) {
+    if (this.S.runData?.tutorial) { pos = pos.clone(); look = look.clone(); gardenFrame(pos, look); } // the tutorial: never turn away from the garden
     const live = this.w > 0.03 && this.target > 0; this.pos.copy(pos); this.look.copy(look); this.target = 1; this.speed = speed; this.fov = fov;
     if (snap || !live) { this.cp.copy(pos); this.cl.copy(look); this.cf = fov; } if (snap) this.w = 1;
   }

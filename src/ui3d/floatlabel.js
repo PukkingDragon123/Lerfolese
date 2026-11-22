@@ -7,7 +7,7 @@
 //   const L = new FloatLabel({ title: 'Star Gallery', hint: 'the museum & the frog' }, { at: V3, dist: 9 });
 //   scene.add(L.mesh); L.update(dt, t, camera); L.show = true|false; L.hot = hovered
 import * as THREE from 'three';
-import { FONT, measure, drawPixelText, wrapText, uiPos } from './craft.js';
+import { FONT, measure, drawPixelText, wrapText, uiPos, hiCanvas, hiK } from './craft.js';
 import { audio } from '../core/audio.js';
 import { Spring } from '../core/tween.js';
 
@@ -24,7 +24,7 @@ function paint({ title, hint, style, hintStyle, chevron }) {
   const tf = FONT.head, hf = FONT.body; const pad = 5;
   const tw = title ? measure(title, tf) : 0, hw = hint ? measure(hint, hf) : 0; const W = Math.max(tw, hw, chevron ? 16 : 0) + pad * 2 + 2;
   const th = title ? tf.lineH + 4 : 0, hh = hint ? hf.lineH + 4 : 0; const H = th + hh + (chevron ? 12 : 0) + pad * 2;
-  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  const c = hiCanvas(W, H, hiK()); const g = c.getContext('2d');
   const line = (str, f, y, S) => { // extruded side, ink outline, ramped face (highlight band on top, shade band below)
     const x = W / 2; const top = y - f.cap, ch = f.cap;
     for (const d of [2, 1]) drawPixelText(g, str, x + d, y + d, f, { color: S.side, outline: S.side, align: 'center' });
@@ -41,7 +41,7 @@ export class FloatLabel {
   /** content: { title, hint, chevron }; opts: { at (V3 anchor), dist (designed viewing distance, sets texel size), style: 'brass'|'silver'|'bone', hintStyle } */
   constructor(content, { at = new THREE.Vector3(), dist = 9, style = 'brass', hintStyle = 'bone', phase = Math.random() * 10, texel = null } = {}) {
     const canvas = paint({ ...content, style, hintStyle }); const tex = crispTex(canvas, crispK(3)); // high-resolution (see crispTex)
-    const k = texel ?? dist / 640; this.size = [canvas.width * k, canvas.height * k];
+    const k = texel ?? dist / 640; this.size = [(canvas.userData?.lw ?? canvas.width) * k, (canvas.userData?.lh ?? canvas.height) * k];
     const U = { uFade: { value: 0 } }; this.U = U;
     const mat = new THREE.MeshLambertMaterial({ map: tex, alphaTest: 0.5, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.5, side: THREE.DoubleSide });
     mat.onBeforeCompile = (sh) => { sh.uniforms.uFade = U.uFade; sh.fragmentShader = 'uniform float uFade;\n' + DITHER + sh.fragmentShader.replace('#include <alphatest_fragment>', '#include <alphatest_fragment>\n if (fl_bayer(gl_FragCoord.xy / 2.0) > uFade) discard;'); };
@@ -79,7 +79,7 @@ const normLines = (lines) => { const arr = Array.isArray(lines) && (typeof lines
 function ftPaint(lines, { font = 'body', color = '#f2ead8', align = 'left', fonts = null, maxW = 0, lighten = true, chars = Infinity }) {
   const L = normLines(lines); const pad = 4; const metrics = L.map((runs, i) => { const f = FONT[(fonts && fonts[i]) || font]; const w = runs.reduce((k, [t]) => k + measure(String(t ?? ''), f), 0); return { f, w, lh: f.lineH + 3 }; });
   const W = Math.max(8, ...metrics.map((m) => m.w)) + pad * 2 + 3, H = metrics.reduce((k, m) => k + m.lh, 0) + pad * 2 + 2;
-  const face = document.createElement('canvas'); face.width = W; face.height = H; const side = document.createElement('canvas'); side.width = W; side.height = H;
+  const HK = hiK(); const face = hiCanvas(W, H, HK); const side = hiCanvas(W, H, HK); // vector Alagard at device resolution
   const g = face.getContext('2d'), gs = side.getContext('2d'); let y = pad, shown = 0;
   L.forEach((runs, i) => { const { f, w, lh } = metrics[i]; let x = align === 'center' ? Math.round(W / 2 - w / 2) : align === 'right' ? W - pad - 3 - w : pad; const base = y + (f.base ?? 9) + 1;
     for (const [t0, c] of runs) { let t = String(t0 ?? ''); if (shown + t.length > chars) t = t.slice(0, Math.max(0, chars - shown)); shown += String(t0 ?? '').length; if (!t) { x += measure(String(t0 ?? ''), f); continue; }
@@ -97,7 +97,7 @@ const ftMat = (tex, U, z = 0) => new THREE.MeshLambertMaterial({ map: tex, alpha
 // one-pixel anti-aliased edge at any scale, tilt or unfold angle, never blurred, never uneven nearest-neighbour steps
 const devPx = () => window.__game?.engine?.pixelRatio || Math.min(2, window.devicePixelRatio || 1);
 export const crispK = (pxPerFontPx = pxPerTexel()) => Math.max(2, Math.min(8, Math.ceil(pxPerFontPx * devPx())));
-export function crispCanvas(c, K) { if (K <= 1) return c; const o = document.createElement('canvas'); o.width = c.width * K; o.height = c.height * K; const g = o.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, o.width, o.height); return o; }
+export function crispCanvas(c, K) { if (K <= 1 || c.userData?.hiK) return c; const o = document.createElement('canvas'); o.width = c.width * K; o.height = c.height * K; const g = o.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(c, 0, 0, o.width, o.height); return o; }
 export function crispTex(c, K = crispK()) { const t = new THREE.CanvasTexture(crispCanvas(c, K)); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = 8; return t; }
 const ftTex = (c) => crispTex(c);
 export class FloatText {

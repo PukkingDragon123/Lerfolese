@@ -10,7 +10,7 @@ function mk(g, m, p, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(g, m); o.po
 export const UIF = (o) => new THREE.MeshStandardMaterial({ flatShading: false, roughness: 0.6, toneMapped: false, ...o });
 // canvas -> texture: mipmapped (trilinear + anisotropic) when minified, NEAREST when magnified, so pixel art and pixel
 // text drawn in whole blocks never go soft on a zoomed card or page
-export function canvasTexture(c) { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.NearestFilter; return t; }
+export function canvasTexture(c) { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; return t; } // (linear: faces carry vector Alagard type at high resolution)
 
 // text -> plane mesh (world units: w x h). Pixel fonts only: `font`/`size` pick the role font (Alagard for display
 // faces, NanoPlus for numbers, RuneMono for runes, PixelSans for everything else) at the nearest whole multiple of its

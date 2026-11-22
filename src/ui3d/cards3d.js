@@ -5,12 +5,16 @@ import { canvasTexture, UIF } from './kit.js';
 import { Spring, Spring3 } from '../core/tween.js';
 import { computeMove, flatten, baseOf } from '../game/combos.js';
 import { BASICS } from '../game/data/cards.js';
+import { CardIcon, hasIcon } from '../gfx/icon3d.js';
 
 export const CARD_W = 3.0, CARD_H = 4.2;
 const texCache = new Map();
 function faceTex(card, move, live = null) {
-  const c = renderCardFace(card, move, live); if (!texCache.has(c)) texCache.set(c, canvasTexture(c)); return texCache.get(c);
+  const c = renderCardFace(card, move, live, { live3d: iconId(card, move) != null }); if (!texCache.has(c)) texCache.set(c, canvasTexture(c)); return texCache.get(c);
 }
+// a basic card whose subject is a real 3D object (gfx/icon3d.js): its face leaves the art window to the live icon
+const iconId = (card, move) => (!move && card && (card.type || 'basic') === 'basic' && !card.petrified && hasIcon(card.id) ? card.id : null);
+const ART = { x: 0, y: CARD_H / 2 - (52.5 / 168) * CARD_H, w: (106 / 120) * CARD_W, h: (63 / 168) * CARD_H };
 let backTex = null; export function cardBackTex() { if (!backTex) backTex = canvasTexture(renderCardBack()); return backTex; }
 const edgeMat = UIF({ color: new THREE.Color(0xe8d4a2).multiplyScalar(0.72), roughness: 0.8 }); // (the UI rig lifts lit faces ~1.35x: pre-darkened so the edge reads as card stock, not a white line)
 const geo = new THREE.BoxGeometry(CARD_W, CARD_H, 0.045);
@@ -19,16 +23,18 @@ const geo = new THREE.BoxGeometry(CARD_W, CARD_H, 0.045);
 // whisper of form: a 10% fall-off as the card turns away from the key and a faint sheen as it tilts into the light.
 // .map and .color behave like a standard material's (color tints the face, e.g. cards marked to discard).
 const FACE_VS = 'varying vec2 vUv; varying vec3 vN; varying vec3 vV; void main(){ vUv = uv; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = -mv.xyz; gl_Position = projectionMatrix * mv; }';
-const FACE_FS = `uniform sampler2D map; uniform vec3 diffuse; uniform float sheen; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+const FACE_FS = `uniform sampler2D map; uniform vec3 diffuse; uniform float sheen, fade; uniform vec2 smear; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
   // the face is usually drawn smaller than its 4x pixel-art canvas: four rotated-grid taps at a sharper mip resolve the
   // pixel text crisply instead of the soft trilinear blur
-  void main(){ vec2 dx = dFdx(vUv) * 0.25, dy = dFdy(vUv) * 0.25; vec4 t = (texture2D(map, vUv + dx * 0.5 + dy * 1.5, -1.0) + texture2D(map, vUv - dx * 1.5 + dy * 0.5, -1.0) + texture2D(map, vUv - dx * 0.5 - dy * 1.5, -1.0) + texture2D(map, vUv + dx * 1.5 - dy * 0.5, -1.0)) * 0.25; if (t.a < 0.5) discard; vec3 n = normalize(vN), v = normalize(vV); vec3 L = normalize(vec3(-0.3, 0.42, 1.0));
+  void main(){ vec2 dx = dFdx(vUv) * 0.25, dy = dFdy(vUv) * 0.25; vec4 t = (texture2D(map, vUv + dx * 0.5 + dy * 1.5, -1.0) + texture2D(map, vUv - dx * 1.5 + dy * 0.5, -1.0) + texture2D(map, vUv - dx * 0.5 - dy * 1.5, -1.0) + texture2D(map, vUv + dx * 1.5 - dy * 0.5, -1.0)) * 0.25;
+    if (dot(smear, smear) > 1e-7) { vec4 a = t; for (int i = 0; i < 6; i++) { float f = (float(i) + 0.5) / 6.0 - 0.5; a += texture2D(map, vUv + smear * f, -1.0); } t = a / 7.0; } // motion blur: a fast card smears along its flight
+    if (t.a < 0.5) discard; vec3 n = normalize(vN), v = normalize(vV); vec3 L = normalize(vec3(-0.3, 0.42, 1.0));
     vec3 c = t.rgb * diffuse * (0.9 + 0.1 * max(dot(n, L), 0.0)); float sp = pow(max(dot(n, normalize(L + v)), 0.0), 70.0); c += vec3(1.0, 0.95, 0.86) * sp * sheen * (1.0 - dot(c, vec3(0.3, 0.5, 0.2)) * 0.6);
-    gl_FragColor = vec4(c, 1.0);
+    gl_FragColor = vec4(c, fade);
     #include <colorspace_fragment>
   }`;
 export function cardFaceMat(map, { sheen = 0.14 } = {}) {
-  const U = { map: { value: map }, diffuse: { value: new THREE.Color(1, 1, 1) }, sheen: { value: sheen } };
+  const U = { map: { value: map }, diffuse: { value: new THREE.Color(1, 1, 1) }, sheen: { value: sheen }, fade: { value: 1 }, smear: { value: new THREE.Vector2() } };
   const m = new THREE.ShaderMaterial({ uniforms: U, vertexShader: FACE_VS, fragmentShader: FACE_FS, toneMapped: false }); m.name = 'cardFace';
   Object.defineProperty(m, 'map', { get: () => U.map.value, set: (v) => { U.map.value = v; } }); m.color = U.diffuse.value; return m;
 }
@@ -43,9 +49,12 @@ export class Card3D {
     this.group = new THREE.Group(); this.group.add(this.mesh);
     this.pos = new Spring3(0, -14, 0, 13, 0.62); this.rx = new Spring(0, 12, 0.5); this.ry = new Spring(0, 12, 0.5); this.rz = new Spring(0, 12, 0.5); this.sc = new Spring(1, 16, 0.5); this.flip = new Spring(0, 10, 0.6);
     this.target = { x: 0, y: -14, z: 0, rz: 0, s: 1 }; this.tilt = { x: 0, y: 0 }; this.wob = Math.random() * 10; this.dead = false;
+    this.hot = false; this.setIcon(iconId(card, card.type === 'move' ? {} : null));
   }
-  refresh(move, live = null) { const c = this.card; const t = faceTex(c, move || (c.type === 'move' ? computeMove(flatten([c])) : null), live); if (this.front.map !== t) { this.front.map = t; this.front.needsUpdate = true; } }
-  showFace(card, move) { const t = faceTex(card, move); if (this.front.map !== t) { this.front.map = t; this.front.needsUpdate = true; } }
+  /** the live 3D object standing on the art (or none) */
+  setIcon(id) { if ((this.icon?.id ?? null) === id) return; if (this.icon) { this.group.remove(this.icon.group); this.icon.dispose(); this.icon = null; } if (id) { const I = new CardIcon(id, ART); if (I.ok) { I.id = id; this.icon = I; this.group.add(I.group); } } }
+  refresh(move, live = null) { const c = this.card; const mv = move || (c.type === 'move' ? computeMove(flatten([c])) : null); const t = faceTex(c, mv, live); this.setIcon(iconId(c, mv)); if (this.front.map !== t) { this.front.map = t; this.front.needsUpdate = true; } }
+  showFace(card, move) { const t = faceTex(card, move); this.setIcon(iconId(card, move)); if (this.front.map !== t) { this.front.map = t; this.front.needsUpdate = true; } }
   update(dt, t) {
     this.pos.setTarget(this.target.x, this.target.y, this.target.z); this.pos.update(dt);
     const vx = this.pos.vx, vy = this.pos.vy;
@@ -55,8 +64,26 @@ export class Card3D {
     this.group.position.set(this.pos.x.value, this.pos.y.value, this.pos.z.value);
     this.group.rotation.set(this.rx.value + Math.sin(t * 1.3 + this.wob) * 0.015, this.ry.value + this.flip.value * Math.PI, this.rz.value + Math.sin(t * 0.9 + this.wob) * 0.01);
     this.group.scale.setScalar(this.sc.value);
+    this.icon?.update(dt, this.hot, this.flip.value < 0.5);
+    this.blur(dt);
   }
+  // MOTION BLUR for flying cards: the face smears along the card's own velocity, and a translucent shutter ghost trails
+  // a frame behind (lazily made, hidden whenever the card is slow, so a resting or hovered card is perfectly crisp)
+  blur(dt) {
+    const vx = this.pos.vx, vy = this.pos.vy, sp = Math.hypot(vx, vy); const k = Math.max(0, Math.min(1, (sp - 7) / 30)) * CARD_BLUR.k; const s = Math.max(0.2, this.sc.value);
+    const fl = this.flip.value > 0.5 ? -1 : 1; const T = 1 / 40; // shutter: a 40th of a second
+    this.front.uniforms.smear.value.set(k > 0 ? (vx * T * fl) / (CARD_W * s) : 0, k > 0 ? (vy * T) / (CARD_H * s) : 0); this.back.uniforms.smear.value.set(k > 0 ? (-vx * T * fl) / (CARD_W * s) : 0, k > 0 ? (vy * T) / (CARD_H * s) : 0);
+    if (k <= 0.02) { if (this.ghost) this.ghost.visible = false; return; }
+    if (!this.ghost) { this.gmat = cardFaceMat(this.front.map, { sheen: 0 }); this.gmat.transparent = true; this.gmat.depthWrite = false; this.gmat.side = THREE.DoubleSide; this.ghost = new THREE.Mesh(ghostGeo, this.gmat); this.ghost.renderOrder = -1; this.ghost.raycast = () => {}; this.group.add(this.ghost); }
+    this.gmat.map = fl > 0 ? this.front.map : this.back.map; this.gmat.uniforms.fade.value = 0.34 * k; this.gmat.uniforms.smear.value.copy((fl > 0 ? this.front : this.back).uniforms.smear.value).multiplyScalar(1.6);
+    // a child of the card (removed with it): last frame's offset, taken back into the card's own rotated, scaled frame
+    this.ghost.visible = true; _gq.copy(this.group.quaternion).invert(); this.ghost.position.set(-vx * T * 0.9, -vy * T * 0.9, -0.05).applyQuaternion(_gq).divideScalar(s);
+  }
+  disposeGhost() { if (this.ghost) { this.group.remove(this.ghost); this.gmat.dispose(); this.ghost = null; } }
 }
+const _gq = new THREE.Quaternion();
+export const CARD_BLUR = { k: 1 }; // 0 turns card motion blur off (settings / tests)
+const ghostGeo = new THREE.PlaneGeometry(CARD_W, CARD_H).translate(0, 0, 0.024);
 
 // A hand of slots. Each slot = one Card3D per card; stacks show the combined Move on top.
 export class HandView {
@@ -87,7 +114,7 @@ export class HandView {
       if (this.hideAll) { y = baseY - 7; }
       s.base = { x, y, z, rz, sc };
       if (this.drag?.slot === s) return;
-      const marked = !!this.selected?.has(s.uid); s.views.forEach((v, j) => { const off = s.views.length - 1 - j; v.target = { x: x - off * 0.18, y: y + off * 0.38, z: z - off * 0.08, rz: rz + off * 0.06, s: sc }; v.tilt.x = 0; v.tilt.y = 0; v.front.color.setRGB(1, marked ? 0.62 : 1, marked ? 0.55 : 1); });
+      const marked = !!this.selected?.has(s.uid); s.views.forEach((v, j) => { v.hot = this.hover === s; const off = s.views.length - 1 - j; v.target = { x: x - off * 0.18, y: y + off * 0.38, z: z - off * 0.08, rz: rz + off * 0.06, s: sc }; v.tilt.x = 0; v.tilt.y = 0; v.front.color.setRGB(1, marked ? 0.62 : 1, marked ? 0.55 : 1); });
     });
   }
   pick(hits) { for (const h of hits) { const v = h.object.userData.card3d; if (!v) continue; const s = this.slots.find((sl) => sl.views.includes(v)); if (s) return s; } return null; }
@@ -98,7 +125,7 @@ export class HandView {
       // dealt in an arc from the draw pile, face down, flipping face up as it lands
       if (v.deal) { const D = v.deal; D.t += dt; const tg = v.target; if (D.t < 0) { v.pos.snap(D.from.x, D.from.y, 1); } else if (D.t < 0.34) { const u = D.t / 0.34, e = 1 - (1 - u) * (1 - u); const mx = (D.from.x + tg.x) / 2, my = Math.max(D.from.y, tg.y) + 3.2; const x = (1 - e) * (1 - e) * D.from.x + 2 * (1 - e) * e * mx + e * e * tg.x, y = (1 - e) * (1 - e) * D.from.y + 2 * (1 - e) * e * my + e * e * tg.y; v.pos.snap(x, y, 2 + Math.sin(u * Math.PI) * 4); v.rz.value = (1 - e) * 1.2; if (u > 0.45) v.flip.target = 0; } else { v.deal = null; v.flip.target = 0; v.sc.kick(3); } }
       v.update(dt, t);
-      if (v.killAt != null) { v.killAt -= dt; if (v.killAt <= 0) { this.ui.scene.remove(v.group); this.views.delete(uid); } }
+      if (v.killAt != null) { v.killAt -= dt; if (v.killAt <= 0) { this.ui.scene.remove(v.group); v.disposeGhost(); v.setIcon(null); this.views.delete(uid); } }
       else if (v.leaving && !this.slots.some((s) => s.views.includes(v))) { v.killAt = 0.5; v.target = { x: v.target.x, y: -this.ui.H - 6, z: 0, rz: 0, s: 0.6 }; }
     }
     if (this.drag) {
