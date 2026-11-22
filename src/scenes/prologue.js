@@ -15,6 +15,7 @@
 // Esc skips; click / Space advance a line. Debug: ?prologue=1&beat=title|garden|cards|throw|fight|snake|grab|painting|sky
 // &fastlines=3. window.__prologue: { skip(), pick(i), drop('force'|'rotation'), takeApple(), beat, scene }.
 import * as THREE from 'three';
+import { holdToSkip } from '../ui2d/skiphold.js';
 import { UIScreen } from '../ui3d/widgets.js';
 import { Card3D } from '../ui3d/cards3d.js';
 import { Letterbox } from './cinematic.js';
@@ -62,13 +63,13 @@ export class PrologueScene extends UIScreen {
   async build() {
     await ensureFonts();
     this.bars = new Letterbox(this.root); this.bars.show(); window.__storyBand = true;
-    this.hint = fcaption('Esc · skip the prologue', { x: this.W - 4.4, y: this.H - 2.6, style: 'pale' }); setTimeout(() => this.hint?.show(false), 9000); // a short hint, then the picture is clean
+    this.skipper = holdToSkip(() => this.skip(), { anywhere: false }); // the shared hold-to-skip (hold Space / Esc, or hold the corner mark)
     this.pushHandler();
     this.engine.add(this); window.__prologue = { skip: () => this.skip(), pick: (i) => window.__story?.pick?.(i), drop: (k) => this.mergeCard(k), takeApple: () => this.takeApple?.(), scene: this, get beat() { return BEATS[this.scene?.beatI ?? 0]; } };
     await this.buildGarden();
   }
   pushHandler() {
-    this.handler = this.input.push({ modal: true, key: (e) => { if (e.code === 'Escape') this.skip(); else if (e.code === 'Space' || e.code === 'Enter') fadvance(); return true; },
+    this.handler = this.input.push({ modal: true, key: (e) => { if (e.code === 'Space' || e.code === 'Enter') fadvance(); return true; },
       dragstart: () => this.onDragStart(), drag: () => this.onDrag(), dragend: () => this.onDragEnd(), move: () => { this.onMove(); return true; }, click: () => { this.onClickUI(); return true; } });
   }
   // ------------------------------------------------------------------ the old garden at golden hour
@@ -128,7 +129,7 @@ export class PrologueScene extends UIScreen {
       await go(0, this.b_title); await go(1, this.b_garden); await go(2, this.b_cards); await go(3, this.b_throw); await go(4, this.b_fight);
       await go(5, this.b_snake); await go(6, this.b_grab); await go(7, this.b_painting); this.beatI = 8; await this.b_sky();
     } catch (e) { if (e !== SKIP) console.error('prologue', e); }
-    this.finishing = true; fstop(); this.bars.hide(); window.__storyBand = false;
+    this.finishing = true; this.skipper?.dispose(); fstop(); this.bars.hide(); window.__storyBand = false;
     if (this.bs) { try { this.bs.dispose(); } catch (e) { /* */ } this.bs = null; }
     try { this.game.journal.seenPrologue = true; this.game.saveJournal(); } catch (e) { /* */ }
   }
@@ -233,7 +234,7 @@ export class PrologueScene extends UIScreen {
   async b_fight() {
     const { tutorialBattle } = await import('../story/tutorial.js'); const { BattleScene } = await import('./battlescene.js');
     const { run, encounter } = tutorialBattle(this.game); this.input.remove(this.handler); this.handler = null; let res = null;
-    const esc = this.input.push({ key: (e) => { if (e.code === 'Escape') { this.skip(); return true; } return false; } });
+    const esc = this.input.push({ key: (e) => e.code === 'Escape' }); // (Esc is the hold-to-skip key here, never the battle's)
     try {
       await this.w(this.engine.wipe(async () => { this.paused = true; this.root.visible = false; this.hint?.show(false); fstop(); const bs = new BattleScene(this.game); this.bs = bs; res = bs.run(run, encounter); await new Promise((r) => { const w = () => (bs.ready ? bs.ready.then(r) : setTimeout(w, 30)); w(); }); }, { color: 0x0b0806, mode: 1 }));
       const r = await this.w(res); this.fightWon = !!r?.won;
@@ -418,7 +419,7 @@ export class PrologueScene extends UIScreen {
     for (const v of this.lesson) { if (!v.gone && v.home && this.cardsLive) { const hv = v.hover || v.focus; v.hot = !!hv; v.target = this.dragging === v ? v.target : { x: v.home.x, y: v.home.y + (hv ? 0.7 : 0) + (v.glowK ? 0.3 : 0), z: hv ? 4.2 : 3, rz: v.target.rz * 0.9, s: v.home.s * (hv ? 1.12 : v.focus === false && this.lesson.some((x) => x.focus) ? 0.94 : 1) }; if (v.hover) { const p = this.ptr(3); v.tilt.x = -(p.y - v.home.y) * 0.05; v.tilt.y = (p.x - v.home.x) * 0.05; } else { v.tilt.x = 0; v.tilt.y = 0; } } v.update(rdt, c.t); }
     this.bars?.update(rdt, this.H);
   }
-  dispose() { fstop(); window.__storyBand = false; clearInterval(this.heartbeat); this.shock?.dispose(); this.paintFx?.dispose(); this.hint?.remove(); this.cap?.remove(); if (this.handler) this.input.remove(this.handler); if (window.__prologue?.scene === this) window.__prologue = null; this.bars?.dispose?.(); super.dispose(); }
+  dispose() { this.skipper?.dispose(); fstop(); window.__storyBand = false; clearInterval(this.heartbeat); this.shock?.dispose(); this.paintFx?.dispose(); this.hint?.remove(); this.cap?.remove(); if (this.handler) this.input.remove(this.handler); if (window.__prologue?.scene === this) window.__prologue = null; this.bars?.dispose?.(); super.dispose(); }
 }
 
 /** play the prologue on the running game; it ends in the tower-top menu */

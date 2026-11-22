@@ -154,6 +154,25 @@ function gears(P, t, o) {
 }
 
 export const DRAW = { studies: alembic, stars: crystal, journal: book, settings: gears };
+
+// ---------------------------------------------------------------- LOCKED (menu features open with the first won run):
+// the instrument goes cold (desaturated to a dim slate ramp), two iron chains cross it and a brass padlock hangs on the
+// crossing; hovering rattles the chains, a press shakes the lock
+const SLATE = ['#07080c', '#12141c', '#1e222e', '#2c3140', '#3c4254', '#52586c', '#6e7488'].map(hex);
+function chained(P, t, rattle) {
+  for (let i = 0; i < P.d.length; i += 4) { if (!P.d[i + 3]) continue; const l = (P.d[i] * 0.3 + P.d[i + 1] * 0.55 + P.d[i + 2] * 0.15) / 255; const c = SLATE[clamp(Math.round(l * 6.4), 0, 6)]; P.d[i] = c[0]; P.d[i + 1] = c[1]; P.d[i + 2] = c[2]; }
+  const sway = Math.round(Math.sin(t * 30) * rattle * 1.4);
+  const chain = (x0, y0, x1, y1, ph) => { const L = Math.hypot(x1 - x0, y1 - y0); const ux = (x1 - x0) / L, uy = (y1 - y0) / L; for (let s = 0; s < L; s += 4) { const sag = Math.sin((s / L) * Math.PI) * (2 + sway); const cx = x0 + ux * s, cy = y0 + uy * s + sag; const flat = ((s / 4 + ph) | 0) % 2;
+      if (flat) { for (let k = -1; k <= 2; k++) { P.r('iron', k < 1 ? 5 : 3, cx + ux * k, cy + uy * k); P.r('iron', 1, cx + ux * k, cy + uy * k + 1); } }
+      else { for (const [dx, dy, tn] of [[0, -1, 6], [1, 0, 4], [0, 1, 2], [-1, 0, 5]]) P.r('iron', tn, cx + dx, cy + dy); P.set(cx, cy, [10, 10, 14], 0); } } };
+  chain(4, 10, 52, 40, 0); chain(52, 10, 4, 40, 1);
+  // the padlock on the crossing: a squared iron shackle over a hammered brass body with a keyhole
+  const lx = 28 + sway, ly = 30; for (let y = ly - 8; y <= ly - 1; y++) for (const x of [lx - 4, lx - 3, lx + 3, lx + 4]) P.r('iron', x < lx ? (x === lx - 4 ? 5 : 4) : (x === lx + 4 ? 2 : 3), x, y);
+  for (let x = lx - 4; x <= lx + 4; x++) { P.r('iron', x < lx ? 6 : 4, x, ly - 9); P.r('iron', 3, x, ly - 8); }
+  for (let y = ly; y <= ly + 9; y++) for (let x = lx - 6; x <= lx + 6; x++) { let tn = 4 - (x - lx) * 0.22 - (y - ly) * 0.12 + (h2(x, y, 5) > 0.82 ? -0.8 : 0); if (y === ly) tn = 6; if (x === lx - 6) tn += 0.8; if (x === lx + 6 || y === ly + 9) tn = 1.4; P.r('brass', tn, x, y); }
+  for (const [dx, dy] of [[0, 3], [0, 4], [-1, 3], [1, 3], [0, 5], [0, 6]]) P.set(lx + dx, ly + dy, [16, 8, 6]);
+  P.set(lx - 4, ly + 1, [255, 244, 200]); P.set(lx - 3, ly + 1, [255, 230, 160]);
+}
 const HALO = { studies: [120, 255, 220], stars: [190, 170, 255], journal: [255, 214, 150], settings: [255, 226, 150] };
 const GOLD_HALO = [255, 216, 110];
 
@@ -164,7 +183,8 @@ export class MenuSprites {
       const box = UI.el('div', '', null, root); Object.assign(box.style, { position: 'relative', pointerEvents: 'auto', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center' });
       const cv = document.createElement('canvas'); cv.width = CW; cv.height = CW; cv.className = 'lf-cv'; box.appendChild(cv);
       const lab = UI.el('div', 'lf-title lf-gold', it.label, box); Object.assign(lab.style, { position: 'absolute', bottom: '0', left: '50%', transform: 'translate(-50%, 100%)', opacity: 0, transition: 'opacity .2s', pointerEvents: 'none' });
-      const S = { ...it, i, box, cv, lab, g: cv.getContext('2d'), P: new Px(CW, CW), off: new Px(N, N), hov: 0, hovOn: false, press: 0, spin: 0, spinV: 0, sparks: [], step: -1 };
+      if (it.locked) { lab.textContent = ''; lab.appendChild(document.createTextNode(it.label)); const hint = UI.el('div', 'lf-body lf-soft', 'Win a run to unlock', lab); hint.style.whiteSpace = 'nowrap'; Object.assign(lab.style, { bottom: 'auto', top: '0', transform: 'translate(-50%, -100%)', textAlign: 'center' }); } // (above the icon: the hint never runs off the screen's foot)
+      const S = { ...it, i, box, cv, lab, g: cv.getContext('2d'), P: new Px(CW, CW), off: new Px(N, N), hov: 0, hovOn: false, press: 0, spin: 0, spinV: 0, sparks: [], step: -1, rattle: 0 };
       box.addEventListener('pointerenter', () => { S.hovOn = true; lab.style.opacity = 1; it.onHover?.(S, true); });
       box.addEventListener('pointerleave', () => { S.hovOn = false; lab.style.opacity = 0; it.onHover?.(S, false); });
       box.addEventListener('pointerdown', (e) => { e.stopPropagation(); it.onClick?.(S); });
@@ -172,7 +192,7 @@ export class MenuSprites {
     this.visible = true; this.place();
   }
   /** the squash and a burst of sparks; the gears get a quick wind */
-  press(S) { S.press = 1; S.spinV += 9; for (let k = 0; k < 10; k++) S.sparks.push({ x: CW / 2 + (Math.random() - 0.5) * 30, y: CW / 2 + (Math.random() - 0.5) * 20, vx: (Math.random() - 0.5) * 30, vy: -10 - Math.random() * 25, life: 0.6 + Math.random() * 0.4 }); }
+  press(S) { if (S.locked) { S.rattle = 1; return; } S.press = 1; S.spinV += 9; for (let k = 0; k < 10; k++) S.sparks.push({ x: CW / 2 + (Math.random() - 0.5) * 30, y: CW / 2 + (Math.random() - 0.5) * 20, vx: (Math.random() - 0.5) * 30, vy: -10 - Math.random() * 25, life: 0.6 + Math.random() * 0.4 }); }
   place() { const k = this.scale(); for (const S of this.items) { S.cv.style.width = S.cv.style.height = CW * k + 'px'; S.box.style.marginRight = 2 * k + 'px'; } Object.assign(this.el.style, { left: 8 * k + 'px', bottom: 24 * k + 'px' }); }
   scale() { return Math.max(1, Math.round(innerHeight / 330)); }
   show(on) { this.visible = on; this.el.style.opacity = on ? 1 : 0; this.el.style.transform = on ? 'none' : `translateY(${this.scale() * 12}px)`; for (const S of this.items) S.box.style.pointerEvents = on ? 'auto' : 'none'; }
@@ -181,21 +201,22 @@ export class MenuSprites {
   update(dt, t, state = {}) {
     if (this._k !== this.scale()) { this._k = this.scale(); this.place(); }
     for (const S of this.items) {
-      S.hov += ((S.hovOn ? 1 : 0) - S.hov) * Math.min(1, dt * 10); S.press = Math.max(0, S.press - dt * 4); S.spinV *= Math.exp(-dt * 2.4); S.spin += dt * (0.25 + S.hov * 1.6) + S.spinV * dt;
-      const st = { hov: S.hov, ready: S.key === 'studies' ? state.ready : S.key === 'stars' ? state.fresh : false, open: S.key === 'journal' && state.open, spin: S.spin };
+      S.hov += ((S.hovOn ? 1 : 0) - S.hov) * Math.min(1, dt * 10); if (S.locked) { if (S.hovOn && S.hov < 0.3) S.rattle = Math.max(S.rattle, 0.5); S.rattle = Math.max(0, S.rattle - dt * 1.6); } S.press = Math.max(0, S.press - dt * 4); S.spinV *= Math.exp(-dt * 2.4); S.spin += dt * (0.25 + S.hov * 1.6) + S.spinV * dt;
+      const st = { hov: S.locked ? 0 : S.hov, ready: S.locked ? false : S.key === 'studies' ? state.ready : S.key === 'stars' ? state.fresh : false, open: S.key === 'journal' && state.open, spin: S.locked ? 0 : S.spin };
+      if (S.locked) S.sparks.length = 0;
       if (st.ready && Math.random() < dt * 4) S.sparks.push({ x: PAD + 6 + Math.random() * (N - 12), y: PAD + 6 + Math.random() * (N - 20), vx: (Math.random() - 0.5) * 4, vy: -6 - Math.random() * 6, life: 1.1, gold: true });
       if (S.hov > 0.5 && Math.random() < dt * 3) S.sparks.push({ x: PAD + 4 + Math.random() * (N - 8), y: PAD + 4 + Math.random() * (N - 16), vx: (Math.random() - 0.5) * 5, vy: -5 - Math.random() * 6, life: 0.9 });
       for (const p of S.sparks) { p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 12 * dt; p.life -= dt; } S.sparks = S.sparks.filter((p) => p.life > 0);
       // repaint on the 12 fps animation step (and whenever the pointer or the press changes it)
-      const step = Math.floor(t * 12); const key = step + '|' + (S.hov > 0.5) + '|' + Math.round(S.press * 6) + '|' + st.ready + '|' + st.open + '|' + S.sparks.length;
+      const step = Math.floor(t * 12); const key = step + '|' + (S.hov > 0.5) + '|' + Math.round(S.press * 6) + '|' + st.ready + '|' + st.open + '|' + S.sparks.length + '|' + Math.round(S.rattle * 8);
       if (key === S.step) continue; S.step = key; const tq = step / 12;
-      const O = S.off; O.clear(); DRAW[S.key](O, tq, st);
+      const O = S.off; O.clear(); DRAW[S.key](O, tq, st); if (S.locked) chained(O, t, S.rattle);
       const P = S.P; P.clear(); const sq = S.press > 0 ? Math.sin(S.press * Math.PI) : 0; const sw = Math.round(N * (1 + sq * 0.1)), sh = Math.round(N * (1 - sq * 0.12)); const lift = 0;
       for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) { const ox = Math.floor((x * N) / sw), oy = Math.floor((y * N) / sh); const i = (oy * N + ox) * 4; const a = O.d[i + 3]; if (!a) continue; const X = PAD + x - Math.floor((sw - N) / 2), Y = PAD + y + (N - sh) - lift; if (!P.in(X, Y)) continue; const j = (Y * CW + X) * 4; P.d[j] = O.d[i]; P.d[j + 1] = O.d[i + 1]; P.d[j + 2] = O.d[i + 2]; P.d[j + 3] = a; }
-      S.box.style.transform = ''; const glow = st.ready ? 0.55 + 0.35 * Math.sin(t * 4) : S.hov * 0.85; P.outline(st.ready ? GOLD_HALO : HALO[S.key], Math.round(glow * 200));
+      S.box.style.transform = ''; const glow = st.ready ? 0.55 + 0.35 * Math.sin(t * 4) : S.locked ? S.hov * 0.35 : S.hov * 0.85; P.outline(st.ready ? GOLD_HALO : S.locked ? [150, 160, 190] : HALO[S.key], Math.round(glow * 200));
       for (const p of S.sparks) { const x = Math.round(p.x), y = Math.round(p.y); const c = p.gold ? [255, 226, 120] : [255, 248, 220]; const a = Math.round(255 * Math.min(1, p.life * 2)); P.set(x, y, c, a); if (p.life > 0.5) { P.set(x - 1, y, c, a >> 1); P.set(x + 1, y, c, a >> 1); P.set(x, y - 1, c, a >> 1); P.set(x, y + 1, c, a >> 1); } }
       S.g.putImageData(new ImageData(P.d, CW, CW), 0, 0);
-      S.box.style.transform = `translateY(${-Math.round(S.hov * 2) * this.scale()}px)`;
+      S.box.style.transform = S.locked ? `translateX(${Math.round(Math.sin(t * 38) * S.rattle * 1.5) * this.scale()}px)` : `translateY(${-Math.round(S.hov * 2) * this.scale()}px)`;
     }
   }
   dispose() { this.el.remove(); }

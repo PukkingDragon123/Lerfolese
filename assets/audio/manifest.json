@@ -687,6 +687,12 @@
         "sfx/sting_eureka_1.mp3"
       ],
       "vol": 0.6
+    },
+    "voice_babble": {
+      "files": [
+        "sfx/voice_babble.mp3"
+      ],
+      "vol": 1.0
     }
   },
   "amb": {

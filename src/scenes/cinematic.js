@@ -4,6 +4,7 @@
 // Used by the battle intro (battlescene.js), the travel shot (travel.js) and the event vignette (event.js).
 // Debug: window.__cine is the running director (speed = 0 pauses, seek(t) jumps ahead, skip()).
 import * as THREE from 'three';
+import { holdToSkip } from '../ui2d/skiphold.js';
 import { FloatText } from '../ui3d/floatlabel.js';
 import { Strip, Paper } from '../ui3d/objects.js';
 import { Surf, RAMP, pxTex, frontMat, sideMat, slab, wood, rivet, mesh, uiRig, wrapText, PX, PXP } from '../ui3d/craft.js';
@@ -122,7 +123,8 @@ export class Director {
     this.group = new THREE.Group(); this.group.name = 'cinematic'; engine.ui.scene.add(this.group);
     this.bars = bars ? new Letterbox(this.group) : null; this.narr = new Narration(this.group); this.cards = [];
     const eat = () => true;
-    this.handler = input.push({ modal: true, click: () => { this.skip(); return true; }, key: (e) => { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape') this.skip(); return true; }, down: eat, move: eat, dragstart: eat, drag: eat, dragend: eat, wheel: eat });
+    this.handler = input.push({ modal: true, click: eat, key: eat, down: eat, move: eat, dragstart: eat, drag: eat, dragend: eat, wheel: eat }); // the picture is untouchable: HOLD to skip (ui2d/skiphold.js)
+    this.skipper = holdToSkip(() => this.skip());
     this.done = new Promise((r) => (this._res = r)); engine.add(this); window.__cine = this; this.bars?.show();
     if (/[?&]cinehold\b/.test(location.search)) this.speed = 0; // debug / capture: start paused, driven by seek()
   }
@@ -140,8 +142,8 @@ export class Director {
   /** hold the clock at time t until ok() is true (a voiced line still being spoken); max seconds as a safety net */
   hold(t, ok, max = 14) { this.holds.push({ t, ok, max, waited: 0 }); this.holds.sort((a, b) => a.t - b.t); return this; }
   card(name, epithet) { const c = new NameCard(this.group, name, epithet); this.cards.push(c); return c; }
-  skip() { if (this.skipped || this.ended) return; this.skipped = true; this.cues = []; this.narr.clear(); stopLines(); for (const c of this.cards) c.hide(); audio.play('page_turn', { vol: 0.7 }); this.onSkip?.(); }
-  end() { if (this.ended) return; this.ended = true; this.restoreShafts(); this.cues = []; this.bars?.hide(); this.narr.clear(); for (const c of this.cards) c.hide(); this.input.remove(this.handler); if (window.__cine === this) window.__cine = null; this._res(); }
+  skip() { if (this.skipped || this.ended) return; this.skipped = true; if (!this.skipper?.fired) this.skipper?.dispose(); this.cues = []; this.narr.clear(); stopLines(); for (const c of this.cards) c.hide(); audio.play('page_turn', { vol: 0.7 }); this.onSkip?.(); }
+  end() { if (this.ended) return; this.ended = true; if (!this.skipper?.fired) this.skipper?.dispose(); this.restoreShafts(); this.cues = []; this.bars?.hide(); this.narr.clear(); for (const c of this.cards) c.hide(); this.input.remove(this.handler); if (window.__cine === this) window.__cine = null; this._res(); }
   // advance the timeline by real time; hold while the page-turn wipe still covers the picture
   step(dt) {
     if (!this.skipped && !this.seeking) for (const h of this.holds) { if (h.done || h.t < this.t - 1e-6) continue; if (this.t + dt < h.t) break; h.waited += dt; if (h.ok() || h.waited > h.max) { h.done = true; continue; } dt = Math.max(0, h.t - this.t); break; }
@@ -161,7 +163,7 @@ export class Director {
     if (this.ended && (!this.bars || this.bars.gone) && this.narr.empty && this.cards.every((c) => c.gone)) this.dispose();
   }
   dispose() {
-    if (this.disposed) return; this.disposed = true; if (!this.ended) { this.ended = true; this.restoreShafts(); this.input.remove(this.handler); this._res(); }
+    if (this.disposed) return; this.disposed = true; this.skipper?.dispose(); if (!this.ended) { this.ended = true; this.restoreShafts(); this.input.remove(this.handler); this._res(); }
     this.engine.remove(this); this.engine.ui.scene.remove(this.group); this.bars?.dispose(); this.narr.dispose(); for (const c of this.cards) c.dispose(); this.cards = [];
     if (window.__cine === this) window.__cine = null;
   }

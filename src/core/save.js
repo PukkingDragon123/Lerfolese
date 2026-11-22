@@ -28,7 +28,13 @@ function write(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch
 export const defaultJournal = () => ({
   loops: 0, wins: 0, combos: {}, enemies: {}, items: {}, events: {}, notes: [], history: [], bestHit: 0, seenIntro: false,
 });
-export const defaultMeta = () => ({ shards: 0, unlocks: {}, achievements: {}, claimed: {}, cosmetics: {}, seen: { loops: 0, wins: 0 }, studies: {}, mastery: {} });
+export const defaultMeta = () => ({ shards: 0, unlocks: {}, achievements: {}, claimed: {}, cosmetics: {}, seen: { loops: 0, wins: 0 }, studies: {}, mastery: {}, features: {} });
+// MENU LOCKS: the tower menu's Studies, Stars and Journal open with the first won run (meta.features[key] = loop when
+// unlocked; main.js gameWon -> save.unlockFeatures()). Settings is always open. ?q=test or &unlockall=1 bypass the locks.
+export const FEATURES = ['studies', 'stars', 'journal'];
+export const FEATURE_NAME = { studies: 'The Studies', stars: 'The Stars', journal: 'The Journal' };
+export const FEATURE_TEXT = { studies: 'The Experiment Hall opens: research your discoveries.', stars: 'Your achievements rise as constellations.', journal: 'The Journal keeps every card, foe and Law.' };
+const bypassLocks = () => { try { const q = new URLSearchParams(location.search); return q.get('q') === 'test' || !!q.get('unlockall'); } catch (e) { return false; } };
 
 const killed = (j, id) => (j.enemies?.[id]?.killed || 0) > 0;
 const count = (o) => Object.keys(o || {}).length;
@@ -98,6 +104,10 @@ export const save = {
   clearRun() { try { localStorage.removeItem(KEY.run); } catch (e) { /* */ } },
   resetAll() { this.journal = defaultJournal(); this.meta = defaultMeta(); this.saveJournal(); this.saveMeta(); this.clearRun(); },
   unlocked(id) { return !UNLOCK_IDS.has(id) || !!this.meta.unlocks[id]; },
+  /** is a tower-menu feature (studies | stars | journal) open? (settings always is) */
+  featureOpen(key) { if (!FEATURES.includes(key) || bypassLocks()) return true; return !!(this.meta.features || {})[key] || (this.journal.wins || 0) > 0; },
+  /** open every menu feature for good (the first won run); returns the keys newly opened */
+  unlockFeatures() { const m = this.meta; m.features ||= {}; const got = FEATURES.filter((k) => !m.features[k]); for (const k of got) m.features[k] = this.journal.loops || 1; this.saveMeta(); return got; },
   /** claim an earned achievement / challenge: its rewards unlock for good; returns the reward ids (empty if not earned or already claimed) */
   claim(achId) { const m = this.meta; m.claimed ||= {}; m.cosmetics ||= {}; const a = [...ACHIEVEMENTS, ...CHALLENGES].find((x) => x.id === achId); if (!a || !m.achievements[achId] || m.claimed[achId]) return [];
     const loop = this.journal.loops || 1; m.claimed[achId] = loop; const got = rewardsOf(a); for (const id of got) { if (id.startsWith('tower:')) m.cosmetics[id] = loop; else m.unlocks[id] = loop; } this.saveMeta(); return got; },

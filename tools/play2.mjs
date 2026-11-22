@@ -13,6 +13,8 @@ for (const a of actions.split('@@').filter(Boolean)) {
   if (cmd === 'scroll') { await p.mouse.move(+(args[1] ?? 640), +(args[2] ?? 360)); await p.mouse.wheel(0, +args[0]); } // mouse wheel / trackpad: scroll:dy[:x:y]
   if (cmd === 'wait') await p.waitForTimeout(+args[0]);
   if (cmd === 'key') await p.keyboard.press(args[0]);
+  if (cmd === 'hold') { await p.keyboard.down(args[0]); await p.waitForTimeout(+(args[1] ?? 1000)); await p.keyboard.up(args[0]); } // hold-to-skip: hold:Space:1000
+  if (cmd === 'holdclick') { await p.mouse.move(+args[0], +args[1]); await p.mouse.down(); await p.waitForTimeout(+(args[2] ?? 1000)); await p.mouse.up(); } // holdclick:x:y:ms
   if (cmd === 'shot') await p.screenshot({ path: args[0], timeout: 300000 }); // SwiftShader can take minutes on a heavy frame
   if (cmd === 'eval') { const r = await p.evaluate(args.join(':')); if (r !== undefined) console.log('eval:', JSON.stringify(r).slice(0, 400)); }
 }

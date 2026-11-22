@@ -255,5 +255,14 @@
       "amb/stream.mp3",
       "amb/battlefield.mp3"
     ]
+  },
+  {
+    "files": [
+      "sfx/voice_babble.mp3"
+    ],
+    "title": "Dialog vocal samples (28 of the 32 syllables, joined into one sprite for the character babble voices)",
+    "author": "MirceaKitsune",
+    "license": "CC0 1.0",
+    "url": "https://opengameart.org/content/dialog-vocal-samples"
   }
 ]

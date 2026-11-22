@@ -77,7 +77,7 @@ export class MenuScene extends UIScreen {
     this.profHit = new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.0, 0.9), new THREE.MeshBasicMaterial({ visible: false })); this.profHit.position.copy(T.prow).add(V(0, 1, 0)); sc.add(this.profHit);
     this.motes = new Motes(1100, { px: 2 }); sc.add(this.motes.points); this.rnd = mulberry32(31); this.acc = 0;
     this.hasRun = !!save.loadRun();
-    this.astral = new Astral({ cons: startCons(STARTS, studyStarts()) }); this.astral.engine = this.engine; this.astral.frame(ASTRAL.dir, ASTRAL.fov, this.engine.aspect); sc.add(this.astral.group);
+    this.astral = new Astral({ cons: startCons(STARTS, studyStarts()), models: true }); this.astral.engine = this.engine; this.astral.frame(ASTRAL.dir, ASTRAL.fov, this.engine.aspect); sc.add(this.astral.group);
     await this.buildMenu(sc);
     this.envMap(sc);
     this.UI = new Scholar(); this.codex = new Codex(this.game, this.UI); this.settingsP = new SettingsPanel(this.game, this.UI); this.buildIcons();
@@ -122,11 +122,13 @@ export class MenuScene extends UIScreen {
   heroQuat() { const c = new THREE.PerspectiveCamera(); c.position.copy(HERO.pos); c.lookAt(HERO.look); return c.quaternion.clone(); }
   buildIcons() { // the four pixel-art instruments, bottom-left (DOM canvases at a whole number of screen pixels per art pixel)
     const SND = { studies: 'bottle_clink', stars: 'glass_clink', journal: 'paper_rustle', settings: 'lever' };
-    this.sprites = new MenuSprites(this.UI, [['studies', 'Studies'], ['stars', 'Stars'], ['journal', 'Journal'], ['settings', 'Settings']].map(([key, label]) => ({ key, label,
-      onHover: (S, on) => { if (on && this.mode === 'hero') { audio.play(SND[key], { vol: 0.4 }); audio.play('ui_hover', { vol: 0.2 }); } this.hover = on ? { icon: S } : null; },
-      onClick: (S) => { if (this.mode === 'panel') { (this.panelKind === 'journal' ? this.codex : this.settingsP).close(); return; } if (this.busy()) return; if (key === 'studies') this.toStudies(S); else if (key === 'stars') this.toStars(S); else this.openPanel(key, S); } })));
+    this.sprites = new MenuSprites(this.UI, [['studies', 'Studies'], ['stars', 'Stars'], ['journal', 'Journal'], ['settings', 'Settings']].map(([key, label]) => ({ key, label, locked: !save.featureOpen(key), // MENU LOCKS: chained until the first won run
+      onHover: (S, on) => { if (on && this.mode === 'hero') { if (S.locked) audio.play('metal_clang', { vol: 0.12, rate: 1.6 }); else audio.play(SND[key], { vol: 0.4 }); audio.play('ui_hover', { vol: 0.2 }); } this.hover = on ? { icon: S } : null; },
+      onClick: (S) => { if (this.mode === 'panel') { (this.panelKind === 'journal' ? this.codex : this.settingsP).close(); return; } if (this.busy()) return; if (S.locked) { this.lockedPress(S); return; } if (key === 'studies') this.toStudies(S); else if (key === 'stars') this.toStars(S); else this.openPanel(key, S); } })));
     this.icons = this.sprites.items;
   }
+  /** a locked instrument: the chains rattle, the padlock clanks, Isaac shrugs */
+  lockedPress(S) { this.sprites.press(S); audio.play('metal_clang', { vol: 0.3, rate: 1.35 }); audio.play('ui_error', { vol: 0.25 }); if (!this._lockSaid || performance.now() - this._lockSaid > 4000) { this._lockSaid = performance.now(); this.say?.('Sealed. Win a run and the tower opens it.'); } }
   /** the world point behind a pixel icon (the camera dives at it) */
   iconWorld(S) { const [x, y] = this.sprites.centerOf(S); return this.camPt((x / innerWidth) * 2 - 1, 1 - (y / innerHeight) * 2, 7.6, { pos: this.camera.position, look: this.look, fov: this.camera.fov }); }
   // ---------------------------------------------------------------- actions
@@ -140,7 +142,7 @@ export class MenuScene extends UIScreen {
     this.hideMenu(); this.prof.lookAt(-0.2, 0.9); }
   fromAstral() { if (this.mode !== 'astral' || this.skyT < 0.85 || this.chosen) return; this.skyDir = -1; this.astral.hover = -1; this.showChart(-1); audio.play('whoosh_soft', { vol: 0.5 }); audio.playMusic('menu', { fade: 2.0 }); audio.setAmbSet?.(['wind']); }
   choose(i) {
-    if (this.mode !== 'astral' || this.chosen) return; const c = this.astral.cons[i]; this.chosen = { t: 0, i, id: c.id, dir: this.astral.centerDir(i), warp: 0, from: this.camDir() }; this.astral.pickIdx = i; this.astral.pickT = 0; this.astral.hover = -1; this.engine.renderer.domElement.style.cursor = ''; this.showChart(i, true);
+    if (this.mode !== 'astral' || this.chosen) return; const c = this.astral.cons[i]; this.chosen = { t: 0, i, id: c.id, dir: this.astral.centerDir(i), warp: 0, from: this.camDir() }; this.astral.burst(i); this.astral.pickIdx = i; this.astral.pickT = 0; this.astral.hover = -1; this.engine.renderer.domElement.style.cursor = ''; this.showChart(i, true);
     const n = c.fig.stars.length; audio.play('magic_sparkle', { vol: 0.7 }); audio.duckMusic?.(0.25, 3);
     for (let k = 0; k < n; k++) audio.play('chime_soft', { vol: 0.35 + k * 0.03, delay: 0.05 + (k / n) * 0.9, rate: 0.9 + k * 0.07, variance: 0, minGap: 0 }); // the stars ignite one by one, rising
     audio.play('whoosh_heavy', { vol: 0.55, delay: 1.0 }); audio.play('magic_shimmer', { vol: 0.6, delay: 1.1 }); audio.play('transition_whoosh', { vol: 0.6, delay: 1.75, minGap: 0 }); }
@@ -242,7 +244,7 @@ export class MenuScene extends UIScreen {
     if (this.mode === 'astral') { if (e?.button === 2) { this.stepBack(); return true; } if ((this.step || 1) > 1) return true; const p = this.pick(); if (p) this.detail(p.star); return true; }
     if (this.busy()) return true; const p = this.pick(); if (!p) return;
     if (p.word) { if (p.word.act === 'continue') this.resume(p.word); else this.toAstral(p.word); return true; }
-    if (p.icon) { const b = p.icon; if (b.act === 'studies') this.toStudies(b); else if (b.act === 'stars') this.toStars(b); else this.openPanel(b.act, b); return true; }
+    if (p.icon) { const b = p.icon; if (b.locked) { this.lockedPress(b); return true; } if (b.act === 'studies') this.toStudies(b); else if (b.act === 'stars') this.toStars(b); else this.openPanel(b.act, b); return true; }
     if (p.crown) { audio.play('chime_soft', { vol: 0.5 }); audio.play('magic_sparkle', { vol: 0.5 }); this.crownK = 2.2; this.burst(this.tower.crown, 40, ['#ffe2a0', '#c8b0ff', '#8ad8ff'], 1.4); return true; }
     if (p.isaac) { audio.play('pop', { vol: 0.4 }); this.prof.act?.('cheer'); this.say(vpick(QUIPS)); this.credits(); return true; }
   }
@@ -256,7 +258,7 @@ export class MenuScene extends UIScreen {
     if (this.busy()) return;
     if (k === 'Enter' || k === ' ' || k === 'Space') { const w = this.words.find((x) => x.act === 'continue') || this.words.find((x) => x.act === 'new'); if (w.act === 'continue') this.resume(w); else this.toAstral(w); return true; }
     if (k === 'ArrowUp' || k === 'n' || k === 'KeyN') { this.toAstral(this.words.find((x) => x.act === 'new')); return true; }
-    if (k === 'j' || k === 'KeyJ') { this.openPanel('journal', this.icons[2]); return true; } }
+    if (k === 'j' || k === 'KeyJ') { if (this.icons[2].locked) this.lockedPress(this.icons[2]); else this.openPanel('journal', this.icons[2]); return true; } }
   // ---------------------------------------------------------------- frame
   update(dt, t) {
     const T = this.tower, prof = this.prof, cam = this.camera; T.update(dt, t); this.vista.update(dt, t); this.town.update(dt, t); prof.update(dt);
@@ -290,7 +292,7 @@ export class MenuScene extends UIScreen {
       const drift = V(Math.sin(t * 0.13) * 0.08 + nd.x * 0.16, Math.sin(t * 0.09) * 0.05 + nd.y * 0.09, Math.sin(t * 0.07) * 0.06);
       cam.position.lerp(pos.add(drift), this.back ? 1 : Math.min(1, dt * 2.5)); this.look.lerp(look.add(V(nd.x * 0.5, nd.y * 0.3, 0)), this.back ? 1 : Math.min(1, dt * 2.5)); if (Math.abs(cam.fov - fov) > 0.01) { cam.fov += (fov - cam.fov) * Math.min(1, dt * 4); cam.updateProjectionMatrix(); } }
     cam.lookAt(this.look);
-    this.astral.update(dt, t, cam, this.engine.renderer);
+    this.astral.pointer.copy(nd); this.astral.update(dt, t, cam, this.engine.renderer);
     // the words and the four instruments
     const hov = this.hover; for (const w of this.words) { w.update(dt, t, hov?.word === w, cam, this.vista.sunDir, nd); w.group.position.set(w.base.x + Math.sin(t * 0.21 + w.base.y) * 0.08, w.base.y + Math.sin(t * 0.37 + w.base.x) * 0.06, w.base.z); }
     { const want = this.hover?.crown ? 1 : 0; this.crownK = Math.max(want, this.crownK - dt * 1.5); this.tower.group.userData.crownBoost = Math.min(1.5, this.crownK); // the crown's arcane motes and runes of light

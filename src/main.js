@@ -42,7 +42,7 @@ class Game {
     bootMsg('Tuning gravity strings…', 40); await audio.init();
     bootMsg('Convincing the gods…', 80);
     bootGone();
-    if (q.get('scene')) { const k = q.get('scene'); if (k === 'studies') return this.toStudies(); if (k === 'stars' || k === 'hall') return this.toStars(); if (k === 'sky') return this.toSky(); if (k === 'gallery') return this.toGallery(); return this.toMenu({ from: k === 'loading-end' || k === 'intro' ? 'loading' : null }); } // debug: ?scene=tower|intro|studies|stars (&grant=all: mark achievements earned) (old: sky|gallery)
+    if (q.get('scene')) { const k = q.get('scene'); if (k === 'studies') return this.toStudies(); if (k === 'stars' || k === 'hall') return this.toStars(); if (k === 'sky') return this.toSky(); if (k === 'gallery') return this.toGallery(); if (k === 'won') { this.run = newRun(1234); attachRun(this.run, this.journal); return this.gameWon(); } /* debug: ?scene=won (the run-end unlock reveal; it records a win) */ return this.toMenu({ from: k === 'loading-end' || k === 'intro' ? 'loading' : null }); } // debug: ?scene=tower|intro|studies|stars (&grant=all: mark achievements earned) (old: sky|gallery)
     if (q.get('battle')) return this.debugBattle(q.get('battle').split(','), q.get('kind') || 'normal');
     if (q.get('chess')) return this.debugChess(q.get('chess')); // story: ?chess=pawn|knight|bishop|rook|queen|king (&beat=1: the story beat after it; &finale=1: the finale; &map=1: that act's map)
     if (q.get('prologue')) { this.journal.seenPrologue = false; return this.newRun(); } // story: ?prologue=1 (&beat=...)
@@ -161,11 +161,21 @@ class Game {
     return this.gameWon();
   }
   async gameWon() {
-    const j = this.journal; const r = this.run; j.wins++;
+    const j = this.journal; const r = this.run; const { FEATURES, FEATURE_NAME, FEATURE_TEXT, ACHIEVEMENTS, CHALLENGES } = await import('./core/save.js');
+    const wasOpen = FEATURES.every((k) => save.featureOpen(k)); j.wins++;
     j.history.unshift({ loop: r.loop, floor: r.floor + 1, area: r.area, kills: r.stats.kills, bestHit: r.stats.bestHit, combos: r.stats.combos, healed: r.stats.healed ?? null, fastest: r.stats.fastest ?? null, won: true, date: Date.now() });
-    this.saveJournal(); save.clearRun(); try { (await import('./game/mastery.js')).recordMasteryRun(r, true); } catch (e) { /* */ } // MENU AGENT: constellation mastery
+    this.saveJournal(); save.clearRun();
+    // RUN-END UNLOCKS: everything this win opened, revealed one by one (scenes/end.js)
+    const unl = []; const got = save.unlockFeatures(); if (!wasOpen) for (const k of got) unl.push({ kind: 'feature', key: k, name: FEATURE_NAME[k], text: FEATURE_TEXT[k] });
+    try { const M = await import('./game/mastery.js'); const mr = M.recordMasteryRun(r, true); const { STARTS } = await import('./game/run.js'); const id = r.masteryStart || r.start; // MENU AGENT: constellation mastery
+      for (let t = mr.tierBefore; t < mr.tierAfter; t++) unl.push({ kind: 'mastery', name: `${STARTS[id]?.name || 'Your Constellation'} - Mastery ${M.TIERS[t].name}`, text: M.TIERS[t].text }); } catch (e) { console.warn('mastery', e); }
+    try { for (const id of save.evaluate()) { const a = [...ACHIEVEMENTS, ...CHALLENGES].find((x) => x.id === id); if (a) unl.push({ kind: 'star', name: a.name, text: `A new star in the Stars - ${a.text}` }); } } catch (e) { console.warn('achievements', e); }
+    try { const { studyList } = await import('./game/studies.js'); const L = studyList(); const m = save.meta; const seen = new Set(m.doneSeen || []);
+      for (const S of L.filter((x) => x.loop === r.loop).slice(0, 4)) unl.push({ kind: 'study', name: S.name, text: `A new study - ${S.recipe}` });
+      for (const S of L.filter((x) => x.done && !seen.has(x.id) && x.loop !== r.loop).slice(0, 3)) unl.push({ kind: 'study', name: S.name, text: `Study complete - ${S.rewardText || 'claim it in the Experiment Hall'}` });
+      m.doneSeen = L.filter((x) => x.done).map((x) => x.id); save.saveMeta(); } catch (e) { console.warn('studies', e); }
     const { EndScene } = await import('./scenes/end.js');
-    await this.swap(async () => { this.scene = new EndScene(this); await this.scene.enter(true); }, { style: 'galaxy' });
+    await this.swap(async () => { this.scene = new EndScene(this); await this.scene.enter(true, unl); }, { style: 'galaxy' });
   }
 }
 

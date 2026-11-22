@@ -11,6 +11,7 @@ import { spaceBackdrop } from '../gfx/spacebg.js';
 import { Motes } from '../gfx/motes.js';
 import { audio } from '../core/audio.js';
 import { mulberry32 } from '../core/util.js';
+import { save } from '../core/save.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
@@ -45,13 +46,40 @@ export class LoadingScene extends UIScreen {
     this.engine.setWorld(sc, this.camera); this.engine.setFx({ pixel: 0.6, bloom: [0.7, 0.45, 0.78], tilt: false, exposure: 1.02, ao: false, grade: { sat: 1.1, vib: 0.22, contrast: 1.08, vignette: 0.46, warmth: 0.04, lift: [0.008, 0.004, 0.026], gain: [1.03, 1.0, 0.96], rolloff: 0.5, toe: 0.03 }, ink: { fade: [6, 20], strength: 0.7 } });
     for (let i = 0; i < 170; i++) this.dust(true);
     this.pre = preload; this.t0 = performance.now(); this.age = 0; this.acc = { dust: 0, spark: 0, spore: 0, glow: 0 }; this.engine.add(this); this.pushInput();
+    // SPACE PHYSICS: the apple floats free (inertia, a slow drift and tumble, soft bounds); a click / tap pushes it from
+    // the point you touched (impulse + torque about its heart), with a soft thump and a puff of star dust
+    this.ph = { p: V(), v: V((Math.random() - 0.5) * 0.02, 0.01, 0), w: V(0.05, 0.12, 0.03), q: new THREE.Quaternion(), dq: new THREE.Quaternion() };
+    window.__loading = { scene: this, push: (x = 0, y = 0) => this.push({ x, y }) };
+  }
+  /** the apple's heart in the world (where pushes act) */
+  heart(o = V()) { return o.set(0, 0.86, 0).add(this.ph.p); }
+  push(ndc = this.input.ndc) {
+    const cam = this.camera, ph = this.ph; const ray = new THREE.Ray(); ray.origin.copy(cam.position); ray.direction.set(ndc.x, ndc.y, 0.5).unproject(cam).sub(cam.position).normalize();
+    const c = this.heart(); const R = 0.27 * Math.max(0.35, 1 - this.A.collapse * 0.6) * (this.age > 0.9 ? 0.45 : 1); const cl = ray.closestPointToPoint(c, V()); const miss = cl.distanceTo(c);
+    let hit; if (miss < R) { const back = Math.sqrt(R * R - miss * miss); hit = cl.addScaledVector(ray.direction, -back); } else hit = c.clone().addScaledVector(cl.sub(c).normalize(), R); // a near miss still nudges its edge
+    const near = Math.max(0, 1 - Math.max(0, miss - R) / (R * 2.5)); if (near <= 0) { audio.play('whoosh_soft', { vol: 0.15, rate: 1.4 }); return; } // a wave of the hand through empty space
+    const arm0 = hit.clone().sub(c); const lat = arm0.clone().addScaledVector(ray.direction, -arm0.dot(ray.direction)); if (lat.length() < R * 0.25) lat.set(Math.random() - 0.5, Math.random() - 0.3, 0).addScaledVector(ray.direction, 0); const J = lat.normalize().negate().multiplyScalar(0.85).addScaledVector(ray.direction, 0.3).normalize().multiplyScalar(0.5 * near); // away from the touch across the view, a little into the screen
+    ph.v.addScaledVector(J, 1.0); const arm = hit.clone().sub(c); ph.w.add(arm.cross(J).multiplyScalar(26)); if (ph.w.length() > 7) ph.w.setLength(7);
+    audio.play('hit_light', { vol: 0.22 * near, rate: 0.7 }); audio.play('whoosh_soft', { vol: 0.3 * near, rate: 0.8 + Math.random() * 0.3 }); if (this.age < 0.34) audio.play('chime_soft', { vol: 0.12, rate: 1.5 + Math.random() * 0.3 }); else audio.play('apple_squish', { vol: 0.12 * near, rate: 1.3 });
+    const r = this.rnd; for (let i = 0; i < 16; i++) { const d = hit.clone().sub(c).normalize().multiplyScalar(0.25 + r() * 0.4).add(V((r() - 0.5) * 0.3, (r() - 0.5) * 0.3, (r() - 0.5) * 0.3));
+      this.motes.spawn({ pos: hit, vel: d, drag: 2.6, life: 0.5 + r() * 0.6, seq: r() < 0.6 ? 'twinkle' : 'glint', fps: 10, color: this.age > 0.34 ? (r() < 0.5 ? '#c8c4a0' : '#b4bc8a') : r() < 0.5 ? '#fff0c8' : '#ffd890', bright: 1.3, fadeIn: 0.02 }); }
+    this.bg.U.uFlare.value = Math.max(this.bg.U.uFlare.value, 0.12 * near);
+  }
+  physics(dt, t) { // inertia, a slow drifting current, a gentle tumble, soft walls; little friction (it is space)
+    const ph = this.ph; const d = V(Math.sin(t * 0.13) * 0.006 + Math.sin(t * 0.31 + 1) * 0.004, Math.cos(t * 0.17) * 0.005, Math.sin(t * 0.11 + 2) * 0.004);
+    const lim = this.leaving ? 0.02 : 0.42; const L = ph.p.length(); if (L > lim) d.addScaledVector(ph.p, -(L - lim) * 2.4 / L); if (this.leaving) d.addScaledVector(ph.p, -3).addScaledVector(ph.v, -2);
+    if (ph.p.z > 0.3) d.z -= (ph.p.z - 0.3) * 4; // never into the lens
+    ph.v.addScaledVector(d, dt).multiplyScalar(Math.exp(-dt * 0.35)); ph.p.addScaledVector(ph.v, dt);
+    ph.w.multiplyScalar(Math.exp(-dt * 0.22)); const wl = ph.w.length(); if (wl > 1e-5) { ph.dq.setFromAxisAngle(ph.w.clone().divideScalar(wl), wl * dt); ph.q.premultiply(ph.dq); }
+    if (wl < 0.6) ph.q.slerp(this._qI || (this._qI = new THREE.Quaternion()), Math.min(1, dt * 0.08 * (this.age > 0.86 ? 6 : 1))); // it rights itself slowly, so the seed and sprout stand up
+    if (!this.ambOn && audio.manifest?.amb?.cosmos) { this.ambOn = true; audio.setAmbSet(['cosmos']); } // the hum of deep space (starts on the first gesture: autoplay rules)
   }
   dust(initial = false) { // one drifting stardust mote somewhere in the volume around the apple (near ones are drawn 2x)
     const r = this.rnd; const z = -4 + r() * 5.6; const near = z > 0.9; const p = [(r() - 0.5) * (5 + (2 - z) * 1.2), -0.6 + r() * 3.2, z]; if (!initial) p[0] = (r() < 0.5 ? -1 : 1) * (2.4 + r() * 1.2);
     this.motes.spawn({ pos: p, vel: [(p[0] < 0 ? 1 : -1) * (0.03 + r() * 0.06), 0.015 + r() * 0.03, 0.02], life: 7 + r() * 7, sprite: r() < 0.75 ? 'm1' : r() < 0.6 ? 'dust' : 'm2', color: DUST[Math.floor(r() * DUST.length)], bright: 0.6 + r() * 0.9, k: near ? 2 : 1, twinkle: 1.5 + r() * 4, fadeIn: 0.15 });
   }
   get done() { return this.age >= 1 && (!this.pre || this.pre.progress() >= 1); }
-  onClick() { return true; } // nothing to press: the garden opens by itself (the first click there starts the music)
+  onClick() { this.push(); return true; } // push the apple; the menu opens by itself when loading is done (the first gesture starts the sound)
   burst(p, n, { colors = ['#fff2c0', '#ffd27a', '#ffffff', '#9ff0e0'], speed = 1, leaves = 0 } = {}) {
     const r = this.rnd;
     for (let i = 0; i < n; i++) { const d = new THREE.Vector3(r() * 2 - 1, r() * 2 - 1, r() * 2 - 1).normalize().multiplyScalar((0.25 + r() * 0.75) * speed); d.y += 0.15 * speed;
@@ -102,20 +130,23 @@ export class LoadingScene extends UIScreen {
     // easing off as it rots and slumps; the seed and the sprout turn too
     { const sp = this.spin; sp.a += dt * (0.62 - 0.3 * Math.min(1, A.collapse * 1.5)); const tilt = 0.24 * (1 - A.collapse * 0.6);
       const q = (this._q ??= new THREE.Quaternion()), qt = (this._qt ??= new THREE.Quaternion()); q.setFromAxisAngle(V(0, 1, 0), sp.a); qt.setFromAxisAngle(V(Math.cos(t * 0.21), 0, Math.sin(t * 0.21)), tilt + Math.sin(t * 0.47) * 0.05); q.premultiply(qt);
+      this.physics(dt, t); q.premultiply(this.ph.q);
       const ap = A.apple; const c = V(0, 0.42, 0); ap.quaternion.copy(q); ap.position.copy(c).sub(c.clone().applyQuaternion(q)).multiplyScalar(ap.scale.x); // pivot round the apple's heart, not its base
-      A.seed.rotation.y = sp.a * 0.8; A.group.position.y = 0.62 + Math.sin(t * 0.8) * 0.012; }
+      A.seed.rotation.y = sp.a * 0.8; A.group.position.set(this.ph.p.x, 0.62 + Math.sin(t * 0.8) * 0.012 + this.ph.p.y, this.ph.p.z); }
     // camera: a slow orbit-drift; dive at the seedling when leaving
     const zin = ease(this.age > 0.86 ? (this.age - 0.86) / 0.14 : 0); const lv = this.leaving ? ease5((performance.now() - this.leaving) / 1500) : 0;
-    const tip = A.sproutTip(); const cp = V(Math.sin(t * 0.2) * 0.12, 1.05 - zin * 0.18, 2.75 - zin * 1.1); const look = V(0, 0.86 - zin * 0.12, 0);
+    const tip = A.sproutTip(); const cp = V(Math.sin(t * 0.2) * 0.12 + this.ph.p.x * 0.35, 1.05 - zin * 0.18 + this.ph.p.y * 0.35, 2.75 - zin * 1.1); const look = V(this.ph.p.x * 0.6, 0.86 - zin * 0.12 + this.ph.p.y * 0.6, this.ph.p.z * 0.5); // the camera follows it a little
     if (lv > 0) { cp.lerp(tip.clone().add(V(0.02, 0.05, 0.42)), lv * 0.85); look.lerp(tip, lv); this.bg.U.uFlare.value = Math.max(this.bg.U.uFlare.value, lv * 0.8); }
     this.camera.position.copy(cp); this.camera.lookAt(look);
     this.bg.update(dt, t, this.engine.renderer, { x: cp.x * 60 + lv * 40, y: (cp.y - 1) * 60 }); this.motes.px = this.bg.px; this.motes.update(dt, t, this.engine.renderer); this.updateUI(dt);
   }
   leave() { // auto-enter: dive at the seedling, then an iris wipe from it into the garden
     this.leaving = performance.now(); audio.play('magic_shimmer', { vol: 0.55 }); this.burst(this.A.sproutTip(), 40, { colors: ['#fff6d0', '#ffe08a', '#d8ffb0'], speed: 0.7 });
-    setTimeout(() => { if (this.left) return; this.left = true; const p = this.A.sproutTip().project(this.camera); this.game.toMenu({ from: 'loading', wipe: { color: 0x0b0716, center: [p.x * 0.5 + 0.5, 0.5 - p.y * 0.5], dur: 0.7 } }); }, 1050);
+    setTimeout(() => { if (this.left) return; this.left = true; const p = this.A.sproutTip().project(this.camera); const wipe = { color: 0x0b0716, center: [p.x * 0.5 + 0.5, 0.5 - p.y * 0.5], dur: 0.7, style: 'galaxy' };
+      const j = this.game.journal; if (!j.seenPrologue && !j.loops && !save.loadRun() && !/[?&]noprologue\b/.test(location.search)) { this.game.playPrologue(); return; } // a FRESH boot: straight into the opening cinematic (the prologue ends in the tower menu)
+      this.game.toMenu({ from: 'loading', wipe }); }, 1050);
   }
-  dispose() { this.motes?.dispose(); super.dispose(); }
+  dispose() { if (window.__loading?.scene === this) window.__loading = null; this.motes?.dispose(); super.dispose(); }
 }
 
 // ================================================================ THE MENU: the tower top at sunset (scenes/tower.js); the Hall of Memories is scenes/hall.js

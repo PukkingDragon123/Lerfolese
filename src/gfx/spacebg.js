@@ -14,13 +14,13 @@ import * as THREE from 'three';
 import { ART } from '../core/art.js';
 
 const rampU = (hexes) => hexes.map((h) => new THREE.Color(h));
-const RAMPS = {
-  vio: rampU(['#0a0618', '#1a0e36', '#2e1658', '#4c2478', '#74389a', '#a866b8']),
-  tea: rampU(['#04121a', '#082a36', '#0e4852', '#16706e', '#2a9c8e', '#74d0b4']),
-  gol: rampU(['#140a08', '#3a1c10', '#6e3a14', '#b0661e', '#e6a43a', '#ffe08a']),
-  gal: rampU(['#0e0a20', '#2a2050', '#56427a', '#9a7894', '#e0bca0', '#fff4dc']),
-  gas: rampU(['#1a0e10', '#4a2418', '#8a4a26', '#c27c3e', '#e8b070', '#f8e2b0']), // the giant's bands
-  ice: rampU(['#08141e', '#123040', '#1e5260', '#2e7a80', '#58a8a0', '#a4dcc8']),
+const RAMPS = { // (newest direction: space LESS colourful) desaturated deep navy and charcoal, restrained gas, a muted warm wisp by the star
+  vio: rampU(['#06070c', '#0c1018', '#141a26', '#1e2636', '#2c364a', '#4a5468']),
+  tea: rampU(['#050a0e', '#0a141a', '#102028', '#1a3036', '#2a4648', '#4e6a68']),
+  gol: rampU(['#0c0a08', '#1e1812', '#36291c', '#5a4228', '#8a6a40', '#c8a878']),
+  gal: rampU(['#0a0c12', '#1a1e2a', '#343846', '#5a5c66', '#9a968e', '#e8e2d4']),
+  gas: rampU(['#141010', '#3a2a20', '#6a4a32', '#987050', '#c09a74', '#e8d4b4']), // the giant's bands
+  ice: rampU(['#080e14', '#102028', '#1c343c', '#2a4a50', '#4a6a6a', '#88a8a0']),
 };
 
 const FS = `
