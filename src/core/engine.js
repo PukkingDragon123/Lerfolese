@@ -17,7 +17,7 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { InkPass } from './ink.js';
 import { ART } from './art.js';
-import '../gfx/lowpoly.js'; // realistic Lambert light on every toon material (no cel bands)
+import { lfxSet } from '../gfx/lowpoly.js'; // realistic cel light on every lit material + the shared LFX light model (rim, coloured shadows, haze, ...)
 import { tweens } from './tween.js';
 import { clamp, damp } from './util.js';
 
@@ -106,8 +106,7 @@ const GradeShader = {
       hv.y = clamp(hv.y * (1.0 + (uVib * (1.0 - hv.y) + sel) * (1.0 - skin * 0.85)), 0.0, 1.0); col = hsv2rgb(hv); }
     // split toning: warm highlights, cool-violet shadows
     col += (smoothstep(0.45, 1.0, l) * vec3(0.03, 0.012, -0.02) + (1.0 - smoothstep(0.0, 0.45, l)) * vec3(-0.01, -0.004, 0.025)) * (1.0 + uWarmth);
-    // painterly colour harmony: every hue drifts toward one shared palette (warm key light, cool shadow), saturation evened out
-    if (uHarmony > 0.0) { vec3 h = rgb2hsv(clamp(col, 0.0, 1.0)); float target = mix(uHueShadow, uHueLight, smoothstep(0.18, 0.75, h.z)); float dh = target - h.x; dh -= floor(dh + 0.5); h.x = fract(h.x + dh * uHarmony * (0.3 + 0.7 * h.y)); h.y = mix(h.y, min(h.y, uSatTarget), uSatPull); col = hsv2rgb(h); }
+    // (colour, newest) no hue harmony / saturation pull: nothing greys the world out; colour comes from the light
     float vig = smoothstep(0.85, 0.18, dist * (1.0 + uVignette * 0.6));
     col = mix(uVigColor, col, mix(1.0, vig, uVignette * 1.4));
     float g = hash(vUv * uRes + fract(uTime * 7.13) * 91.7) - 0.5;
@@ -252,6 +251,8 @@ class HistoryPass extends Pass {
   render(renderer, writeBuffer, readBuffer) { this.quad.material.uniforms.t.value = readBuffer.texture; renderer.setRenderTarget(this.rt); this.quad.render(renderer); this.valid = true; }
 }
 
+// the 3D UI keeps its studio light: a warm rim, a touch of cel, no haze / grain / shadow fill
+const LFX_UI = { lfxSky: { x: 1.0, y: 0.78, z: 0.52, w: 0.22 }, lfxGnd: { x: 1, y: 0.78, z: 0.52, w: 0 }, lfxHaze: { w: 0 }, lfxFog: { w: 0 }, lfxShade: { w: 0 }, lfxMisc: { x: 0, y: 0.4, z: 0.2, w: 0.25 } };
 export class Engine {
   constructor(canvas) {
     this.canvas = canvas;
@@ -287,10 +288,12 @@ export class Engine {
     this.gtao = new GTAOPass(this.world.scene, this.world.camera, size.x, size.y); this.gtao.output = GTAOPass.OUTPUT.Default; this.gtao.blendIntensity = 0.85;
     this.gtao.updateGtaoMaterial({ radius: 0.85, distanceExponent: 1.4, thickness: 1.2, scale: 1.05, samples: 16 }); this.gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
     this.composer.addPass(this.gtao);
+    // occlusion is never black: occluded light goes a cool violet (multiplied), so folds and contacts stay coloured
+    { const bm = this.gtao.blendMaterial; bm.uniforms.uAOTint = { value: new THREE.Color(0.5, 0.44, 0.72) }; bm.fragmentShader = bm.fragmentShader.replace('uniform float intensity;', 'uniform float intensity; uniform vec3 uAOTint;').replace('gl_FragColor = vec4(mix(vec3(1.), texel.rgb, intensity), texel.a);', 'vec3 occ = mix(uAOTint, vec3(1.0), clamp(texel.r, 0.0, 1.0)); gl_FragColor = vec4(mix(vec3(1.), occ, intensity), texel.a);'); bm.needsUpdate = true; }
     this.gtao.enabled = this.aoForced || this.fullFx || !this.testMode;
     // anime/cartoon black ink lines on the 3D world
     this.inkForced = new URLSearchParams(location.search).get('ink') === '1';
-    this.ink = new InkPass(this.world.scene, this.world.camera, size.x, size.y); this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.75, this.pixelRatio * 0.55); this.composer.addPass(this.ink); // thin: one art pixel
+    this.ink = new InkPass(this.world.scene, this.world.camera, size.x, size.y); this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.7, this.pixelRatio * 0.45); this.composer.addPass(this.ink); // thin: one art pixel
     this.mblur = new ShaderPass(MotionBlurShader); this.composer.addPass(this.mblur); this._prevVP = new THREE.Matrix4(); this._vp = new THREE.Matrix4(); this._mbPos = new THREE.Vector3(); this._mbInit = false; this.motionBlur = 0.8; this.objectBlur = 0.4; this.mbTest = new URLSearchParams(location.search).get('mbh') === '1'; // (user: lots more motion blur) camera smear gain, object shutter smear
     this.mbHist = new HistoryPass(size.x, size.y); this.composer.addPass(this.mbHist); this.mblur.uniforms.tHist.value = this.mbHist.rt.texture; // keeps this frame's blurred image for the next frame's object smear
     this.rays = new ShaderPass(RaysShader); this.rays.enabled = false; this.composer.addPass(this.rays);
@@ -321,8 +324,9 @@ export class Engine {
 
   setQuality(q) {
     this.quality = q;
-    this.pixelRatio = hiRes(q); if (this.ink) this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.75, this.pixelRatio * 0.55);
+    this.pixelRatio = hiRes(q); if (this.ink) this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.7, this.pixelRatio * 0.45);
     this.renderer.setPixelRatio(this.pixelRatio);
+    this.setAtmo(this.fx?.atmo);
     this.renderer.shadowMap.enabled = q !== 'low'; // low quality: no shadow maps / GTAO; contact shadows and vertex AO still ground everything
     if (this.mblur) { const n = q === 'low' ? 6 : q === 'medium' ? 10 : 12; if (this.mblur.material.defines.MB_N !== n) { this.mblur.material.defines.MB_N = n; this.mblur.material.needsUpdate = true; } this.mbHist.enabled = q !== 'low'; }
     if (this.gtao) { this.gtao.enabled = this.aoForced || (q !== 'low' && this.fx?.ao !== false); this.gtao.updateGtaoMaterial({ samples: q === 'high' ? 16 : 8 }); this.gtao.updatePdMaterial({ samples: q === 'high' ? 12 : 6 }); }
@@ -372,13 +376,14 @@ export class Engine {
   setPixel(k = 0) {
     k = Math.max(0, Math.min(1, +k || 0)); if (this.pixelForced) return; if (Math.abs(k - this.pixelK) < 1e-3) return;
     this.pixelK = k; this.pixelOn = k > 0; this.artRows = k > 0 ? Math.round(320 / k) : 320;
-    this.composer.renderToScreen = !this.pixelOn; if (this.ink) this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.75, this.pixelRatio * 0.55);
+    this.composer.renderToScreen = !this.pixelOn; if (this.ink) this.ink.u.uThick.value = this.pixelOn ? 1 : Math.max(0.7, this.pixelRatio * 0.45);
     this.resize();
   }
 
   // fx: { bloom:[strength,radius,threshold], tilt:{focus,width,feather,amount,top,bottom} | false, grade:{sat,contrast,vignette,grain,warmth}, exposure }
   setFx(fx = {}) {
     this.fx = fx; this.setPixel(fx.pixel ?? 0); // pixel look: off unless the scene asks (fx.pixel 0..1)
+    this.setAtmo(fx.atmo);
     const b = fx.bloom || [0.4, 0.55, 0.86]; // gentle: only the hottest lights bloom
     this.bloom.strength = b[0]; this.bloom.radius = b[1]; this.bloom.threshold = b[2]; this.bloom.enabled = !this.testMode || this.fullFx;
     const t = fx.tilt;
@@ -387,16 +392,27 @@ export class Engine {
       const u = p.uniforms; u.uFocus.value = t.focus ?? 0.45; u.uWidth.value = t.width ?? 0.16; u.uFeather.value = t.feather ?? 0.3; u.uAmount.value = (t.amount ?? 2.4) * 0.55; u.uTop.value = t.top ?? 1; u.uBottom.value = t.bottom ?? 0.8;
     }
     const g = fx.grade || {}; const gu = this.grade.uniforms;
-    this.gtao.enabled = fx.ao !== false && (this.aoForced || this.fullFx || (!this.testMode && this.quality !== 'low')); if (fx.ao && typeof fx.ao === 'number') this.gtao.blendIntensity = fx.ao; else this.gtao.blendIntensity = 0.85;
-    gu.uGamma.value.set(...(g.gamma || [1, 1, 1])); gu.uRolloff.value = g.rolloff ?? 0.5; gu.uToe.value = g.toe ?? 0.02; gu.uCA.value = 0;
-    const ik = fx.ink ?? {}; this.ink.enabled = fx.ink !== false && (!this.testMode || this.inkForced || this.fullFx); this.ink.u.uStrength.value = (ik.strength ?? 0.92) * 0.8; this.ink.u.uInk.value.set(ik.color ?? 0x0e0710); this.ink.u.uDepthK.value = ik.depth ?? 0.045; this.ink.u.uNormalK.value = ik.normal ?? 0.42; this.ink.u.uFade.value.set(...(ik.fade || [55, 140]));
+    this.gtao.enabled = fx.ao !== false && (this.aoForced || this.fullFx || (!this.testMode && this.quality !== 'low')); this.gtao.blendIntensity = Math.min(0.72, (fx.ao && typeof fx.ao === 'number' ? fx.ao : 0.85) * 0.62); // lighter, and tinted violet (see the blend shader)
+    gu.uGamma.value.set(...(g.gamma || [1, 1, 1])); gu.uRolloff.value = Math.min(0.3, g.rolloff ?? 0.22); gu.uToe.value = g.toe ?? 0.02; gu.uCA.value = 0;
+    const ik = fx.ink ?? {}; this.ink.enabled = fx.ink !== false && (!this.testMode || this.inkForced || this.fullFx); this.ink.u.uStrength.value = (ik.strength ?? 0.92) * 0.66; this.ink.u.uInk.value.set(ik.color ?? 0x0e0710); this.ink.u.uDepthK.value = ik.depth ?? 0.045; this.ink.u.uNormalK.value = ik.normal ?? 0.42; this.ink.u.uFade.value.set(...(ik.fade || [55, 140]));
     const ry = fx.rays; this.rays.enabled = !!(ry && ry.pos); if (ry) { const u = this.rays.uniforms; this.raysPos = ry.pos; u.uStrength.value = (ry.strength ?? 0.35) * 0.6; u.uTint.value.set(ry.tint ?? 0xffd6a0); u.uThresh.value = ry.thresh ?? 0.85; u.uDecay.value = ry.decay ?? 0.955; u.uDensity.value = ry.density ?? 0.85; }
-    gu.uHarmony.value = g.harmony ?? 0; gu.uHueLight.value = g.hueLight ?? 0.1; gu.uHueShadow.value = g.hueShadow ?? 0.7; gu.uSatTarget.value = g.satMax ?? 0.42; gu.uSatPull.value = g.satPull ?? 0;
-    gu.uVib.value = g.vib ?? 0.2; gu.uSel.value.set(...(g.sel || [0.04, 0.06, 0.12]));
-    gu.uSat.value = g.sat ?? 1.04; gu.uContrast.value = g.contrast ?? 1.06; gu.uVignette.value = g.vignette ?? 0.42; gu.uGrain.value = Math.min(0.012, (g.grain ?? 0.04) * 0.3); gu.uWarmth.value = g.warmth ?? 0;
-    if (g.lift) gu.uLift.value.set(...g.lift); else gu.uLift.value.set(0.01, 0.01, 0.035);
-    if (g.gain) gu.uGain.value.set(...g.gain); else gu.uGain.value.set(1.04, 1.0, 0.95);
+    gu.uVib.value = g.vib ?? 0.3; gu.uSel.value.set(...(g.sel || [0.06, 0.08, 0.14]));
+    gu.uSat.value = g.sat ?? 1.1; gu.uContrast.value = g.contrast ?? 1.06; gu.uVignette.value = g.vignette ?? 0.42; gu.uGrain.value = Math.min(0.012, (g.grain ?? 0.04) * 0.3); gu.uWarmth.value = g.warmth ?? 0;
+    if (g.lift) gu.uLift.value.set(...g.lift); else gu.uLift.value.set(0.004, 0.002, 0.02);
+    if (g.gain) gu.uGain.value.set(...g.gain); else gu.uGain.value.set(1.03, 1.0, 0.96);
     this.renderer.toneMappingExposure = fx.exposure ?? 1.0;
+  }
+
+  /** the shared light model for the world (gfx/lowpoly.js LFX). atmo: { sky, rim, gnd, haze, hazeK, start, density,
+   *  fogTop, fogK, shade, shadeK, micro, leaf, cel, warm } (colours as hex / css; any can be left out) */
+  setAtmo(a = {}) {
+    a = a || {}; const c = (h, d) => { const k = new THREE.Color(h ?? d); return { x: k.r, y: k.g, z: k.b }; };
+    const low = this.quality === 'low';
+    this._lfxWorld = {
+      lfxSky: { ...c(a.sky, '#9cbcf4'), w: a.rim ?? 0.34 }, lfxGnd: { ...c(a.gnd, '#d08a4a'), w: 0.55 },
+      lfxHaze: { ...c(a.haze, '#b4c6ec'), w: a.hazeK ?? 0.42 }, lfxFog: { x: a.start ?? 24, y: a.density ?? 0.009, z: a.fogTop ?? 0.8, w: low ? 0 : a.fogK ?? 0.2 },
+      lfxShade: { ...c(a.shade, '#5c6cff'), w: a.shadeK ?? 0.4 }, lfxMisc: { x: low ? 0 : a.micro ?? 0.7, y: a.leaf ?? 0.9, z: a.cel ?? 0.42, w: a.warm ?? 0.7 },
+    };
   }
 
   add(updater) { this.updaters.add(updater); return updater; }
@@ -474,12 +490,13 @@ export class Engine {
     const snapped = this.pixelOn ? this._snap(cam) : null;
     this.renderer.setRenderTarget(null);
     this.renderer.clear();
+    if (!this._lfxWorld) this.setAtmo(); lfxSet(this._lfxWorld);
     this.composer.render(rdt);
     if (this.pixelOn) { const u = this.upMat.uniforms; u.tArt.value = this.composer.readBuffer.texture; u.uOff.value.copy(this._snapOff); this.renderer.setRenderTarget(null); this.renderer.render(this.upScene, this.upCam); }
     if (this.mblur) this._prevVP.copy(this._vp);
     if (snapped) cam.position.sub(this._snapD);
     cam.position.sub(this.shakeOffset); cam.rotation.z = rz;
-    if (this.uiVisible) { this.renderer.clearDepth(); this.renderer.render(this.ui.scene, this.ui.camera); }
+    if (this.uiVisible) { lfxSet(LFX_UI); this.renderer.clearDepth(); this.renderer.render(this.ui.scene, this.ui.camera); }
     if (this.wipeActive) {
       const wu = this.wipeMat.uniforms; wu.uTime.value = this.time;
       if (this.pixelOn || this.wipeStyle === 'galaxy') { wu.uRes.value.copy(this.wipeArt); const cc = this.renderer.getClearAlpha(); this._cc ??= new THREE.Color(); this.renderer.getClearColor(this._cc); this.renderer.setRenderTarget(this.wipeRT); this.renderer.setClearColor(0x000000, 0); this.renderer.clear(); this.renderer.render(this.wipeScene, this.wipeCam); this.renderer.setClearColor(this._cc, cc);

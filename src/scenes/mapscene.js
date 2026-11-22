@@ -32,7 +32,7 @@ export class MapScene extends UIScreen {
   async enter(first) {
     const run = this.game.run; this.run = run; this.map = run.map;
     this.buildWorld(); this.engine.setWorld(this.scene, this.camera); this.sheet.attach();
-    this.engine.setFx({ ink: { strength: 0.95, depth: 0.05, normal: 0.45, fade: [70, 170] }, bloom: [0.35, 0.55, 0.88], tilt: false, ao: 0.9, exposure: EXPOSURE.map, grade: GRADE_MAP });
+    this.engine.setFx({ ink: { strength: 0.95, depth: 0.05, normal: 0.45, fade: [70, 170] }, bloom: [0.35, 0.55, 0.88], tilt: false, ao: 0.9, exposure: EXPOSURE.map, grade: GRADE_MAP, atmo: { haze: '#b0c0ec', hazeK: 0.35, start: 30, density: 0.012, fogK: 0, micro: 0.55 } });
     this.engine.add(this); this.pushInput(); audio.playMusic('map'); audio.setAmbSet(['wilderness', 'wind']);
     this.buildHUD();
     const cur = run.pos ? this.sheet.pos(run.pos) : null; const fz0 = cur ? cur.z - 3.2 : 0.5, fx0 = cur ? cur.x * 0.6 : 0;

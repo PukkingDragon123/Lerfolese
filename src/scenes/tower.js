@@ -83,7 +83,7 @@ export class MenuScene extends UIScreen {
     this.UI = new Scholar(); this.codex = new Codex(this.game, this.UI); this.settingsP = new SettingsPanel(this.game, this.UI); this.buildIcons();
     this.engine.setWorld(sc, this.camera);
     this.engine.setFx({ bloom: [0.42, 0.5, 0.9], ao: 0.85, exposure: 1.0, rays: { pos: VZ.sunPos, strength: 0.32, tint: 0xffb46a, thresh: 0.82, decay: 0.958 }, // (visuals) painterly sunset: warm key, cool coloured shadows, gentle bloom only on the hottest lights
-      grade: { sat: 1.1, vib: 0.26, sel: [0.08, 0.14, 0.16], contrast: 1.06, vignette: 0.4, warmth: 0.1, lift: [0.006, 0.008, 0.03], gain: [1.03, 0.99, 0.95], rolloff: 0.45, toe: 0.02, harmony: 0.04, hueLight: 0.09, hueShadow: 0.66 }, ink: { fade: [25, 160], strength: 0.75 } });
+      grade: { sat: 1.14, vib: 0.34, sel: [0.1, 0.14, 0.18], contrast: 1.09, vignette: 0.36, warmth: 0.12, lift: [0.004, 0.002, 0.022], gain: [1.03, 0.99, 0.95], rolloff: 0.2, toe: 0.01 }, atmo: { haze: '#e0b4b8', hazeK: 0.25, start: 40, density: 0.004, sky: '#a8b4f0', shade: '#6a62e8', fogTop: -20, fogK: 0.0, micro: 0.5 }, ink: { fade: [25, 160], strength: 0.75 } });
     this.engine.add(this); this.pushInput(); audio.setAmbSet(['wind']); audio.playMusic('menu');
     this.mode = 'hero'; this.skyT = 0; this.skyDir = 0;
     this.intro = from === 'loading' ? { t: 0, dur: 7.0 } : null;

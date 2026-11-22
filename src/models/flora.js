@@ -431,24 +431,31 @@ export function celWater({ cx = 0, cz = 0, rx = 6, rz = 4, rot = 0, seed = 1, ri
   const idx = []; for (let j = 0; j < spokes; j++) idx.push(0, 1 + ((j + 1) % spokes), 1 + j); for (let i = 1; i < rings; i++) for (let j = 0; j < spokes; j++) { const a = 1 + (i - 1) * spokes + j, b = 1 + (i - 1) * spokes + ((j + 1) % spokes), c = a + spokes, d = b + spokes; idx.push(a, b, d, a, d, c); }
   const geo = new THREE.BufferGeometry(); geo.setFromPoints(pos); geo.setAttribute('aEdge', new THREE.Float32BufferAttribute(edge, 1)); geo.setIndex(idx); geo.computeVertexNormals(); geo.computeBoundingSphere();
   const m = new THREE.ShaderMaterial({
-    fog: true, uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uDeep: { value: C(deep) }, uMid: { value: C(mid) }, uShallow: { value: C(shallow) }, uSky: { value: C(sky) }, uFoam: { value: C(foam) }, uSun: { value: sun.clone().normalize() }, uRip: { value: null } }]),
+    fog: true, uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uDeep: { value: C(deep) }, uMid: { value: C(mid) }, uShallow: { value: C(shallow) }, uSky: { value: C(sky) }, uFoam: { value: C(foam) }, uSun: { value: sun.clone().normalize() }, uRip: { value: null }, uCen: { value: new THREE.Vector2(cx, cz) } }]),
     vertexShader: 'attribute float aEdge; varying float vEdge; varying vec3 vW;\n#include <fog_pars_vertex>\nvoid main(){ vEdge = aEdge; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;\n#include <fog_vertex>\n}',
-    fragmentShader: `uniform vec3 uDeep, uMid, uShallow, uSky, uFoam, uSun; uniform float uTime; uniform sampler2D uRip; varying float vEdge; varying vec3 vW;
+    fragmentShader: `uniform vec3 uDeep, uMid, uShallow, uSky, uFoam, uSun; uniform float uTime; uniform sampler2D uRip; uniform vec2 uCen; varying float vEdge; varying vec3 vW;
       #include <fog_pars_fragment>
       float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       void main(){
         float t = uTime; vec3 V = normalize(cameraPosition - vW);
         vec3 Wq = vec3(floor(vW.x / 0.035 + 0.5) * 0.035, vW.y, floor(vW.z / 0.035 + 0.5) * 0.035); // every pattern on a pixel grid
         float wob = sin(Wq.x * 1.3 + t * 0.7) * sin(Wq.z * 1.7 - t * 0.5) * 0.04;
-        float e = vEdge + wob; vec3 c = mix(uDeep, uMid, step(0.5, e)); c = mix(c, uShallow, step(0.88, e) * 0.8);
-        float fres = pow(1.0 - clamp(V.y, 0.0, 1.0), 5.0); c = mix(c, mix(uSky, uMid, 0.35), step(0.45, fres) * 0.22 + step(0.8, fres) * 0.12);
+        float e = vEdge + wob;
+        // (shaders, newest) depth-coloured body in clean steps: deep teal-blue in the middle, lighter green-teal over the shelf
+        vec3 c = mix(uDeep, uMid, smoothstep(0.38, 0.62, floor(e * 6.0) / 6.0)); c = mix(c, uShallow, smoothstep(0.78, 0.94, e) * 0.85);
+        // fresnel sky reflection: a painted sky gradient (warm horizon to blue zenith) mirrored, stronger at grazing angles
+        vec3 R = reflect(-V, vec3(0.0, 1.0, 0.0)); float fres = 0.04 + 0.96 * pow(1.0 - clamp(V.y, 0.0, 1.0), 5.0); fres = floor(fres * 5.0 + 0.5) / 5.0;
+        vec3 skyR = mix(uSky, vec3(0.36, 0.52, 0.86), smoothstep(0.02, 0.5, R.y)); c = mix(c, skyR, clamp(0.18 + fres * 0.75, 0.0, 0.85));
         float streak = step(0.975, sin(Wq.x * 1.6 + Wq.z * 0.3 + t * 0.8 + sin(Wq.z * 0.8) * 1.2) * sin(Wq.z * 3.3 - t * 0.55));
-        vec3 R = reflect(-V, vec3(0.0, 1.0, 0.0)); float sp = pow(max(0.0, dot(R, uSun)), 40.0);
-        float glit = step(0.9, h2(floor(Wq.xz * vec2(6.0, 14.0)) + floor(t * 2.5))) * step(0.3, sp);
+        float sp = pow(max(0.0, dot(R, uSun)), 60.0);
+        float glit = step(0.9, h2(floor(Wq.xz * vec2(6.0, 14.0)) + floor(t * 2.5))) * step(0.25, sp);
         vec3 rp = texture2D(uRip, vW.xz * 0.45 + vec2(t * 0.025, t * 0.012)).rgb; float crest = step(0.62, dot(rp, vec3(0.3, 0.59, 0.11))) * step(vEdge, 0.92); // pixel ripple crests
-        c = mix(c, mix(uShallow, uSky, 0.5), crest * 0.35); c = mix(c, uSky, streak * 0.5); c += vec3(0.16, 0.12, 0.06) * step(0.4, sp); c = mix(c, vec3(1.0, 0.97, 0.86), glit);
-        float foam = step(0.93, vEdge + sin(atan(vW.z, vW.x) * 24.0 + t * 1.2) * 0.012 + sin(t * 1.4 + vW.x * 2.0) * 0.008);
-        c = mix(c, uFoam, foam * 0.85);
+        c = mix(c, mix(uShallow, uSky, 0.6), crest * 0.3); c = mix(c, uSky, streak * 0.45); c += vec3(0.5, 0.36, 0.14) * step(0.35, sp) * 0.6; c = mix(c, vec3(1.0, 0.97, 0.86), glit);
+        // soft shoreline foam: thin broken lines lapping in toward the bank (never blobs)
+        float ang = atan(vW.z - uCen.y, vW.x - uCen.x); float brk = h2(floor(vec2(ang * 40.0, 3.0)));
+        float lap = fract(vEdge * 11.0 - t * 0.35 + sin(ang * 7.0 + t * 0.4) * 0.15); float lines = step(0.86, lap) * smoothstep(0.7, 0.88, vEdge) * step(0.35, brk);
+        float foam = step(0.955, vEdge + sin(ang * 24.0 + t * 1.2) * 0.012 + sin(t * 1.4 + vW.x * 2.0) * 0.008);
+        c = mix(c, uFoam, clamp(foam * 0.85 + lines * 0.5, 0.0, 1.0));
         gl_FragColor = vec4(c, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>

@@ -431,6 +431,12 @@ function waterMaterial() {
         vec3 c = e < 0.3 ? uShal : e < 0.62 ? uMid : uDeep;
         float st = fbm2(vec2(f.x * 2.2, f.y * 1.4 - t * 0.9)); float st2 = fbm2(vec2(f.x * 4.0 + 7.0, f.y * 3.0 - t * 1.6));
         if (st > 0.66) c = mix(c, uShal, 0.55); if (st2 > 0.74) c = mix(c, uFoam, 0.75);
+        // (shaders, newest) fresnel sky reflection in clean steps, a sun glint, and thin foam lines lapping at the banks
+        vec3 V = normalize(cameraPosition - vWP); float fr = 0.04 + 0.96 * pow(1.0 - clamp(V.y, 0.0, 1.0), 5.0); fr = floor(fr * 5.0 + 0.5) / 5.0;
+        vec3 R = reflect(-V, vec3(0.0, 1.0, 0.0)); vec3 skyR = mix(vec3(1.0, 0.8, 0.56), vec3(0.42, 0.6, 0.95), smoothstep(0.05, 0.6, R.y));
+        c = mix(c, skyR, clamp(0.14 + fr * 0.7, 0.0, 0.8));
+        float lap = fract(e * 10.0 + t * 0.32 + sin(f.y * 3.0) * 0.1); float lines = step(0.84, lap) * (1.0 - smoothstep(0.12, 0.34, e)) * step(0.42, vn(vWP.xz * 5.0 + 3.1));
+        c = mix(c, uFoam, lines * 0.55);
         float foam = step(e, 0.12 + sin(f.y * 9.0 - t * 2.5) * 0.03) + step(0.5, vFall) * step(0.45, st2);
         float glint = step(0.985, vn(vWP.xz * 9.0 + vec2(t * 0.7, -t * 0.5)));
         c = mix(c, uFoam, clamp(foam + glint, 0.0, 1.0));

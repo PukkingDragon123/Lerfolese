@@ -35,7 +35,7 @@ const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x
 const SKIP = Symbol('skip');
 const BEATS = ['title', 'garden', 'cards', 'throw', 'fight', 'snake', 'grab', 'painting', 'sky'];
 const fast = () => (window.__storyFast > 1 ? Math.min(2, window.__storyFast) : 1);
-const GOLDEN = { bloom: [0.36, 0.6, 0.86], exposure: 1.0, grade: { warmth: 0.24, vignette: 0.36, sat: 1.04, vib: 0.18, sel: [0.04, 0.08, 0.12], contrast: 1.05, lift: [0.008, 0.014, 0.04], gain: [1.03, 1.0, 0.94], rolloff: 0.5, harmony: 0.08, hueLight: 0.09, hueShadow: 0.63 } }; // colourful realistic golden hour: warm key, cool shade
+const GOLDEN = { bloom: [0.36, 0.6, 0.86], exposure: 1.0, grade: { warmth: 0.24, vignette: 0.34, sat: 1.12, vib: 0.32, sel: [0.08, 0.1, 0.16], contrast: 1.09, lift: [0.004, 0.002, 0.022], gain: [1.03, 1.0, 0.94], rolloff: 0.2 }, atmo: { haze: '#c4c4e4', hazeK: 0.4, start: 18, density: 0.012 } }; // colourful realistic golden hour: warm key, cool shade
 const SPOT = { teacher: V(-1.45, 0, 2.55), kid: V(0.15, 0, 3.95), kidStart: V(-9.5, 0, 8.5), bench: V(-2.35, 0, 1.85), basket: V(1.75, 0, 1.05), con: V(-0.66, 1.12, 3.25), snake: V(4.2, 0, 7.4), drop: V(0.55, 0, 4.55), snakeOut: V(7, 0, 11) };
 
 export class PrologueScene extends UIScreen {

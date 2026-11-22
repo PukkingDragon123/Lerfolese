@@ -7,13 +7,13 @@ import * as THREE from 'three';
 // per theme: sun colour / intensity, sky + ground (hemisphere) colours and level, bounce, fill
 // colourful realistic golden hour (user, newest): a warm key that really lights the stage, a clear blue sky dome so
 // shadows read cool and coloured (never grey or black), a warm earth bounce under chins and brims, a cool sky fill
-export const LIGHT_LOOKS = { // (painterly, newest) a warm sun that sculpts, a clear blue sky dome filling every shadow with cool colour, a warm earth bounce
-  meadow: { sun: '#ffc890', k: 2.6, sky: '#7ca2e4', gnd: '#5e4a2a', hemi: 0.62, bounce: '#f0b070', bk: 0.24, fill: '#7092dc', fk: 0.3 },
-  garden: { sun: '#ffcc9c', k: 2.55, sky: '#84a8e2', gnd: '#564c2e', hemi: 0.62, bounce: '#f0bc80', bk: 0.22, fill: '#7696da', fk: 0.3 },
-  gully: { sun: '#ffbc76', k: 2.7, sky: '#7e9cd8', gnd: '#6c4828', hemi: 0.58, bounce: '#f0a462', bk: 0.26, fill: '#6c8ad2', fk: 0.28 },
-  labyrinth: { sun: '#ffb674', k: 2.6, sky: '#788ed0', gnd: '#60462c', hemi: 0.58, bounce: '#eea86c', bk: 0.24, fill: '#7086ce', fk: 0.28 },
-  marsh: { sun: '#f6d6a8', k: 2.25, sky: '#84a8c6', gnd: '#404e2c', hemi: 0.66, bounce: '#d0bc88', bk: 0.18, fill: '#7c9cc4', fk: 0.3 },
-  guardian: { sun: '#ffa068', k: 2.5, sky: '#7270b8', gnd: '#5a322a', hemi: 0.58, bounce: '#ee8e58', bk: 0.24, fill: '#7466c6', fk: 0.3 },
+export const LIGHT_LOOKS = { // (vivid, newest) a strong warm sun, a saturated blue sky dome that fills every shadow with colour, a warm ochre earth bounce, a cool sky fill
+  meadow: { sun: '#ffc282', k: 2.95, sky: '#6a9cf2', gnd: '#7a5626', hemi: 0.78, bounce: '#ffaa5c', bk: 0.34, fill: '#6688ec', fk: 0.38 },
+  garden: { sun: '#ffc690', k: 2.9, sky: '#70a2f0', gnd: '#6c5a28', hemi: 0.78, bounce: '#ffb26c', bk: 0.32, fill: '#6c8cea', fk: 0.38 },
+  gully: { sun: '#ffb466', k: 3.0, sky: '#6a92e6', gnd: '#82502a', hemi: 0.74, bounce: '#ff9c52', bk: 0.36, fill: '#6280e0', fk: 0.36 },
+  labyrinth: { sun: '#ffae66', k: 2.95, sky: '#6a84e0', gnd: '#74482a', hemi: 0.74, bounce: '#ffa060', bk: 0.34, fill: '#6a7ee0', fk: 0.36 },
+  marsh: { sun: '#ffd8a0', k: 2.6, sky: '#6ea4d8', gnd: '#4a5a2a', hemi: 0.8, bounce: '#e6c07a', bk: 0.26, fill: '#6c98d6', fk: 0.38 },
+  guardian: { sun: '#ff9a5c', k: 2.85, sky: '#6a64d0', gnd: '#6e3426', hemi: 0.74, bounce: '#ff8a4c', bk: 0.34, fill: '#7062da', fk: 0.38 },
 };
 
 /** fit a directional light's ortho shadow camera round a world box (8 corners), tight on every side */
@@ -44,7 +44,7 @@ export function stageLights(scene, { theme = 'meadow', sunDir = new THREE.Vector
 
 // ---------------------------------------------------------------- contact shadows (pixel-banded, no soft gradients)
 const CS_VS = `attribute vec4 aS; varying vec2 vP; varying float vA; void main(){ vP = position.xy * 2.0; vA = aS.w; vec3 p = aS.xyz + vec3(position.x * aS.w * 2.0, 0.0, position.y * aS.w * 1.1); gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`;
-const CS_FS = `uniform float uAlpha; varying vec2 vP; varying float vA; void main(){ vec2 q = floor(vP * 12.0) / 12.0; float d = dot(q, q); if (d > 1.0) discard; float a = (d < 0.3 ? 1.0 : d < 0.62 ? 0.62 : 0.3) * uAlpha; gl_FragColor = vec4(0.07, 0.05, 0.09, a); }`;
+const CS_FS = `uniform float uAlpha; varying vec2 vP; varying float vA; void main(){ vec2 q = floor(vP * 12.0) / 12.0; float d = dot(q, q); if (d > 1.0) discard; float a = (d < 0.3 ? 1.0 : d < 0.62 ? 0.62 : 0.3) * uAlpha; gl_FragColor = vec4(0.13, 0.08, 0.22, a * 0.82); }`;
 const WHO = /^(professor|hero|satyr|kobalos|medusa|minotaur|hydra(?!_head)|centaur|harpy|cyclops|wolf|chimera|talos|spartoi|creature|npc|icarus|daedalus|sphinx|pythia|pan\b|archimedes|prometheus|sisyphus|narcissus)/i;
 export class ContactShadows {
   constructor(scene, { hAt = null, cap = 16, alpha = 0.42 } = {}) {
@@ -65,12 +65,12 @@ export class ContactShadows {
 }
 
 // ---------------------------------------------------------------- grades (engine GradeShader params): like a painting
-// (newest) colour comes from the LIGHT, not from a saturation boost: warm lit planes against cool, coloured shadows
-// (a blue-violet lift in the darks, a warm gain in the lights), a gentle S-curve with rolled-off highlights so nothing
-// blows out, and a soft colour harmony pulling every hue toward one shared palette (warm gold light, blue-violet shade).
-// Saturation and vibrance are only nudged, so the warm grass reads golden-olive instead of acid yellow-green.
-export const GRADE_DAY = { sat: 1.03, vib: 0.16, sel: [0.0, 0.04, 0.12], contrast: 1.05, vignette: 0.32, grain: 0.006, warmth: 0.08, lift: [0.008, 0.014, 0.04], gain: [1.02, 1.0, 0.96], rolloff: 0.5, toe: 0.01, harmony: 0.1, hueLight: 0.09, hueShadow: 0.63, satPull: 0 };
-export const GRADE_BATTLE = { ...GRADE_DAY, contrast: 1.06, vignette: 0.38 };
-export const GRADE_TRAVEL = { ...GRADE_DAY, vignette: 0.36, warmth: 0.12 };
-export const GRADE_MAP = { ...GRADE_DAY, sat: 1.0, vib: 0.14, sel: [0.0, 0.04, 0.12], vignette: 0.4, warmth: 0.1, harmony: 0.12 }; // the board's lawn is big: greens held back
-export const EXPOSURE = { battle: 1.0, travel: 1.0, event: 1.02, map: 1.0 };
+// (vivid, newest) colour comes from the LIGHT and is kept: warm lit planes against cool, coloured shadows (a faint
+// violet lift in the darks, a warm gain in the lights), a clean S-curve with only a light highlight roll-off, real
+// vibrance (skin protected in the shader) and a selective lift for greens, golds and skies. No hue harmony and no
+// saturation pull: nothing greys the world. (The old-book muting lives on the card faces only.)
+export const GRADE_DAY = { sat: 1.12, vib: 0.34, sel: [0.08, 0.1, 0.16], contrast: 1.09, vignette: 0.3, grain: 0.006, warmth: 0.1, lift: [0.004, 0.002, 0.022], gain: [1.03, 1.0, 0.95], rolloff: 0.2, toe: 0.01 };
+export const GRADE_BATTLE = { ...GRADE_DAY, contrast: 1.1, vignette: 0.34 };
+export const GRADE_TRAVEL = { ...GRADE_DAY, vignette: 0.34, warmth: 0.14 };
+export const GRADE_MAP = { ...GRADE_DAY, sat: 1.1, vib: 0.3, sel: [0.06, 0.1, 0.16], vignette: 0.36, warmth: 0.1 };
+export const EXPOSURE = { battle: 1.06, travel: 1.06, event: 1.08, map: 1.05 };

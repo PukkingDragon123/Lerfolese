@@ -26,12 +26,12 @@ const HDRI = { meadow: 'sunset_dry_plain', garden: 'sunset_dry_plain', gully: 'g
 // sky looks per theme: Preetham sky params, haze colour (fog = aerial perspective: it starts just behind the fighters, so the
 // woods and houses behind them recede in soft, lighter layers and the figures stay the clear focal point), cloud tint
 const LOOKS = {
-  meadow: { turb: 4.6, ray: 1.9, mie: 0.0042, g: 0.78, haze: '#d6c4ae', fog: [16, 120], cloud: '#fff1dc', shade: '#9c86a8', grass: 0.12 },
-  garden: { turb: 4.2, ray: 2.1, mie: 0.004, g: 0.77, haze: '#dac4b8', fog: [16, 120], cloud: '#ffeee4', shade: '#a48ab4', grass: 0.1 },
-  gully: { turb: 4.5, ray: 1.0, mie: 0.0035, g: 0.76, haze: '#d6b89c', fog: [16, 115], cloud: '#ffe8cc', shade: '#a08490', grass: 0.55 },
-  labyrinth: { turb: 4, ray: 1.5, mie: 0.0032, g: 0.75, haze: '#d0ae9e', fog: [16, 115], cloud: '#ffe2cc', shade: '#90709a', grass: 0.5 },
-  marsh: { turb: 6, ray: 1.3, mie: 0.005, g: 0.75, haze: '#b2beb4', fog: [14, 105], cloud: '#eef0e4', shade: '#7c8a98', grass: 0.03 },
-  guardian: { turb: 6, ray: 2.0, mie: 0.004, g: 0.78, haze: '#b88c86', fog: [16, 115], cloud: '#ffd4b8', shade: '#6a4a6a', grass: 0.35 },
+  meadow: { turb: 4.6, ray: 1.9, mie: 0.0042, g: 0.78, haze: '#b8c2e2', fog: [22, 150], cloud: '#fff1dc', shade: '#9c86a8', grass: 0.12 },
+  garden: { turb: 4.2, ray: 2.1, mie: 0.004, g: 0.77, haze: '#bcc4e6', fog: [22, 150], cloud: '#ffeee4', shade: '#a48ab4', grass: 0.1 },
+  gully: { turb: 4.5, ray: 1.0, mie: 0.0035, g: 0.76, haze: '#c8bcd8', fog: [22, 145], cloud: '#ffe8cc', shade: '#a08490', grass: 0.55 },
+  labyrinth: { turb: 4, ray: 1.5, mie: 0.0032, g: 0.75, haze: '#c6b2d2', fog: [22, 145], cloud: '#ffe2cc', shade: '#90709a', grass: 0.5 },
+  marsh: { turb: 6, ray: 1.3, mie: 0.005, g: 0.75, haze: '#a8c6cc', fog: [20, 135], cloud: '#eef0e4', shade: '#7c8a98', grass: 0.03 },
+  guardian: { turb: 6, ray: 2.0, mie: 0.004, g: 0.78, haze: '#b89ac2', fog: [22, 145], cloud: '#ffd4b8', shade: '#6a4a6a', grass: 0.35 },
 };
 export const SUN_SKY = new V3(Math.sin(0.3), 0.088, -Math.cos(0.3)).normalize(); // visible sun, upper right of the battle view
 const SUN_KEY = new V3(-0.55, 0.62, 0.42).normalize(); // key light kept from the front-left so faces read
@@ -259,7 +259,7 @@ export async function realStage(theme = 'meadow', seed = 1, renderer, { arenaCle
   { const c = new THREE.Color(); const grid = new Map(); for (const sp of ctx.aoSpots) { const key = Math.floor(sp[0] / 6) + ',' + Math.floor(sp[1] / 6); if (!grid.has(key)) grid.set(key, []); grid.get(key).push(sp); }
     for (const it of plants) { let k = 1; const gx = Math.floor(it.x / 6), gz = Math.floor(it.z / 6); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const list = grid.get((gx + a) + ',' + (gz + b)); if (list) for (const [ax, az, rr] of list) { const d = Math.hypot(it.x - ax, it.z - az); if (d < rr) k -= (1 - d / rr) * 0.3; } }
       const j = Math.sin(it.x * 12.9898 + it.z * 78.233) * 0.5; c.setRGB(1, 1, 1).offsetHSL(j * 0.02, 0, j * 0.04).multiplyScalar(Math.max(0.62, k) * (it.dry ? 1.04 : 1)); it.tint = c.clone(); }
-    g.add(plantField(plants, { wind: T.WIND, tick: T.tickWind, push: { value: F.GRASS_PUSH }, onScene: F.updatePushers, cam: CAM, tint: PLANT_TINT[theme] || PLANT_TINT.meadow, ground: { map: groundMat.map, rep: 88 / 220, tint: '#ffffff' }, hue: 0.78, rootH: 0.55 })); } // lit by the scene, the same hue as the soil it grows from
+    g.add(plantField(plants, { wind: T.WIND, tick: T.tickWind, push: { value: F.GRASS_PUSH }, onScene: F.updatePushers, cam: CAM, tint: PLANT_TINT[theme] || PLANT_TINT.meadow, ground: { map: groundMat.map, rep: 88 / 220, tint: '#ffffff' }, hue: 0.42, rootH: 0.34 })); } // lit by the scene, the same hue as the soil it grows from
   const rockTops = ctx.rocks.map(([x, z, s]) => new V3(x, hAt(x, z) + 0.4 * s, z));
   const animals = (cr) => { if (!cr) return; if (theme !== 'marsh') { cr.spawnGrazers?.(4, ctx.pasture || { x: [-15, -9.5], z: [-6.5, -3.8] }, ['sheep', 'sheep', 'goat']); cr.spawnGrazers?.(4, { x: [-24, -15], z: [9, 17] }); } cr.spawnLizards?.(3, rockTops); cr.spawnButterflies?.(2, new V3(-13, 0.8, 11), 7); };
   return { group: g, theme, trees, env: hdr?.envMap ?? T.gradientEnv(renderer, 'stage:' + theme), background: null, sunDir: SUN_KEY.clone(), sunPos, road, fog: new THREE.Fog(L.haze, L.fog[0], L.fog[1]), animals, hAt, waters };

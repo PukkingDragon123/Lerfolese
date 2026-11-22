@@ -31,7 +31,7 @@ export class MapSheet {
     this.world = new THREE.Group(); sc.add(this.world); this.bounds = { LEN: DIO.ZN - DIO.ZF, WID: DIO.X1 - DIO.X0, Z0: DIO.ZN };
     // lighting: a warm low lamp key raking across the board (long shadows), cool sky fill, lavender rim from behind
     const key = (this.key = new THREE.DirectionalLight('#ffd09a', 2.9)); key.castShadow = true; const ms = engine.quality === 'high' ? 4096 : 2048; key.shadow.mapSize.set(ms, ms); Object.assign(key.shadow.camera, { left: -20, right: 20, top: 20, bottom: -20, near: 1, far: 90 }); key.shadow.bias = -0.0003; key.shadow.normalBias = 0.03; key.shadow.radius = 2.5; sc.add(key, key.target);
-    sc.add(new THREE.HemisphereLight('#b0c8ff', '#7a5232', 0.72)); // cool skylight above, warm wood bounce below
+    sc.add(new THREE.HemisphereLight('#8cacff', '#8a5a2a', 0.8)); // cool skylight above, warm wood bounce below
     { const b = new THREE.DirectionalLight('#ffb46a', 0.35); b.position.set(0, -10, 6); sc.add(b); } // lamp light thrown back up from the table
     const rim = (this.rim = new THREE.DirectionalLight('#b0a0ff', 0.55)); sc.add(rim, rim.target);
     for (const [x, z] of [[DIO.X0 - 2.5, DIO.ZN + 1.5], [DIO.X1 + 2.5, DIO.ZN - 6]]) { const l = new THREE.PointLight('#ffa050', 18, 26, 1.6); l.position.set(x, 3.2, z); sc.add(l); const f = T.animeFlame(0.35, 0.6); f.position.set(x, DIO.BASE - 1.18 + 1.2, z); sc.add(f); this.world.add(candleStick(x, z)); }

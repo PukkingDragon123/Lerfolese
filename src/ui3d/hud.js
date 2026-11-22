@@ -5,7 +5,8 @@ import * as THREE from 'three';
 import { uiRig, uiPos, disposeTree } from './craft.js';
 import { Paper, NoteTip, Pennant, ChapterCard } from './objects.js';
 import { Bell, LawTag, EnemyBoard, roman } from './hudparts.js';
-import { Hourglass, CoinJar, TimeApple, PlateTip } from './instruments.js';
+import { Hourglass, CoinJar, PlateTip } from './instruments.js';
+import { TimeApple } from './timeapple.js';
 import { FloatTip, FloatText } from './floatlabel.js';
 import { audio } from '../core/audio.js';
 

@@ -200,36 +200,7 @@ export class CloudButtonSoft extends Cloud3D {
 }
 function wrapSub(t) { const w = String(t).split(' '); const out = []; let cur = ''; for (const x of w) { if ((cur + ' ' + x).length > 34 && cur) { out.push(cur); cur = x; } else cur = cur ? cur + ' ' + x : x; } if (cur) out.push(cur); return out.slice(0, 2); }
 
-// ================================================================ THE GOLDEN APPLE: End Turn (time is stopped while you plan; it lets time go)
-// A faceted golden apple on a little brass clockwork stand: a ring of hour ticks turns round it while time is stopped,
-// it glows and lifts on hover, squashes when pressed, chimes, and the world ripples back into motion from it.
-export class TimeApple extends Body {
-  constructor() {
-    super(); const p = this.pivot; this.tiltK = 0.05; this.hoverLift = 0.35;
-    const prof = []; for (let i = 0; i <= 12; i++) { const t = i / 12; const r = 0.95 * Math.sin(Math.PI * Math.min(1, 0.04 + t * 0.92)) * (1 + 0.1 * Math.sin(t * Math.PI * 1.15)); prof.push([r, (t - 0.5) * 1.75 - (t > 0.9 ? (t - 0.9) * 1.6 : 0) + (t < 0.1 ? (0.1 - t) * 1.2 : 0)]); }
-    this.goldM = new THREE.MeshStandardMaterial({ color: 0xffc848, metalness: 0.75, roughness: 0.28, flatShading: true, toneMapped: false, emissive: 0xc07a10, emissiveIntensity: 0.25 });
-    this.apple = M(lathe(prof, 10), this.goldM, p, 0.035);
-    const stem = M(lathe([[0.06, 0], [0.05, 0.25], [0.035, 0.42]], 6), mats().wood, this.apple); stem.position.y = 0.72; stem.rotation.z = -0.2;
-    const ls = new THREE.Shape(); ls.moveTo(0, 0); ls.quadraticCurveTo(0.3, 0.2, 0.62, 0.05); ls.quadraticCurveTo(0.3, -0.16, 0, 0); const leaf = M(new THREE.ShapeGeometry(ls, 4), new THREE.MeshStandardMaterial({ color: 0xd8b040, metalness: 0.6, roughness: 0.35, side: THREE.DoubleSide, flatShading: true, toneMapped: false }), this.apple); leaf.position.set(0.05, 0.86, 0); leaf.rotation.set(0.4, 0.3, 0.5);
-    // the clockwork: a brass ring of twelve hour ticks, and a tiny hand
-    this.clock = new THREE.Group(); p.add(this.clock); const rm = mats().brass;
-    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; const tk = M(new THREE.BoxGeometry(i % 3 ? 0.08 : 0.14, 0.26, 0.06), rm, this.clock); tk.position.set(Math.cos(a) * 1.45, Math.sin(a) * 1.45, 0); tk.rotation.z = a + Math.PI / 2; }
-    this.hand = M(new THREE.BoxGeometry(0.07, 0.62, 0.05), rm, p); this.hand.geometry.translate(0, 0.31, 0); this.hand.position.z = 1.0;
-    const stand = M(lathe([[0.001, 0], [0.9, 0], [0.95, 0.1], [0.6, 0.2], [0.25, 0.26], [0.2, 0.55], [0.001, 0.58]], 8), mats().wood, p, 0.03); stand.position.y = -1.95;
-    this.label = new FloatText(null, { font: 'head', align: 'center', lighten: false }); this.label.group.position.set(0, -2.55, 0.4); p.add(this.label.group);
-    this.press = new Spring(0, 26, 0.3); this.glow = new Spring(0.25, 8, 0.6); this.enabled = true; this.lbl = ''; this.spin = 0;
-    this.hit = []; p.traverse((o) => { if (o.isMesh) { o.userData.bell = this; this.hit.push(o); } }); this.setLabel('End Turn', 'SPACE');
-  }
-  setLabel(t, sub) { const k = t + '|' + sub; if (k === this.lbl) return; this.lbl = k; this.label.set([[t.toUpperCase(), this.enabled ? '#ffe2a0' : '#b8a888']]); this.label.show(); }
-  setEnabled(on) { if (on === this.enabled) return; this.enabled = on; this.goldM.color.set(on ? 0xffc848 : 0x9a8a60); this.restRz = 0; }
-  ring() { this.press.kick(-14); this.squash(1.1); audio.play('chime_soft', { vol: 0.8 }); audio.play('magic_shimmer', { vol: 0.6 }); }
-  update(dt, p, t = performance.now() / 1000) {
-    this.press.update(dt); this.glow.target = this.enabled ? (this.hover ? 1.4 : 0.45 + Math.sin(t * 2.2) * 0.15) : 0.05; this.glow.update(dt); this.updateBody(dt, this.enabled ? p : null); this.label.update(dt);
-    this.goldM.emissiveIntensity = Math.max(0, this.glow.value); this.apple.scale.set(1 - this.press.value * 0.01, 1 + this.press.value * 0.012, 1); this.apple.rotation.y += dt * (this.hover ? 1.6 : 0.4);
-    // the clock: ticks while time is stopped (one step a second), races while it flows
-    this.spin += dt * (this.enabled ? 0 : 6); const step = this.enabled ? Math.floor(t) * (Math.PI / 6) : this.spin; this.clock.rotation.z = -step * 0.2; this.hand.rotation.z = -step;
-  }
-}
+// (End Turn, the golden apple of time, lives in ui3d/timeapple.js)
 
 /** tooltip on a small cloud (the HudTip api: show(lines, x, y, z, { maxW }) / hide() / update() / dispose()): short dark-ink lines */
 export class CloudTip {

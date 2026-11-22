@@ -65,7 +65,13 @@ void main() {
   vec4 c = texture2D(uMap, vUv); if (c.a < 0.5) discard;
   vec3 g = texture2D(uGround, vRoot * uGRep).rgb * uGTint; // the ground's own albedo where this tuft is rooted
   float lb = dot(c.rgb, vec3(0.299, 0.587, 0.114)), lg = max(1e-3, dot(g, vec3(0.299, 0.587, 0.114)));
-  vec3 alb = mix(c.rgb * uTint, g * (lb / lg) * 1.05, uHueK);      // the same hue as the soil, the blade's own light and shade
+  vec3 alb = mix(c.rgb * uTint, g * (lb / lg) * 1.05, uHueK);      // the soil's colour family, the blade's own light and shade
+  // lively warm grass (newest): per-tuft and per-patch hue / value drift through golden, olive and ochre, so the
+  // field never reads as one flat sheet of soil colour
+  { float hv = fract(sin(dot(floor(vRoot * 3.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float pt = 0.5 + 0.5 * sin(vRoot.x * 0.21 + sin(vRoot.y * 0.17) * 2.3) * sin(vRoot.y * 0.26 + 1.7);
+    vec3 drift = mix(mix(vec3(1.12, 1.0, 0.66), vec3(0.96, 1.0, 0.7), hv), vec3(1.18, 0.92, 0.58), smoothstep(0.55, 0.9, pt)); // golden, olive, ochre
+    float l0 = dot(alb, vec3(0.299, 0.587, 0.114)); alb = max(mix(vec3(l0), alb, 1.16), 0.0) * drift * (0.9 + 0.2 * hv); }
   alb = mix(alb, g, smoothstep(uRootH, 0.0, vH));                    // and the soil's exact colour at the root
   alb *= vCol;
   vec3 N = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
@@ -85,6 +91,8 @@ void main() {
     directionalLightShadow = directionalLightShadows[i]; lc *= getShadow(directionalShadowMap[i], directionalLightShadow.shadowMapSize, directionalLightShadow.shadowIntensity, directionalLightShadow.shadowBias, directionalLightShadow.shadowRadius, vDirectionalShadowCoord[i]);
     #endif
     irr += lc * nl;
+    // sunlit tips: the top of every blade catches the low sun in warm gold
+    irr += lc * vec3(0.55, 0.42, 0.12) * smoothstep(0.5, 1.0, vH) * max(0.0, dot(N, directionalLight.direction) + 0.3) * (UNROLLED_LOOP_INDEX == 0 ? 1.0 : 0.0);
   }
   #pragma unroll_loop_end
   #endif

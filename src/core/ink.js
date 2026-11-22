@@ -34,7 +34,9 @@ const InkShader = {
       if ((l1 && (r1 || r2)) || (r1 && l2) || (u1 && (b1 || b2)) || (b1 && u2)) th = 1.0; }
     eD *= 1.0 - th * 0.75;
     float e = max(eD, eN * 0.85 * (1.0 - th)) * (1.0 - smoothstep(uFade.x, uFade.y, d0)) * uStrength;
-    gl_FragColor = vec4(mix(col.rgb, uInk, clamp(e, 0.0, 1.0)), col.a);
+    // coloured ink (newest): a deep, saturated shade of whatever it outlines, leaning to the ink colour, never pure black
+    vec3 dk = col.rgb * 0.3; float dl = dot(dk, vec3(0.333)); dk = max(mix(vec3(dl), dk, 1.6), 0.0); vec3 ink = mix(uInk, dk * vec3(0.92, 0.86, 1.08), 0.55);
+    gl_FragColor = vec4(mix(col.rgb, ink, clamp(e, 0.0, 1.0)), col.a);
   }`,
 };
 
